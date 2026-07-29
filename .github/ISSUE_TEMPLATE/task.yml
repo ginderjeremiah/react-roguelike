@@ -1,0 +1,44 @@
+name: Task
+description: A unit of implementation work
+labels: [task]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What should be true when this is done? Describe the outcome, not the implementation.
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Why this matters now, and which doc or milestone it serves. Link the GDD section or ADR if relevant.
+    validations:
+      required: true
+
+  - type: textarea
+    id: done
+    attributes:
+      label: Definition of done
+      description: Specific, checkable conditions. An agent should be able to tell without judgment whether this is finished.
+      value: |
+        - [ ]
+        - [ ] Tests exist that would fail if this regressed
+        - [ ] `npm run verify` and E2E pass
+        - [ ] Journal entry written
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Implementation notes
+      description: Known constraints, gotchas, suggested approach. Optional — leave the design to the implementer where it does not matter.
+
+  - type: input
+    id: blocked
+    attributes:
+      label: Blocked by
+      description: Issue numbers this depends on, if any.

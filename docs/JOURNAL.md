@@ -60,9 +60,10 @@ hedge: if glyphs become the limit on feel, swapping renderers touches one layer 
 Also settled: no Jest. The pure-TS core makes Vitest sufficient, and the UI is better verified by
 driving the real app in a browser than by shallow-rendering components (ADR-0005).
 
-**Next:** Strip the Expo tutorial boilerplate (issue #4), then seeded RNG (#5) — the RNG blocks
-essentially everything else, since determinism depends on it. In parallel, the M0 design review
-(#8) should attack the *Emberdepth* concept before M1 commits to it.
+**Next:** Strip the Expo tutorial boilerplate (#1), then seeded RNG (#2) — the RNG blocks
+essentially everything else, since determinism depends on it, and #3 (core types + the
+replay-determinism test) depends on it directly. In parallel, the M0 design review (#4) should
+attack the *Emberdepth* concept before M1 commits to it.
 
 **Watch:** The concept is unvalidated — `VISION.md` states it as a proposal deliberately, and M0
 exists partly to kill it if it does not hold up. The replay-determinism test does not exist yet;

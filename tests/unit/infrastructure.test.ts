@@ -3,32 +3,172 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 /**
- * Proves the Vitest harness is wired correctly, and guards the two structural contracts that
- * the rest of the testing strategy depends on (docs/ARCHITECTURE.md, ADR-0004).
+ * Proves the Vitest harness works, and guards the two structural contracts the rest of the
+ * testing strategy depends on (docs/ARCHITECTURE.md, ADR-0004):
  *
- * These are deliberately real assertions rather than a smoke test — a placeholder test that
- * cannot fail is worse than no test, because it makes the suite look like it is protecting
- * something when it is not.
+ *   1. game/ is deterministic  — no ambient randomness, no clock
+ *   2. dependencies point down — no layer imports from a layer above it
+ *
+ * ESLint enforces both, but lint can be disabled inline and a CI job can be renamed or skipped.
+ * A failing test is harder to wave away, and this invariant is load-bearing enough to deserve
+ * belt and braces.
+ *
+ * IMPORTANT: the scanner is itself tested against fixtures containing known violations. Without
+ * that, these tests would pass vacuously whenever the scanned directories happen to be empty —
+ * which is exactly the state the project starts in, and exactly when a broken scanner would go
+ * unnoticed.
  */
 
 const ROOT = path.resolve(__dirname, '../..');
+const FIXTURES = path.join(ROOT, 'tests/unit/fixtures/contract-violations');
 
-/** Every .ts file under a directory, recursively. Empty array if the directory does not exist. */
-function sourceFiles(dir: string): string[] {
-  const abs = path.join(ROOT, dir);
-  if (!fs.existsSync(abs)) return [];
+// --- The scanner ------------------------------------------------------------------------------
 
-  const out: string[] = [];
+/**
+ * Strip comments and string literals so the scanner reads code rather than prose.
+ *
+ * Without this the scanner flags its own documentation. A legitimate `game/rng/pcg32.ts` whose
+ * docstring says "replaces Math.random(), which cannot be seeded" would fail CI — and the natural
+ * response to a spurious failure is to reword the comment or loosen the scanner, both worse than
+ * the false positive. Import specifiers are extracted before this runs, so quoted module paths
+ * survive where they matter.
+ */
+function stripComments(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
+}
+
+function stripNonCode(source: string): string {
+  return (
+    stripComments(source)
+      // string and template literals — emptied, not removed, so syntax stays intact
+      .replace(/'(?:[^'\\\n]|\\.)*'/g, "''")
+      .replace(/"(?:[^"\\\n]|\\.)*"/g, '""')
+      .replace(/`(?:[^`\\]|\\.)*`/g, '``')
+  );
+}
+
+/** Sources of nondeterminism. Forbidden anywhere in game/. */
+const NONDETERMINISM = [
+  { name: 'Math.random', pattern: /\bMath\s*\.\s*random\b/ },
+  { name: 'Date.now', pattern: /\bDate\s*\.\s*now\b/ },
+  { name: 'new Date', pattern: /\bnew\s+Date\b/ },
+  { name: 'performance.now', pattern: /\bperformance\s*\.\s*now\b/ },
+  // The natural substitute for someone told "no Math.random()", and just as unseedable.
+  { name: 'crypto entropy', pattern: /\bcrypto\s*\.\s*(randomUUID|getRandomValues)\b/ },
+];
+
+/**
+ * Every module specifier in a source file — static imports, re-exports, dynamic import(), and
+ * require(). Extracting specifiers first and matching them separately is what lets the layer
+ * check handle relative paths at arbitrary depth; a single regex over raw source reliably misses
+ * `../../../render/model` while appearing to work on `../render/model`.
+ */
+function moduleSpecifiers(source: string): string[] {
+  const specifiers: string[] = [];
+  const patterns = [
+    /\bfrom\s*['"]([^'"]+)['"]/g, // import x from 'y' / export * from 'y'
+    /\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g, // dynamic import('y')
+    /\brequire\s*\(\s*['"]([^'"]+)['"]\s*\)/g, // require('y')
+    /\bimport\s*['"]([^'"]+)['"]/g, // bare side-effect import 'y'
+  ];
+  for (const pattern of patterns) {
+    for (const match of source.matchAll(pattern)) specifiers.push(match[1]);
+  }
+  return specifiers;
+}
+
+/** Does this specifier resolve into one of the given repo-root layer directories? */
+function importsLayer(specifier: string, layers: string[]): string | null {
+  for (const dir of layers) {
+    // Matches `../dir/x`, `../../../dir/x`, `./dir/x`, `@/dir/x`, and the bare directory.
+    if (new RegExp(`^(\\.{1,2}/)*(@/)?${dir}(/|$)`).test(specifier)) return dir;
+  }
+  return null;
+}
+
+/** Is this a package the layer is forbidden from depending on? */
+function importsForbiddenPackage(specifier: string, packages: RegExp[]): boolean {
+  return packages.some((p) => p.test(specifier));
+}
+
+const FRAMEWORK_PACKAGES = [
+  /^react(-dom)?(\/|$)/,
+  // `react-native(\/|$)` misses `react-native-reanimated` — the hyphen fails the alternation.
+  // These are the same packages the lint groups cover; the two gates must agree.
+  /^react-native([-/]|$)/,
+  /^@react-navigation\//,
+  /^expo([-/]|$)/,
+  /^@expo\//,
+];
+
+type Violation = { file: string; detail: string };
+
+function scanDeterminism(source: string, label: string): Violation[] {
+  const code = stripNonCode(source);
+  return NONDETERMINISM.filter(({ pattern }) => pattern.test(code)).map(({ name }) => ({
+    file: label,
+    detail: `uses ${name}`,
+  }));
+}
+
+/**
+ * @param forbiddenLayers repo-root layer directories this file must not import from
+ * @param forbidFrameworks whether React/React Native/Expo are also banned. True for the pure
+ *   layers (`game/`, `render/`); false for `components/`/`app/`, which exist to use them.
+ */
+function scanLayering(
+  source: string,
+  label: string,
+  forbiddenLayers: string[],
+  forbidFrameworks = true,
+): Violation[] {
+  const violations: Violation[] = [];
+  // Specifiers are extracted from the raw source — they live inside quotes by definition, so
+  // stripping strings first would erase exactly what we need to inspect. Comments are stripped
+  // so a commented-out or documented import is not reported.
+  for (const specifier of moduleSpecifiers(stripComments(source))) {
+    const layer = importsLayer(specifier, forbiddenLayers);
+    if (layer) violations.push({ file: label, detail: `imports ${layer}/ via '${specifier}'` });
+    else if (forbidFrameworks && importsForbiddenPackage(specifier, FRAMEWORK_PACKAGES)) {
+      violations.push({ file: label, detail: `imports framework package '${specifier}'` });
+    }
+  }
+  return violations;
+}
+
+/**
+ * Every non-test source file under a repo directory. Empty if the directory does not exist.
+ *
+ * Deliberately not limited to `.ts`: scoping the contract checks to one extension left a `.tsx`
+ * or `.js` file under `game/` invisible to every gate while looking entirely ordinary.
+ */
+const SOURCE_EXTENSIONS = ['.ts', '.tsx', '.mts', '.cts', '.js', '.jsx', '.mjs', '.cjs'];
+
+function sourceFiles(dir: string): { abs: string; label: string }[] {
+  const root = path.join(ROOT, dir);
+  if (!fs.existsSync(root)) return [];
+
+  const out: { abs: string; label: string }[] = [];
   const walk = (current: string) => {
-    for (const entry of fs.readdirSync(current, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+    const entries = fs
+      .readdirSync(current, { withFileTypes: true })
+      .sort((a, b) => a.name.localeCompare(b.name)); // deterministic ordering, per our own rules
+    for (const entry of entries) {
       const full = path.join(current, entry.name);
       if (entry.isDirectory()) walk(full);
-      else if (entry.name.endsWith('.ts') && !entry.name.endsWith('.test.ts')) out.push(full);
+      else if (
+        SOURCE_EXTENSIONS.some((ext) => entry.name.endsWith(ext)) &&
+        !/\.test\.[cm]?[jt]sx?$/.test(entry.name)
+      ) {
+        out.push({ abs: full, label: path.relative(ROOT, full).replace(/\\/g, '/') });
+      }
     }
   };
-  walk(abs);
+  walk(root);
   return out;
 }
+
+// --- Harness ----------------------------------------------------------------------------------
 
 describe('test harness', () => {
   it('runs assertions that can fail', () => {
@@ -37,50 +177,148 @@ describe('test harness', () => {
   });
 
   it('resolves the @/ path alias', async () => {
-    // vitest.config.ts maps @/ to the repo root. If this breaks, every game/ test breaks with a
+    // vitest.config.ts maps @/ to the repo root. If this breaks, every game/ test fails with a
     // confusing module-resolution error instead of an obvious one.
     const mod = await import('@/tests/unit/fixtures/alias-probe');
     expect(mod.PROBE).toBe('alias-ok');
   });
 });
 
-describe('determinism contract', () => {
-  // Lint enforces this too, but lint can be disabled inline and CI jobs can be skipped.
-  // A test failure is harder to wave away, and this invariant is load-bearing enough
-  // to deserve belt and braces. See ADR-0004.
-  const FORBIDDEN: { pattern: RegExp; why: string }[] = [
-    { pattern: /\bMath\s*\.\s*random\b/, why: 'use the seeded Rng threaded through GameState' },
-    { pattern: /\bDate\s*\.\s*now\b/, why: 'the simulation has turns, not time' },
-    { pattern: /\bnew\s+Date\b/, why: 'the simulation has turns, not time' },
-    { pattern: /\bperformance\s*\.\s*now\b/, why: 'the simulation has turns, not time' },
-  ];
+// --- The scanner must be able to fail ----------------------------------------------------------
 
-  it('game/ contains no source of nondeterminism', () => {
-    const violations: string[] = [];
+describe('contract scanner', () => {
+  // These are the tests that stop the two suites below from being decorative. game/ and render/
+  // are empty at M0, so without these the contract checks would assert [] === [] and report green
+  // no matter how broken the scanner was.
 
-    for (const file of sourceFiles('game')) {
-      const contents = fs.readFileSync(file, 'utf8');
-      for (const { pattern, why } of FORBIDDEN) {
-        if (pattern.test(contents)) {
-          violations.push(`${path.relative(ROOT, file)}: ${pattern.source} — ${why}`);
-        }
-      }
-    }
+  it('detects every form of nondeterminism', () => {
+    const source = fs.readFileSync(path.join(FIXTURES, 'nondeterminism.ts.fixture'), 'utf8');
+    const found = scanDeterminism(source, 'fixture').map((v) => v.detail);
 
-    expect(violations).toEqual([]);
+    expect(found).toEqual(
+      expect.arrayContaining([
+        'uses Math.random',
+        'uses Date.now',
+        'uses new Date',
+        'uses performance.now',
+        'uses crypto entropy',
+      ]),
+    );
+    expect(found).toHaveLength(NONDETERMINISM.length);
   });
 
+  it('detects upward imports at any nesting depth, including relative paths', () => {
+    const source = fs.readFileSync(path.join(FIXTURES, 'upward-imports.ts.fixture'), 'utf8');
+    const found = scanLayering(source, 'fixture', ['app', 'components', 'render', 'platform']).map(
+      (v) => v.detail,
+    );
+
+    // The relative-depth cases are the point: a scanner that only handles `../x` misses these.
+    expect(found).toEqual(
+      expect.arrayContaining([
+        "imports components/ via '../../components/themed-text'",
+        "imports render/ via '../../../render/model'",
+        "imports platform/ via '../platform/save'",
+        "imports app/ via '@/app/index'",
+        "imports framework package 'react-native'",
+        "imports framework package 'react'",
+        "imports framework package 'expo-haptics'",
+        "imports components/ via '../../components/themed-view'", // dynamic import()
+        "imports render/ via '@/render/presentation'", // require()
+      ]),
+    );
+    // Exact count, not just arrayContaining: a scanner regression that OVER-reports would
+    // otherwise pass this test unnoticed.
+    expect(found).toHaveLength(9);
+  });
+
+  it('does not flag legitimate imports', () => {
+    const clean = [
+      "import { Rng } from '../rng/pcg32';",
+      "import type { GameState } from './state';",
+      "import { TILES } from '@/game/content/tiles';",
+      "export * from './commands';",
+      "import { deep } from '../../game/util/deep';",
+    ].join('\n');
+
+    expect(scanDeterminism(clean, 'clean')).toEqual([]);
+    expect(scanLayering(clean, 'clean', ['app', 'components', 'render', 'platform'])).toEqual([]);
+  });
+
+  it('ignores comments and string literals', () => {
+    // The scanner must read code, not prose. A docstring on the RNG module naming the API it
+    // replaces is not a violation — and it is close to inevitable, given the commenting style
+    // in this repo. See stripNonCode().
+    const documented = [
+      '/**',
+      ' * PCG32 — the only source of randomness. Replaces Math.random(), which cannot be seeded,',
+      " * and Date.now(). Never import from 'react' or '../../components/x' here.",
+      ' */',
+      "const HINT = 'do not call Date.now() or performance.now()';",
+      '// new Date() is banned in game/',
+      'export const seedFrom = (s: string) => s.length;',
+      'export { HINT };',
+    ].join('\n');
+
+    expect(scanDeterminism(documented, 'documented')).toEqual([]);
+    expect(scanLayering(documented, 'documented', ['app', 'components', 'render', 'platform'])).toEqual(
+      [],
+    );
+  });
+
+  it('still flags real violations that sit next to prose', () => {
+    // The counterpart to the test above: stripping comments must not become a way to hide code.
+    const mixed = ['// Math.random() is banned', 'export const r = Math.random();'].join('\n');
+    expect(scanDeterminism(mixed, 'mixed').map((v) => v.detail)).toEqual(['uses Math.random']);
+  });
+});
+
+// --- The contracts themselves -------------------------------------------------------------------
+
+describe('determinism contract', () => {
+  it('game/ contains no source of nondeterminism', () => {
+    const violations = sourceFiles('game').flatMap(({ abs, label }) =>
+      scanDeterminism(fs.readFileSync(abs, 'utf8'), label),
+    );
+    expect(violations.map((v) => `${v.file}: ${v.detail}`)).toEqual([]);
+  });
+});
+
+describe('layer contract', () => {
   it('game/ does not import from the layers above it', () => {
-    const forbidden = /from\s+['"](react|react-dom|react-native|expo|expo-[\w-]+|@expo\/[\w-]+|@\/(app|components|render|platform)\/)/;
-    const violations: string[] = [];
+    const violations = sourceFiles('game').flatMap(({ abs, label }) =>
+      scanLayering(fs.readFileSync(abs, 'utf8'), label, ['app', 'components', 'render', 'platform']),
+    );
+    expect(violations.map((v) => `${v.file}: ${v.detail}`)).toEqual([]);
+  });
 
-    for (const file of sourceFiles('game')) {
-      const contents = fs.readFileSync(file, 'utf8');
-      if (forbidden.test(contents)) {
-        violations.push(path.relative(ROOT, file));
-      }
-    }
+  it('render/ does not import from the layers above it', () => {
+    // render/ had no backstop at all before: unlinted under the old `expo lint` invocation and
+    // unscanned here. It is pure TypeScript too, and the seam it forms is what makes the
+    // renderer swappable (ADR-0003).
+    const violations = sourceFiles('render').flatMap(({ abs, label }) =>
+      scanLayering(fs.readFileSync(abs, 'utf8'), label, ['app', 'components']),
+    );
+    expect(violations.map((v) => `${v.file}: ${v.detail}`)).toEqual([]);
+  });
 
-    expect(violations).toEqual([]);
+  it('components/ and app/ do not reach into game/', () => {
+    // ESLint covers the static-import case; this also catches `await import('@/game/step')`,
+    // which no-restricted-imports does not inspect at all.
+    const violations = [...sourceFiles('components'), ...sourceFiles('app')].flatMap(
+      ({ abs, label }) => scanLayering(fs.readFileSync(abs, 'utf8'), label, ['game'], false),
+    );
+    expect(violations.map((v) => `${v.file}: ${v.detail}`)).toEqual([]);
+  });
+
+  it('the pure layers contain only .ts files', () => {
+    // A .tsx or .js under game/ or render/ is itself a violation — those layers have no JSX and
+    // no untyped code. Asserting this directly is stronger than widening every rule's glob to
+    // cover extensions that should never appear.
+    const stray = [...sourceFiles('game'), ...sourceFiles('render')]
+      .filter(({ label }) => !label.endsWith('.ts'))
+      .map(({ label }) => label);
+
+    expect(stray).toEqual([]);
   });
 });

@@ -1,0 +1,18 @@
+// Fixture, not compiled — see nondeterminism.ts.fixture for why.
+//
+// Every import below is a deliberate layer violation, written at the nesting depths real code
+// actually uses. The relative-path cases are the ones a naive scanner misses: a rule written as
+// `../components/*` only matches an importer one level below the repo root, and no real file
+// lives there.
+import { ThemedText } from '../../components/themed-text';
+import { model } from '../../../render/model';
+import { save } from '../platform/save';
+import { Screen } from '@/app/index';
+import { View } from 'react-native';
+import { useState } from 'react';
+import * as Haptics from 'expo-haptics';
+
+const lazy = () => import('../../components/themed-view');
+const legacy = require('@/render/presentation');
+
+export { ThemedText, model, save, Screen, View, useState, Haptics, lazy, legacy };

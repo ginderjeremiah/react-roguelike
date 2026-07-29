@@ -37,7 +37,13 @@ Concretely, inside `game/`:
 - Never import from `react`, `react-native`, `expo-*`, or anything in `app/` or `components/`.
 - Never iterate a `Set`/`Map`/object for anything that affects simulation order — sort explicitly.
 
-CI enforces the first three with lint rules. The fourth is on you.
+CI enforces the first three two ways: ESLint rules scoped to `game/`, and a unit test that scans
+`game/` sources directly. The fourth — iteration order — cannot be caught mechanically and is on
+you and the `code-reviewer`.
+
+Note that `npm run lint` runs `eslint .`, **not** `expo lint`. The latter silently lints only
+`app/` and `components/`, which meant the determinism rules were dead code for a while. Don't
+"simplify" it back.
 
 ## Layers
 
@@ -55,7 +61,11 @@ Dependencies point strictly downward: `app` -> `components` -> `render` -> `game
 ## Working agreement
 
 - **Every change lands via a pull request.** No direct commits to `main`, including trivial ones.
-- **CI must be green** (typecheck, lint, unit tests, web build, E2E) before merge.
+  Enforced by a branch ruleset, not just convention — the remote rejects a direct push, so don't
+  waste a cycle trying.
+- **CI must be green** (typecheck, lint, unit tests, web build, E2E) before merge. All three CI
+  checks are required by the ruleset; the merge button is blocked until they pass.
+- **Squash merge only.** The ruleset permits no other merge method.
 - **The `code-reviewer` agent must approve** before you merge. You may merge your own PR once it
   has a green CI run and a passing review — that is the standing authorization.
 - **One issue, one PR.** If you discover unrelated work, file an issue; do not widen the PR.
@@ -67,6 +77,15 @@ Full details in `docs/WORKFLOW.md`.
 ## Agents
 
 Specialized agents live in `.claude/agents/`. Use them; don't do everything in the main thread.
+
+> **Standing authorization from the owner:** you may spawn any agent defined in `.claude/agents/`
+> as needed, without asking first. This is explicit and permanent — do not stop to request
+> permission for a `code-reviewer` pass, a `playtest`, or a design consult. The process assumes
+> these agents run, and skipping them because you were being cautious defeats the point of having
+> them.
+>
+> This covers the agents in this repository. Spawning general-purpose agents for unrelated work is
+> a separate question.
 
 | Agent | Use for |
 | --- | --- |

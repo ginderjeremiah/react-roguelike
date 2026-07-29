@@ -10,7 +10,7 @@
     "web": "expo start --web",
     "build:web": "expo export --platform web",
     "typecheck": "tsc --noEmit",
-    "lint": "expo lint",
+    "lint": "eslint . --max-warnings 0",
     "test": "vitest",
     "test:e2e": "playwright test",
     "verify": "npm run typecheck && npm run lint && npm test -- --run"

@@ -51,7 +51,9 @@ game/
   content/     data tables — enemies, items, level themes. data, not logic
 ```
 
-Hard rules, all of them enforced by lint except the last:
+Hard rules. Lint enforces all of them except the last, and the unit suite independently scans
+`game/` sources as a second line of defense (lint can be disabled inline; a failing test is
+harder to wave away):
 
 - No `Math.random()`. Randomness comes from the `Rng` instance threaded through state.
 - No `Date.now()`, `new Date()`, `performance.now()`. The simulation has no clock; it has turns.
@@ -60,6 +62,19 @@ Hard rules, all of them enforced by lint except the last:
 - **No iteration-order dependence.** Iterating a `Set`, `Map`, or object's keys and letting that
   order affect the simulation is a determinism bug that lint cannot catch. Sort by a stable key
   (usually entity id) before any loop whose order matters.
+
+Two known limits of the mechanical enforcement, so you are not surprised by them:
+
+- The layer rules match import *specifiers* by path segment, not resolved file paths. A directory
+  named `components`, `render`, `app`, or `platform` **inside** `game/` would therefore be reported
+  as an upward violation. Relevant if we ever adopt ECS (`game/ecs/components/`) — rename or switch
+  the rule to `import/no-restricted-paths` at that point.
+- Template-literal specifiers (`import(\`../../components/${name}\`)`) evade both gates. Don't.
+- **ESLint is the authority; the unit-test scanner is a regex heuristic and is strictly weaker.**
+  It reads text, not an AST, so it cannot see destructured access (`const { random } = Math`) and
+  a string containing `/*` will blind it until the next `*/`. It exists to catch a suppressed or
+  bypassed lint rule, not to replace one. Never treat a green scanner as evidence that lint would
+  have passed.
 
 ### `render/` — the translation layer
 

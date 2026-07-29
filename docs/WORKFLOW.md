@@ -58,7 +58,19 @@ git switch -c <type>/<issue>-<slug>     # feat/12-fov-shadowcasting
 
 Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`.
 
-**Never commit to `main` directly.** Not even docs. Not even a typo.
+**Never commit to `main` directly.** Not even docs. Not even a typo. A branch ruleset enforces
+this — the remote rejects direct pushes, requires all three CI checks, allows squash merges only,
+and blocks force-pushes and branch deletion. There are no bypass actors, so this applies to
+everyone including the owner.
+
+Two consequences worth knowing before they surprise you:
+
+- **Branches must be up to date with `main` before merging** (strict status checks). If someone
+  merged while your PR was open, rebase or merge `main` in and let CI re-run. This exists because
+  two individually-green PRs can still break `main` together — A renames a function, B adds a
+  caller of the old name.
+- **The three CI job names are pinned by the ruleset.** Renaming one makes every PR unmergeable
+  until the ruleset is updated. See the warning block at the top of `.github/workflows/ci.yml`.
 
 ### 3. Design note (for anything non-trivial)
 
@@ -112,6 +124,10 @@ worth an issue, not a reason to override.
 
 Invoke the `code-reviewer` agent on the diff. For gameplay changes, also invoke `playtester`
 against the PR build.
+
+The owner has given standing authorization to spawn any agent in `.claude/agents/` without
+asking. Never skip a review pass out of caution about spawning an agent — that trades a real gate
+for an imaginary courtesy.
 
 Address every finding — fix it, or reply explaining why it is not a problem. "Won't fix" is a
 legitimate outcome; silence is not.

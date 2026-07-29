@@ -1,0 +1,61 @@
+name: Design proposal
+description: A game design decision to be made or debated
+labels: [design]
+body:
+  - type: textarea
+    id: proposal
+    attributes:
+      label: The mechanic
+      description: >
+        Concretely enough to implement. What does the player do, what do they see, and what does
+        the game do back? Not "add a stealth system".
+    validations:
+      required: true
+
+  - type: dropdown
+    id: pillar
+    attributes:
+      label: Which pillar does this serve?
+      description: A proposal serving no pillar does not belong in the game. See docs/VISION.md.
+      options:
+        - "1 — Every turn is a decision"
+        - "2 — Legible, not hidden"
+        - "3 — Touch-native"
+        - "4 — A run is a story you can retell"
+        - "None (explain below — this is a high bar)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: cost
+    attributes:
+      label: What it costs
+      description: Implementation complexity, cognitive load on the player, screen space, interaction with existing systems.
+    validations:
+      required: true
+
+  - type: textarea
+    id: replaces
+    attributes:
+      label: What it replaces or competes with
+      description: >
+        Additive design is how games get bloated. What does this displace, and what does it do to
+        every mechanic that already exists? If the answer is "nothing", it is content, not depth.
+    validations:
+      required: true
+
+  - type: textarea
+    id: failure
+    attributes:
+      label: How we would know it is bad
+      description: The observable signal — in a playtest or in play — that would make us cut this.
+    validations:
+      required: true
+
+  - type: textarea
+    id: recommendation
+    attributes:
+      label: Recommendation
+      description: A decision, not a menu. Name the runner-up and why it lost.
+    validations:
+      required: true

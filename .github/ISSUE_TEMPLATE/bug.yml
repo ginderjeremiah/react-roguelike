@@ -1,0 +1,45 @@
+name: Bug
+description: Something behaves incorrectly
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happens
+      description: Observed behavior, and what you expected instead.
+    validations:
+      required: true
+
+  - type: input
+    id: seed
+    attributes:
+      label: Seed
+      description: >
+        The run seed. Runs are deterministic (ADR-0004), so a seed plus commands reproduces this
+        exactly — a vague repro is never necessary.
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: The command sequence, or the E2E steps. Exact enough to replay.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - Crash or data loss
+        - Wrong game behavior
+        - Visual or cosmetic
+        - Determinism violation (treat as urgent — this breaks the testing strategy)
+    validations:
+      required: true
+
+  - type: input
+    id: where
+    attributes:
+      label: Platform
+      description: Web/phone viewport, web/desktop, iOS, Android.

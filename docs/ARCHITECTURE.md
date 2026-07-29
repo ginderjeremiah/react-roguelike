@@ -70,6 +70,11 @@ Two known limits of the mechanical enforcement, so you are not surprised by them
   as an upward violation. Relevant if we ever adopt ECS (`game/ecs/components/`) — rename or switch
   the rule to `import/no-restricted-paths` at that point.
 - Template-literal specifiers (`import(\`../../components/${name}\`)`) evade both gates. Don't.
+- **ESLint is the authority; the unit-test scanner is a regex heuristic and is strictly weaker.**
+  It reads text, not an AST, so it cannot see destructured access (`const { random } = Math`) and
+  a string containing `/*` will blind it until the next `*/`. It exists to catch a suppressed or
+  bypassed lint rule, not to replace one. Never treat a green scanner as evidence that lint would
+  have passed.
 
 ### `render/` — the translation layer
 

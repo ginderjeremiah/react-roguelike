@@ -7,3 +7,5 @@ export const a = Math.random();
 export const b = Date.now();
 export const c = new Date();
 export const d = performance.now();
+export const e = crypto.randomUUID();
+export const f = crypto.getRandomValues(new Uint8Array(8));

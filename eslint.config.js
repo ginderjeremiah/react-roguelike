@@ -29,6 +29,19 @@ const NONDETERMINISTIC_PROPERTIES = [
     property: 'now',
     message: 'game/ has turns, not time. Nothing in the simulation may read the clock. See ADR-0004.',
   },
+  {
+    // The obvious thing to reach for when told "no Math.random()", and just as unseedable.
+    object: 'crypto',
+    property: 'randomUUID',
+    message:
+      'game/ must be deterministic. Ids come from state, not from entropy. Use the seeded Rng. See ADR-0004.',
+  },
+  {
+    object: 'crypto',
+    property: 'getRandomValues',
+    message:
+      'game/ must be deterministic. Use the seeded Rng threaded through GameState instead. See ADR-0004.',
+  },
 ];
 
 /**
@@ -117,6 +130,11 @@ module.exports = defineConfig([
         { name: 'window', message: 'game/ is platform-agnostic.' },
         { name: 'document', message: 'game/ is platform-agnostic.' },
         { name: 'localStorage', message: 'Persistence belongs in platform/. See ADR-0006.' },
+        {
+          name: 'crypto',
+          message:
+            'game/ must be deterministic. Use the seeded Rng threaded through GameState. See ADR-0004.',
+        },
       ],
       'no-restricted-syntax': [
         'error',
@@ -148,8 +166,9 @@ module.exports = defineConfig([
           message: 'game/ is synchronous. No promises in the simulation.',
         },
         {
-          selector:
-            "CallExpression[callee.name=/^(fetch|setTimeout|setInterval|queueMicrotask|structuredClone)$/]",
+          // structuredClone is deliberately NOT here — it is synchronous, deterministic, and
+          // side-effect free, so it is a legitimate way to copy immutable state.
+          selector: "CallExpression[callee.name=/^(fetch|setTimeout|setInterval|queueMicrotask)$/]",
           message: 'game/ performs no I/O and has no clock. See ADR-0004.',
         },
         {
@@ -191,6 +210,12 @@ module.exports = defineConfig([
             {
               group: ['react-native', 'react-native/*', 'react-native-*', '@react-navigation/*'],
               message: 'render/ is pure TypeScript.',
+            },
+            {
+              // The test scanner already treats expo as forbidden in render/; without this the
+              // two gates disagreed about what render/ may depend on.
+              group: ['expo', 'expo-*', '@expo/*'],
+              message: 'render/ is platform-agnostic. Platform access belongs in platform/.',
             },
             {
               group: [...layer('app'), ...layer('components')],

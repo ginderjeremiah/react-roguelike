@@ -53,6 +53,8 @@ const NONDETERMINISM = [
   { name: 'Date.now', pattern: /\bDate\s*\.\s*now\b/ },
   { name: 'new Date', pattern: /\bnew\s+Date\b/ },
   { name: 'performance.now', pattern: /\bperformance\s*\.\s*now\b/ },
+  // The natural substitute for someone told "no Math.random()", and just as unseedable.
+  { name: 'crypto entropy', pattern: /\bcrypto\s*\.\s*(randomUUID|getRandomValues)\b/ },
 ];
 
 /**
@@ -89,7 +91,15 @@ function importsForbiddenPackage(specifier: string, packages: RegExp[]): boolean
   return packages.some((p) => p.test(specifier));
 }
 
-const FRAMEWORK_PACKAGES = [/^react(-dom)?(\/|$)/, /^react-native(\/|$)/, /^expo(-[\w-]+)?(\/|$)/, /^@expo\//];
+const FRAMEWORK_PACKAGES = [
+  /^react(-dom)?(\/|$)/,
+  // `react-native(\/|$)` misses `react-native-reanimated` — the hyphen fails the alternation.
+  // These are the same packages the lint groups cover; the two gates must agree.
+  /^react-native([-/]|$)/,
+  /^@react-navigation\//,
+  /^expo([-/]|$)/,
+  /^@expo\//,
+];
 
 type Violation = { file: string; detail: string };
 
@@ -191,6 +201,7 @@ describe('contract scanner', () => {
         'uses Date.now',
         'uses new Date',
         'uses performance.now',
+        'uses crypto entropy',
       ]),
     );
     expect(found).toHaveLength(NONDETERMINISM.length);

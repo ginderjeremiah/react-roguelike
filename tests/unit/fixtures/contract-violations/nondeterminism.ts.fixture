@@ -1,0 +1,9 @@
+// Fixture, not compiled — the `.fixture` extension keeps it out of tsc, eslint, and vitest's
+// module graph. Scanned as TEXT by tests/unit/infrastructure.test.ts to prove the contract
+// scanner actually detects violations rather than passing vacuously.
+//
+// Every line below is a deliberate violation. Do not "fix" this file.
+export const a = Math.random();
+export const b = Date.now();
+export const c = new Date();
+export const d = performance.now();

@@ -37,7 +37,13 @@ Concretely, inside `game/`:
 - Never import from `react`, `react-native`, `expo-*`, or anything in `app/` or `components/`.
 - Never iterate a `Set`/`Map`/object for anything that affects simulation order — sort explicitly.
 
-CI enforces the first three with lint rules. The fourth is on you.
+CI enforces the first three two ways: ESLint rules scoped to `game/`, and a unit test that scans
+`game/` sources directly. The fourth — iteration order — cannot be caught mechanically and is on
+you and the `code-reviewer`.
+
+Note that `npm run lint` runs `eslint .`, **not** `expo lint`. The latter silently lints only
+`app/` and `components/`, which meant the determinism rules were dead code for a while. Don't
+"simplify" it back.
 
 ## Layers
 

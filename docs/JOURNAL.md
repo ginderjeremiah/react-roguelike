@@ -34,6 +34,59 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-07-29 — Review caught the determinism contract was never enforced
+
+**Did:** Fixed three blocking bugs the `code-reviewer` agent found in the PR #5 scaffolding, all in
+the machinery meant to enforce the project's core invariants.
+
+1. **`npm run lint` never looked at `game/`.** `expo lint` with no arguments lints a hardcoded
+   `['src', 'app', 'components']`. `src/` doesn't exist, so it linted `app/` and `components/`
+   only — every determinism and layer rule scoped to `game/` and `render/` was dead code. CI
+   would have reported green with `Math.random()` in the simulation core. Fixed by switching to
+   `eslint .`, which now covers 27 files across every directory instead of 15.
+2. **Layer-import rules only matched depth 1.** `../components/*` matches `game/foo.ts` importing
+   `../components/x`, but not `game/systems/foo.ts` importing `../../components/x` — and per
+   ARCHITECTURE.md every real game file lives at depth 2. The guard protected only the depth where
+   no code will ever live. Same hole in the `components/` → `game/` rule, where `components/ui/`
+   already exists. Fixed with a `layer()` helper generating `**/dir`, `**/dir/*`, `**/dir/**`,
+   which covers any depth plus the `@/` alias in one entry.
+3. **Both contract tests passed vacuously**, since `game/` is empty at M0, and the import regex had
+   no branch for relative paths anyway. Rewrote the scanner to extract module specifiers first
+   (catching `from`, dynamic `import()`, `require()`, and side-effect imports) and match those,
+   and — the actual fix — added fixture files of known violations plus tests asserting the scanner
+   flags them. The scanner is now proven to work even while the directories it guards are empty.
+   `render/` had no backstop at all and now has one.
+
+Also from the non-blocking findings: added `async`/`Promise` lint selectors (ARCHITECTURE.md
+claimed promises were lint-enforced; only `await` was), enabled
+`strict_required_status_checks_policy`, and put a warning block at the top of `ci.yml` about the
+job names being pinned by the ruleset.
+
+**Why:** All three bugs share a shape — the enforcement *looked* correct and reported success, so
+nothing would have surfaced them until a determinism bug appeared in gameplay weeks later and the
+replay tests couldn't explain it. This is precisely the failure mode ADR-0001 says the review gate
+exists to catch, and it was caught on the second PR.
+
+**Learned:** The reviewer verified by *running* things — probe files at real nesting depths,
+`gh api` against the live ruleset — rather than reading configs and reasoning. Reading the ESLint
+config would not have revealed finding 1; you have to check what `expo lint` actually globs. I
+adopted the same approach for the fixes: every one was confirmed by planting a violation, watching
+the check fail, removing it, and watching it pass. Assume enforcement is broken until you have
+seen it reject something.
+
+Two specific traps now documented rather than latent: a **skipped** CI job reports as *passing* to
+required status checks, so adding a `paths:` filter to a required job silently opens the merge
+gate. And because required contexts match job display names with no bypass actors, renaming a job
+in `ci.yml` makes every PR permanently unmergeable — including the PR that would fix it.
+
+**Next:** Unchanged — M0 #1 (strip boilerplate) is the entry point, #3 stays `blocked` behind #2.
+The difference is that the contract enforcement those issues rely on is now real.
+
+**Watch:** `required_approving_review_count: 0`, so "the `code-reviewer` agent must approve" is
+still convention — an agent is not a GitHub reviewer, and requiring an approval would deadlock a
+single-owner repo. This is a known, accepted gap, not a covered one. PR #5 already demonstrated
+how it fails.
+
 ## 2026-07-29 — Branch protection and agent authorization
 
 **Did:** Added a branch ruleset on `main` (PRs required, all three CI checks required, squash-only,

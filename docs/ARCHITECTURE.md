@@ -51,7 +51,9 @@ game/
   content/     data tables — enemies, items, level themes. data, not logic
 ```
 
-Hard rules, all of them enforced by lint except the last:
+Hard rules. Lint enforces all of them except the last, and the unit suite independently scans
+`game/` sources as a second line of defense (lint can be disabled inline; a failing test is
+harder to wave away):
 
 - No `Math.random()`. Randomness comes from the `Rng` instance threaded through state.
 - No `Date.now()`, `new Date()`, `performance.now()`. The simulation has no clock; it has turns.

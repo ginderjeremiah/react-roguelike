@@ -13,6 +13,22 @@ concurrency:
 env:
   NODE_VERSION: '22'
 
+# ┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+# │ WARNING: the three job `name:` values below are PINNED by the branch ruleset on main.        │
+# │                                                                                             │
+# │ Required status checks are matched by display name, so renaming a job produces a PR where    │
+# │ the required context never reports. GitHub shows "Expected — Waiting for status to be        │
+# │ reported" indefinitely, and because the ruleset has no bypass actors, that PR becomes        │
+# │ permanently unmergeable — including a PR that would fix it. Recovery means editing the       │
+# │ ruleset in repo settings first.                                                             │
+# │                                                                                             │
+# │ To rename a job: update the ruleset's required contexts FIRST, then rename here.             │
+# │                                                                                             │
+# │ Equally: do NOT add `paths:`/`paths-ignore:` filters or an `if:` condition to these jobs.    │
+# │ A skipped job reports as PASSING to required status checks, so filtering silently opens the  │
+# │ merge gate rather than blocking it — the failure direction you will not notice.              │
+# └─────────────────────────────────────────────────────────────────────────────────────────────┘
+
 jobs:
   static:
     name: Typecheck & lint

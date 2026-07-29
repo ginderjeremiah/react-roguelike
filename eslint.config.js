@@ -31,6 +31,19 @@ const NONDETERMINISTIC_PROPERTIES = [
   },
 ];
 
+/**
+ * Build the glob set matching a repo-root layer directory from ANY importing depth.
+ *
+ * `../components/*` only matches an importer sitting one level below the repo root. Real files
+ * live at `game/systems/foo.ts` and import `../../components/x`, which that pattern misses
+ * entirely — so the guard would protect only the depth where no code actually lives.
+ *
+ * The `**` prefix matches any number of leading segments, including `..` and the `@` of the
+ * `@/` alias, so one entry covers `../x`, `../../../x`, and `@/x` alike. Verified empirically
+ * against ESLint rather than reasoned about — the matcher is not minimatch.
+ */
+const layer = (dir) => [`**/${dir}`, `**/${dir}/*`, `**/${dir}/**`];
+
 /** Layers game/ is forbidden from importing. Dependencies point strictly downward. */
 const FORBIDDEN_FROM_GAME = [
   {
@@ -43,16 +56,7 @@ const FORBIDDEN_FROM_GAME = [
     message: 'game/ is platform-agnostic. Platform access belongs in platform/.',
   },
   {
-    group: [
-      '@/app/*',
-      '@/components/*',
-      '@/render/*',
-      '@/platform/*',
-      '../app/*',
-      '../components/*',
-      '../render/*',
-      '../platform/*',
-    ],
+    group: [...layer('app'), ...layer('components'), ...layer('render'), ...layer('platform')],
     message: 'game/ must not import from layers above it. Dependencies point downward only.',
   },
 ];
@@ -86,6 +90,17 @@ module.exports = defineConfig([
           selector: 'AwaitExpression',
           message: 'game/ is synchronous. step() is a pure function, not an async process.',
         },
+        {
+          // `await` alone is not enough: an async function that returns a promise without
+          // awaiting, or a bare `new Promise(...)`, is equally forbidden and equally invisible
+          // to the AwaitExpression selector.
+          selector: ':function[async=true]',
+          message: 'game/ is synchronous. step() is a pure function, not an async process.',
+        },
+        {
+          selector: "NewExpression[callee.name='Promise']",
+          message: 'game/ is synchronous. No promises in the simulation.',
+        },
       ],
       'no-restricted-imports': ['error', { patterns: FORBIDDEN_FROM_GAME }],
     },
@@ -105,7 +120,7 @@ module.exports = defineConfig([
             },
             { group: ['react-native', 'react-native/*'], message: 'render/ is pure TypeScript.' },
             {
-              group: ['@/app/*', '@/components/*', '../app/*', '../components/*'],
+              group: [...layer('app'), ...layer('components')],
               message: 'render/ must not import from layers above it.',
             },
           ],
@@ -123,7 +138,7 @@ module.exports = defineConfig([
         {
           patterns: [
             {
-              group: ['@/game/*', '../game/*'],
+              group: layer('game'),
               message:
                 'Components consume the presentation model from render/, never GameState directly. That seam is what keeps the renderer swappable — see ADR-0003.',
             },

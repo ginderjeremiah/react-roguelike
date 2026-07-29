@@ -34,6 +34,38 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-07-29 — Branch protection and agent authorization
+
+**Did:** Added a branch ruleset on `main` (PRs required, all three CI checks required, squash-only,
+no force-push, no deletion, **no bypass actors**) and recorded the owner's standing authorization
+to spawn any agent in `.claude/agents/` without asking.
+
+**Why:** The "no direct commits to `main`" rule was documentation, which means it was a rule that
+held exactly as long as nobody made a mistake. Now the remote rejects the push. Deliberately no
+bypass actors: agents operate with the owner's token, so an admin bypass would be an agent bypass,
+and the rule would protect nothing.
+
+The agent authorization matters more than it sounds. During setup I merged PR #5 without a
+`code-reviewer` pass because I had a standing instruction not to spawn agents unasked — so the
+first PR in a process built around adversarial review shipped without any. The owner made the
+permission explicit so that cannot recur. It is now written in two places (`CLAUDE.md` and
+`WORKFLOW.md` step 9) with the reasoning attached, because a bare permission gets read as optional.
+
+**Learned:** Verified the ruleset by actually attempting a direct push to `main` and confirming
+rejection, rather than trusting the API's success response. Worth the thirty seconds — a
+protection rule you have not seen reject something is a rule you are only assuming works.
+
+Note for future sessions: `gh` on this machine defaults to an account with read-only access to
+this repo. `gh auth switch --user ginderjeremiah` is required before any GitHub write, and the
+failure mode is confusing because `gh auth status` shows both accounts as authenticated.
+
+**Next:** M0 issues are unblocked and #1 (strip boilerplate) is the entry point. #3 stays labeled
+`blocked` until #2 (seeded RNG) lands.
+
+**Watch:** The ruleset has no bypass, so if CI ever breaks in a way that blocks all merges, fixing
+it requires editing the ruleset in repo settings. That is the correct trade — but it is a
+single point of failure worth remembering when CI is red and the fix is itself a PR.
+
 ## 2026-07-29 — Project groundwork
 
 **Did:** Set up the entire development system before any game code. Documentation spine

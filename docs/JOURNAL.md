@@ -79,6 +79,34 @@ required status checks, so adding a `paths:` filter to a required job silently o
 gate. And because required contexts match job display names with no bypass actors, renaming a job
 in `ci.yml` makes every PR permanently unmergeable — including the PR that would fix it.
 
+A **second** review pass on the fixes then found two more, both the same shape as the originals —
+enforcement scoped to a set that real code can fall outside of:
+
+4. **`.tsx`/`.js` files under `game/` escaped every gate.** Rules were scoped to `*.ts`, and the
+   test scanner filtered on `.ts`. A `game/ui/hud.tsx` doing `Math.random()`, `fetch()`, and
+   importing `react-native` produced zero signal from lint, tsc, and the test suite. Fixed by
+   widening both gates to all source extensions, *plus* a positive assertion that `game/` and
+   `render/` contain only `.ts` — a `.tsx` in a pure layer is itself the violation.
+5. **The scanner matched comments and string literals.** A legitimate `game/rng/pcg32.ts` whose
+   docstring said "replaces `Math.random()`, which cannot be seeded" would have failed CI. That
+   would have hit on issue #2, the very next code PR, and the natural response to a spurious
+   failure is to reword the doc or loosen the scanner — both worse than the false positive. Now
+   strips comments and string literals before scanning, with tests both ways: documented prose
+   passes, and real code next to prose still fails.
+
+Also closed from the non-blocking list: `no-restricted-imports` does not inspect `import()` or
+`require()` at all, so `await import('@/game/step')` in a component bypassed the layer gate —
+added `no-restricted-syntax` selectors covering both across `game/`, `render/`, `components/`, and
+`app/`. Added `react-native-*` and `@react-navigation/*` to the banned groups (`react-native` alone
+missed `react-native-reanimated`). Added `Promise.*`, `fetch`, `setTimeout`, `XMLHttpRequest`, and
+friends, which makes ARCHITECTURE.md's "no promises, no I/O" claim true rather than aspirational.
+Added `--max-warnings 0`, since warnings never failed CI and lint is now a real gate.
+
+**Learned (second pass):** esquery, which powers `no-restricted-syntax` selectors, delimits regex
+attribute values with `/` and cannot handle an escaped `\/` — it crashes ESLint with a
+config-level `SyntaxError` instead of reporting a lint error. Use the `\x2f` hex escape. This cost
+a debugging cycle and is noted in `eslint.config.js` at the call site.
+
 **Next:** Unchanged — M0 #1 (strip boilerplate) is the entry point, #3 stays `blocked` behind #2.
 The difference is that the contract enforcement those issues rely on is now real.
 

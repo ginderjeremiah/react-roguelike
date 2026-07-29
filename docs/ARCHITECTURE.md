@@ -63,6 +63,14 @@ harder to wave away):
   order affect the simulation is a determinism bug that lint cannot catch. Sort by a stable key
   (usually entity id) before any loop whose order matters.
 
+Two known limits of the mechanical enforcement, so you are not surprised by them:
+
+- The layer rules match import *specifiers* by path segment, not resolved file paths. A directory
+  named `components`, `render`, `app`, or `platform` **inside** `game/` would therefore be reported
+  as an upward violation. Relevant if we ever adopt ECS (`game/ecs/components/`) — rename or switch
+  the rule to `import/no-restricted-paths` at that point.
+- Template-literal specifiers (`import(\`../../components/${name}\`)`) evade both gates. Don't.
+
 ### `render/` — the translation layer
 
 Turns a `GameState` into a flat, dumb description of what should be on screen: cells with glyphs,

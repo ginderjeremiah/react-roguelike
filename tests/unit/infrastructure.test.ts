@@ -24,6 +24,29 @@ const FIXTURES = path.join(ROOT, 'tests/unit/fixtures/contract-violations');
 
 // --- The scanner ------------------------------------------------------------------------------
 
+/**
+ * Strip comments and string literals so the scanner reads code rather than prose.
+ *
+ * Without this the scanner flags its own documentation. A legitimate `game/rng/pcg32.ts` whose
+ * docstring says "replaces Math.random(), which cannot be seeded" would fail CI — and the natural
+ * response to a spurious failure is to reword the comment or loosen the scanner, both worse than
+ * the false positive. Import specifiers are extracted before this runs, so quoted module paths
+ * survive where they matter.
+ */
+function stripComments(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
+}
+
+function stripNonCode(source: string): string {
+  return (
+    stripComments(source)
+      // string and template literals — emptied, not removed, so syntax stays intact
+      .replace(/'(?:[^'\\\n]|\\.)*'/g, "''")
+      .replace(/"(?:[^"\\\n]|\\.)*"/g, '""')
+      .replace(/`(?:[^`\\]|\\.)*`/g, '``')
+  );
+}
+
 /** Sources of nondeterminism. Forbidden anywhere in game/. */
 const NONDETERMINISM = [
   { name: 'Math.random', pattern: /\bMath\s*\.\s*random\b/ },
@@ -71,25 +94,46 @@ const FRAMEWORK_PACKAGES = [/^react(-dom)?(\/|$)/, /^react-native(\/|$)/, /^expo
 type Violation = { file: string; detail: string };
 
 function scanDeterminism(source: string, label: string): Violation[] {
-  return NONDETERMINISM.filter(({ pattern }) => pattern.test(source)).map(({ name }) => ({
+  const code = stripNonCode(source);
+  return NONDETERMINISM.filter(({ pattern }) => pattern.test(code)).map(({ name }) => ({
     file: label,
     detail: `uses ${name}`,
   }));
 }
 
-function scanLayering(source: string, label: string, forbiddenLayers: string[]): Violation[] {
+/**
+ * @param forbiddenLayers repo-root layer directories this file must not import from
+ * @param forbidFrameworks whether React/React Native/Expo are also banned. True for the pure
+ *   layers (`game/`, `render/`); false for `components/`/`app/`, which exist to use them.
+ */
+function scanLayering(
+  source: string,
+  label: string,
+  forbiddenLayers: string[],
+  forbidFrameworks = true,
+): Violation[] {
   const violations: Violation[] = [];
-  for (const specifier of moduleSpecifiers(source)) {
+  // Specifiers are extracted from the raw source — they live inside quotes by definition, so
+  // stripping strings first would erase exactly what we need to inspect. Comments are stripped
+  // so a commented-out or documented import is not reported.
+  for (const specifier of moduleSpecifiers(stripComments(source))) {
     const layer = importsLayer(specifier, forbiddenLayers);
     if (layer) violations.push({ file: label, detail: `imports ${layer}/ via '${specifier}'` });
-    else if (importsForbiddenPackage(specifier, FRAMEWORK_PACKAGES)) {
+    else if (forbidFrameworks && importsForbiddenPackage(specifier, FRAMEWORK_PACKAGES)) {
       violations.push({ file: label, detail: `imports framework package '${specifier}'` });
     }
   }
   return violations;
 }
 
-/** Every non-test .ts file under a repo directory. Empty if the directory does not exist. */
+/**
+ * Every non-test source file under a repo directory. Empty if the directory does not exist.
+ *
+ * Deliberately not limited to `.ts`: scoping the contract checks to one extension left a `.tsx`
+ * or `.js` file under `game/` invisible to every gate while looking entirely ordinary.
+ */
+const SOURCE_EXTENSIONS = ['.ts', '.tsx', '.mts', '.cts', '.js', '.jsx', '.mjs', '.cjs'];
+
 function sourceFiles(dir: string): { abs: string; label: string }[] {
   const root = path.join(ROOT, dir);
   if (!fs.existsSync(root)) return [];
@@ -102,7 +146,10 @@ function sourceFiles(dir: string): { abs: string; label: string }[] {
     for (const entry of entries) {
       const full = path.join(current, entry.name);
       if (entry.isDirectory()) walk(full);
-      else if (entry.name.endsWith('.ts') && !entry.name.endsWith('.test.ts')) {
+      else if (
+        SOURCE_EXTENSIONS.some((ext) => entry.name.endsWith(ext)) &&
+        !/\.test\.[cm]?[jt]sx?$/.test(entry.name)
+      ) {
         out.push({ abs: full, label: path.relative(ROOT, full).replace(/\\/g, '/') });
       }
     }
@@ -169,6 +216,9 @@ describe('contract scanner', () => {
         "imports render/ via '@/render/presentation'", // require()
       ]),
     );
+    // Exact count, not just arrayContaining: a scanner regression that OVER-reports would
+    // otherwise pass this test unnoticed.
+    expect(found).toHaveLength(9);
   });
 
   it('does not flag legitimate imports', () => {
@@ -177,10 +227,38 @@ describe('contract scanner', () => {
       "import type { GameState } from './state';",
       "import { TILES } from '@/game/content/tiles';",
       "export * from './commands';",
+      "import { deep } from '../../game/util/deep';",
     ].join('\n');
 
     expect(scanDeterminism(clean, 'clean')).toEqual([]);
     expect(scanLayering(clean, 'clean', ['app', 'components', 'render', 'platform'])).toEqual([]);
+  });
+
+  it('ignores comments and string literals', () => {
+    // The scanner must read code, not prose. A docstring on the RNG module naming the API it
+    // replaces is not a violation — and it is close to inevitable, given the commenting style
+    // in this repo. See stripNonCode().
+    const documented = [
+      '/**',
+      ' * PCG32 — the only source of randomness. Replaces Math.random(), which cannot be seeded,',
+      " * and Date.now(). Never import from 'react' or '../../components/x' here.",
+      ' */',
+      "const HINT = 'do not call Date.now() or performance.now()';",
+      '// new Date() is banned in game/',
+      'export const seedFrom = (s: string) => s.length;',
+      'export { HINT };',
+    ].join('\n');
+
+    expect(scanDeterminism(documented, 'documented')).toEqual([]);
+    expect(scanLayering(documented, 'documented', ['app', 'components', 'render', 'platform'])).toEqual(
+      [],
+    );
+  });
+
+  it('still flags real violations that sit next to prose', () => {
+    // The counterpart to the test above: stripping comments must not become a way to hide code.
+    const mixed = ['// Math.random() is banned', 'export const r = Math.random();'].join('\n');
+    expect(scanDeterminism(mixed, 'mixed').map((v) => v.detail)).toEqual(['uses Math.random']);
   });
 });
 
@@ -211,5 +289,25 @@ describe('layer contract', () => {
       scanLayering(fs.readFileSync(abs, 'utf8'), label, ['app', 'components']),
     );
     expect(violations.map((v) => `${v.file}: ${v.detail}`)).toEqual([]);
+  });
+
+  it('components/ and app/ do not reach into game/', () => {
+    // ESLint covers the static-import case; this also catches `await import('@/game/step')`,
+    // which no-restricted-imports does not inspect at all.
+    const violations = [...sourceFiles('components'), ...sourceFiles('app')].flatMap(
+      ({ abs, label }) => scanLayering(fs.readFileSync(abs, 'utf8'), label, ['game'], false),
+    );
+    expect(violations.map((v) => `${v.file}: ${v.detail}`)).toEqual([]);
+  });
+
+  it('the pure layers contain only .ts files', () => {
+    // A .tsx or .js under game/ or render/ is itself a violation — those layers have no JSX and
+    // no untyped code. Asserting this directly is stronger than widening every rule's glob to
+    // cover extensions that should never appear.
+    const stray = [...sourceFiles('game'), ...sourceFiles('render')]
+      .filter(({ label }) => !label.endsWith('.ts'))
+      .map(({ label }) => label);
+
+    expect(stray).toEqual([]);
   });
 });

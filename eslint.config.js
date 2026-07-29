@@ -44,20 +44,59 @@ const NONDETERMINISTIC_PROPERTIES = [
  */
 const layer = (dir) => [`**/${dir}`, `**/${dir}/*`, `**/${dir}/**`];
 
-/** Layers game/ is forbidden from importing. Dependencies point strictly downward. */
-const FORBIDDEN_FROM_GAME = [
+/**
+ * Every extension a source file could plausibly use. Scoping the contract rules to `*.ts` alone
+ * left an open door: a `.tsx` or `.js` file under `game/` escaped every rule below while looking
+ * completely normal. `game/` and `render/` should contain only `.ts` — a `.tsx` there is itself a
+ * violation, and the unit suite asserts that separately — but the rules must still apply if one
+ * appears, rather than falling silent on it.
+ */
+const SOURCE = '{ts,tsx,mts,cts,js,jsx,mjs,cjs}';
+
+/** Framework packages the pure layers must never depend on. */
+const FRAMEWORK_GROUPS = [
   {
-    group: ['react', 'react-dom'],
+    group: ['react', 'react-dom', 'react/*', 'react-dom/*'],
     message: 'game/ is pure TypeScript. No React. See docs/ARCHITECTURE.md.',
   },
-  { group: ['react-native', 'react-native/*'], message: 'game/ is pure TypeScript. No React Native.' },
+  {
+    // `react-native` alone misses `react-native-reanimated` and friends, which are just as
+    // platform-bound and were previously permitted.
+    group: ['react-native', 'react-native/*', 'react-native-*', '@react-navigation/*'],
+    message: 'game/ is pure TypeScript. No React Native.',
+  },
   {
     group: ['expo', 'expo-*', '@expo/*'],
     message: 'game/ is platform-agnostic. Platform access belongs in platform/.',
   },
+];
+
+/** Layers game/ is forbidden from importing. Dependencies point strictly downward. */
+const FORBIDDEN_FROM_GAME = [
+  ...FRAMEWORK_GROUPS,
   {
     group: [...layer('app'), ...layer('components'), ...layer('render'), ...layer('platform')],
     message: 'game/ must not import from layers above it. Dependencies point downward only.',
+  },
+];
+
+/**
+ * `no-restricted-imports` inspects static import declarations only — it ignores `import()` and
+ * `require()` entirely, so `await import('@/game/step')` in a component slipped through the
+ * layer gate. These selectors close that path.
+ *
+ * NOTE: `pattern` must not contain a literal `/`. esquery delimits regex attribute values with
+ * slashes and does not handle escaping them — a `\/` crashes ESLint with a config-level
+ * SyntaxError rather than reporting a lint error. Use the `\x2f` hex escape instead.
+ */
+const dynamicImportOf = (pattern, message) => [
+  {
+    selector: `ImportExpression > Literal[value=${pattern}]`,
+    message,
+  },
+  {
+    selector: `CallExpression[callee.name='require'] > Literal[value=${pattern}]`,
+    message,
   },
 ];
 
@@ -70,7 +109,7 @@ module.exports = defineConfig([
 
   // --- Determinism + layer rules for the simulation core -------------------------------------
   {
-    files: ['game/**/*.ts'],
+    files: [`game/**/*.${SOURCE}`],
     rules: {
       'no-restricted-properties': ['error', ...NONDETERMINISTIC_PROPERTIES],
       'no-restricted-globals': [
@@ -101,6 +140,30 @@ module.exports = defineConfig([
           selector: "NewExpression[callee.name='Promise']",
           message: 'game/ is synchronous. No promises in the simulation.',
         },
+        {
+          // ARCHITECTURE.md claims "no promises, no I/O" is lint-enforced. Without these it was
+          // enforced only for `await`, `async`, and `new Promise` — `Promise.all(...)` and
+          // `fetch(...)` passed cleanly, making the doc aspirational.
+          selector: "MemberExpression[object.name='Promise']",
+          message: 'game/ is synchronous. No promises in the simulation.',
+        },
+        {
+          selector:
+            "CallExpression[callee.name=/^(fetch|setTimeout|setInterval|queueMicrotask|structuredClone)$/]",
+          message: 'game/ performs no I/O and has no clock. See ADR-0004.',
+        },
+        {
+          selector: "NewExpression[callee.name=/^(XMLHttpRequest|WebSocket|Worker)$/]",
+          message: 'game/ performs no I/O. See ADR-0004.',
+        },
+        ...dynamicImportOf(
+          '/^(react|react-dom|react-native|expo)($|[-\\x2f])|^@(expo|react-navigation)\\x2f/',
+          'game/ is pure TypeScript and platform-agnostic. See docs/ARCHITECTURE.md.',
+        ),
+        ...dynamicImportOf(
+          '/(^|\\x2f)(app|components|render|platform)(\\x2f|$)/',
+          'game/ must not import from layers above it, dynamically or otherwise.',
+        ),
       ],
       'no-restricted-imports': ['error', { patterns: FORBIDDEN_FROM_GAME }],
     },
@@ -108,17 +171,27 @@ module.exports = defineConfig([
 
   // --- render/ is pure too, but may depend on game/ ------------------------------------------
   {
-    files: ['render/**/*.ts'],
+    files: [`render/**/*.${SOURCE}`],
     rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...dynamicImportOf(
+          '/^(react|react-dom|react-native)($|[-\\x2f])|(^|\\x2f)(app|components)(\\x2f|$)/',
+          'render/ is pure TypeScript and must not import from layers above it.',
+        ),
+      ],
       'no-restricted-imports': [
         'error',
         {
           patterns: [
             {
-              group: ['react', 'react-dom'],
+              group: ['react', 'react-dom', 'react/*', 'react-dom/*'],
               message: 'render/ is pure TypeScript. React belongs in components/.',
             },
-            { group: ['react-native', 'react-native/*'], message: 'render/ is pure TypeScript.' },
+            {
+              group: ['react-native', 'react-native/*', 'react-native-*', '@react-navigation/*'],
+              message: 'render/ is pure TypeScript.',
+            },
             {
               group: [...layer('app'), ...layer('components')],
               message: 'render/ must not import from layers above it.',
@@ -131,8 +204,15 @@ module.exports = defineConfig([
 
   // --- components/ and app/ consume the presentation model, never GameState ------------------
   {
-    files: ['components/**/*.{ts,tsx}', 'app/**/*.{ts,tsx}'],
+    files: [`components/**/*.${SOURCE}`, `app/**/*.${SOURCE}`],
     rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...dynamicImportOf(
+          '/(^|\\x2f)game(\\x2f|$)/',
+          'Components consume the presentation model from render/, never GameState directly — dynamically or otherwise. See ADR-0003.',
+        ),
+      ],
       'no-restricted-imports': [
         'error',
         {

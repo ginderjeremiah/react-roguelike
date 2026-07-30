@@ -25,15 +25,26 @@
  * file ever learning what fuel is. When `step()` is wired up (#16) it should read:
  *
  * ```ts
+ * // GDD §2: toggling the shutter is a FREE action — it must not consume a turn.
+ * // A free action is one that does not charge the actor, and `runActorPhase` charges every
+ * // actor due at `now` — including the player. So a free command must skip the actor phase
+ * // entirely, not merely skip its own charge. Getting this wrong costs the player a turn AND
+ * // hands every creature on the floor a free one.
+ * const isFree = command.kind === 'toggleShutter';
+ *
  * return resolveTurn(state, {
  *   command:          (s) => resolveCommand(s, command),
  *   fuelBurn:         burnFuel,
  *   lightingAndWaking: recomputeLighting,
- *   actors:           (s) => runActorPhase(s, scheduleLens, actOnce),
+ *   actors:           isFree ? identity : (s) => runActorPhase(s, scheduleLens, actOnce),
  *   deaths:           resolveDeaths,
- *   darkAdaptation:   tickDarkAdaptation,
+ *   darkAdaptation:   isFree ? identity : tickDarkAdaptation,
  * });
  * ```
+ *
+ * (Whether a free action also skips `fuelBurn` and `darkAdaptation` is #17's and #14's call —
+ * the shutter toggle plausibly should still burn the turn's fuel. What is *not* open is the
+ * actor phase: a free action that lets every creature act is not free.)
  *
  * Injecting functions is not a hole in the determinism contract: the *state* stays plain data, and
  * the phases are supplied at the call site by `game/` code, not from outside the simulation.
@@ -146,7 +157,7 @@ export function runActorPhase<S>(
 ): S {
   let current = state;
 
-  for (let acted = 0; acted <= MAX_ACTS_PER_TURN; acted += 1) {
+  for (let acted = 0; acted < MAX_ACTS_PER_TURN; acted += 1) {
     const schedule = lens.get(current);
     const next = peek(schedule);
 
@@ -160,7 +171,7 @@ export function runActorPhase<S>(
 
   throw new Error(
     `turn: the actor phase ran ${MAX_ACTS_PER_TURN} actions without the queue emptying at the ` +
-      `current instant. An action is rescheduling its actor at the current tick instead of ` +
-      `charging it.`,
+      `current instant. Either an action is rescheduling its actor at the current tick instead ` +
+      `of charging it, or an action is spawning a new actor already due at the current tick.`,
   );
 }

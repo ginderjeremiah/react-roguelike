@@ -21,6 +21,23 @@ One entry per meaningful work session or merged PR. Newest first.
 **Why:** the reasoning, especially any non-obvious choice or rejected alternative.
 **Learned:** anything surprising. Wrong assumptions, gotchas, things that cost time.
 **Next:** the immediate next step, specific enough to act on cold.
+**Review addendum:** the reviewer found the fourth check-that-enforces-nothing in four PRs, and
+this one was in the phase order itself. `resolveTurn` correctly folds `RESOLUTION_PHASES`, but
+*nothing pinned that* — swapping the fold to `Object.keys(phases)` passed all 233 tests, because
+every phases object in the suite was constructed in GDD order (two of them by iterating
+`RESOLUTION_PHASES` itself, which is self-referential). The new test builds its literal in
+**alphabetical** order — what a tidy-up pass produces — and asserts the trace spelled out
+literally rather than against the constant.
+
+Two other tests were added for mutants that survived: `createSchedule`'s entries were only checked
+via `dueActors`, so scheduling everyone at tick 0 instead of at `now` passed; and `addActor`'s id
+guard was unexercised, where a `NaN` id makes `hasActor` false forever and `removeActor` throw —
+an actor that can never be removed, i.e. a corpse that acts every turn for the rest of the run.
+
+The reviewer also caught that its *own* first harness run was lying: `--reporter=basic` no longer
+exists in Vitest 4, so vitest exited 0 without running anything and reported every mutation
+"killed". Worth remembering — a mutation harness needs a baseline assertion or it measures nothing.
+
 **Review addendum (post-review):** the suite pinned the *generator* but nothing pinned the
 *mapping from raw word to helper output* — the surface all game code actually calls. Four
 semantics-preserving mutations passed all 76 tests: modulo instead of multiply-high, reversed
@@ -138,6 +155,21 @@ recording:
 `step()` as the `resolveTurn` call sketched in `turn.ts`'s header, and bump `RULES_VERSION` (a new
 `GameState` field is an outcome-changing change by the policy in `replay.ts`). Nothing in this PR
 touches `game/core/`, so no bump was owed here.
+
+**#16 must also do two things this PR cannot do for it**, both found in review:
+
+1. **Remove a killed actor from the schedule at kill time, in phase 1** — not in phase 5. GDD §2
+   puts deaths at phase 5, and that order is right (phase 5 is about embers dropping and the corpse
+   leaving the world). But a creature the player kills in phase 1 will still take its turn in phase
+   4 unless it leaves the queue immediately. `runActorPhase` already supports this — the test
+   `does not give a turn to an actor killed earlier in the same phase` proves it — but #16's author
+   will read GDD §2 as literally as this PR did and land in the same place.
+2. **Wire a free action to skip the actor phase entirely, not merely skip its own charge.** GDD §2
+   says the shutter toggle is free. `runActorPhase` charges every actor due at `now`, and the
+   player is due at `now` when the turn begins — so a command phase that just declines to charge
+   still gets charged by phase 4, *and* hands every creature on the floor a free turn. The
+   corrected wiring is in `turn.ts`'s header sketch, and `a free action` in `turn.test.ts` pins both
+   the right behaviour and the wrong one.
 
 **Watch:** `chargeActor` is the only cost in the game and `runActorPhase` is the only loop that
 pays it. If a second charging path appears, alternation stops being enforced by construction.

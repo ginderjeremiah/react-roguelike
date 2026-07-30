@@ -225,10 +225,18 @@ describe('createSchedule', () => {
     ]);
   });
 
-  it('starts the clock where it is told', () => {
+  it('starts the clock where it is told, and schedules everyone AT that instant', () => {
     const schedule = createSchedule([0, 1], 500);
     expect(schedule.now).toBe(500);
     expect(dueActors(schedule)).toEqual([0, 1]);
+    // Asserted on the entries themselves, not just on `dueActors`. Changing `nextActAt: now` to
+    // `nextActAt: 0` passed the whole suite otherwise, while violating the "never in the past"
+    // invariant that ScheduleEntry documents and that dueActors and advanceToNextActor both
+    // rely on. Found in review.
+    expect(schedule.entries).toEqual([
+      { actorId: 0, nextActAt: 500 },
+      { actorId: 1, nextActAt: 500 },
+    ]);
   });
 
   it('accepts an empty roster', () => {
@@ -249,6 +257,19 @@ describe('createSchedule', () => {
     ['unsafe', 2 ** 60],
   ])('rejects a %s actorId', (_label, actorId) => {
     expect(() => createSchedule([actorId])).toThrow(/safe integer/);
+  });
+
+  it.each([
+    ['fractional', 1.5],
+    ['NaN', Number.NaN],
+    ['unsafe', 2 ** 60],
+  ])('addActor also rejects a %s actorId', (_label, actorId) => {
+    // Found in review: only createSchedule exercised this guard, so deleting it from addActor
+    // passed the whole suite. What it protects is worse than a bad id — with NaN, indexOfActor's
+    // `===` never matches, so hasActor is false forever (the same actor can be added without
+    // bound) and removeActor throws "no actor NaN is scheduled". An actor that can never be
+    // removed is a corpse that acts every turn for the rest of the run.
+    expect(() => addActor(createSchedule([0]), actorId, 100)).toThrow(/safe integer/);
   });
 });
 

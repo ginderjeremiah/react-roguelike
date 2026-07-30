@@ -348,3 +348,100 @@ describe('a turn loop built out of these pieces', () => {
     expect(current.schedule.now).toBe(3 * ACTION_COST);
   });
 });
+
+describe('phase order is pinned to RESOLUTION_PHASES, not to caller key order', () => {
+  it('ignores the order the caller wrote its phases object in', () => {
+    // Found in review. Every phases object elsewhere in this suite is constructed in GDD order —
+    // some of them by iterating RESOLUTION_PHASES itself — so `Object.keys(phases)` and
+    // `RESOLUTION_PHASES` were indistinguishable to every existing assertion. Replacing the fold
+    // with `for (const phase of Object.keys(phases))` passed all 233 tests.
+    //
+    // Concretely: #16 wires step() from the sketch in turn.ts, an editor or tidy-up pass
+    // alphabetizes the object literal, and a later refactor to Object.entries ships. Fuel then
+    // burns after actors act and lighting recomputes after the room has already moved, silently.
+    // ARCHITECTURE.md names this exact hazard as the one lint cannot catch.
+    //
+    // The literal below is deliberately in ALPHABETICAL order, which is what a tidy-up produces
+    // and which differs from GDD order in four of six positions.
+    const trace: ResolutionPhase[] = [];
+    const mark =
+      (name: ResolutionPhase) =>
+      (n: number): number => {
+        trace.push(name);
+        return n;
+      };
+
+    resolveTurn(0, {
+      actors: mark('actors'),
+      command: mark('command'),
+      darkAdaptation: mark('darkAdaptation'),
+      deaths: mark('deaths'),
+      fuelBurn: mark('fuelBurn'),
+      lightingAndWaking: mark('lightingAndWaking'),
+    });
+
+    // Spelled out literally rather than compared against RESOLUTION_PHASES — comparing the trace
+    // to the constant is self-referential and cannot distinguish the two implementations.
+    expect(trace).toEqual([
+      'command',
+      'fuelBurn',
+      'lightingAndWaking',
+      'actors',
+      'deaths',
+      'darkAdaptation',
+    ]);
+  });
+});
+
+describe('a free action', () => {
+  /**
+   * GDD §2: "Toggling the shutter is a free action — it does not consume a turn."
+   *
+   * Found in review. A free action is one that does not charge the actor — but `runActorPhase`
+   * acts on *every* actor due at `now`, and in the M1 steady state the player is due at exactly
+   * `now` when the turn begins. So a command phase that merely skips its own `chargeActor` still
+   * gets charged by phase 4, and every creature on the floor gets a free turn as well: the exact
+   * opposite of the design, on Pillar 1's central verb.
+   *
+   * The fix is at the call site — a free action must skip the actor phase entirely, not just its
+   * own charge. This test pins that, so #16 cannot wire it the wrong way silently.
+   */
+  it('leaves the clock and every creature untouched', () => {
+    const identity = (w: World): World => w;
+    const before = world(createSchedule([0, 1, 2]));
+
+    const after = resolveTurn(before, {
+      // A free command: it does something to the world, but charges nobody.
+      command: (w) => record(w, 0),
+      fuelBurn: identity,
+      lightingAndWaking: identity,
+      actors: identity, // <- the whole point: a free action skips the actor phase
+      deaths: identity,
+      darkAdaptation: identity,
+    });
+
+    expect(after.log).toEqual(['actor 0']);
+    expect(lens.get(after).now).toBe(lens.get(before).now);
+    expect(lens.get(after).entries).toEqual(lens.get(before).entries);
+  });
+
+  it('costs a turn if the actor phase is not skipped — the mistake this guards against', () => {
+    // The wrong wiring, asserted so the failure mode is documented rather than merely avoided.
+    const identity = (w: World): World => w;
+    const before = world(createSchedule([0, 1, 2]));
+
+    const after = resolveTurn(before, {
+      command: (w) => record(w, 0),
+      fuelBurn: identity,
+      lightingAndWaking: identity,
+      actors: (w) => runActorPhase(w, lens, record),
+      deaths: identity,
+      darkAdaptation: identity,
+    });
+
+    // The player acted twice and every creature got a turn, from a command that was meant to cost
+    // nothing. The clock advanced.
+    expect(after.log).toEqual(['actor 0', 'actor 0', 'actor 1', 'actor 2']);
+    expect(lens.get(after).now).toBeGreaterThan(lens.get(before).now);
+  });
+});

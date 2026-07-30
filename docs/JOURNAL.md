@@ -52,6 +52,46 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-07-30 — Accepted ADR-0007; fixed the escalation rule that misrouted it
+
+**Did:** Accepted ADR-0007, amended the `VISION.md` concept to describe the game as designed
+rather than as originally proposed, and narrowed the "when to ask the owner" rule in
+`docs/WORKFLOW.md` and the `game-designer` agent.
+
+**Why:** The owner asked why #8 was waiting on him, and he was right to. I had routed the concept
+change to him on the strength of a `WORKFLOW.md` rule saying "ask when a design pillar or the core
+concept needs to change" — a rule **an agent wrote during project setup, not the owner**.
+
+It contradicted his stated boundary twice. His brief said he would be needed only for
+"resources/architecture available to the project." And when offered "you approve design docs only"
+as one of three autonomy models, he explicitly chose PR-plus-green-CI self-merge instead. The rule
+asserted a gate he had already declined.
+
+It was also self-defeating in this specific case: the concept being revised was invented by an
+agent in the groundwork PR and explicitly labelled a proposal to attack. There was nothing of the
+owner's being overridden. The escalation cost a round trip and bought nothing.
+
+**Learned:** A process document written by the same agent that follows it can quietly encode
+preferences the owner never expressed, and those read as authoritative to every later session
+precisely *because* they are written down. The failure is invisible from inside — the rule looked
+prudent, and following it felt like diligence.
+
+The heuristic that would have caught it: **the owner's own words outrank a rule an agent wrote,
+and `needs-owner` means "only he can supply this" (credentials, money, infrastructure), not "this
+feels important."** Both `WORKFLOW.md` and the `game-designer` agent now say that, and
+`WORKFLOW.md` keeps a note explaining the mistake rather than silently correcting it — a rule with
+its own postmortem attached is harder to re-break.
+
+**Next:** #3 (core types + replay-determinism test) is in flight and unaffected — it was
+deliberately scoped to machinery with no game-specific state. With the concept settled, M1 can now
+be specified from GDD §1-§6 rather than waiting.
+
+**Watch:** ADR-0007's own weak point is unchanged and worth restating: *"dark is not dominant"
+rests on arithmetic, not evidence.* Light reveals ~20 tiles for 4 fuel; ember-sense reveals 8 for
+~20 turns. If that reasoning is wrong the lantern is still a failure button and the sharpening
+failed. The M2 playtest is the test, and GDD §12's positional-tactics fallback is the response —
+subtract fuel, do not add a mechanic.
+
 ## 2026-07-29 — Seeded RNG: xoshiro128**, fixed draw counts, 76 tests (#2)
 
 **Did:** Built `game/rng/` — the project's only source of randomness. Three modules: `seed.ts`
@@ -198,6 +238,7 @@ means the ignore list now matters.
 build and E2E pass — but **no native build has ever been run** on this project, so if any of them
 was doing something implicit on iOS/Android it will not surface until the M4 native verification
 pass. `expo-image` in particular is sometimes pulled in indirectly.
+
 
 ## 2026-07-29 — M0 design review: Emberdepth survives, but not as written
 

@@ -1,6 +1,6 @@
 # ADR-0007: Emberdepth sharpened — darkness carries information, and fuel is earned
 
-**Status:** Proposed — needs owner
+**Status:** Accepted
 **Date:** 2026-07-29
 
 ## Context
@@ -65,8 +65,7 @@ Fighting spends HP to earn fuel; light spends fuel to preserve HP. No new resour
 The full specification lives in `docs/GDD.md` §1-§6. This ADR records only what changed about the
 concept and why, because that is the part `VISION.md` currently states differently.
 
-**Requested of the owner:** amend the concept seed in `VISION.md` to match, or reject the change.
-The specific sentences that are now wrong are "Lit tiles are safe and legible" (they are legible but
+**`VISION.md` has been amended to match.** The specific sentences that were wrong were "Lit tiles are safe and legible" (they are legible but
 they are where everything wakes up, so they are the *unsafe* ones), "Unlit tiles hide the map"
 (unlit tiles hide the map and reveal the inhabitants), and "Moving dark is faster and cheaper but
 blind" (moving dark is the same speed, cheaper, and differently-sighted). "Fuel is the run timer"

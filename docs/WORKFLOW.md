@@ -154,14 +154,29 @@ context is going to read it.
 Genuinely rare. Label the issue `needs-owner`, comment with the specific question and your
 recommendation, and go work on something else — do not sit idle waiting.
 
-Ask when:
+The owner's stated boundary is narrow and worth quoting, because an earlier version of this
+document ignored it: *"You should most likely only need my input/assistance regarding
+resources/architecture available to the project."*
 
-- A design pillar or the core concept needs to change.
-- External infrastructure is needed (a backend, a paid service, app store credentials).
-- A dependency with a restrictive license or a large native footprint is required.
-- Two reasonable paths diverge expensively and the choice is a matter of taste, not correctness.
+Ask when the answer requires something **only the owner can provide**:
 
-Do **not** ask for: routine implementation choices, library selection within the existing
+- External infrastructure or credentials (a backend, a paid service, app store accounts).
+- A dependency with a restrictive license, or one needing an account the project does not have.
+- Anything that spends money or exposes something publicly under his name.
+
+Do **not** ask for anything else — including **design decisions, up to and including changing the
+core concept or a pillar**. Those are ours. Write the ADR, record the reasoning and the cut
+signal, and proceed.
+
+> This rule previously read "ask when a design pillar or the core concept needs to change," and it
+> was wrong. It was written by an agent, not by the owner; it contradicted his stated boundary; and
+> when offered "you approve design docs only" as an autonomy model he explicitly chose self-merge
+> instead. It cost a round-trip on ADR-0007 for no benefit — the concept being revised had been
+> invented by an agent in the first place, so there was nothing of the owner's to override. If you
+> find yourself reaching for `needs-owner` on a judgment call, that is the smell this note exists
+> to catch.
+
+Also do not ask for: routine implementation choices, library selection within the existing
 footprint, balance numbers, refactors, or permission to merge green work. Decide, record the
 decision, move on.
 

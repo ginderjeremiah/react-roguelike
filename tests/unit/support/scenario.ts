@@ -51,7 +51,7 @@ import {
   type ActorWorld,
   type Awareness,
   type Intent,
-  type Perception,
+  type LightQuery,
 } from '@/game/entities';
 import {
   ACTION_COST,
@@ -221,7 +221,7 @@ export type PlayerAction =
 export function playTurn(
   world: ActorWorld,
   action: PlayerAction,
-  perception: Perception,
+  light: LightQuery,
 ): ActorWorld {
   const identity = (current: ActorWorld): ActorWorld => current;
   const cost: TurnCost = action.kind === 'free' ? 'free' : 'costsATurn';
@@ -232,24 +232,24 @@ export function playTurn(
       // Charged before the action resolves, exactly as `runActorPhase` charges a creature before
       // its action resolves — so a kill made by this action stays out of the queue.
       const charged = { ...current, schedule: chargeActor(current.schedule, PLAYER_ID) };
-      return action.kind === 'wait' ? charged : bump(charged, PLAYER_ID, action.to, perception);
+      return action.kind === 'wait' ? charged : bump(charged, PLAYER_ID, action.to, light);
     },
     fuelBurn: identity,
-    lightingAndWaking: (current) => wakeInLight(current, perception),
-    actors: actorPhase(cost, perception),
+    lightingAndWaking: (current) => wakeInLight(current, light),
+    actors: actorPhase(cost, light),
     deaths: resolveDeaths,
     darkAdaptation: identity,
   });
 }
 
 /** The shutter is closed: no tile sees the lantern. GDD §4's dark column. */
-export const SHUTTERED: Perception = { isPlayerLightVisibleFrom: () => false };
+export const SHUTTERED: LightQuery = { isPlayerLightVisibleFrom: () => false };
 
 /** The shutter is open and the whole floor is lit. The crudest possible "light exists". */
-export const FLOODLIT: Perception = { isPlayerLightVisibleFrom: () => true };
+export const FLOODLIT: LightQuery = { isPlayerLightVisibleFrom: () => true };
 
 /** Light on exactly these tiles — for testing the edge of contact without a lighting model. */
-export function litTiles(positions: readonly Position[]): Perception {
+export function litTiles(positions: readonly Position[]): LightQuery {
   return {
     isPlayerLightVisibleFrom: (at) =>
       positions.some((position) => position.x === at.x && position.y === at.y),

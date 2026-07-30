@@ -46,7 +46,7 @@ import {
   scheduleLens,
   wakeCreature,
   type ActorWorld,
-  type Perception,
+  type LightQuery,
 } from '../entities';
 import { assertNever } from '../core/assert';
 import { resolveAttack, resolveMove } from './combat';
@@ -69,7 +69,7 @@ export type TurnCost = 'costsATurn' | 'free';
 function resolveDeclaredAction(
   world: ActorWorld,
   id: ActorId,
-  perception: Perception,
+  light: LightQuery,
 ): ActorWorld {
   const creature = actorById(world, id);
   if (creature.kind !== 'creature') {
@@ -83,7 +83,7 @@ function resolveDeclaredAction(
     case 'move':
       return resolveMove(world, id, intent.to);
     case 'attack':
-      return resolveAttack(world, id, intent.at, perception);
+      return resolveAttack(world, id, intent.at, light);
     default:
       return assertNever(intent, 'resolveDeclaredAction');
   }
@@ -99,7 +99,7 @@ function resolveDeclaredAction(
  * @throws if handed a dead or dormant actor. Neither is ever in the schedule (see `world.ts`), so
  *   this is the tripwire for that invariant having broken somewhere upstream.
  */
-export function actOnce(world: ActorWorld, id: ActorId, perception: Perception): ActorWorld {
+export function actOnce(world: ActorWorld, id: ActorId, light: LightQuery): ActorWorld {
   const actor = actorById(world, id);
 
   if (actor.kind === 'player') {
@@ -115,8 +115,8 @@ export function actOnce(world: ActorWorld, id: ActorId, perception: Perception):
     throw new Error(`systems: dormant creature ${id} was given a turn`);
   }
 
-  const resolved = resolveDeclaredAction(world, id, perception);
-  return commitNextIntent(resolved, id, perception);
+  const resolved = resolveDeclaredAction(world, id, light);
+  return commitNextIntent(resolved, id, light);
 }
 
 /**
@@ -143,7 +143,7 @@ export function isRunOver(world: ActorWorld): boolean {
  * three due Cinders would still watch the other two take their turns, and the state a summary
  * screen renders would be three turns after the blow that ended the run.
  */
-export function actorPhase(cost: TurnCost, perception: Perception): TurnPhase<ActorWorld> {
+export function actorPhase(cost: TurnCost, light: LightQuery): TurnPhase<ActorWorld> {
   switch (cost) {
     case 'free':
       return (world) => world;
@@ -152,7 +152,7 @@ export function actorPhase(cost: TurnCost, perception: Perception): TurnPhase<Ac
         runActorPhase(
           world,
           scheduleLens,
-          (current, id) => actOnce(current, id, perception),
+          (current, id) => actOnce(current, id, light),
           isRunOver,
         );
     default:
@@ -182,15 +182,15 @@ export function actorPhase(cost: TurnCost, perception: Perception): TurnPhase<Ac
  * already correct is worth more than a test that was passing for the wrong reason. ADR-0004 names
  * iteration order as the failure lint cannot catch; this is the shape it takes before it bites.
  */
-export function wakeInLight(world: ActorWorld, perception: Perception): ActorWorld {
+export function wakeInLight(world: ActorWorld, light: LightQuery): ActorWorld {
   let current = world;
   for (const listed of world.actors) {
     // Re-read from `current` rather than trusting the snapshot: waking one creature rewrites the
     // world, and writing a stale copy of a later one back would silently undo it.
     const actor = actorById(current, listed.id);
     if (actor.kind !== 'creature' || !isAlive(actor) || isAwake(actor)) continue;
-    if (!perception.isPlayerLightVisibleFrom(actor.at)) continue;
-    current = wakeCreature(current, actor, perception);
+    if (!light.isPlayerLightVisibleFrom(actor.at)) continue;
+    current = wakeCreature(current, actor, light);
   }
   return current;
 }

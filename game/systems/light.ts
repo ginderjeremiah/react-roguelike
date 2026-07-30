@@ -1,11 +1,11 @@
 /**
- * Where the lantern meets the floor: the real `Perception`, and five of GDD §2's six phases.
+ * Where the lantern meets the floor: the real `LightQuery`, and five of GDD §2's six phases.
  *
  * ═══════════════════════════════════════════════════════════════════════════════════════════════
- * THE REAL `Perception`, AND WHY IT IS THE PLAYER'S LIT FIELD READ BACKWARDS
+ * THE REAL `LightQuery`, AND WHY IT IS THE PLAYER'S LIT FIELD READ BACKWARDS
  * ═══════════════════════════════════════════════════════════════════════════════════════════════
  *
- * `game/entities/perception.ts` asks one question — *"is the player's lantern-light visible from
+ * `game/entities/contact.ts` asks one question — *"is the player's lantern-light visible from
  * this tile?"* — and refuses to answer it, because what "visible" means is a lighting decision. This
  * is the answer:
  *
@@ -25,7 +25,7 @@
  *
  * The field is computed **once** and closed over, not recomputed per call. The query is asked a
  * variable number of times per turn (once per creature that declares, plus once per sleeper in
- * `wakeInLight`), and `perception.ts` requires it to be pure and total — so it must not be
+ * `wakeInLight`), and `contact.ts` requires it to be pure and total — so it must not be
  * expensive, and it must never consume a random number.
  * ═══════════════════════════════════════════════════════════════════════════════════════════════
  *
@@ -73,7 +73,7 @@ import {
   PLAYER_ID,
   playerOf,
   type ActorWorld,
-  type Perception as LightQuery,
+  type LightQuery,
 } from '../entities';
 import {
   adaptVision,
@@ -151,7 +151,7 @@ function withLantern(state: LanternWorld, lantern: Lantern): LanternWorld {
 const DARK: LightQuery = { isPlayerLightVisibleFrom: () => false };
 
 /**
- * The real `Perception` (`game/entities/`), built from the lit field. See the header.
+ * The real `LightQuery` (`game/entities/`), built from the lit field. See the header.
  *
  * @param origin the player's tile. Passed rather than read from a world so that this can be asked
  *   about a hypothetical position — which is what the symmetry test does.
@@ -198,9 +198,9 @@ export function burnFuelPhase(state: LanternWorld): LanternWorld {
  *
  *   - **Terrain memory grows.** `perceive` resolves §4's vision table for this turn — the lit field
  *     with the shutter open, the 8 touchable tiles with it shut — and `remember` folds it in.
- *     Memory is the *only* part of perception that is stored; the creature list and the lit field
- *     itself are recomputed by whoever needs them, because a second copy can disagree with the
- *     first (`fov/vision.ts`).
+ *     Memory is the *only* part of a `TurnPerception` that is stored; the creature list and the
+ *     lit field itself are recomputed by whoever needs them, because a second copy can disagree
+ *     with the first (`fov/vision.ts`).
  *   - **Sleepers wake.** `wakeInLight` asks the injected light query and nothing else — light wakes
  *     things, proximity does not, or the dormant strike would not exist.
  *

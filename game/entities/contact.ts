@@ -13,7 +13,7 @@
  *
  * So the entity layer asks a question and is handed the answer, exactly as `resolveTurn` is handed
  * its phases. `game/entities/` contains no radius, no shutter state, no line-of-sight, and exports
- * no default `Perception` — a caller must supply one, which means the day #17 lands there is
+ * no default `LightQuery` — a caller must supply one, which means the day #17 lands there is
  * nothing here to delete.
  *
  * ## The question is deliberately one boolean
@@ -43,8 +43,13 @@ import type { Position } from '../map';
 import { isAdjacent, isAlive, type CreatureActor } from './actor';
 import { playerOf, type ActorWorld } from './world';
 
-/** What a creature can learn about the player's lantern. Supplied by the lighting system. */
-export type Perception = {
+/**
+ * What a creature can learn about the player's lantern. Supplied by the lighting system.
+ *
+ * Named for what it is — a *query*, not a lighting model — so that this directory's rule ("light is
+ * injected; there is no radius, shutter or line-of-sight in here") is legible from the type alone.
+ */
+export type LightQuery = {
   /**
    * Is the player's light visible from `at`? `false` whenever the shutter is closed — darkness is
    * the whole point of the mechanic, so a query that answered `true` while shuttered would delete
@@ -71,9 +76,9 @@ export type Perception = {
 export function hasContact(
   world: ActorWorld,
   creature: CreatureActor,
-  perception: Perception,
+  light: LightQuery,
 ): boolean {
   const player = playerOf(world);
   if (!isAlive(player)) return false;
-  return isAdjacent(creature.at, player.at) || perception.isPlayerLightVisibleFrom(creature.at);
+  return isAdjacent(creature.at, player.at) || light.isPlayerLightVisibleFrom(creature.at);
 }

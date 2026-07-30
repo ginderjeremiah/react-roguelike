@@ -54,7 +54,8 @@ is layered on top.
 - [ ] Death, winning, and a run-summary screen — #21
 - [ ] Determinism rules applied to `game/**/*.test.ts` — #12
 - [ ] Auto-travel's command shape (a determinism question; gates #20) — #32
-- [ ] Rename the two colliding `Perception` types — #36, cheapest before #19
+- [x] Rename the two colliding `Perception` types — #36; now `TurnPerception` (`game/fov/`) and
+      `LightQuery` (`game/entities/`)
 
 **A run can be won, which this roadmap never said.** GDD §13 settled it in #18: the run ends by
 death *or* by taking the stairs on floor 8 (`LAST_FLOOR`). There is no floor 9 and no boss. The

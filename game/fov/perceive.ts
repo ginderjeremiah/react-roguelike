@@ -43,8 +43,14 @@ export type CreatureSense =
   | { readonly kind: 'seen'; readonly at: Position }
   | { readonly kind: 'felt'; readonly at: Position };
 
-/** One turn's perception. Derived from the map and `Vision`; never stored. */
-export type Perception = {
+/**
+ * One turn's worth of what the player perceived: the terrain, and the creatures.
+ *
+ * Named for the turn because that is its whole lifetime — it is derived from the map and `Vision`
+ * every turn and **never stored**, and the one part of it that outlives the turn does so by being
+ * folded into `Vision.remembered` rather than by being kept (`vision.ts`).
+ */
+export type TurnPerception = {
   /** Terrain perceived this turn: the lit field, or the tiles within touch. */
   readonly terrain: TileSet;
   /** Row-major. Empty is a perfectly ordinary answer. */
@@ -62,7 +68,7 @@ export function perceive(
   vision: Vision,
   origin: Position,
   creatures: readonly Position[],
-): Perception {
+): TurnPerception {
   switch (vision.shutter) {
     case 'open': {
       const terrain = computeLitField(grid, origin);

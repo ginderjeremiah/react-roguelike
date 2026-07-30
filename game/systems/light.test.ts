@@ -47,7 +47,7 @@ import { ACTION_COST, chargeActor } from './schedule';
 import { resolveTurn } from './turn';
 
 /**
- * The seam: the real `Perception`, the phases built on it, and the free action.
+ * The seam: the real `LightQuery`, the phases built on it, and the free action.
  *
  * ═══════════════════════════════════════════════════════════════════════════════════════════════
  * THE ASSERTION THIS FILE EXISTS FOR IS THE SYMMETRY ONE
@@ -69,7 +69,7 @@ import { resolveTurn } from './turn';
  * ═══════════════════════════════════════════════════════════════════════════════════════════════
  */
 
-// --- the real Perception -------------------------------------------------------------------------
+// --- the real LightQuery ------------------------------------------------------------------------
 
 /**
  * 13 wide, 7 tall, with the player at (3, 5) — off the diagonal, and `(5, 3)` is a different tile
@@ -104,7 +104,7 @@ function flip(state: LanternWorld): LanternWorld {
 describe('the light query handed to game/entities/', () => {
   it('answers false from everywhere while shuttered, including the tile you stand on', () => {
     // Darkness is the mechanic. A query that answered `true` while shuttered would delete the
-    // game's central decision rather than change a number (`entities/perception.ts`).
+    // game's central decision rather than change a number (`entities/contact.ts`).
     const scene = parseScene(ROOM);
     const at = origin(scene);
     const light = lanternLight(scene.grid, lanternOn(scene.grid, 'shuttered'), at);

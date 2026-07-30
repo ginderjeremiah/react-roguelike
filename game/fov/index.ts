@@ -29,7 +29,7 @@
 
 export { computeSensedField, senseCreatures } from './embersense';
 export { computeLitField } from './light';
-export { perceive, type CreatureSense, type Perception } from './perceive';
+export { perceive, type CreatureSense, type TurnPerception } from './perceive';
 export { shadowcast } from './shadowcast';
 export {
   emptyTileSet,

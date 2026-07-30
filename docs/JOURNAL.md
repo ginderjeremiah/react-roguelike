@@ -34,6 +34,50 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-08-05 — `Perception` was two types; now it is `TurnPerception` and `LightQuery` (#36)
+
+**Did:** Pure rename, no behaviour change, no `RULES_VERSION` bump. `game/fov/perceive.ts`'s
+`Perception` (the *result* of perceiving: `{ terrain, creatures }`) is now **`TurnPerception`**;
+`game/entities/perception.ts`'s `Perception` (the injected *question* `{ isPlayerLightVisibleFrom }`)
+is now **`LightQuery`**, and that file is now `game/entities/contact.ts`. The aliasing import in
+`game/systems/light.ts` (`type Perception as LightQuery`) is gone. Every parameter of the injected
+query — in `behaviour.ts`, `actors.ts`, `combat.ts`, `scenario.ts` — is named `light` rather than
+`perception`. The function `perceive` and the file `game/fov/perceive.ts` keep their names.
+
+**Why:** #19 builds `render/`, the first module that genuinely wants to name both types in one file,
+and an aliased import is a workaround that scales to exactly one consumer. `LightQuery` is the name
+`light.ts` had already chosen for itself, and it makes `game/entities/`'s rule — light is injected,
+there is no lighting model in here — legible from the type. `TurnPerception` says the thing a call
+site cannot otherwise see: it is one turn's worth, recomputed every turn, never stored; the only
+part that outlives the turn does so by being folded into `Vision.remembered`.
+
+**`game/entities/perception.ts` → `contact.ts`, and `game/fov/perceive.ts` left alone.** The fov file
+is named after the function it exports, which keeps its name, and that is this directory's
+convention (`touch.ts`, `embersense.ts`, `shadowcast.ts`). The entities file, after the rename,
+contained the word "perception" nowhere but in its own filename — a grep for the old confusion would
+have landed on a file that no longer says it. `contact.ts` is what it is about: `hasContact` and the
+one injected half of contact.
+
+**Learned:** "the tests still pass" is not evidence of a pure rename, because a rename that changed
+behaviour would still be internally consistent. It was established instead by hashing the **full
+JSON of every intermediate `GameState`** — rng, floor grid, tile-set flags, actors, minds and all —
+over a 64-run corpus (two scripted whole runs, two death runs, 60 generated logs) before and after,
+and getting the same digest. The instrument was checked first by flipping `CINDER.attack` from 2 to
+3 and watching the digest move: a comparison harness that cannot fail proves nothing.
+
+**No digest value is quoted here, deliberately.** The harness was temporary and is not in the tree,
+so the number has no producer — and the two reports of it disagreed, which is on its own enough to
+disqualify it. A precise-looking figure nobody can re-derive is the failure the 2026-08-04 entry
+records fixing, and it does not get to come back one entry later. What *is* reproducible, and what
+was checked independently before this merged: `game/core/replay.test.ts` is not in the diff at all,
+so its two pinned whole-run fixtures are ground truth recorded before the rename — and they
+reproduce exactly, digests that cover rng words, creature positions, minds, embers, fuel and terrain
+memory across a full run and a death. `RULES_VERSION` is untouched.
+
+**Next:** #19 (`render/`) is unblocked and is the reason this was done now. #32 has a
+`game-designer` ruling on the issue — **do not build auto-travel in M1** — which needs landing as an
+ADR before #20 starts; #20 needs one constraint from it, not a feature.
+
 ## 2026-08-04 — Archivist: 175 lines of journal were filed into the template, and M0 never closed
 
 **Did:** End-of-session reconciliation after #18 merged (`ce47f6f`). No code changed. Docs, ADRs and

@@ -155,6 +155,123 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-08-01 — `game/fov/`: symmetric shadowcasting, touch, ember-sense, dark adaptation (#14)
+
+**Did:** Built `game/fov/` — the whole of GDD §4's vision table. Eight modules, 152 new tests
+(512 total). Not wired into `GameState`; that is #18, and it is an outcome-changing change that
+needs a `RULES_VERSION` bump. Also fixed the two comments in `map/grid.ts` that #25 invalidated.
+
+The surface: `perceive(grid, vision, at, creaturePositions)` returns the terrain field and the
+creature list for one turn, dispatching on the shutter; `Vision` holds the three things that
+survive a turn (shutter, current sense radius, remembered terrain) and its transitions are
+`closeShutter` / `openShutter` / `adaptVision` / `remember`.
+
+**The shadowcasting variant matters and it is not the usual one.** This is Albert Ford's
+**symmetric** recursive shadowcasting, not the classic Björn Bergström variant most roguelikes
+ship. They differ in one line — whether a floor tile is revealed because the scan reached it, or
+only when its *centre* lies inside the wedge — and that line is the difference between an FOV that
+is symmetric and one that is not. The classic variant is asymmetric around wall corners, which is
+exactly the bug this repo's own journal format warns about: a creature seeing the player through a
+wall the player cannot see through. Symmetry is now a property test over every passable pair on
+twelve generated floors, and it passed first time, which is the evidence that picking the variant
+was the right move rather than patching afterwards.
+
+Cost of symmetry: a few tiles behind a corner that a "generous" FOV would light stay dark. Correct
+trade — §4's promise is that the player can state the rule.
+
+**Chebyshev falls out; there is no radius check anywhere.** A wedge scan's `depth` *is* the major
+axis and every tile in a row has `|column| <= depth`, so `depth <= radius` **is**
+`max(|dx|,|dy|) <= radius`. The #25 ruling predicted this and it held exactly. Anyone adding a
+`chebyshevDistance(...) <= radius` to `shadowcast.ts` is either writing dead code or quietly
+turning the square into a disc.
+
+**Slopes are exact fractions, not floats.** IEEE-754 doubles would have been deterministic (so
+replays would still reproduce), but every comparison in shadowcasting sits *on* a wedge boundary —
+all slopes have the form `(2c-1)/2d` — so rounding decides visibility at exactly the tiles that
+matter. Comparing `num/den` pairs by cross-multiplication keeps it exact with integers under a
+thousand. The lit shape is the one the geometry says it is, not the one the rounding picked.
+
+**Ember-sense is separated structurally, not by comment.** Two defences, because "keep them
+separate" is the rule most likely to be lost to a future tidy-up: `senseCreatures(origin, radius,
+creatures)` **takes no grid**, so it physically cannot consult a wall — the wall-piercing rule is a
+property of the signature; and a test reads `embersense.ts` and fails if it ever imports
+`shadowcast`, `light`, or mentions `blocksLight`.
+
+**Containment is property-tested in both directions, which is the point.** "When `senseRadius >= 4`,
+every lit tile is inside the sensed region" holds from every standable tile of ten generated
+floors (>1000 origins), *and* is genuinely violated at radius 1, 2 and 3 for more than half of
+them. Testing only the first half would have passed just as well if the adaptation ramp had been
+deleted. There is also a version stated the way the player feels it: every creature a flash could
+wake was already in the felt list.
+
+**Learned — mutation testing, 51 breaks, 49 killed, and the two survivors are both provably
+equivalent.** Four survived the first pass and three were real gaps:
+
+- *Walls are revealed even when the wedge only clips them* was asserted nowhere. The room pictures
+  all had wall centres inside the wedge, so the mutation stayed green. Without that rule the
+  boundary of a lit region is a ragged edge of half-drawn walls and a room stops reading as a room.
+  Now pinned on a tile reached through a doorway aperture whose centre is outside the cone.
+- *Seen creatures were not sorted.* The order-independence test only exercised the shuttered path.
+  Not a determinism bug in itself — both runs agree — but the entity layer will hand this list over
+  in actor id order, and §2 breaks scheduler ties by actor id, so it is the same shape of leak the
+  map generator had with `caches`/`creatures`.
+- *`hasTile` without its bounds check* survived by luck: the test set's members happened not to be
+  where a row-wrap lands. `(3, 0)` on a 3-wide grid is `(0, 1)`, a real tile — a lit tile appearing
+  on the far side of the map. Now tested with members placed exactly where the wrap goes.
+
+The two remaining survivors are equivalent mutants and are documented as such in the source, so a
+future run does not re-investigate them:
+
+- *Off-grid is opaque* → transparent. Argued to be unobservable, then **checked**: flipping the
+  predicate and comparing 26,400 fields (20 floors x every tile x eight radii) gave a byte-identical
+  dump. Opaque is kept only because it stops the scan sooner.
+- *Dropping the `blocksEmberSense` call.* The predicate is constant `false`, so nothing it could
+  change is reachable and no test can kill it. The call stays because that predicate is where the
+  rule lives; the assertion that would actually catch a change is a table test pinning
+  `blocksEmberSense` across every tile kind, which is now there.
+
+**Benchmark: 0.0036ms per lit field, ~0.2% of the 2ms turn budget.** No performance problem to
+report — unlike the level generator, which was 9x over on the day its benchmark was written. The
+budget is set at **0.05ms**, not 0.2ms, deliberately: a threshold satisfied by a fifty-fold
+regression is a benchmark that enforces nothing. Dark perception is 0.0006ms; a floor-wide radius-20
+cast is 0.0039ms, so nothing is quadratic in the radius.
+
+**Two design readings I had to make, both flagged for a designer rather than assumed:**
+
+1. **Ember-sense does not operate while the shutter is open.** §4's table assigns creature
+   perception per vision state — lit shows creatures in the lit region, shuttered gives ember-sense
+   — so opening the shutter trades the wall-piercing sense for an identifying one. This is what
+   makes containment mean something ("you feel what is there *before* you flash"). If the intent
+   was that ember-sense keeps running underneath the light, it is a two-line change in
+   `perceive.ts`.
+2. **§4 never says which way the shutter starts a run.** `createVision(grid, shutter)` therefore
+   requires the caller to say, and starts fully dark-adapted either way, because the ramp is
+   triggered by the *act* of shuttering and none has happened. #18 will have to answer this.
+
+Smaller calls, all documented at their definition: shuttering an already-shut shutter does **not**
+restart the ramp (a stray no-op command must not blind the player for four turns); adaptation only
+advances while shuttered (unobservable either way, since shuttering resets to the floor — so the
+version that matches the fiction wins); and memory is union-only and returns the same `Vision`
+object when nothing new was perceived.
+
+**Watch:**
+- `Vision` is not in `GameState` yet. `state-shape.test.ts` asserts it survives
+  `findFieldDivergence` and a JSON round trip, which is the thing the divergence comparator's own
+  journal entry predicted `game/fov/` would get wrong with a `Set<TileIndex>`. It did not.
+- The lit-shape assertions are ASCII pictures. They are ground truth *by definition* — generated
+  from this implementation — so they prove the shape has not changed, not that it is right. The
+  claims they encode are also stated separately as coordinates so a deliberate re-pin does not
+  silently discard them.
+- The FOV benchmark is timing, so it can fail for reasons that are not about the code. Say so here
+  rather than raising the number.
+- `tests/unit/support/ascii-grid.ts` is new test-support infrastructure (parse a scene, print a
+  field). It is outside `game/` on purpose and has its own instrument tests — a printer that
+  ignored its flags would make every picture assertion vacuous.
+
+**Next:** #18 wires `Floor` + `Vision` into `GameState` and the movement/shutter commands, which is
+where the two design readings above have to be settled and where `RULES_VERSION` gets bumped. #16
+(entities) supplies the creature positions `perceive` already takes.
+
 ## 2026-08-01 — `game/entities/`: actors, deterministic combat, and the Cinder (#16)
 
 **Did:** Built `game/entities/` (actor model, Cinder behaviour, pathing, the lighting seam),
@@ -262,6 +379,7 @@ implemented, ember *collection* is not — `world.embers` accumulates and nothin
 fuel exists (#17). And the pathing distance field is recomputed per creature per declaration: 0.095ms
 for a full six-creature turn against a 2ms budget, benchmarked in `actors.bench.test.ts`, but that
 is the number that moves if pathing ever accounts for other actors.
+
 
 ## 2026-07-31 — The vision metric is Chebyshev; ember-sense drops 6 → 5 (#25)
 

@@ -180,17 +180,33 @@ export function blocksEmberSense(tile: Tile): boolean {
 /**
  * Manhattan (step) distance — the number of 4-directional moves between two tiles.
  *
- * This is the game's unit of distance: movement and attacks are 4-directional (GDD §3), so "within
- * N tiles" means "within N moves". Used for the creature/entrance spawn exclusion.
+ * This is the game's unit of *movement*: movement and attacks are 4-directional (GDD §3), so
+ * "within N tiles" means "within N moves". Used for the creature/entrance spawn exclusion.
  *
- * Note that GDD §4 has **not** yet settled which metric measures the *vision* radii — see issue
- * #25. Do not assume this one applies to light; Manhattan light would render as a diamond.
+ * **Not the metric for anything the player sees.** GDD §4 settled that (issue #25) and drew the
+ * line as: *anything the player reads as a region on the screen is Chebyshev; anything counted as
+ * steps of movement is Manhattan*. Light is a field and is measured by looking at it, so it is
+ * `chebyshevDistance`; the spawn exclusion asks "how many turns before that is on me", so it is
+ * this one. Manhattan light would render as a diamond and leave room corners dark for no visible
+ * cause.
  */
 export function manhattanDistance(a: Position, b: Position): number {
   return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
 }
 
-/** Chebyshev (king-move) distance. Not used by any rule; kept for measurement and debugging. */
+/**
+ * Chebyshev (king-move) distance — `max(|dx|, |dy|)`, a square.
+ *
+ * **The metric for every vision radius** (GDD §4, issue #25): the lit radius, the dark touch
+ * radius, ember-sense, and every value the dark-adaptation ramp passes through. `game/fov/` is the
+ * consumer. Two consequences worth knowing before changing anything here: "radius 1 is the 8 tiles
+ * you can touch" is only true under this metric, and light and ember-sense sharing it is what makes
+ * the lit region a subset of the sensed one — §4's "everything a flash can wake, you can already
+ * feel".
+ *
+ * The shadowcaster does not call this: a wedge scan's depth *is* the major axis, so it produces the
+ * square directly. This is the metric for the box scans and for asserting the shape from outside.
+ */
 export function chebyshevDistance(a: Position, b: Position): number {
   return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
 }

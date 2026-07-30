@@ -52,6 +52,109 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-07-30 — Core types, `step()`, and the replay-determinism tripwire (#3)
+
+**Did:** Built `game/core/` — `GameState`, `Command`, `step(state, command)`, `RunRecord` +
+`replay()`, and the replay-determinism property test the whole testing strategy rests on. Six
+modules, 90 new tests (173 total).
+
+**Scope, deliberately narrow.** The design is under owner review (ADR-0007 / #8 proposes reworking
+the concept), so `game/core/` models **no game rules at all**: no map, no actors, no light, no
+fuel. Two scaffolding commands exist — `wait` (no draw) and `roll` (exactly one draw) — because the
+machinery cannot be tested honestly without one command that consumes randomness and one that does
+not. They are labelled as scaffolding in three places and live in their own file so replacing them
+is a delete, not a rewrite. Everything else — purity, generator threading, the replay contract,
+divergence reporting, the version policy — is meant to survive whatever design lands.
+
+**`RunRecord.version`.** The canonical value is `RULES_VERSION` in `game/core/replay.ts`; the
+policy (what counts as an outcome-changing change, and the bump procedure) is in that file's
+header, with `ARCHITECTURE.md` pointing at it rather than restating it. `replay()` *throws* on a
+version mismatch — replaying an old record under new rules produces a plausible state that is not
+the run that was recorded, which is worse than an error because it is believable. `runCommands()`
+is the deliberate escape hatch. Each bump requires a `RULES_VERSION_LOG` line, and a test enforces
+that, because an unexplained bump is how a diverging fixture gets "fixed" by updating its expected
+values.
+
+**Divergence reporting, since a bare "states differ" was called out as the thing to avoid.**
+`findRunDivergence` steps two runs and reports the first command index, the command, the turn, and
+the field path (`rng.s2`) with both values rendered. Object keys are **sorted** before the walk:
+which divergence is reported "first" would otherwise depend on property insertion order, so the
+same failure could name a different field after an unrelated refactor moved a line — a diagnostic
+that changes its story is worse than none, because it gets trusted. Comparison uses `Object.is`,
+so `NaN` equals itself (otherwise every state containing one reports a phantom divergence) and `0`
+does not equal `-0` (a genuine difference: `-0` does not survive JSON, so such a state cannot be
+pinned as a fixture).
+
+**Learned — mutation testing changed the design twice, not just the tests.** 43 deliberate breaks,
+checking each time that the *intended* test failed rather than merely that something did.
+
+1. **A mutation exposed that command order was completely unobservable.** `wait` originally passed
+   the previous roll result through, and with that, sorting or reversing an entire command log
+   changed *nothing*: a `roll` consumes the same draw wherever it sits in the log, and `turn`
+   counts commands regardless of order. Replay machinery that cannot notice its command log being
+   shuffled is not testing much. Fixed in the model, not the test: `lastOutcome` is now the result
+   of the command *just resolved*, so `wait` clears it. Reordering is now observable at every
+   position, and `runCommands` sorting its input is caught by four tests.
+2. **One mutation survived the entire suite: dropping `rng` from the per-command comparison** —
+   precisely the case the issue warned about, where a run has already diverged but the difference
+   has not surfaced in the visible state yet. It survived because it was *untestable through the
+   record API*: no pair of `wait`/`roll` logs can differ in the generator alone, since anything
+   that changes the draw count also changes `lastOutcome`. The fix was structural — the comparator
+   now takes two **state sequences** (`findStateSequenceDivergence`), with `findRunDivergence` a
+   thin wrapper, so a test can hand it two trajectories that are identical in `turn` and
+   `lastOutcome` and differ only in generator position. Four variants of the projection bug are now
+   killed. **The lesson: when a mutation survives, ask whether the code shape makes the bug
+   unreachable by any test, not just whether you forgot to write one.**
+
+Also caught by mutation testing: a test asserting "a rejected command consumes no entropy" that
+*cannot fail* — with a threaded immutable `Rng`, a half-consumed draw is discarded with the
+exception no matter where the throw happens. Replaced with the assertion that is real: the error
+comes from `step`'s own validation naming the command, not from inside `int()` talking about spans
+and safe integers. And the corpus itself is now measured (both command kinds present, seeds vary,
+empty logs and non-ASCII seeds appear), because a generator that quietly degenerated to "always
+`wait`" would leave all seven properties green and testing nothing, with no other signal.
+
+**On the not-mutating-input test: both a deep freeze and a structural snapshot,** because they fail
+differently. The freeze throws *at the offending line* (ES modules are strict mode), so the stack
+trace names the mutation; a snapshot only tells you afterwards that something changed, which in a
+simulation with a map and forty actors is a bisect. The snapshot is the backstop for what freezing
+cannot do — `Object.freeze` does not protect `Map`/`Set` contents — and proves the freeze is not
+vacuous. Every state in a 200-command run is frozen, not just the first, because the mistake that
+actually bites is turn 40 writing through a reference inherited from turn 12, which retroactively
+rewrites history.
+
+**Type decisions:** `RunRecord.commands` is `readonly Command[]`, not the `Command[]` written in
+ARCHITECTURE.md — same runtime shape, but a mutable array on a record that gets replayed twice and
+compared invites the first replay editing what the second reads. `COMMAND_KINDS` is derived from a
+`Record<Command['kind'], true>` and sorted, so adding a variant without listing it is a compile
+error; the keys are deliberately written out of order so the `.sort()` is doing observable work
+that a test can catch being deleted. `step` throws on a malformed command (a `sides: 0`, an unknown
+`kind` from a parsed save) — but whether an *illegal-but-well-formed* action like walking into a
+wall costs a turn is a design question, and nothing here presumes an answer.
+
+**Next:** #4/#8 — the owner's ruling on ADR-0007 unblocks M1. When the design lands, replacing the
+`Command` union and `lastOutcome` is the intended change, and it is a `RULES_VERSION` bump to 2
+with the pinned run in `replay.test.ts` re-recorded. Nothing else in `game/core/` should need to
+move.
+
+**Watch:** Four things.
+
+- The **pinned run** in `replay.test.ts` fails if the rules or the generator change. That is
+  deliberate. If a session sees it red, the question is "did I mean to change the rules", not "how
+  do I update the constants".
+- **The replay-identity property is nearly tautological while `step` stays pure** — it is the alarm
+  for the day someone reaches for a clock or a `Set` iteration, not a proof of anything today. The
+  properties doing real work are the **draw budget** anchor (catches a conditional draw, which is
+  perfectly deterministic and still poisons every seed) and the seed/command sensitivity pair
+  (catches the degenerate implementations that would make everything else pass vacuously).
+- **`drawCost` in the test is a second, independent statement of the draw-count contract.** It must
+  be updated by hand when a command is added — the exhaustive switch makes that a compile error, on
+  purpose. Do not "DRY" it against `step`; a specification that reads its answer from the
+  implementation asserts nothing.
+- `step()` currently costs **~0.13µs**, four orders of magnitude under the 2ms budget, which means
+  precisely nothing yet — it does almost nothing. No benchmark committed; per ARCHITECTURE.md the
+  ones that matter are FOV and level generation, and neither exists.
+
 ## 2026-07-30 — Accepted ADR-0007; fixed the escalation rule that misrouted it
 
 **Did:** Accepted ADR-0007, amended the `VISION.md` concept to describe the game as designed
@@ -91,6 +194,7 @@ rests on arithmetic, not evidence.* Light reveals ~20 tiles for 4 fuel; ember-se
 ~20 turns. If that reasoning is wrong the lantern is still a failure button and the sharpening
 failed. The M2 playtest is the test, and GDD §12's positional-tactics fallback is the response —
 subtract fuel, do not add a mechanic.
+
 
 ## 2026-07-29 — Seeded RNG: xoshiro128**, fixed draw counts, 76 tests (#2)
 

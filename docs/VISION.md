@@ -38,8 +38,13 @@ curve.
 
 ## The concept seed
 
-*Status: proposed. Milestone 0 exists to validate or replace this. It is deliberately written as a
-concrete thing to attack rather than a vague space to explore.*
+*Status: proposed, and **superseded in practice** — the M0 design review kept the skeleton below but
+changed what darkness means. [ADR-0007](decisions/0007-emberdepth-sharpened.md) proposes the
+amendment and is awaiting the owner; `docs/GDD.md` §1 is the accurate description of the game until
+then. Do not build from the bullets below without reading it.*
+
+*Original text, deliberately written as a concrete thing to attack rather than a vague space to
+explore:*
 
 **Working title: Emberdepth.**
 

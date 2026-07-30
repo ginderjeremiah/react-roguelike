@@ -199,6 +199,70 @@ build and E2E pass — but **no native build has ever been run** on this project
 was doing something implicit on iOS/Android it will not surface until the M4 native verification
 pass. `expo-image` in particular is sometimes pulled in indirectly.
 
+## 2026-07-29 — M0 design review: Emberdepth survives, but not as written
+
+**Did:** Attacked the *Emberdepth* concept (issue #4), kept its skeleton, and replaced its central
+claim. Rewrote `docs/GDD.md` — §1-§6, §9, §10 and a new §12 are now specified well enough to
+implement M1 without inventing design mid-code. Wrote ADR-0007 (since **Accepted** — see the 07-30 entry) because
+the change contradicts the concept seed in `VISION.md`, and annotated that seed so nobody builds
+from the stale bullets.
+
+**Why:** The seed's structure was "light costs fuel and gives information; dark is free and gives
+none." Each option is one-dimensional, and a choice between two scalars is a threshold rule, not a
+decision — "shutter the lantern unless you are lost." Dark also dominated on *both* fuel and safety
+(things stay dormant), so the lantern was a failure button. And the turns spent crawling blind with
+nothing to read are precisely the autopilot turns Pillar 1 forbids.
+
+The four "open questions" in GDD §1 turned out to be four symptoms of that one flaw, which is why
+none of them had an answer inside the seed. Three changes fix all four:
+
+1. **Ember-sense.** Shuttered, you see the *position* of every living thing within radius 6,
+   **through walls** — no identity, no health, no intent. Lit, you see terrain, items, creatures
+   and intent within radius 4, blocked by walls. Light shows you stone; dark shows you souls.
+   Neither state is blind, and the asymmetry (sense passes walls, light does not) means darkness
+   tells you something light physically cannot.
+2. **Fuel is earned by killing.** Creatures are made of ember. This is what makes the player *want*
+   to wake something; without it light is strictly defensive.
+3. **The dormant strike** — double damage on a sleeping creature. Darkness gets a capability rather
+   than a discount, and the only free kills in the game exist only unlit.
+
+The second axis the wager needed was **HP**, which already existed — fighting converts HP into fuel,
+light converts fuel into HP preservation. Adding a heat/sanity/noise bar was the obvious move and
+the wrong one.
+
+**Learned:** The instinct to answer "dark needs an upside" with a *new* upside is what produces
+bloat. The upside that worked was already implied by the fiction (things that glow in a lightless
+ruin) and cost one integer of state. Similarly, "the wager needs a second axis" was true and needed
+no new resource. Both times, subtracting or re-reading what existed beat adding.
+
+Also: several candidate mechanics died on Pillar 3 rather than on fun. "Dark costs double action
+time" was the first fix for the flatness and is genuinely richer than "dark hides intent" — it lost
+because *telegraphing* it ("this enemy acts twice before you do") needs UI on a 6-inch screen that a
+missing intent marker does not. Brightness-encoded health in ember-sense died on §11 (colour cannot
+be the sole carrier of meaning). Worth remembering that the accessibility requirements are cutting
+real mechanics, which is what they are for.
+
+Replacement was seriously considered. The runner-up was pure positional tactics with no resource at
+all (Hoplite-shaped); it lost on Pillar 4 — geometry puzzles produce "I played well", not "the
+lantern died on floor six" — and it is recorded in GDD §12 as the **designated fallback**, so that
+if M2 reports the wager is hollow the response is to strip fuel rather than bolt on another system.
+
+**Next:** M0 #1/#2/#3 are unaffected and remain the implementation entry points. M1 can now be
+planned against a real spec: 11×15 chambered-ruin generation (§5), the commit-one-turn-ahead
+scheduler (§2), 4-directional bump combat with the dormant strike (§3), and the Cinder (§6). The
+owner needs to accept or reject ADR-0007 before `VISION.md` is amended — the GDD is authoritative
+in the meantime.
+
+**Watch:** Three named risks with cut signals in the GDD. *Re-dormancy* (creatures return to sleep
+after 8 turns of no contact) is the most likely to degenerate into "retreat and press wait"; the fix
+is a distance requirement, not a fuel tax. *Dark adaptation* (ember-sense shrinks to 2 on shuttering
+and recovers +1/turn) is the most likely to read as a bug rather than a mechanic — if the playtester
+cannot explain why the distant dots vanished, it is presentation-broken, not design-broken. And the
+whole "dark is not dominant" argument rests on arithmetic — light reveals ~20 tiles for 4 fuel,
+touch reveals 8 for ~20 turns — which is reasoning, not evidence. Every fuel number in the GDD is
+marked **(tuning)** for that reason; the three economy invariants in §4 are the part that is design.
+
+
 ## 2026-07-29 — Review caught the determinism contract was never enforced
 
 **Did:** Fixed three blocking bugs the `code-reviewer` agent found in the PR #5 scaffolding, all in

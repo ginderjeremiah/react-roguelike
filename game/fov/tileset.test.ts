@@ -23,6 +23,11 @@ import {
 const { grid } = parseScene(['...', '...', '...']);
 const OTHER = parseScene(['....', '....']).grid;
 
+/** An open grid of the given shape. Only `parseScene` is available here, so build the rows. */
+function openGrid(width: number, height: number) {
+  return parseScene(Array.from({ length: height }, () => '.'.repeat(width))).grid;
+}
+
 describe('construction', () => {
   it('starts empty and sized to the grid', () => {
     const set = emptyTileSet(grid);
@@ -155,5 +160,53 @@ describe('set algebra', () => {
     expect(() => unionTileSets(a, wrong)).toThrow(/same shape/);
     expect(() => tileSetContains(a, wrong)).toThrow(/same shape/);
     expect(tileSetsEqual(a, wrong)).toBe(false);
+  });
+
+  it('catches a mismatch in either dimension alone', () => {
+    // Found in review. The fixture above differs in BOTH width and height, so a shape check
+    // reduced to comparing width only survived — and would then read past the end of the shorter
+    // flag array. One dimension at a time is the assertion that actually pins it.
+    const sameWidth = emptyTileSet(openGrid(3, 4));
+    expect(() => unionTileSets(a, sameWidth)).toThrow(/same shape/);
+    expect(tileSetsEqual(a, sameWidth)).toBe(false);
+
+    const sameHeight = emptyTileSet(openGrid(4, 3));
+    expect(() => unionTileSets(a, sameHeight)).toThrow(/same shape/);
+    expect(tileSetsEqual(a, sameHeight)).toBe(false);
+  });
+});
+
+describe('decoding indices on non-square sets', () => {
+  /**
+   * Found in review, and it is the same systematic blind spot as the touch-field transposition:
+   * every set this file exercised was 3×3, so `positionAt` decoding with `set.height` instead of
+   * `set.width` survived all 629 tests.
+   *
+   * `tileSetPositions` is exported from `game/fov/index.ts` and is the only way out of a
+   * `TileSet` — it is what `render/` will iterate. On an 11×15 set holding only (2, 9), the
+   * mutant reports {x: 11, y: 6}: off the grid entirely.
+   */
+  it('decodes row-major on a wide set', () => {
+    const wide = tileSetOf(openGrid(11, 15), [
+      { x: 2, y: 9 },
+      { x: 10, y: 0 },
+      { x: 0, y: 14 },
+    ]);
+    expect(tileSetPositions(wide)).toEqual([
+      { x: 10, y: 0 },
+      { x: 2, y: 9 },
+      { x: 0, y: 14 },
+    ]);
+  });
+
+  it('decodes row-major on a tall set', () => {
+    const tall = tileSetOf(openGrid(4, 9), [
+      { x: 3, y: 1 },
+      { x: 0, y: 8 },
+    ]);
+    expect(tileSetPositions(tall)).toEqual([
+      { x: 3, y: 1 },
+      { x: 0, y: 8 },
+    ]);
   });
 });

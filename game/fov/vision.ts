@@ -134,6 +134,10 @@ export function adaptVision(vision: Vision): Vision {
   if (vision.senseRadius >= EMBER_SENSE_RADIUS) return vision;
   return {
     shutter: vision.shutter,
+    // The Math.min is unreachable defence: the `>= EMBER_SENSE_RADIUS` guard above already
+    // bounds this, so dropping the cap is a third provably-equivalent mutant alongside the two
+    // in the module headers. Kept because it makes the ceiling local and obvious, and noted here
+    // so a later mutation run does not spend time re-deriving that it is harmless.
     senseRadius: Math.min(vision.senseRadius + ADAPTATION_STEP, EMBER_SENSE_RADIUS),
     remembered: vision.remembered,
   };

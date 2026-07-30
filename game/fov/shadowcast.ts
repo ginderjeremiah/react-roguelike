@@ -22,6 +22,14 @@
  * The cost of symmetry is that a few tiles behind a corner that a "generous" FOV would light stay
  * dark. That is the correct trade for this game: §4's promise is that the player can state the rule.
  *
+ * The error is **not** one-directional, though, and an earlier version of this comment implied it
+ * was. Shadowcasting approximates an occluder's angular width by its width at its own centre row,
+ * so it also lights some tiles a strict centre-to-centre raycast would call blocked. Measured over
+ * six generated floors at radius 4, ~12% of lit floor-tile relations have a centre-to-centre
+ * segment clipping the interior of an opaque tile, up to a quarter of the segment's length. This
+ * is Ford's algorithm exactly and it stays symmetric — which is the property that matters — but do
+ * not describe it as conservative.
+ *
  * ## Why there is no radius check
  *
  * The metric is Chebyshev (issue #25, GDD §4): `max(|dx|, |dy|) <= r`. A quadrant scan walks

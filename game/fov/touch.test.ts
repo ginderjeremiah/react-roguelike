@@ -82,3 +82,70 @@ describe('computeTouchField feels the 8 tiles around you', () => {
     expect(() => computeTouchField(scene.grid, { x: 1, y: 1 }, 1.5)).toThrow(/non-negative/);
   });
 });
+
+describe('non-square grids, origin off the diagonal', () => {
+  /**
+   * Found in review, and the gap was systematic rather than a single missing case: **every grid
+   * this suite pinned positively was square, or had the origin on `x == y`.** Both conditions make
+   * a coordinate transposition invisible — a 3×3 block centred on the diagonal transposes onto
+   * itself, and on a square grid `tileIndex(g, x, y)` and `tileIndex(g, y, x)` are both in bounds.
+   *
+   * With `flags[tileIndex(grid, y, x)] = true` substituted, all 629 tests passed. On the real
+   * 11×15 floor a shuttered player at (2, 9) was handed a 3×3 block at the opposite end of the
+   * map — and dark is the state the player spends most turns in, with the touch field the only
+   * terrain they get.
+   *
+   * The grid below is 7 wide × 4 tall and the origin is at (5, 2): non-square, off-diagonal, and
+   * the transposed index (2, 5) is out of bounds vertically so it silently writes nothing.
+   */
+  it('feels the right nine tiles on a wide grid', () => {
+    const scene = parseScene([
+      '#######',
+      '#.....#',
+      '#....@#',
+      '#######',
+    ]);
+
+    const felt = computeTouchField(scene.grid, origin(scene), DARK_TOUCH_RADIUS);
+
+    expect(tileSetPositions(felt)).toEqual([
+      { x: 4, y: 1 },
+      { x: 5, y: 1 },
+      { x: 6, y: 1 },
+      { x: 4, y: 2 },
+      { x: 5, y: 2 },
+      { x: 6, y: 2 },
+      { x: 4, y: 3 },
+      { x: 5, y: 3 },
+      { x: 6, y: 3 },
+    ]);
+  });
+
+  it('feels the right nine tiles on a tall grid', () => {
+    // The transpose of the case above: 4 wide × 7 tall, origin (1, 5). Both orientations, because
+    // a bug that clamps rather than transposes would survive only one of them.
+    const scene = parseScene([
+      '####',
+      '#..#',
+      '#..#',
+      '#..#',
+      '#..#',
+      '#@.#',
+      '####',
+    ]);
+
+    const felt = computeTouchField(scene.grid, origin(scene), DARK_TOUCH_RADIUS);
+
+    expect(tileSetPositions(felt)).toEqual([
+      { x: 0, y: 4 },
+      { x: 1, y: 4 },
+      { x: 2, y: 4 },
+      { x: 0, y: 5 },
+      { x: 1, y: 5 },
+      { x: 2, y: 5 },
+      { x: 0, y: 6 },
+      { x: 1, y: 6 },
+      { x: 2, y: 6 },
+    ]);
+  });
+});

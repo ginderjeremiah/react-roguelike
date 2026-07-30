@@ -142,6 +142,30 @@ the same bump onto an *empty* tile threw. The loud failure was on the harmless b
 silent one on the dangerous branch, and `bump` is what #18's tap handler will call with a raw tap
 target.
 
+**Review addendum:** the reviewer found a *systematic* blind spot rather than a single missing
+test — **every grid this suite pinned positively was square, or had the origin on `x == y`.** Both
+conditions make a coordinate transposition invisible: a 3×3 block centred on the diagonal
+transposes onto itself, and on a square grid `tileIndex(g, x, y)` and `tileIndex(g, y, x)` are both
+in bounds.
+
+Two shipped-code transpositions therefore survived all 629 tests. `computeTouchField` writing
+`tileIndex(grid, y, x)` handed a shuttered player at (2, 9) on the real 11×15 floor a 3×3 block at
+the opposite end of the map — and dark is the state the player spends most turns in, with the touch
+field the only terrain they get. And `positionAt` decoding with `set.height` reported {x: 11, y: 6}
+for a tile at (2, 9), off the grid entirely; `tileSetPositions` is the only way out of a `TileSet`
+and is what `render/` will iterate.
+
+The one non-square scene that called the touch field with assertions put the origin at (3, 3),
+where the transposition is a no-op, and compared the result against another call to the same
+function — mutant against mutant.
+
+Generalizing: **a square fixture cannot catch an axis swap, and a fixture on the diagonal cannot
+catch a transposition.** Any module indexing a 2-D grid needs at least one non-square, off-diagonal
+case, in both orientations — a bug that clamps rather than transposes survives only one of them.
+
+Also fixed: the shape check's only mismatch fixture differed in *both* dimensions, so a width-only
+comparison survived and would then read past the end of the shorter flag array.
+
 **Watch:** known risks, deferred cleanup, things that will bite later. Omit if none.
 ```
 

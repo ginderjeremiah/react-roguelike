@@ -193,6 +193,20 @@ export function bump(
   perception: Perception,
 ): ActorWorld {
   const actor = actorById(world, actorId);
+  if (!isAdjacent(actor.at, to)) {
+    // Enforced here, not only in resolveMove. The adjacency check used to sit on the move branch
+    // alone, so a bump onto a distant or diagonal *occupied* tile resolved as an attack and
+    // returned cleanly — a ranged, 8-directional strike, which §3 rules out for M1 and lists
+    // under Open ("ranged anything"). The loud failure was on the harmless branch and the silent
+    // one on the dangerous branch. Found in review.
+    //
+    // This matters because bump() is the player's whole action vocabulary and #18's tap handler
+    // will call it with a raw tap target.
+    throw new Error(
+      `combat: actor ${actorId} at (${actor.at.x}, ${actor.at.y}) cannot bump ` +
+        `(${to.x}, ${to.y}) — movement and attacks are 4-directional`,
+    );
+  }
   const occupant = occupantAt(world, to);
   if (occupant !== null && occupant.id !== actorId && isHostile(actor, occupant)) {
     return resolveAttack(world, actorId, to, perception);

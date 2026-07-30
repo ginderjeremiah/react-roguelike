@@ -120,6 +120,28 @@ generating.** Every invariant here is of the form "nothing is wrong with this fl
 degenerate generator satisfies all of them. Variance needs its own positive assertions, and the
 structures most worth varying are the ones least likely to have them.
 
+**Review addendum:** the reviewer found that the branching-experiment test killed the reactive bug
+only in its *unconditional* form. The form a real author would write is guarded — retarget only if
+the player is still orthogonally adjacent — and that survived all 488 tests.
+
+The reason is geometric and worth remembering: stepping one orthogonal tile off a marked tile
+always lands at Manhattan distance 2 from the creature, because the marked tile's other three
+neighbours are diagonal to it. So in a **one-move window the guard is never true** and the mutant
+is provably identical to correct code. Every existing test was a one-move window.
+
+The window is two moves wide only on the **free-action path**, because a free command does not
+charge the player, so the player acts again at the same instant before the creature resolves. The
+new test drives exactly that trace and the guarded mutant now dies. Note this also means a creature
+woken during a free action sees two player commands before resolving — more conservative than §2
+requires, legible in play, but undocumented until now.
+
+Second finding: `bump` enforced its stated adjacency precondition on the move branch only.
+`resolveAttack` validates liveness and self-targeting but not adjacency, so a bump onto a distant
+or diagonal *occupied* tile resolved as a ranged, 8-directional strike and returned cleanly — while
+the same bump onto an *empty* tile threw. The loud failure was on the harmless branch and the
+silent one on the dangerous branch, and `bump` is what #18's tap handler will call with a raw tap
+target.
+
 **Watch:** known risks, deferred cleanup, things that will bite later. Omit if none.
 ```
 
@@ -216,7 +238,7 @@ the tally is printed so the margin is visible instead of guessed at.
 
 **Mutation testing: 36 mutants, 34 killed, 2 survivors, both argued equivalent and documented at the
 site.** The killed set includes every rule that matters — dormant strike removed, kill left in the
-queue, attack retargeted to the player's current tile (the reactive bug), declare-before-resolve,
+queue, attack retargeted to the player's current tile (the reactive bug, unconditional form), declare-before-resolve,
 free action running the actor phase, proximity waking a sleeper, waking scheduled for this turn,
 re-dormancy off by one, creature ids assigned in reverse spawn order, pathing that sidesteps or
 wanders. Three survived the first pass and one was a real hole: **removing the dead-player check in

@@ -208,6 +208,28 @@ describe('bump to attack', () => {
     expect(playerOf(bump(open, PLAYER_ID, { x: 2, y: 1 }, SHUTTERED)).at).toEqual({ x: 2, y: 1 });
   });
 
+  it('refuses a distant or diagonal target, on the attack branch as well as the move branch', () => {
+    /**
+     * Found in review. The adjacency check used to live only in `resolveMove`, so `bump` reached
+     * it only when the tile was *empty*. A bump onto a distant or diagonal **occupied** tile fell
+     * through to `resolveAttack`, which validates liveness and self-targeting but not adjacency —
+     * and returned cleanly, having landed a ranged, 8-directional strike.
+     *
+     * §3 settles movement and attacks at one orthogonal step for M1, and lists "ranged anything"
+     * under *Open*. The loud failure was on the harmless branch and the silent one on the
+     * dangerous branch — and `bump` is what #18's tap handler will call with a raw tap target.
+     */
+    const { world, at } = scenario(['#######', '#@..c.#', '#######']);
+    expect(() => bump(world, PLAYER_ID, at('c'), SHUTTERED)).toThrow(/4-directional/);
+
+    // Diagonal, adjacent-looking but not orthogonally adjacent.
+    const diag = scenario(['#####', '#@..#', '#.c.#', '#####']);
+    expect(() => bump(diag.world, PLAYER_ID, diag.at('c'), SHUTTERED)).toThrow(/4-directional/);
+
+    // The empty-tile case must keep throwing too — this is not a regression swap.
+    expect(() => bump(world, PLAYER_ID, { x: 3, y: 1 }, SHUTTERED)).toThrow(/4-directional/);
+  });
+
   it('walks over a corpse rather than attacking it', () => {
     // Phase 5 has not run yet, so the body is still listed. It must not be a target or an obstacle.
     const { world, ids, at } = scenario(['#####', '#@c.#', '#####']);

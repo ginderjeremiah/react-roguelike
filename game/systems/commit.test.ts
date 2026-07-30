@@ -68,6 +68,51 @@ describe('a committed attack', () => {
     expect(marked).toEqual({ x: 1, y: 1 });
   });
 
+  it('does not re-aim even when the player ends adjacent again — the two-move window', () => {
+    /**
+     * Found in review, and it is the case the three tests above provably cannot see.
+     *
+     * The unconditional reactive bug — "attack wherever the player now is" — is killed by the
+     * step-off test. But the form a real author would write is guarded: retarget *only if the
+     * player is still orthogonally adjacent*. In a one-move window that guard is never true, so
+     * the mutant is identical to correct code: stepping one orthogonal tile off a marked tile
+     * always lands at Manhattan distance 2 from the creature, since the other three neighbours of
+     * the marked tile are diagonal to it.
+     *
+     * The window is two moves wide only on the free-action path, because a free command does not
+     * charge the player, so the player acts again at the same instant before the creature
+     * resolves. That is where the guarded mutant lands damage on a tile that was never marked.
+     *
+     *   #####
+     *   #...#   t=0  free toggle: the Cinder wakes in light and declares an attack on (1,2)
+     *   #@c.#   t=0  the player bumps to (1,1) — the toggle was free, so not charged
+     *   #...#   t=1  the player bumps to (2,1), now adjacent to the Cinder again
+     *   #####        the Cinder resolves its stale attack on (1,2) and hits nothing
+     */
+    const { world, ids, at } = scenario([
+      '#####',
+      '#...#',
+      '#@c.#',
+      '#...#',
+      '#####',
+    ]);
+
+    // A free action: the creature wakes in light and declares, and the player is not charged.
+    const woken = playTurn(world, { kind: 'free' }, FLOODLIT);
+    expect(creatureById(woken, ids[0]).mind).toMatchObject({
+      kind: 'awake',
+      intent: { kind: 'attack', at: at('@') },
+    });
+
+    const stepped = playTurn(woken, { kind: 'bump', to: { x: 1, y: 1 } }, FLOODLIT);
+    const after = playTurn(stepped, { kind: 'bump', to: { x: 2, y: 1 } }, FLOODLIT);
+
+    // The player is orthogonally adjacent to the Cinder at (2,2) — the guarded mutant's condition
+    // is satisfied — and must still be untouched, because (2,1) was never marked.
+    expect(playerOf(after).at).toEqual({ x: 2, y: 1 });
+    expect(playerOf(after).hp).toBe(PLAYER_MAX_HP);
+  });
+
   it('is unchanged by the player attacking the creature that declared it', () => {
     // A wounded creature resolves the plan it made while unhurt. Anything else would make hitting
     // an enemy a way of changing its mind, which is reactivity wearing a friendlier hat.

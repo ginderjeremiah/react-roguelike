@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { diveToTheBottom, headingTo, standUntilDead, stepTowardOnGrid } from '@/tests/unit/support/run-script';
-import { playerOf } from '../entities';
+import { CINDER, LAST_FLOOR, PLAYER_MAX_HP } from '../content';
+import { isAlive, playerOf } from '../entities';
 import { expectedDrawCount, samePosition } from '../map';
 import { createRng, int, next, pick, type Draw, type Rng } from '../rng';
 import { DIRECTIONS, SHUTTER_STATES, type Command } from './command';
@@ -212,6 +213,10 @@ describe('the generated corpus', () => {
     // degenerated — always emitting `wait`, never reaching the stairs, never being refused — would
     // leave the entire suite green and testing nothing, and there would be no other signal that it
     // had happened. So the corpus is measured.
+    //
+    // **Every tally accumulated here is asserted below.** A counter that is only printed is a
+    // counter that can be set to zero without a single test going red, which is precisely the false
+    // green this test exists to prevent.
     const seeds = new Set<string>();
     const kinds = new Set<string>();
     let longest = 0;
@@ -222,6 +227,9 @@ describe('the generated corpus', () => {
     let freeActions = 0;
     let deaths = 0;
     let wins = 0;
+    let woke = 0;
+    let wounded = 0;
+    let embers = 0;
     let deepest = 1;
 
     forEachRecord('identity', (record) => {
@@ -236,16 +244,35 @@ describe('the generated corpus', () => {
       refusals += record.commands.length - resolvedCount(states);
       freeActions += record.commands.filter((command) => command.kind === 'setShutter').length;
       deepest = Math.max(deepest, floorNumberOf(final));
+
+      // The combat half of the simulation, measured per *run* rather than per state: how many of
+      // the generated runs saw a creature awake, took a hit, and left an ember on the ground.
+      let sawAwake = false;
+      let sawEmber = false;
+      let tookAHit = false;
       for (let i = 1; i < states.length; i += 1) {
         if (floorNumberOf(states[i]) !== floorNumberOf(states[i - 1])) descents += 1;
+        const world = states[i].world;
+        if (world.actors.some((actor) => actor.kind === 'creature' && actor.mind.kind === 'awake')) {
+          sawAwake = true;
+        }
+        if (world.embers.length > 0) sawEmber = true;
+        if (playerOf(world).hp < playerOf(states[i - 1].world).hp) tookAHit = true;
       }
+      if (sawAwake) woke += 1;
+      if (sawEmber) embers += 1;
+      if (tookAHit) wounded += 1;
       if (final.status.kind === 'died') deaths += 1;
       if (final.status.kind === 'reachedBottom') wins += 1;
     });
 
+    // Diagnostic only — vitest's default reporter hides console output on a green run, and
+    // `--reporter=verbose` shows it. It is here to answer "by how much?" when one of the
+    // assertions below starts to look marginal; it is not, and must never become, the assertion.
     console.log(
       `corpus: ${totalCommands} commands, ${descents} descents (deepest floor ${deepest}), ` +
-        `${refusals} refusals, ${freeActions} free actions, ${deaths} deaths, ${wins} wins`,
+        `${refusals} refusals, ${freeActions} free actions, ${woke} runs woke something, ` +
+        `${wounded} took a hit, ${embers} saw an ember, ${deaths} deaths, ${wins} wins`,
     );
 
     expect([...kinds].sort()).toEqual(['descend', 'move', 'setShutter', 'wait']);
@@ -253,11 +280,36 @@ describe('the generated corpus', () => {
     expect(longest).toBeGreaterThanOrEqual(MAX_COMMANDS - 4);
     expect(empty).toBeGreaterThan(0); // the boundary case must appear
     expect(totalCommands).toBeGreaterThan(CASES * 8); // logs are not all trivially short
-    // The three things the properties below would otherwise assert about nothing.
+    // The things the properties below would otherwise assert about nothing.
     expect(descents).toBeGreaterThan(CASES / 4); // `descend` is the only command that draws
     expect(deepest).toBeGreaterThan(2); // and it happens more than once in a run
     expect(refusals).toBeGreaterThan(CASES); // refusals are exercised, not merely described
     expect(freeActions).toBeGreaterThan(CASES / 2);
+
+    // The other half of the simulation (#16/#29). Without these, every property in this file could
+    // be replaying runs in which nothing ever woke up — a corpus of a *lit* game and a corpus of a
+    // game with the creature rules deleted would be indistinguishable.
+    expect(woke).toBeGreaterThan(CASES / 2); // 90/120 at the time of writing
+    expect(wounded).toBeGreaterThan(CASES / 4); // 57/120: creatures reach the player and land hits
+    expect(embers).toBeGreaterThan(CASES / 5); // 47/120: things die and drop fuel
+
+    // The thin one, kept deliberately: 3 in 120. A death needs a floor that spawned a creature
+    // within reach of the entrance *and* a log that leaves the shutter open long enough for it to
+    // arrive before the lantern runs dry — and the first half is a property of **generation**, not
+    // of the command log. Steering the generator the way it is steered toward the stairs therefore
+    // cannot make deaths reliable without curating the seeds, which would stop the corpus being
+    // arbitrary and would quietly narrow every property above. So this stays a 1-in-40 assertion,
+    // backed by the two pinned whole-run fixtures below that reach §13's ending on purpose.
+    expect(deaths).toBeGreaterThan(0);
+
+    // ...and a win is structurally out of reach: 60 commands cannot cross eight floors. This is
+    // asserted rather than dropped because it is the boundary of what the corpus covers — the
+    // `reachedBottom` ending, and the descent that draws nothing because there is no floor below,
+    // are covered *only* by `whole runs replay` below. If this line ever fails, the corpus has
+    // grown into that territory and this assertion should be deleted along with the sentence
+    // pointing at the other test — not raised.
+    expect(wins).toBe(0);
+    expect(deepest).toBeLessThan(LAST_FLOOR);
   });
 
   it('generates seeds that exercise the awkward cases', () => {
@@ -387,10 +439,17 @@ describe('replay determinism', () => {
   });
 
   it('counts exactly the commands it resolved, and nothing it refused', () => {
-    // §2: a refused action produces "no change to any field of the state". So a state identical to
-    // its predecessor is a refusal, and `commandsResolved` must equal the number of commands that
-    // *did* change something. Two mutations die here and nowhere else: a refusal that increments a
-    // counter (identical would stop meaning refused), and a resolved command that forgets to.
+    // §2: a refused action produces "no change to any field of the state". `commandsResolved` must
+    // therefore equal the number of states that differ from their predecessor.
+    //
+    // **What this catches, precisely:** a resolved command that forgets to increment the counter,
+    // and a counter incremented by something other than a resolution. What it does *not* catch is
+    // a refusal that increments the counter and returns `{ ...state, commandsResolved: +1 }`: that
+    // state is no longer identical to its predecessor, so `resolvedCount` counts it too and both
+    // sides of this assertion move together. That mutant is killed by reference identity — `step`
+    // must return *the input object* on a refusal — which is asserted in `step.test.ts`'s
+    // `refusals` block, and by fifteen other tests besides. The two assertions are a pair, and this
+    // one is only the second half of it.
     forEachRecord('counters', (record, index) => {
       const states = runStates(record.seed, record.commands);
       const final = states[states.length - 1];
@@ -632,35 +691,93 @@ describe('RunRecord', () => {
 
 // --- Pinned run ---------------------------------------------------------------------------------
 
-describe('pinned run', () => {
+/**
+ * A stored replay fixture, pinned at `RULES_VERSION` 2.
+ *
+ * Everything above proves the simulation reproduces *itself*. Nothing above notices if what it
+ * reproduces silently changes — a different fuel burn, a reordered phase, a different seed
+ * derivation, a generator that places stairs one tile over — because both sides of every comparison
+ * move together. This is the tripwire for that, and it is the reason `RULES_VERSION` exists.
+ *
+ * **A digest rather than a whole state**, because a `GameState` is a floor: 165 tiles, six rooms,
+ * seven doorways and a tile set, none of which is readable in a diff. It is nonetheless as wide as
+ * a digest can be while staying readable — a narrow digest pins a narrow slice of the rules, and
+ * the first version of this one held a single `creaturesAlive` count, which meant a fixture could
+ * not have noticed a creature standing still all run, forgetting an intent, or never waking. So the
+ * creatures go in whole: position, HP, and the entire `Mind` including the declared intent, what it
+ * last saw and how long since it had contact. Four creatures is forty lines; 165 tiles is not.
+ *
+ * These numbers are ground truth by definition: they were generated from this implementation. They
+ * cannot prove the rules are *right*, only that they have not *changed*. If one of these fails, the
+ * question is "did I mean to change the rules", not "how do I update the constants". If the answer
+ * is yes: re-pin, bump `RULES_VERSION`, add a `RULES_VERSION_LOG` line, and say so in the journal.
+ */
+type Digest = {
+  readonly status: string;
+  readonly floorNumber: number;
+  readonly turnsElapsed: number;
+  readonly commandsResolved: number;
+  readonly now: number;
+  readonly fuel: number;
+  readonly shutter: string;
+  readonly senseRadius: number;
+  readonly remembered: number;
+  readonly player: { readonly x: number; readonly y: number };
+  readonly hp: number;
   /**
-   * A stored replay fixture, pinned at `RULES_VERSION` 2.
-   *
-   * Everything above proves the simulation reproduces *itself*. Nothing above notices if what it
-   * reproduces silently changes — a different fuel burn, a reordered phase, a different seed
-   * derivation, a generator that places stairs one tile over — because both sides of every
-   * comparison move together. This is the tripwire for that, and it is the reason `RULES_VERSION`
-   * exists.
-   *
-   * **A digest rather than a whole state**, because a `GameState` is a floor: 165 tiles, six rooms,
-   * seven doorways and a tile set, none of which is readable in a diff. The digest is chosen so
-   * that every subsystem in the run has at least one number in it — the generator (which floor was
-   * built), the lantern (fuel, shutter, sense radius), the actors (position, HP, creatures alive),
-   * turn resolution (both counters, the clock) and the ending. `map/generate.test.ts` pins whole
-   * floors tile by tile; this pins that a *run* over them comes out the same.
-   *
-   * These numbers are ground truth by definition: they were generated from this implementation.
-   * They cannot prove the rules are *right*, only that they have not *changed*. If this fails, the
-   * question is "did I mean to change the rules", not "how do I update the constants". If the
-   * answer is yes: re-pin, bump `RULES_VERSION`, add a `RULES_VERSION_LOG` line, and say so in the
-   * journal.
+   * In `world.actors` order, not sorted. The order is itself part of the simulation — every phase
+   * that sweeps the actors walks this array — so a change to it is a change worth failing on.
    */
+  readonly creatures: readonly unknown[];
+  readonly embers: readonly unknown[];
+  readonly rng: { readonly s0: number; readonly s1: number; readonly s2: number; readonly s3: number };
+};
+
+function digest(state: GameState): Digest {
+  return {
+    status: state.status.kind,
+    floorNumber: floorNumberOf(state),
+    turnsElapsed: state.turnsElapsed,
+    commandsResolved: state.commandsResolved,
+    now: state.world.schedule.now,
+    fuel: state.lantern.fuel,
+    shutter: state.lantern.vision.shutter,
+    senseRadius: state.lantern.vision.senseRadius,
+    remembered: state.lantern.vision.remembered.flags.filter(Boolean).length,
+    player: playerOf(state.world).at,
+    hp: playerOf(state.world).hp,
+    creatures: state.world.actors
+      .filter((actor) => actor.kind === 'creature')
+      .map((actor) => ({
+        at: actor.at,
+        hp: actor.hp,
+        mind: actor.kind === 'creature' ? actor.mind : null,
+      })),
+    embers: state.world.embers,
+    rng: state.rng,
+  };
+}
+
+function expectPinned(record: RunRecord, pinned: Digest): void {
+  const divergence = findFieldDivergence(digest(replay(record)), pinned);
+  if (divergence) {
+    throw new Error(
+      `the pinned run no longer reproduces — the RULES did this, not the test\n` +
+        formatFieldDivergence(divergence),
+    );
+  }
+}
+
+describe('pinned run — a descent in the dark', () => {
   const PINNED_RECORD: RunRecord = {
     version: 2,
     seed: 'emberdepth',
     // A dark crawl across floor 1 to its stairs, a descent, and three commands on the floor below —
     // one of which (the move north) is refused by the new floor's geometry, which is why the two
     // counters below disagree with the log length by different amounts.
+    //
+    // Nothing wakes on this run, and that is the *reason* for the second fixture below rather than
+    // a defect in this one: shuttered play is exactly the half of the game this log covers.
     commands: [
       { kind: 'setShutter', to: 'shuttered' },
       { kind: 'move', dir: 'north' },
@@ -682,7 +799,7 @@ describe('pinned run', () => {
     ],
   };
 
-  const PINNED_DIGEST = {
+  const PINNED_DIGEST: Digest = {
     status: 'running',
     floorNumber: 2,
     turnsElapsed: 14,
@@ -694,36 +811,19 @@ describe('pinned run', () => {
     remembered: 38,
     player: { x: 6, y: 5 },
     hp: 12,
-    creaturesAlive: 4,
+    // Floor 2's spawn, undisturbed: four Cinders, where the generator put them, all still asleep.
+    creatures: [
+      { at: { x: 1, y: 1 }, hp: 5, mind: { kind: 'dormant' } },
+      { at: { x: 6, y: 1 }, hp: 5, mind: { kind: 'dormant' } },
+      { at: { x: 1, y: 7 }, hp: 5, mind: { kind: 'dormant' } },
+      { at: { x: 4, y: 14 }, hp: 5, mind: { kind: 'dormant' } },
+    ],
+    embers: [],
     rng: { s0: 997592408, s1: 1040665852, s2: 4214618089, s3: 90954535 },
   };
 
-  function digest(state: GameState): typeof PINNED_DIGEST {
-    return {
-      status: state.status.kind,
-      floorNumber: floorNumberOf(state),
-      turnsElapsed: state.turnsElapsed,
-      commandsResolved: state.commandsResolved,
-      now: state.world.schedule.now,
-      fuel: state.lantern.fuel,
-      shutter: state.lantern.vision.shutter,
-      senseRadius: state.lantern.vision.senseRadius,
-      remembered: state.lantern.vision.remembered.flags.filter(Boolean).length,
-      player: playerOf(state.world).at,
-      hp: playerOf(state.world).hp,
-      creaturesAlive: state.world.actors.filter((actor) => actor.kind === 'creature' && actor.hp > 0).length,
-      rng: state.rng,
-    };
-  }
-
   it('reproduces the stored final state exactly', () => {
-    const divergence = findFieldDivergence(digest(replay(PINNED_RECORD)), PINNED_DIGEST);
-    if (divergence) {
-      throw new Error(
-        `the pinned run no longer reproduces — the RULES did this, not the test\n` +
-          formatFieldDivergence(divergence),
-      );
-    }
+    expectPinned(PINNED_RECORD, PINNED_DIGEST);
   });
 
   it('is a run in which something actually happened', () => {
@@ -735,5 +835,183 @@ describe('pinned run', () => {
     expect(PINNED_DIGEST.commandsResolved).toBeLessThan(PINNED_RECORD.commands.length);
     expect(PINNED_DIGEST.floorNumber).toBeGreaterThan(1); // it descended, so it drew
     expect(PINNED_DIGEST.remembered).toBeGreaterThan(20);
+  });
+});
+
+describe('pinned run — the whole combat loop, ending in a death', () => {
+  /**
+   * The second fixture, and the one that pins #16's and #29's half of the simulation.
+   *
+   * The record above is a shuttered crawl: no creature ever wakes in it, no ember is ever on the
+   * ground, and the player's HP never moves. So `RULES_VERSION` was pinning generation, movement,
+   * fuel, the shutter and descent — and *nothing at all* about waking, declaration, creature
+   * movement, damage, the dormant-strike multiplier, ember drops, re-dormancy or the ending. A
+   * rules change to any of those could have shipped without a single fixture noticing.
+   *
+   * This log is one run of the whole loop, in order. Floor 1 of `ember-z` holds three Cinders, and
+   * the opening perception (§4: the entrance room is already on screen) lights one of them awake
+   * before the first command is issued — so the run starts with something already coming.
+   *
+   *   1. **command 1** — shutter. Free (§2), and it drops ember-sense to the adaptation floor,
+   *      which then climbs back to 5 over the four turns that follow (§4).
+   *   2. **commands 2-11** — ten turns backing into the dark. §6 gives an awake creature 8 turns
+   *      without light and without adjacency before it returns to dormant, and this one gets
+   *      exactly that: `turnsSinceContact` climbs 1..7 and it is asleep again by command 10. This
+   *      is the only fixture in the repo that pins re-dormancy.
+   *   3. **commands 12-13** — walk back at it and bump the sleeper. §3's dormant strike: 3 x 2
+   *      against 5 HP kills it outright, and phase 5 drops its ember where it stood. **At single
+   *      damage the Cinder survives**, wakes, and every number below changes — which is what makes
+   *      this fixture a pin on the multiplier and not just on "a fight happened".
+   *   4. **command 14** — step onto the corpse's tile and collect the ember. Fuel goes *up*, from
+   *      67 to 86, which is the one moment in the game where it does.
+   *   5. **command 15** — open again.
+   *   6. **commands 16-20** — walk north into the next room. The second Cinder comes into the lit
+   *      radius on command 18, wakes, closes, and declares an attack on command 20.
+   *   7. **commands 21-26** — stand still. Six landed attacks at 2 damage against 12 HP, so the
+   *      sixth ends the run in phase 4 — which is why `turnsElapsed` is 24 while `now` is 2300
+   *      rather than 2400: §13 stops the turn where the killing blow lands and the clock never
+   *      advances past it.
+   *
+   * Recorded by scripting exactly the sequence above against `step()` and storing the resulting
+   * command log verbatim. It is stored, not regenerated: a fixture computed by a script at test
+   * time changes silently whenever the script does, which is the one thing a fixture must not do.
+   */
+  const PINNED_RECORD: RunRecord = {
+    version: 2,
+    seed: 'ember-z',
+    commands: [
+      { kind: 'setShutter', to: 'shuttered' },
+      { kind: 'move', dir: 'south' },
+      { kind: 'move', dir: 'south' },
+      { kind: 'move', dir: 'west' },
+      { kind: 'move', dir: 'east' },
+      { kind: 'move', dir: 'west' },
+      { kind: 'move', dir: 'east' },
+      { kind: 'move', dir: 'west' },
+      { kind: 'move', dir: 'east' },
+      { kind: 'move', dir: 'west' },
+      { kind: 'move', dir: 'east' },
+      { kind: 'move', dir: 'north' },
+      { kind: 'move', dir: 'north' },
+      { kind: 'move', dir: 'north' },
+      { kind: 'setShutter', to: 'open' },
+      { kind: 'move', dir: 'north' },
+      { kind: 'move', dir: 'west' },
+      { kind: 'move', dir: 'north' },
+      { kind: 'move', dir: 'north' },
+      { kind: 'move', dir: 'north' },
+      { kind: 'wait' },
+      { kind: 'wait' },
+      { kind: 'wait' },
+      { kind: 'wait' },
+      { kind: 'wait' },
+      { kind: 'wait' },
+    ],
+  };
+
+  const PINNED_DIGEST: Digest = {
+    status: 'died',
+    floorNumber: 1,
+    // 26 commands, 2 of them free (§2), so 24 turns...
+    turnsElapsed: 24,
+    commandsResolved: 26,
+    // ...and 23 actions on the clock, not 24: the killing blow stopped the turn before phase 4
+    // advanced it (§13). The gap between these two numbers *is* the assertion.
+    now: 2300,
+    // 80 to start, minus 10 shuttered turns and 14 lit ones, plus the 20 off the corpse.
+    fuel: 38,
+    shutter: 'open',
+    senseRadius: 5,
+    remembered: 66,
+    player: { x: 9, y: 8 },
+    hp: 0,
+    creatures: [
+      // Never woken: it is in the far corner and the lantern was never open near it.
+      { at: { x: 6, y: 0 }, hp: 5, mind: { kind: 'dormant' } },
+      // The one that killed the player, in the frame of the blow: adjacent, holding what it
+      // declared this turn, and remembering where it last saw the light. The third Cinder is
+      // absent from this list because the dormant strike on command 13 killed it.
+      {
+        at: { x: 10, y: 8 },
+        hp: 5,
+        mind: {
+          kind: 'awake',
+          intent: { kind: 'move', to: { x: 9, y: 8 } },
+          awareness: { kind: 'lastSeen', at: { x: 9, y: 8 } },
+          turnsSinceContact: 1,
+        },
+      },
+    ],
+    // Dropped on command 13 and collected on command 14 — empty here because it was *taken*, which
+    // the fuel above is what proves.
+    embers: [],
+    rng: { s0: 2164386907, s1: 420554115, s2: 1594873920, s3: 3421735554 },
+  };
+
+  it('reproduces the stored final state exactly', () => {
+    expectPinned(PINNED_RECORD, PINNED_DIGEST);
+  });
+
+  it('is a run in which the whole combat loop actually happened', () => {
+    // The digest above is one frame. These are the events *along* the way, which is what makes the
+    // frame worth pinning — a fixture whose final state happens to match while nothing woke, fought
+    // or died on the way to it would be pinning a coincidence. Asserted from the trajectory rather
+    // than from stored constants on purpose: the claim is about the shape of the run, and a shape
+    // does not need re-pinning when a tuning number moves.
+    const states = runStates(PINNED_RECORD.seed, PINNED_RECORD.commands);
+    const start = states[0];
+    const final = states[states.length - 1];
+
+    const awake = (state: GameState): number =>
+      state.world.actors.filter((actor) => actor.kind === 'creature' && actor.mind.kind === 'awake').length;
+    const alive = (state: GameState): number =>
+      state.world.actors.filter((actor) => actor.kind === 'creature' && isAlive(actor)).length;
+
+    let woke = 0;
+    let wentDormant = 0;
+    let declaredAnAttack = 0;
+    let creatureMoved = 0;
+    let hitsTaken = 0;
+    let emberDrops = 0;
+    let embersCollected = 0;
+    let felledInOneBlowWhileAsleep = 0;
+
+    for (let i = 1; i < states.length; i += 1) {
+      const before = states[i - 1].world;
+      const after = states[i].world;
+      woke += Math.max(0, awake(states[i]) - awake(states[i - 1]));
+      if (playerOf(after).hp < playerOf(before).hp) hitsTaken += 1;
+      if (after.embers.length > before.embers.length) emberDrops += 1;
+      if (after.embers.length < before.embers.length) embersCollected += 1;
+      for (const actor of before.actors) {
+        if (actor.kind !== 'creature') continue;
+        const now = after.actors.find((other) => other.id === actor.id);
+        if (now === undefined) {
+          // §3: "a strike against a dormant creature deals double damage." Full HP one command ago,
+          // gone the next — 3 x 2 against a 5 HP Cinder, in one blow, while it slept.
+          if (actor.mind.kind === 'dormant' && actor.hp === CINDER.maxHp) felledInOneBlowWhileAsleep += 1;
+          continue;
+        }
+        if (now.kind !== 'creature') continue;
+        if (actor.mind.kind === 'awake' && now.mind.kind === 'dormant') wentDormant += 1;
+        if (now.mind.kind === 'awake' && now.mind.intent.kind === 'attack') declaredAnAttack += 1;
+        if (!samePosition(actor.at, now.at)) creatureMoved += 1;
+      }
+    }
+
+    expect(woke, 'nothing ever woke up').toBeGreaterThan(0);
+    expect(declaredAnAttack, 'nothing ever declared an attack').toBeGreaterThan(0);
+    expect(creatureMoved, 'no creature ever moved').toBeGreaterThan(0);
+    expect(wentDormant, 'nothing ever returned to dormant (§6)').toBeGreaterThan(0);
+    // §3's dormant strike, and phase 5 dropping the ember where the body fell. At single damage the
+    // Cinder survives the blow and none of these four hold.
+    expect(alive(start) - alive(final), 'nothing died').toBe(1);
+    expect(felledInOneBlowWhileAsleep, 'nothing was killed in its sleep (§3)').toBe(1);
+    expect(emberDrops, 'no ember was ever dropped').toBe(1);
+    expect(embersCollected, 'the dropped ember was never collected').toBe(1);
+    // Six landed attacks at 2 damage against 12 HP — the run ends in §13's death, not in a timeout.
+    expect(hitsTaken).toBe(PLAYER_MAX_HP / CINDER.attack);
+    expect(final.status).toEqual({ kind: 'died' });
+    expect(playerOf(final.world).hp).toBe(0);
   });
 });

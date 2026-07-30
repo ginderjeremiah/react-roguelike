@@ -128,8 +128,22 @@ export function step(state: GameState, command: Command): GameState {
     ...withWorld(state, resolved),
     status: statusAfterTurn(state, resolved),
     rng: plan.rng,
-    // §2: a free action "does not consume a turn". So it does not consume one here either — the
-    // counter and the schedule have to agree, or the HUD and the clock tell different stories.
+    // §2: a free action "does not consume a turn". So it does not increment the count of turns —
+    // the free action is free in the sense that matters, which is that `actorPhase('free')` is the
+    // identity and no creature gets a move; charging it a turn on the HUD would report a cost the
+    // floor never paid.
+    //
+    // **This counter is not a second copy of the clock.** `turnsElapsed * ACTION_COST` and
+    // `schedule.now` are not in correspondence and never were, so do not be tempted to assert it:
+    //
+    //   - a descent restarts the new floor's schedule at 0 (`run.ts`) while the counter keeps
+    //     counting the run;
+    //   - the winning descent returns above, incrementing the counter with no phases run and no
+    //     clock to move;
+    //   - the killing blow halts the actor sweep before `advanceToNextActor` (`turn.ts`), so the
+    //     clock stays on the frame the player died in while the turn itself still counted.
+    //
+    // `schedule.now` orders actors within one floor; `turnsElapsed` is what a player retells.
     turnsElapsed: state.turnsElapsed + (plan.cost === 'costsATurn' ? 1 : 0),
     commandsResolved: state.commandsResolved + 1,
   };

@@ -12,7 +12,13 @@ import {
   STARTING_FUEL,
 } from '../content';
 import { isAlive, playerOf, PLAYER_ID, type ActorWorld } from '../entities';
-import { ADAPTATION_FLOOR, computeLitField, hasTile, tileSetsEqual, type ShutterState } from '../fov';
+import {
+  ADAPTATION_FLOOR,
+  computeLitField,
+  computeTouchField,
+  tileSetsEqual,
+  type ShutterState,
+} from '../fov';
 import { expectedDrawCount, generateFloor, samePosition, tileAt, type Floor, type Position } from '../map';
 import { createRng, next, type Rng } from '../rng';
 import { ACTION_COST, createLantern } from '../systems';
@@ -468,23 +474,43 @@ describe("step — 'descend'", () => {
     expect(playerOf(step(start, { kind: 'descend' }).world).hp).toBe(PLAYER_MAX_HP);
   });
 
-  it('leaves the map behind: a fresh, empty, correctly sized memory', () => {
+  it('leaves the map behind: arriving memory is exactly one perception of the new floor', () => {
     // §13's sharpest "does not": "Memory is of a place, and you have never been to this one." A
-    // descent that carried `remembered` across would show the player the floor above's walls drawn
-    // over the floor below's, and — because a `TileSet` is a flat array indexed by tile — would
-    // index one row out on any grid of a different width.
+    // descent that carried `remembered` across would draw the floor above's walls over the floor
+    // below's.
+    //
+    // The assertion is **equality with the arriving floor's own phase-3 perception**, spelled out
+    // from §4's vision table rather than by re-running the descent. Two weaker forms of it were
+    // here before and neither could fail:
+    //
+    //   - "no more tiles than before" — `atTheStairs` arrives from a *shuttered* dive, so the new
+    //     floor's touch field is nine tiles and is already a subset of the thirty-odd the floor
+    //     above left in memory. A memory that was never cleared satisfies it.
+    //   - "sized to the new grid" — every generated floor is the same 11x15, so the width and
+    //     length checks hold for the carried set too. `run.test.ts` puts that claim against a floor
+    //     of a genuinely different shape, which is where it can fail.
+    //
+    // Both arrival states are checked, because they perceive differently and only the lit one has
+    // a field big enough for "it kept the old map" and "it perceived the new one" to be different
+    // sizes.
     const start = atTheStairs(SEED);
-    const before = start.lantern.vision.remembered;
-    expect(before.flags.filter(Boolean).length).toBeGreaterThan(0);
+    const carried = start.lantern.vision.remembered;
+    expect(carried.flags.filter(Boolean).length).toBeGreaterThan(9);
 
-    const after = step(start, { kind: 'descend' });
-    const arrived = after.lantern.vision.remembered;
-    expect(arrived.width).toBe(after.world.floor.grid.width);
-    expect(arrived.flags).toHaveLength(after.world.floor.grid.tiles.length);
-    // Phase 3 runs on the new floor, so the arriving memory is exactly what is perceived from the
-    // new entrance — not the old floor's, and not nothing.
-    expect(hasTile(arrived, after.world.floor.entrance.x, after.world.floor.entrance.y)).toBe(true);
-    expect(arrived.flags.filter(Boolean).length).toBeLessThan(before.flags.filter(Boolean).length + 1);
+    for (const shutter of SHUTTER_STATES) {
+      const poised =
+        start.lantern.vision.shutter === shutter ? start : step(start, { kind: 'setShutter', to: shutter });
+      const after = step(poised, { kind: 'descend' });
+      const grid = after.world.floor.grid;
+      const entrance = after.world.floor.entrance;
+      const perceived =
+        shutter === 'open' ? computeLitField(grid, entrance) : computeTouchField(grid, entrance);
+
+      expect(tileSetsEqual(after.lantern.vision.remembered, perceived), `arriving ${shutter}`).toBe(true);
+      // ...and the perception is of the *new* floor, so it is not a coincidence that the two agree:
+      // the old floor's memory is a different set.
+      expect(tileSetsEqual(after.lantern.vision.remembered, carried), `arriving ${shutter}`).toBe(false);
+    }
   });
 
   it('leaves the creatures, the embers and the clock behind', () => {
@@ -591,24 +617,30 @@ describe('the end of a run', () => {
     expect(step(final, { kind: 'wait' })).toBe(final);
   });
 
-  it('stops the turn where the killing blow lands: phases 5 and 6 do not run', () => {
-    // §13, and the part of it that is genuinely easy to ship wrong, because the wrong version
-    // looks like nothing at all. Two observables:
+  it('stops the turn where the killing blow lands: the clock does not advance past it', () => {
+    // §13, and the part of it that is genuinely easy to ship wrong, because the wrong version looks
+    // like nothing at all: `runActorPhase` returns without `advanceToNextActor`, so `schedule.now`
+    // ends one action behind `turnsElapsed`.
     //
-    //   - the clock does not advance past the blow (`runActorPhase` returns without
-    //     `advanceToNextActor`), so `schedule.now` is one action behind `turnsElapsed`;
-    //   - dark adaptation does not tick on the turn the player dies.
+    // **Phase 6 is deliberately not asserted here.** The obvious companion line —
+    // `fatal.lantern.vision.senseRadius === before.lantern.vision.senseRadius` — cannot fail on this
+    // fixture: `standUntilDead` never shutters, a run starts open, and `adaptVision` returns its
+    // input unchanged while the shutter is open, so the radius is equal whether or not the phase
+    // ran. It sat here reading like coverage. `light.test.ts`'s "a terminal state stops the turn
+    // where it happens" owns both skipped phases, on a state contrived so each has something
+    // visible to do: a body waiting to be cleared for phase 5, and a mid-climb ramp for phase 6.
     const record = standUntilDead('grave', 0);
     const states = record.commands.map((_, i) => runCommands(record.seed, record.commands.slice(0, i + 1)));
     const fatal = states[states.length - 1];
     const before = states[states.length - 2];
 
     expect(fatal.status).toEqual({ kind: 'died' });
-    expect(fatal.world.schedule.now).toBe(before.world.schedule.now);
-    expect(fatal.lantern.vision.senseRadius).toBe(before.lantern.vision.senseRadius);
+    expect(fatal.turnsElapsed).toBe(before.turnsElapsed + 1); // the turn was spent...
+    expect(fatal.world.schedule.now).toBe(before.world.schedule.now); // ...and the clock did not move
     // ...and an ordinary turn does advance the clock, or the assertion above passes on a clock
     // that never moves.
     expect(before.world.schedule.now).toBeGreaterThan(0);
+    expect(before.world.schedule.now).toBe(before.turnsElapsed * ACTION_COST);
   });
 
   it('runs a whole eight-floor run to the bottom', () => {

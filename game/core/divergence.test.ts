@@ -202,10 +202,30 @@ describe('findRunDivergence', () => {
     const found = findRunDivergence(recordRun('one', []), recordRun('two', []));
     expect(found?.commandIndex).toBe(-1);
     expect(found?.command).toBeNull();
-    // Two seeds now differ in the whole *floor* before they differ in the generator, and keys are
-    // walked in sorted order, so the first reported path is inside the lantern's terrain memory of
-    // two different entrance rooms. Which field is named is not the claim; that one is named, is.
-    expect(found?.field.path).toMatch(/^(lantern|rng|world)\b/);
+
+    // Which top-level field gets named *is* a claim, and it is the sorted-iteration rule in this
+    // module's header: the field reported must be the alphabetically first one that actually
+    // differs. Two different seeds differ in several at once — the generator, the floor, and the
+    // lantern's memory of two different entrance rooms — so "first" is a real choice between them
+    // and a walk that stopped sorting would name a different one.
+    //
+    // Computed from the states rather than written out, so this survives a field being renamed or
+    // a fourth one starting to differ. What it will not survive is the walk order changing, which
+    // is the point.
+    const left = createInitialState('one') as unknown as Record<string, unknown>;
+    const right = createInitialState('two') as unknown as Record<string, unknown>;
+    const differing = Object.keys(left)
+      .sort()
+      .filter((key) => findFieldDivergence(left[key], right[key]) !== null);
+    expect(differing.length, 'two seeds must differ in more than one field for this to mean anything')
+      .toBeGreaterThan(1);
+    expect(found?.field.path.split(/[.[]/)[0]).toBe(differing[0]);
+
+    // ...and the path runs all the way down to a leaf with both sides rendered. "states differ at
+    // lantern" is precisely the diagnostic this module exists to stop being the answer.
+    expect(found?.field.path).toMatch(/^\w+([.[]|$)/);
+    expect(found?.field.left).not.toBe(found?.field.right);
+    expect([found?.field.left, found?.field.right]).not.toContain('<missing>');
   });
 
   it('reports a command-log length mismatch, and where', () => {
@@ -322,10 +342,25 @@ describe('assertSameState', () => {
     expect(() => assertSameState(createInitialState('s'), createInitialState('s'), 'ctx')).not.toThrow();
   });
 
-  it('throws with the context and the located difference', () => {
-    expect(() => assertSameState(createInitialState('s'), createInitialState('t'), 'ctx')).toThrow(
-      /ctx: states differ at \w+/,
+  it('throws with the context and the whole located difference', () => {
+    // `\w+` was the old pin and it matched any path at all, including the useless one-word kind.
+    // The message has to carry the *full* path and both values, or the caller is back to bisecting
+    // by hand — which is the entire reason this module exists. Read off `findFieldDivergence` for
+    // the same pair rather than written out, so a legitimate change to what these two seeds first
+    // differ in does not need this test edited: what is pinned is that the thrown message says
+    // exactly what the located divergence says.
+    const left = createInitialState('s');
+    const right = createInitialState('t');
+    const divergence = findFieldDivergence(left, right);
+    expect(divergence).not.toBeNull();
+    expect(divergence!.path).toContain('.'); // a nested leaf, so "the whole path" means something
+
+    expect(() => assertSameState(left, right, 'ctx')).toThrow(
+      `ctx: ${formatFieldDivergence(divergence!)}`,
     );
+    expect(() => assertSameState(left, right, 'ctx')).toThrow(`states differ at ${divergence!.path}`);
+    expect(() => assertSameState(left, right, 'ctx')).toThrow(divergence!.left);
+    expect(() => assertSameState(left, right, 'ctx')).toThrow(divergence!.right);
   });
 });
 

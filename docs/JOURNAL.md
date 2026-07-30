@@ -263,7 +263,8 @@ be a refusal and the draw-budget property would be asserting that nothing ever d
 therefore *plays*: half chaos (which produces the refusals and the wasted flashes), half a step
 along a route to the stairs. Measured over 120 cases: 3,544 commands, 72 descents reaching floor 3,
 598 refusals, 362 free actions, 3 deaths. Those numbers are asserted, because a generator that
-quietly stopped descending would leave the whole file green.
+quietly stopped descending would leave the whole file green. (Two of them were *not* asserted when
+this was first written, and the review caught it — see the addendum.)
 
 **§13's stop-on-death was not already there, contrary to the design note's guess.** `runActorPhase`
 swept to completion regardless, so a player killed by the first of three due Cinders watched the
@@ -365,6 +366,92 @@ afterwards (§13 says so explicitly).
   always allocates will be wrong.
 - `game/fov/` and `game/entities/` still both export a type called `Perception`, meaning different
   things. Untouched here; still an improvement waiting to be made.
+
+**Review addendum:** the reviewer found the sixth check-that-enforces-nothing in six PRs, and this
+time it was in the test whose entire stated job is to prove the other tests are not vacuous — **the
+corpus tallies were accumulated and never asserted.** `deaths` and `wins` fed nothing but a
+`console.log` the default reporter does not print, so `deaths = 0; wins = 0;` inserted before that
+log left all 24 tests green. Worse than the gap: **this entry and the PR description both claimed
+those counts were asserted.** The claim is what made the thin 3-in-120 death margin acceptable —
+the reviewer's ruling on the single-seed death fixture was "accept, *because* the corpus is the
+other leg of it" — so an unasserted tally was quietly holding up a decision made on its strength.
+Fixed, and three robust combat tallies added beside it with 40-75% margins (runs that woke a
+creature 89/120, runs where the player took a hit 57/120, runs that dropped an ember 47/120), so
+the loud alarm is not the same number as the thin one.
+
+Deliberately *not* fixed by steering the generator toward deaths: a death needs the **floor** to
+have spawned a creature within reach of the entrance, which is a property of generation rather than
+of the command log, so no amount of command steering makes it reliable without curating seeds — and
+curating seeds would stop the corpus being arbitrary and silently narrow every property in the file.
+`standUntilDead` throws "did not produce a death" on 26 of 30 arbitrary seeds, which is the
+measurement behind that call.
+
+**Second blocking finding, and it is the same shape: a test named for the bug it could not catch.**
+`'leaves the map behind: a fresh, empty, correctly sized memory'` stayed green when
+`arriveOnFloor` was mutated to carry `remembered` across the stairs. Two independent reasons, both
+worth remembering because they will recur: every generated grid is 11×15, so a *sizing* assertion
+cannot fail while all floors are the same shape; and the freshness assertion was `arrived <= before`
+against a fixture that arrives from a **shuttered** dive, where the new floor's 9-tile touch field
+is already a subset of the carried mask, so the union never grows. It now asserts equality against
+the new floor's own field, spelled out from §4's table for both arrival states, and a new
+`run.test.ts` case gives the sizing claim a floor that is genuinely not 11×15 so it can fail
+somewhere.
+
+**The version-2 fixture pinned half the simulation.** Probed across all 18 states: no creature ever
+woke, `embers` was empty throughout, the player never lost HP. So `RULES_VERSION` — whose entire
+purpose is to notice that the rules changed — was pinning generation, movement, fuel, the shutter,
+descent and a cache, and nothing at all about waking, declaration, damage, the dormant strike,
+ember drops, re-dormancy or death. A second fixture now walks that whole loop (wake → shutter →
+retreat → re-dormancy at `turnsSinceContact` 8 → dormant strike → ember → collection → reopen →
+six landed attacks → death with the clock frozen), and the digest widened from a creature *count*
+to the creature list — position, HP, and the whole `Mind`. The decisive measurement: reversing spawn
+order in `createActorWorld` is caught by the new fixtures, and **survives** if the digest is
+narrowed back to the old count. Widening it bought real coverage rather than more bytes.
+
+**The benchmark went absolute → ratio → interleaved, and each step was forced by a measurement.**
+The absolute threshold failed on CI at 1.72ms (a ~4x slower box). The ratio against a bare
+generation fixed that and then produced `0.69x` on CI — a descent measuring *cheaper* than the
+generation it contains, which is not physically possible and meant the yardstick had been
+mismeasured by ~4.5x, because it ran second and inherited the descent loop's garbage. **That run
+passed**, which is the part worth internalising: a benchmark can go green because its instrument
+failed. Now the batches interleave and swap order every round, an impossible reading fails loudly
+instead of flatteringly, and each threshold was calibrated by planting the regression it exists to
+catch. The last absolute assertion in the file — the refusal, at 0.01ms — then flaked at ~9% under
+the full suite while measuring a 160x margin in isolation, which is the same lesson a third time:
+**in-isolation headroom says nothing about a 44-file parallel run.**
+
+And measuring *that* properly showed the two ratios were flaking too — 4 failures in 30 full-suite
+runs, none in 30 single-file runs. The bias is not random and does not cancel across interleaved
+batches: in each pair the subject has the larger working set, so a neighbouring worker evicting the
+cache costs it more than the yardstick. Neither limit was raised. The estimator was fixed instead,
+in measured steps: median-of-series (4 failures) → minimum-of-series (0 failures, but it reports
+*physically impossible* 0.82x descents, because the two minima come from different rounds) →
+**median of per-round ratios, keeping only rounds where neither batch ran more than 1.25x above the
+cheapest batch of its own series.** That filter never looks at the ratio, so it cannot prefer a
+round for agreeing with the threshold, and interference only ever adds time — so "near its own
+minimum" is an independent test of cleanliness. 30 full-suite runs, 0 failures, 0 discards. The
+refusal batch was also 500 calls ≈ 0.035ms of wall time against millisecond-scale steals, so one
+steal was a ~500x per-call error; it is 2.1ms now, like every other batch.
+
+The file now carries the standing instruction in its header: **calibrate against `npm test`, never
+against this file alone.** Three thresholds in its short history were set from isolated figures and
+all three flaked.
+
+Also from the review, all applied: the GDD's §2 refusal table was written as exhaustive at three
+rows while the implementation refuses a fourth (`setShutter` to the setting already held) — the rule
+lived only in a reducer comment, which is the shape this PR spent its whole effort avoiding, so it
+is now a table row, a justification paragraph and a change-log row. `arriveOnFloor` passed
+`previous.lantern.fuel` into `createLanternWorld` and then discarded the lantern it built; the
+argument is now load-bearing rather than decorative. A comment claiming `turnsElapsed` and
+`schedule.now` must agree was false in three ways and would eventually have been enforced as an
+invariant. And two `divergence.test.ts` pins that had loosened to `/^(lantern|rng|world)\b/` and
+`\w+` — each of which matches most of what it could be asked about — are tight again.
+
+Filed rather than widened into this PR: **#34** (a descent is 1.7ms of the 2ms turn budget on
+CI-class hardware, and the cost is the generator, not the turn), **#35** (nothing catches `litQuery`
+recomputing the lit field per call — the mutation measures 4.75x against a 5x limit and passes,
+because the benchmark's floor has too few creatures for it to be expensive), and **#32**
+(auto-travel's command shape, which is a determinism question rather than a UI one).
 
 ## 2026-08-02 — Fuel, the shutter, and the light economy (#17)
 

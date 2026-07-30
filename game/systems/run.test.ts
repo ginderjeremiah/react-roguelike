@@ -208,6 +208,27 @@ describe('arriveOnFloor — what crosses the stairs (§13)', () => {
     expect(after.lantern.vision.remembered.flags).toHaveLength(FLOOR_TWO.grid.tiles.length);
   });
 
+  it('sizes the fresh memory to a floor of a genuinely different shape', () => {
+    // The three lines above are a *shape* claim, and against two generated floors they cannot fail:
+    // every floor the generator builds is the same 11x15, so a carried `TileSet` has the right
+    // width and the right length too. `arriveOnFloor` takes any `Floor`, so the claim is put
+    // against one that is not 11x15 — which is the only arrangement in which "sized to the new
+    // grid" is falsifiable, and the arrangement the comment above is really about.
+    //
+    // It is not hypothetical twice over: the flags array is indexed as `y * width + x`, so a
+    // carried set of the wrong width does not merely look odd, it reads a different tile for every
+    // row after the first.
+    const small = scenario(['#####', '#@..#', '#####']).world.floor;
+    expect(small.grid.width).not.toBe(FLOOR_ONE.grid.width);
+    expect(small.grid.tiles.length).not.toBe(FLOOR_ONE.grid.tiles.length);
+
+    const arrived = arriveOnFloor(before, small).lantern.vision.remembered;
+    expect(arrived.width).toBe(small.grid.width);
+    expect(arrived.height).toBe(small.grid.height);
+    expect(arrived.flags).toHaveLength(small.grid.tiles.length);
+    expect(arrived.flags.filter(Boolean).length).toBe(0);
+  });
+
   it('leaves the uncollected ember on the floor above', () => {
     // §13: "Fuel you did not collect is fuel you did not earn."
     expect(before.world.embers).toHaveLength(1);

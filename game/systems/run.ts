@@ -41,7 +41,7 @@
 
 import { STARTING_FUEL } from '../content';
 import { playerOf, withActor, type ActorWorld } from '../entities';
-import { emptyTileSet, type Vision } from '../fov';
+import { type Vision } from '../fov';
 import { tileAt, type Floor } from '../map';
 import { restoreOnDescent } from './combat';
 import {
@@ -99,6 +99,16 @@ export function isOnStairs(state: LanternWorld): boolean {
  * @param previous the floor being left, at the moment `descend` resolves.
  */
 export function arriveOnFloor(previous: LanternWorld, floor: Floor): LanternWorld {
+  // The two carried lantern fields are handed *to* the constructor rather than patched on after it,
+  // so the lantern below is the one `createLantern` built and checked — the argument is load-bearing
+  // rather than a value passed and then thrown away.
+  //
+  // What that check buys: `createLantern` refuses to build a lit lantern with no fuel to burn. **No
+  // run can reach that state today** — `burn` closes the shutter on the turn fuel hits 0, and `open`
+  // refuses at 0 — so this is a latent invariant, deliberately kept rather than an active guard. It
+  // is kept *here* because a descent is the only place a lantern is rebuilt from carried values, so
+  // a break in either of those two rules surfaces on the next descent instead of as a lantern that
+  // is lit and dry at once.
   const arrived = createLanternWorld(floor, previous.lantern.vision.shutter, previous.lantern.fuel);
 
   // HP crosses, then §3's +2 is applied on the far side. `restoreOnDescent` is the only function in
@@ -110,17 +120,22 @@ export function arriveOnFloor(previous: LanternWorld, floor: Floor): LanternWorl
   });
   const healed: ActorWorld = restoreOnDescent(wounded);
 
-  // The eyes cross; the map does not. A fresh `TileSet` sized to the new grid — not the old one,
-  // whose length is the old grid's and would index every tile one row out on a differently shaped
-  // floor if the grid size ever varied.
+  // The eyes cross; the map does not. Only the adaptation ramp is carried onto the new floor's
+  // vision, because that is the one §13 field `createVision` cannot know: it starts every sense
+  // radius at the adaptation *floor* (§4), and §13 says descending is not shuttering. `remembered`
+  // is left as the fresh `TileSet` `createVision` built — sized to the *new* grid, where the old
+  // floor's would index every tile a row out if grid sizes ever varied.
+  //
+  // Spread-then-override rather than a field-by-field literal, for the same reason the world is
+  // rebuilt rather than edited: a field added to `Vision` later defaults to the new floor's value,
+  // which is the conservative direction.
   const vision: Vision = {
-    shutter: previous.lantern.vision.shutter,
+    ...arrived.lantern.vision,
     senseRadius: previous.lantern.vision.senseRadius,
-    remembered: emptyTileSet(floor.grid),
   };
 
   // The descent's turn is paid here (§13), and phase 1 is where a turn is paid for.
-  return chargePlayer({ world: healed, lantern: { fuel: previous.lantern.fuel, vision } });
+  return chargePlayer({ world: healed, lantern: { ...arrived.lantern, vision } });
 }
 
 /**

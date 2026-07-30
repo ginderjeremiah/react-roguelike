@@ -99,7 +99,7 @@ and unknown. This does not violate Pillar 2: the information exists and is purch
 
 **Resolution order for one player command:**
 
-1. Player command resolves (move-or-attack, wait, toggle shutter, descend — §3 and §9 give the
+1. Player command resolves (move-or-attack, wait, set the shutter, descend — §3 and §9 give the
    whole vocabulary, and it is four commands, not five).
 2. Fuel burns at the current shutter rate.
 3. Lighting and vision recompute. Any dormant creature now inside the lit radius **wakes** and
@@ -129,13 +129,14 @@ Concretely, in terms of the six phases above: a free action runs **1, 2, 3 and 5
 One consequence worth knowing: a creature woken *during* a free action sees two player commands
 before its declared action resolves. That is more conservative than commit-one-turn-ahead requires.
 
-**Refused actions run no phases at all.** A free action runs four of the six phases. Three
-well-formed commands run **none**, because the situation forbids them outright:
+**Refused actions run no phases at all.** A free action runs four of the six phases. **Four**
+well-formed commands run **none**, because the situation leaves them nothing to do:
 
 | Refused | Because |
 | --- | --- |
 | A move into a wall, a pillar, or off the grid | There is nowhere to step |
 | `descend` while not standing on the stairs | §9 — the stairs are where you take them |
+| `setShutter(to)` where the shutter already reads `to` | Re-asserting a setting is not a change — below |
 | Any command at all once the run has ended | §13 |
 
 A refusal costs nothing: no fuel, no creature turn, no adaptation tick, no change to any field of
@@ -150,6 +151,15 @@ of the turn — in light, in darkness, and at the very bottom of the adaptation 
 learned by walking into a wall, so nothing is being bought for free. What charging a turn for it
 *would* buy is a fat-fingered tap that also hands every creature on the floor a turn: punishing the
 interface rather than the decision, which is the same argument that made the shutter toggle free.
+
+**Re-asserting the shutter is not toggling it.** What this section makes free is *changing* the
+shutter, and it is free of **tempo**, not of **fuel** — a flash costs its 4. So a `setShutter`
+command naming the setting the shutter already holds must not resolve: it would charge 4 fuel for a
+double-tap on a control that already reads *open*, which is the same fat-fingered tap refused
+everywhere else here (Pillar 3). Nor is it exploitable the other way — the command it refuses was
+free of tempo anyway, so refusing it skips no turn and hands nobody an extra one. The rule is small
+and easy to lose, and it exists only because a **setting** can be re-asserted where a **toggle**
+could not; §9 has the distinction.
 
 **The input layer refuses first and `step()` is the backstop.** An impassable neighbour is not a tap
 target and the descend control is absent unless you are on the stairs (§9), so a refusal should be
@@ -576,6 +586,12 @@ Touch-first (Pillar 3):
   becomes visible or sensed, or any creature wakes.** Auto-travel that walks you into an ambush
   violates Pillar 1.
 - Lantern shutter: a persistent, thumb-reachable toggle. **Free action.**
+  **The control is a toggle; the command is not** — stated once, here, because everything else in
+  the document says "toggle" and means the thing under the thumb. What the thumb sends names a
+  *setting*, absolutely: open, or shuttered. A toggle's meaning depends on the state before it, so
+  one dropped or duplicated command silently inverts the rest of a stored run — and a run is a
+  stored artifact (Pillar 4). The cost is one rule: naming the setting the shutter already holds is
+  refused (§2).
 - **Descend: its own control, present only while you are standing on the stairs**, in the thumb zone
   beside the shutter. Not the self-tap — that is `wait`, and **waiting on the stairs is a real
   move**: the stairs are exactly where §3's macro decision is made ("clear this floor for fuel, or
@@ -769,3 +785,4 @@ recorded at the moment we made it, is the part git cannot give us.
 | 2026-08-03 | **New §13: descent costs a turn, the turn is paid on the floor below, and the lantern and the eyes cross the stairs while the map does not** | Fuel, shutter and ember-sense radius carry (the ramp is triggered by the *act* of shuttering, and descending is not shuttering); remembered terrain does not, because memory is of a place. Paying the turn below rather than above means the creatures you fled get no parting shot — descending *is* §2's "step off the marked tile", which has always been a defensive move that costs a turn — so **the stairs are the one escape nothing follows you down**, at the price of the floor's remaining kills and caches. Resetting dark adaptation on descent was the runner-up and lost on Pillar 1: it would make the four turns after every descent a guaranteed-safe wait-and-adapt ritual, seven times a run |
 | 2026-08-03 | **New §13: a run ends in exactly two ways — died, or took the stairs on the last floor — and a terminal state stops the turn where it happens** | The GDD had never said the run could be *won*; §1 said "repeat down eight floors" and stopped. There is no floor 9 and no boss (§6 has one creature; the rest is M3), so the eighth descent is the ending. Death stops the actor sweep mid-phase so the final frame is the killing blow rather than three Cinders shuffling around a corpse (Pillar 2, most literally). Commands after the end are **refused**, not thrown — a tap landing a frame after the killing blow is ordinary touchscreen behaviour, and a stored run whose log runs past the death must still replay. This also dissolves the frozen-clock hazard by construction: a finished run consults no schedule, so it cannot matter that the schedule is empty |
 | 2026-08-04 | **Correction, measured: the arriving flash does *not* wake nothing. §4 and §13 both claimed it did; 20% of arrivals wake something** | **The ruling ("a run starts open", 2026-08-03) survives; one of its three reasons does not.** The bad step was reading a **room** exclusion as a **light** exclusion: §5 step 7 constrains where a creature may *stand* (not the entrance room, not its merged partner, not within 2 tiles), and I concluded the entrance was therefore safe to light. But the lit field is Chebyshev 4 **with line of sight**, and line of sight runs through a doorway into the next room — which is exactly where §5 is happy to put creatures. #18's implementation measured it over 480 generated floors: **97 (20%) wake at least one creature on arrival.** Reasons 2 and 3 carry the ruling alone, and reason 2 is *strengthened* — a shuttered opening is now the only guaranteed-safe one, so the four-turn wait-and-adapt ritual it invites is more attractive, not less, and Pillar 1 wants it gone more than before. Three edits follow. §4's containment guarantee gains the clause it was always missing — it holds only on a floor you have **already felt**, so **arrival is the third case where it does not apply** (with the adaptation ramp and an open shutter); you cannot have sensed a floor you were not standing on. The promise becomes spatial rather than sensory: **you never arrive on top of something; you sometimes arrive in sight of something** — at least three tiles off, through a doorway, lit, telegraphed, and woken into a *declaration* rather than an action (§2 phase 3), with §4's re-dormancy rule already in the player's hand as the answer. And §13 keeps the behaviour deliberately rather than patching it: a guaranteed-safe arrival makes the stairs a reset button and the descent a formality, where one-in-five makes "which way do I go down" a real question — and it is what gives the *shutter carries across the stairs* ruling a mechanism instead of a tidiness argument. A first-turn exemption was never on the table: it would be a fifth vision state invented to protect a sentence |
+| 2026-08-04 | **§2: a fourth refusal — `setShutter(to)` where the shutter already reads `to` runs no phases** | The refusal block was written as exhaustive ("three well-formed commands"), so a fourth rule had nowhere to live but a comment inside the reducer — which is where a rule gets tidied away by someone who cannot see why it is there. **The block was not wrong; it predated the command.** It was written when the shutter command was a *toggle*, and a toggle cannot be re-asserted. `setShutter(to)` can, and the command shape changed for a determinism reason: a toggle's meaning depends on the state before it, so one dropped or duplicated command silently inverts the rest of a stored run, and a run is a stored artifact (Pillar 4). The rule itself reads off §2 rather than being chosen — what §2 makes free is *changing* the shutter, and free of **tempo**, not of **fuel**; a flash costs its 4. Resolving a re-assertion would therefore charge 4 fuel for a double-tap on a control already reading *open*, which is precisely the fat-fingered tap §2 refuses everywhere else (Pillar 3). Not exploitable in the other direction either: the command it refuses was free of tempo anyway, so refusing it skips no turn and gives nobody an extra one. §9 now carries the control/command distinction once — the thumb control is still a toggle; what it emits is a setting |

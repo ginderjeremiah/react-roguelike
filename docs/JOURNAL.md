@@ -56,26 +56,47 @@ as the cost of the command shape, turned out to be a non-issue: travel never des
 **zero** draws and `expectedDrawCount` is untouched. The property that carries the whole design is
 that **a travel must be indistinguishable from the `move` sequence it stands for** — a foldable
 property test, and the thing that makes the economy, the spent turns and the draw count all answer
-themselves.
+themselves. It has to be stated modulo one field: `commandsResolved` is 1 against N, by construction
+and on purpose, and everything else is identical.
 
-**The interrupt rule.** §9's "the moment anything new becomes visible or sensed" is unimplementable
-as written *in both directions*, which nobody had noticed: shuttered, touch radius 1 means nearly
-every step perceives a tile it has not perceived before, so travel never travels; lit, "anything new"
-has no edge a player can state, which is the Pillar 2 failure the sentence exists to prevent. Terrain
-was **cut rather than qualified**: the route runs over remembered tiles only, so a travel cannot
-enter unmapped space, and the only mode travel is economically sensible in is dark, where items are
-invisible and terrain reaches one tile. What is left is one sentence — *you walk until something
-living appears, or something touches you.*
+**The interrupt rule.** §9's "the moment anything new becomes visible or sensed" never says what
+*new* is measured against, and the two readings disagree — **stone is remembered, ember is not.**
+Terrain would be judged new against permanent memory, the living against the previous step. Under the
+memory reading, a shuttered travel across mapped space is fine; under the previous-step reading,
+touch radius 1 means nearly every step perceives a tile it did not perceive last turn and travel
+never travels. The lit direction has no good reading at all. Terrain was **cut rather than
+qualified**: the route runs over remembered tiles only, so a travel cannot enter unmapped space, and
+the only mode travel is economically sensible in is dark, where items are invisible and terrain
+reaches one tile. What is left is one sentence — *you walk until something living appears, or
+something touches you.*
 
 **The deferral.** Auto-travel creates no decisions; it removes taps. That is legitimate under
 Pillar 1 only if the taps it removes are autopilot, and **nobody has tapped this game once** — there
 is no `render/`. Every remaining question about the stop rule is a playtest question, so building it
 now means tuning it against imagination.
 
-**Learned:** The design question was answerable entirely from rules that already existed — the
+**Learned:** The design question was answerable largely from rules that already existed — the
 command module's intent-not-resolution rule decided the shape, and §4's fuel arithmetic decided that
 lit travel is self-punishing, which is what made cutting the terrain clause safe rather than
-convenient. Also worth recording: **`game/core/command.ts` rule 3 and `game/core/replay.ts`'s bump
+convenient.
+
+**The expensive lesson is the other way round, and the `code-reviewer` caught it: I specified a rule
+against machinery I assumed rather than read.** ADR-0009's first draft argued that a travel "eats
+exactly one hit", because vision recomputes in phase 3 and creatures move in phase 4 — so a creature
+closing to adjacency would not be perceived until the following step. **There is no simulation-side
+creature perception at all.** `game/systems/light.ts` calls `perceive(grid, vision, origin, [])` with
+an empty creature list *deliberately*: nothing in the simulation read the result, mutation testing
+proved the line unkillable, and it was removed. The only creature perception derivable from a
+`GameState` is post-phase-4, under which the closing creature *is* newly perceived at the end of that
+step — so the stop rule fires before the attack lands, and the eat-one-hit consequence directly
+contradicted the ADR's own clause 1. Two things follow, both now in the ADR: the consequence is
+**cut**, and identity-keyed creature perception is named as **new machinery** rather than as
+something the phases already compute. It belongs in travel's fold, not in phase 3 — travel is the
+observer that was missing, which is what makes computing it legitimate against light.ts's "an
+unkillable line is a line that should not exist"; that ruling is about observability, not about the
+computation being unwanted.
+
+Also worth recording: **`game/core/command.ts` rule 3 and `game/core/replay.ts`'s bump
 policy contradict each other** on whether adding a `Command` variant bumps `RULES_VERSION`. `command.ts`
 says only if it changes what an existing log does (it does not); `replay.ts` — the canonical home per
 ARCHITECTURE's *Versioning* section — lists any change to the set of variants. ADR-0009 rules that
@@ -91,13 +112,21 @@ ways that can mislead. The Pillar 1 autopilot count will include those steps, an
 indictment of the level generator — §5 forbids corridors precisely so there are no autopilot turns,
 and a mapped room crossed on the way back is a different animal; report the two separately. And
 "tapping is tedious" is a loud finding that could crowd out the quiet one M1 exists to get, which is
-whether the flash-and-crawl wager is the reason to play. The playtest brief should say travel is
-deliberately absent and ask for the tap count as its own line item.
+whether the flash-and-crawl wager is the reason to play. **Both instructions are now in M1's exit
+criteria in `ROADMAP.md`**, not only here — CLAUDE.md has each session read the roadmap and only the
+last two or three journal entries, and by M1's exit this entry is out of that window. A third cost
+went there too: `economy.test.ts`'s corpus models one-step play by a *tireless* script, and a
+tap-fatigued playtester goes back for fewer caches, which is exactly the behaviour §4's third
+invariant is calibrated on — so M1's fuel data matches neither the corpus nor travel-present play.
 
-Three code sites become wrong the day `travel` lands and must not be touched before then, listed in
-ADR-0009's Consequences: `ARCHITECTURE.md`'s "`Command` is four variants and no more" (twice),
-`step.ts`'s contract point 6 ("exhaustive for this build"), and the `command.ts`/`replay.ts`
-contradiction above.
+Four sites become wrong the day `travel` lands and must not be touched before then, listed in
+ADR-0009's Consequences. Three are comments; **the first is a red test.**
+`game/core/replay.test.ts` asserts `turnsElapsed <= commandsResolved` over 120 generated records, and
+travel is the first command for which that is false — one command, N turns. An unannounced failure
+there reads as a determinism emergency, because ARCHITECTURE says a red `replay.test.ts` means stop
+everything. The other three: `ARCHITECTURE.md`'s "`Command` is four variants and no more" (once, in
+*Determinism, concretely* — an earlier draft of this entry said twice), `step.ts`'s contract point 6
+("exhaustive for this build"), and the `command.ts`/`replay.ts` contradiction above.
 
 ## 2026-08-05 — `Perception` was two types; now it is `TurnPerception` and `LightQuery` (#36)
 

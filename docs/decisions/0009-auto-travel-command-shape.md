@@ -11,9 +11,18 @@ only the first was asked for; the other two fell out of trying to answer it.
 GDD §9 has marked auto-travel *settled* since the M0 design review — "tap a distant **remembered**
 tile to path toward it, interrupted the moment anything new becomes visible or sensed, or any
 creature wakes" — and has never said how it is **commanded**. That looked like a UI detail and is
-not one. The interrupt rule is computed from the lit field, the sensed set and the wake set, none of
-which `components/` may touch, so the loop and the rule sit on opposite sides of the `game/`
-boundary and the question is a determinism question. Two shapes were on the table:
+not one. The interrupt rule is computed from the lit field, the wake set and **which creatures the
+player is currently perceiving**, and none of those is a thing `components/` may decide, so the loop
+and the rule sit on opposite sides of the `game/` boundary and the question is a determinism
+question.
+
+The third of those is not merely off-limits to `components/` — **it does not exist anywhere yet**,
+and that turns out to matter to this decision rather than to its implementation.
+`game/systems/light.ts`'s phase 3 calls `perceive(grid, vision, origin, [])` with an empty creature
+list *on purpose*: nothing in the simulation reads the creature half, so passing the real list was a
+computation whose result was discarded, and mutation testing confirmed it — "an unkillable line is a
+line that should not exist." The creature set the player perceives is derived in the renderer, from
+the single post-step `GameState`. Two shapes were on the table:
 
 - **One `travel(x, y)` command** resolving many turns inside `step()`. The rule stays in one place;
   a single command consumes an unbounded number of turns.
@@ -27,11 +36,15 @@ Three forces made this worth an ADR rather than a comment:
   design review noticed: "a command carries intent, not resolution ... the moment the caller
   computes part of the answer, part of the rules live outside `step` and the replay stops being
   authoritative."
-- **§9's interrupt wording is unimplementable as written, in both directions.** Travelling
-  shuttered, the touch radius is 1 and nearly every step perceives a tile it has not perceived
-  before — travel that never travels. Travelling lit, "anything new" is so broad it has no edge a
-  player could state, which is the Pillar 2 failure the sentence exists to prevent. So the shape
-  could not be settled without settling the rule.
+- **§9's interrupt wording cannot be implemented from §9 alone.** "Anything new becomes visible or
+  sensed" has no single reading of *new*, and the two available readings behave differently in the
+  two vision states. Read against **permanent memory** — the sense §9's own "remembered tile" uses —
+  a shuttered travel across mapped space perceives nothing new and the rule is well behaved. Read
+  against **the previous step**, the touch radius is 1 and nearly every step perceives a tile it did
+  not perceive last turn: travel that never travels. The lit direction is worse and has no good
+  reading at all — "anything new becomes visible" at radius 4 through a doorway has no edge a player
+  could state, which is the Pillar 2 failure the sentence exists to prevent. So the shape could not
+  be settled without settling the rule.
 - **Nothing above `game/` exists.** `render/` is #19 and unbuilt; nobody has tapped this game once.
   Auto-travel is a fix for a friction that has never been felt.
 
@@ -45,8 +58,10 @@ Three forces made this worth an ADR rather than a comment:
 
 `step()` resolves it as **a fold of `move` commands** — one route step at a time, each a complete
 six-phase turn (§2) — until a stop condition fires. One `step()` call, one `commandsResolved`, N
-`turnsElapsed`. Contract point 5 already split those two counters for exactly this reason, and both
-readings are the right ones: the player made one decision and spent N turns.
+`turnsElapsed`. Contract point 5 already split those two counters, which is what makes both readings
+expressible: the player made one decision and spent N turns. **It is not the case that the split was
+made in anticipation of this** — travel is the first command for which `turnsElapsed` grows faster
+than `commandsResolved`, and the suite has an assertion that says it cannot (see *Consequences*).
 
 The load-bearing property, and the first line the implementation's header should carry:
 
@@ -54,8 +69,11 @@ The load-bearing property, and the first line the implementation's header should
 > for.** Same intermediate states, same fuel, same creature turns, same adaptation ticks. The only
 > difference is how many taps it took.
 
-That is a property test — `travel(to)` from `S` equals folding the corresponding `move` commands
-over `S` — and it is what makes three otherwise separate questions answer themselves: the fuel
+Stated exactly, because the loose version is not testable: `travel(to)` resolved from `S` equals the
+fold of the corresponding `move` commands over `S` **in every field but `commandsResolved`**, which
+differs by construction — N against 1 — and is the one field that is *supposed* to record that this
+was one decision. Everything else, `world` and `lantern` and `rng` and `status` and `turnsElapsed`,
+is identical. That is what makes three otherwise separate questions answer themselves: the fuel
 economy is arithmetically untouched, the spent turns are obviously spent, and the draw budget is
 obviously unchanged. **If a state reachable by travel is not reachable by tapping the same steps one
 at a time, travel has become a mechanic, and it is not allowed to be one.**
@@ -67,7 +85,10 @@ Contract point 4 stays true verbatim.
 
 ### 2. The stop rule: you stop for the living
 
-§9's "anything new becomes visible or sensed" **narrows**. Terrain never interrupts travel.
+§9's "anything new becomes visible or sensed" **narrows**. Terrain never interrupts travel, and the
+two kinds of "new" §9 conflated are separated: **stone is remembered, ember is not.** Anything
+terrain-shaped would have to be judged new against permanent memory; anything living is judged new
+against the previous step. Only the second survives.
 
 **Travel stops after a fully resolved step in which any of these happened:**
 
@@ -110,12 +131,20 @@ have invented:
   on the same step. It stays because it is the clause the player actually reads, and because the
   coincidence is a property of M1 having one creature: a future creature that wakes on proximity
   breaks it, and the rule should not have to be rediscovered then.
-- **You can eat exactly one hit during a travel, and that is correct.** Vision recomputes in phase 3,
-  before actors move in phase 4, so a creature that closes to adjacency during a travel step is not
-  perceived until the next step's phase 3 — by which time its declared attack resolves in that
-  step's phase 4. This is **not** extra exposure: a player walking one step at a time has the
-  identical blind spot, because it is a property of §2's phase order, not of travel. Clause 3 bounds
-  it to one hit.
+- **Clause 1 is evaluated on the post-step state — the state a manual player would be looking at.**
+  That is the only state that exists to evaluate it against: phase 3 stores nothing about creatures,
+  and the renderer derives its marks from the finished `GameState`, after phase 4 has moved
+  everyone. So a creature that crosses into your sense radius during a step **is** newly perceived at
+  the end of that step, and travel stops there — before the attack it declared on that same turn
+  resolves, because §2 resolves a declared action on the creature's *next* turn. **Travel therefore
+  never eats a hit from something it had not already made contact with**, and the earlier draft of
+  this ADR, which claimed it ate exactly one, was wrong about the machinery and contradicted clause 1.
+  Evaluating the stop condition on the state the player would have seen is the same statement as the
+  indistinguishability invariant, applied to the one thing travel decides for you.
+- **Clause 3 is what covers the case clause 1 cannot**: the creature you *had* already felt, that you
+  chose to travel away from anyway. Contact is not new, so clause 1 is silent; the hit lands; travel
+  stops. Without clause 3 a travel could be beaten to death one step at a time while the player
+  watched, and with it the player is returned to manual control after one blow.
 - **An interrupted travel costs every turn it spent. There is no rewind**, at any granularity, ever.
   A travel *is* those turns: fuel burned, creatures acted, adaptation ticked.
 
@@ -148,8 +177,9 @@ nothing wakes.
 
 ### 3. It is not built in M1
 
-Auto-travel moves to **M2** and is gated on a playtest signal (`ROADMAP.md` carries it). #20 is
-unblocked, and what it inherits from this ADR is one constraint:
+Auto-travel moves to **M2** and is gated on a playtest signal (`ROADMAP.md` carries it). **This
+unblocks #20 from #32 and from nothing else — #20 remains blocked by #19**, which builds the
+presentation model it consumes. What #20 inherits from this ADR is one constraint:
 
 > **#20 must leave a tap on a distant tile unbound.** No inspect mode, no long-press-to-examine, no
 > pan or drag gesture may claim it, and the tap handler must be able to produce a target `Position`
@@ -204,7 +234,7 @@ measuring the friction before fixing it.
 
 **Makes easy:** an interrupt rule that is unit-testable at the tier that can test it; a run that is
 robust to the platform killing the shell mid-travel; a log whose entries are still what the player
-did; #20 unblocked today at the cost of one sentence rather than one feature; and an M2
+did; #20 freed of *this* dependency at the cost of one sentence rather than one feature; and an M2
 implementation that inherits a specification instead of a topic.
 
 **Makes hard:** the presentation layer gets one state jump per travel and has no intermediate states
@@ -214,13 +244,26 @@ ARCHITECTURE's `< 2ms` is **per resolved turn**, not per `step()` call, and a tr
 take N times it. The distance field can be computed once per travel command rather than once per step
 — during a travel, terrain changes only by cache collection, which turns a cache tile into floor,
 passable to passable — but vacancy still has to be checked per step, which is the split
-`game/entities/pathing.ts` already makes. The one genuinely new piece of machinery is a
-`stepDistanceField` variant masked by remembered terrain.
+`game/entities/pathing.ts` already makes.
+
+**Two pieces of new machinery, and the second is the one to argue about.** The first is a
+`stepDistanceField` variant masked by remembered terrain, which is small. The second is
+**identity-keyed creature perception, computed inside `game/`** — the thing clause 1 tests, and the
+thing `light.ts` deliberately removed. That is not a licence to undo its ruling, and the distinction
+is worth stating because an implementer will meet the comment and stop: light.ts removed the creature
+list because *nothing observed it*, and "an unkillable line is a line that should not exist" is a
+statement about observability, not about the computation being unwanted. **Travel is the observer
+that was missing.** Two constraints follow. It belongs to travel's fold, not to phase 3 — phase 3
+still passes `[]` and still stores nothing, because a command that does not travel must not start
+paying for a set nobody reads. And it must key on the creature, not the tile, which means it is not
+quite `TurnPerception` as `perceive` returns it: that type carries positions only, deliberately (§4:
+ember-sense gives no identity), so the stop rule needs the actor ids beside it and must not leak them
+anywhere the player can see.
 
 **What the deferral costs, stated plainly.** The `playtester` will cross known space by hand at M1's
 exit. On a six-room 11×15 floor the longest crossing is about twenty tiles, so a run that backtracks
-is a run with a few dozen taps of nothing in it. Two specific risks follow and both are the
-`playtester`'s to guard against rather than the design's:
+is a run with a few dozen taps of nothing in it. Three specific risks follow, the first two of them
+the `playtester`'s to guard against rather than the design's:
 
 - The Pillar 1 honest-autopilot count will include those steps. That number must not be read as an
   indictment of the level generator: §5 forbids corridors precisely so there are no autopilot turns,
@@ -228,7 +271,16 @@ is a run with a few dozen taps of nothing in it. Two specific risks follow and b
   corridor. Report the two separately.
 - "Tapping is tedious" is a loud finding and could crowd out the quiet one M1 exists to get — whether
   the flash-and-crawl wager is the reason to play. The playtest brief should say travel is
-  deliberately absent and ask for the tap count as its own line item.
+  deliberately absent and ask for the tap count as its own line item. **This instruction is now in
+  M1's exit criteria in `ROADMAP.md`**, because a Consequences section is not somewhere a future
+  session looks before running a playtest.
+- **M1's fuel data will be measured under a play pattern that matches neither the corpus nor the
+  finished game.** `economy.test.ts` models one-step play by a *tireless script*; the playtester is
+  not tireless, and tap fatigue suppresses exactly the behaviour §4's third invariant is calibrated
+  on — going back for a cache, chasing an ember drop across a floor. So a floor that nets worse than
+  +11 at M1's exit is not necessarily evidence about the economy, and neither is a floor that nets
+  better. This is a cost of the deferral rather than an argument against it: the alternative was
+  measuring under a third pattern, travel-present play, whose stop rule had never been tuned.
 
 **What the deferral buys** is the measurement. The alternative was tuning an interrupt rule against
 a friction nobody had felt, and the signal that decides it is now written down in `ROADMAP.md` under
@@ -244,12 +296,22 @@ caches and kills — so the requirement is not a number but an order: **re-measu
 corpus with travel in it**, because the invariant's empirical status was established against a play
 pattern travel changes.
 
-**Three places in the codebase become wrong the day `travel` lands, and none of them should be
-touched before that.** They are listed here so the implementing PR inherits them rather than
-rediscovering them:
+**Four places become wrong the day `travel` lands** — the ones known today, and none of them should
+be touched before that day. #32's checklist carries the reconciliation; they are listed here so the
+implementing PR inherits the reasoning rather than rediscovering it:
 
-- `docs/ARCHITECTURE.md` says "`Command` is four variants and no more" (twice, in the layer map and
-  under *Determinism, concretely*).
+- **`game/core/replay.test.ts`'s counter assertion — and this one is a red test, not a stale
+  comment.** It asserts `turnsElapsed <= commandsResolved` over 120 generated records, on the
+  reasoning that "`turnsElapsed` counts a strict subset: every free action resolved is a command
+  that cost no turn." **Travel is the first command that makes that false**, and the first for which
+  `turnsElapsed > commandsResolved` — one command, N turns. The first generated record containing a
+  multi-turn travel turns it red, and `ARCHITECTURE.md` tells the reader that this file going red
+  means stop and fix it before anything else, so an unannounced failure here reads as a determinism
+  emergency rather than an expected consequence. The assertion is not wrong today and must be
+  *replaced*, not deleted: the surviving invariant is that `turnsElapsed` equals the number of
+  turn-costing turns resolved, which travel satisfies and a counter bug still would not.
+- `docs/ARCHITECTURE.md` says "`Command` is four variants and no more" once, in *Determinism,
+  concretely*. (An earlier draft of this ADR said twice; the layer map does not say it.)
 - `game/core/step.ts`'s contract point 6 calls §2's refusal list "exhaustive for this build".
 - **`game/core/command.ts`'s rule 3 and `game/core/replay.ts`'s bump policy disagree**, and this ADR
   rules that **`replay.ts` wins**. `command.ts` says adding a variant is a `RULES_VERSION` bump *if*

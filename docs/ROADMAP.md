@@ -100,6 +100,20 @@ viewport — **both endings, death and the eighth descent** — and report that 
 feel good, and that the flash-and-crawl decision is one it actually made rather than one the rules
 merely permit.
 
+**Two instructions the playtest brief must carry, both because auto-travel is deliberately absent
+(ADR-0009).** Without them M1's headline finding is likely to be about tapping rather than about the
+light wager:
+
+- **Crossing known space is done by hand, up to about twenty tiles a floor.** Report the tap count
+  as its own line item, and keep it out of the Pillar 1 autopilot count — or at least separate the
+  two. Steps across an already-mapped empty room are not evidence that §5's no-corridors rule
+  failed; they are the cost of the missing feature.
+- **The fuel numbers from this playtest are weak evidence about the economy.**
+  `game/systems/economy.test.ts`'s corpus models one-step play by a tireless script, and a
+  tap-fatigued player goes back for fewer caches and chases fewer embers — which is precisely the
+  behaviour §4's third invariant is calibrated on. Report what happened; do not re-tune from it
+  alone.
+
 ## M2 — The light loop
 
 *Goal: the core wager from `VISION.md` is real and it is the reason to play.*
@@ -127,7 +141,11 @@ existed, so tuning a stop rule would have been tuning it against imagination.
   turns rather than vibes, or if the Pillar 1 autopilot count is dominated by known-empty dark steps.
 - **Do not build it** if the playtester rarely crosses known space (floors get abandoned for the
   stairs), or crosses it *lit* — in which case travel is a trap that costs 4 a turn and wakes the
-  floor, and the fix is elsewhere.
+  floor, and the fix is elsewhere. **This arm is confounded and must be disambiguated before it is
+  believed**, because the tap cost suppresses the very behaviour it is measuring: a player who
+  wanted to go back and could not face the taps produces the same observation as a player who never
+  wanted to. Ask directly — *did you want to go back and decide not to?* An answer of "yes, often"
+  is evidence **for** travel, not against it.
 - **Kill it permanently** if, once built, it stops on nearly every step. That is the stop rule being
   wrong at the concept level rather than the tuning level, and a travel that stops every step is
   worse than twenty taps because it also lies about what it does.

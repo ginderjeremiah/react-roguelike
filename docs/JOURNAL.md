@@ -133,6 +133,59 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-07-31 — The vision metric is Chebyshev; ember-sense drops 6 → 5 (#25)
+
+**Did:** Settled GDD §4's last open question — what measures a "radius". **Chebyshev (a square) for
+every vision radius**: lit 4, dark touch 1, ember-sense, and every value the dark-adaptation ramp
+passes through. Two numbers moved as a consequence and both are flagged loudly in the change log:
+**ember-sense 6 → 5** and the **adaptation floor 2 → 1** (ramp 1→2→3→4→5). Also replaced §4's
+"light reveals ~20 tiles per turn" claim, which was the wrong number in the wrong unit. No ADR: the
+metric was marked *Open*, not settled, and VISION.md commits to no radius.
+
+**Why:** §4 had already committed to Chebyshev without noticing — "radius 1, the 8 tiles you can
+touch" is only true under Chebyshev; Manhattan and Euclidean radius 1 are both 4 tiles. That is
+evidence of intent, and lit and dark terrain vision are the same sense at two reaches, so they
+cannot differ.
+
+The argument that actually decided it against Euclidean was Pillar 1, not looks. In a 5×4 room a
+Euclidean radius-4 disc leaves 4-5 tiles dark unless you stand near the middle, and Manhattan
+lights the room only from the exact centre tile. Both make "walk to the middle of the room, then
+flash" the always-correct move — an obvious optimal turn, which is precisely the turn Pillar 1 says
+should not exist. Chebyshev 4 is exactly the corner-to-corner span of the largest room, so a flash
+lights one room from *anywhere* in it and the decision is purely *when* to flash, never *where*.
+
+Light and ember-sense share the metric, and that turned out to be load-bearing rather than tidiness.
+With sense 5 ⊇ lit 4 under one metric, the lit region is always a subset of the sensed region, so
+**everything a flash can wake, you can already feel**. A different metric for ember-sense would
+break containment at the corners and manufacture the one unfair death this system can produce — a
+creature woken inside your own light that you had no way to sense.
+
+**Learned:** Choosing the metric *invalidated a number*, which I did not expect going in. Chebyshev
+radius 6 on an 11×15 grid is a 13×13 box — from the middle band it covers ~87% of the floor and
+stops varying with position. That is not "too strong", it is a radius that has stopped being a
+radius: it falsifies §5's "ember-sense tells you there are two things in the room north of me", and
+the top two steps of the adaptation ramp become provable no-ops. #14 would have implemented a ramp
+whose last two turns do nothing. Worth remembering as a general shape: an unstated metric can hide
+the fact that a stated number is degenerate, and settling the metric is what surfaces it.
+
+The floor drop 2 → 1 is the smaller of the two and the nicer one — it restores the four-turn ramp
+§4 always claimed, and it *subtracts a constant*, because it is the same 1 as the dark touch radius.
+"Shuttered, you know only what you can touch, and your sense of the living grows a tile a turn back
+to five" is one sentence carrying three rules, which is what a game with no tutorial text needs.
+
+**Next:** #14 (FOV) is unblocked and should start. Three things fall out of this ruling for it:
+Chebyshev is the *natural* output of recursive shadowcasting (octant depth is the major axis, so
+`depth ≤ 4` gives the square with no separate radius predicate); ember-sense stays a plain box scan
+with no visibility pass at all; and the containment property is the strongest test in the section —
+**when `senseRadius ≥ 4`, every lit tile is inside the sensed region** — with the guard `≥ 4`
+mattering, since the ramp deliberately suspends the guarantee.
+
+**Watch:** `game/map/grid.ts` now has two stale comments — `manhattanDistance`'s note that §4 "has
+not yet settled" the vision metric, and `chebyshevDistance`'s "not used by any rule", which is now
+false three times over. #14 touches that file and should fix both. Also: ADR-0007 records
+ember-sense radius 6; it is a historical record and was not edited, but the GDD change log says
+explicitly that §4 supersedes it, so a future session reading the ADR alone will get the old number.
+
 ## 2026-07-31 — `game/map/`: tiles, the room lattice, and the chambered-ruin generator (#13)
 
 **Did:** Built `game/map/` — the `Tile` union, the 2x3 room lattice, and `generateFloor(rng,

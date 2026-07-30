@@ -42,6 +42,13 @@ Shuttered, the player has *ember-sense*: the position of every living thing with
 **through walls**. No identity, no health, no intent. Lit, the player sees terrain, items,
 creatures, and intent within radius 4, blocked by walls.
 
+> **Amended 2026-07-31.** The radius is now **5**, and the metric is **Chebyshev** — neither was
+> stated when this ADR was written. Chebyshev 6 is a 13×13 box on a 165-tile map: from the middle
+> band it covers ~87% of the floor and stops varying with position, which falsifies §5's own
+> worked example and makes the top two steps of the dark-adaptation ramp provable no-ops. The
+> decision this ADR records — that darkness carries information light cannot — is unchanged; only
+> the number is. See `docs/GDD.md` §4 and issue #25.
+
 So: **light shows you stone, dark shows you souls.** Neither state is blind. The recurring decision
 is which half of the truth you want, and the asymmetry that keeps it live is that ember-sense
 ignores walls while light does not — darkness tells you something light physically cannot.

@@ -25,7 +25,10 @@ you see the living.**
 - **Open (lit):** terrain, items, creatures, and enemy intent, within radius 4, blocked by walls.
   Burns fuel fast. **Everything inside the radius wakes up.**
 - **Shuttered (dark):** terrain only in the 8 tiles you can touch — but *ember-sense* shows you the
-  position of every living thing within radius 6, **through walls**. No intent. Burns fuel slowly.
+  position of every living thing within radius 5, **through walls**. No intent. Burns fuel slowly.
+
+Every radius in this document is **Chebyshev** — a square, `max(|dx|, |dy|) ≤ r` — with one
+deliberate exception, §5's creature spawn exclusion, which counts steps. §4 gives the reasoning.
 
 Neither state is "seeing" and neither is "blind". They are two different, incomplete truths, and
 the recurring decision (Pillar 1) is **which half of the truth you want right now**.
@@ -159,36 +162,117 @@ under player control, not under the RNG's.
 
 The signature system.
 
+**Every vision radius is Chebyshev — a square.** `max(|dx|, |dy|) ≤ r`. This holds for the lit
+radius, the dark touch radius, the ember-sense radius, and every value the dark-adaptation ramp
+passes through. Reasoning in *Why a square*, below.
+
 **Vision states.**
 
 | | Lit (shutter open) | Dark (shuttered) |
 | --- | --- | --- |
-| Terrain | Radius 4, line-of-sight blocked by walls | Radius 1 only (the 8 tiles you can touch) |
+| Terrain | **Chebyshev radius 4**, line-of-sight blocked by walls and pillars | **Chebyshev radius 1** only — all 8 tiles you can touch, no line-of-sight check |
 | Remembered terrain | Permanent once seen, dimmed | Permanent once seen, dimmed |
-| Creatures | Visible in the lit radius, identified | **Ember-sense: position only, radius 6, through walls** |
+| Creatures | Visible in the lit radius, identified | **Ember-sense: position only, Chebyshev radius 5 (tuning), through walls** |
 | Enemy intent | Visible | Hidden |
 | Items / ember caches | Visible in the lit radius | Invisible |
-| Effect on creatures | **Every dormant creature in the radius wakes** | Nothing wakes |
+| Effect on creatures | **Every dormant creature in the lit radius wakes** | Nothing wakes |
 | Fuel burn | 4 / turn (tuning) | 1 / turn (tuning) |
 
 Two asymmetries are doing all the work and both are single rules:
 
 - **Ember-sense ignores walls; light does not.** Darkness therefore tells you something light
   physically cannot — what is in the next room. That is the whole answer to "why go dark".
-- **Light reveals ~20 tiles per turn; touch reveals 8 once.** Light is by far the cheaper way to
-  *explore* (4 fuel for a room versus ~20 turns of feeling along walls), and dark is the cheaper
-  way to *travel and stalk*. Neither dominates, and the reason is arithmetic rather than a special
-  rule.
+- **A flash buys a room; touch buys a step.** One lit turn inside a 5×4 or 5×5 room reveals the
+  entire room and the walls around it, from any tile in it, for 4 fuel — that is what radius 4
+  Chebyshev *is* (see below). Feeling the same room out by touch is 10-15 turns at 1 fuel each,
+  and still never shows you the cache, because items are invisible while shuttered. Light is
+  roughly three times cheaper in fuel and ten times cheaper in *turns* for exploring; dark is four
+  times cheaper for travelling through space you have already seen. Neither dominates, and the
+  reason is arithmetic rather than a special rule.
+
+**Why a square — the metric ruling.**
+
+The radii were written before anyone said what measured them. Three candidates: Chebyshev (a
+square), Euclidean (a rough disc), Manhattan (a diamond). Chebyshev wins on four counts.
+
+1. **§4 had already committed to it and did not notice.** "Radius 1 — the 8 tiles you can touch"
+   is only true under Chebyshev. Manhattan radius 1 is 4 tiles; Euclidean radius 1 is 4 tiles.
+   Touch is 8 and should be 8: in the dark you must be able to feel a wall corner and a diagonal
+   doorway, or feeling your way along a wall stops working entirely. Lit and dark terrain vision
+   are the *same sense at different reach*, so the metric that governs one governs the other.
+2. **A square is the only shape the player can state as a rule (Pillar 2).** The lit region is the
+   most visible object in the game — it is rendered as tint on every cell, every turn. A square
+   edge is countable and grid-aligned. A digitised disc at r=4 has single-tile nubs at the four
+   compass points and a jagged silhouette the player can only memorise as a picture. A diamond
+   leaves the corners of a rectangular room dark for no visible cause, which on a glyph grid reads
+   as a rendering bug rather than a rule. "The player can see why they died" requires that the
+   player can see where the light ended.
+3. **The alternatives create an autopilot turn (Pillar 1).** In a 5×4 room, Euclidean radius 4
+   leaves 4-5 tiles dark unless you stand near the middle; Manhattan radius 4 lights the whole
+   room *only* from the exact centre tile. Both therefore make "walk to the middle of the room,
+   then flash" the always-correct move — an obvious optimal turn, which is the definition of a
+   turn that should not exist. Under Chebyshev the flash decision is purely *when*, never *where*,
+   and "when" is the axis that carries fuel, waking, and adaptation state.
+4. **Radius 4 becomes a statement instead of a number.** The largest unmerged room is 5×5, whose
+   corner-to-corner Chebyshev distance is exactly 4. So the rule is: **one flash lights one room,
+   from anywhere in it, and no further.** The merged hall (§5) is the sole exception — 9 or 10
+   tall, Chebyshev 9 end to end, so it is the one space on the floor a single flash cannot reveal.
+   That was not designed; it falls out, and it is worth keeping.
+
+**Why this does not contradict §5's Manhattan spawn rule.** The line is:
+
+> **Anything the player reads as a region on the screen is Chebyshev. Anything counted as steps of
+> movement is Manhattan.**
+
+Light is a field; it does not walk, and the player measures it by looking at it. The entrance
+exclusion asks "how many turns before that thing can be on me", which is steps, and the player
+never sees it at all — it is a generator guardrail. Two questions, two metrics, and only one of
+them is ever counted by a human. Ember-sense sits on the vision side of that line for the reason
+below.
+
+**Ember-sense shares light's metric, and that is the load-bearing part.** With ember-sense at
+Chebyshev 5 and light at Chebyshev 4, the lit region is *always a subset of the sensed region* —
+light additionally requires line-of-sight, and 4 ≤ 5. So:
+
+> **Everything a flash can wake, you can already feel.**
+
+You know the price of opening the shutter, in creatures, before you pay it. That is Pillar 2 at
+full strength: randomness decides what is in the room, never whether flashing was a mistake. It
+holds only while ember-sense is at full radius — which is exactly what makes the dark-adaptation
+window (below) the tensest state in the game, and why the HUD must show the current sense radius
+(§9). Giving ember-sense a different metric would break this containment for a handful of corner
+tiles and produce the one genuinely unfair death this system can generate: a creature woken inside
+your own light that you had no way to know about.
 
 **Ember-sense gives position only.** Not identity, not health, not intent. This was deliberately
 cut back from a richer version: brightness-encoded health cannot be the sole carrier of meaning
 (§11) and "a living thing is there" is already the information that makes stalking work.
 
-**Dark adaptation.** On shuttering, ember-sense radius drops to 2 and recovers +1 per turn back to
-6. Purpose: it makes a flash a *commitment* rather than something you strobe every other turn, and
-it creates the tensest moment in the game — the four turns after you shutter, when you have woken a
-room and cannot yet feel where anything is. Physically intuitive (eyes adapt), one integer of
-state, no text needed to explain.
+**Why 5 and not 6 — a correction forced by the ruling.** Ember-sense was written as radius 6 with
+no metric attached. Under Chebyshev on an 11×15 grid, radius 6 is a 13×13 box on a 165-tile map:
+from anywhere in the middle band it covers 11 columns by 13 rows, ~87% of the floor, and it stops
+varying with position. A radius that always covers everything is not a radius, and it takes two
+other rules down with it — §5's "ember-sense tells you *there are two things in the room north of
+me*" becomes "ember-sense tells you about all six creatures on the floor", and the top two steps of
+the adaptation ramp become provable no-ops. **Radius 5 (tuning)** keeps the number honest: from the
+middle of a room it reaches two columns into the room across the separator and two rows into the
+bands above and below — enough to say *something is in the room north of me*, not enough to say
+where the door is. This is a consequence of the metric, not a balance opinion; whether 5 should be
+4 or 3 is an M2 playtest question. It supersedes the radius 6 recorded in ADR-0007.
+
+**Dark adaptation.** On shuttering, ember-sense radius drops to **1** and recovers **+1 per turn**
+back to 5. Purpose: it makes a flash a *commitment* rather than something you strobe every other
+turn, and it creates the tensest moment in the game — the four turns after you shutter, when you
+have woken a room and cannot yet feel where anything is. Physically intuitive (eyes adapt), one
+integer of state, no text needed to explain.
+
+The floor is 1 rather than 2 for two reasons. It preserves the four-turn ramp (1→2→3→4→5) that this
+paragraph has always claimed, which a floor of 2 against a ceiling of 5 would cut to three. And it
+reuses a number the game already has: **the instant you shutter, you know only what you can touch —
+stone and ember alike — and your sense of the living grows one tile a turn back to five.** One
+sentence, three rules, no tutorial. During the ramp the containment guarantee above is suspended:
+flashing while your sense radius is under 4 can wake something you could not feel. That is the
+gamble the ramp exists to create, and it stays legible because the HUD shows the number.
 
 The second brake on strobing is not a fuel tax at all: **opening the shutter wakes things, and
 nothing ever un-wakes because you shuttered again.** A player who strobes wakes the floor.
@@ -218,13 +302,9 @@ therefore restorative: a botched flash is recoverable by skilled dark play, with
 to a cleared room and pressing wait, it is broken. The fix is a distance requirement, not a fuel
 tax.
 
-*Open:* **what "radius" means** — Chebyshev (a square), Euclidean (a disc), or Manhattan (a
-diamond). Not yet settled and it must be before field-of-view is implemented, because it changes
-what a flash reveals in the corners of a room. It is *not* implied by §5's Manhattan ruling on
-creature spawn distance: that rule is about counting steps, and light does not walk. A Manhattan
-radius is almost certainly wrong for light — a diamond of light reads as a bug on a glyph grid.
-Also open: adjustable lit radius, thrown/placed light sources (parked as a candidate M3 item, §12),
-whether floors ever have ambient light.
+*Open:* adjustable lit radius, thrown/placed light sources (parked as a candidate M3 item, §12),
+whether floors ever have ambient light. **The metric is no longer open** — it is Chebyshev for
+every vision radius, settled above (issue #25).
 
 ## 5. Level generation — *Settled for M1*
 
@@ -293,8 +373,9 @@ map you build in the dark is *rooms and which wall the door was in*, not a pixel
    attacks are 4-directional (§3): the player counts steps, and a creature two tiles diagonally away
    is four steps away by every other rule in the game. A distance metric with no referent anywhere
    in the rules cannot be verified by looking at the board, which is what Pillar 2 asks of a rule.
-   (This settles the metric for *this* rule only. The metric behind the lit radius and the
-   ember-sense radius is a separate, still-open question — see §4.) Note that the entrance-room rule
+   (This settles the metric for *this* rule only. The vision radii are **Chebyshev** — settled
+   separately in §4, which also records why the game deliberately holds two metrics and where the
+   line between them falls.) Note that the entrance-room rule
    already subsumes most of this one: with merged pairs counted as one room, the 2-tile rule can only
    ever exclude tiles on the far side of a wall. It is a guardrail, which is a further reason to take
    the reading that means what it says rather than the stricter one.
@@ -460,3 +541,9 @@ recorded at the moment we made it, is the part git cannot give us.
 | 2026-07-29 | **A merged pair counts as one room when measuring graph distance to the stairs** | The generator already treated a merged pair as one room for spawn exclusion and as two for distance; one of them had to give. "No wall, no door, no threshold, one perceived chamber" is the reading that matches §5's own claim that the unit of memory is a room and its doors — a merge crosses no door |
 | 2026-07-29 | Doorway tiles hold nothing — no creature, cache, entrance or stairs | A doorway is the only tile with exactly two opposite exits; occupying it turns a threshold into a passage that must be cleared, which is the corridor problem in another costume |
 | 2026-07-29 | §4: flagged the vision-radius metric (Chebyshev / Euclidean / Manhattan) as unsettled | It was never stated, and §5's Manhattan ruling makes it likely to be wrongly inferred. Must be settled before field-of-view is built |
+| 2026-07-29 | **Every vision radius is Chebyshev — lit, touch, ember-sense, and the whole adaptation ramp** | §4 had already committed to it without noticing: "radius 1 — the 8 tiles you can touch" is only true under Chebyshev (Manhattan and Euclidean radius 1 are 4 tiles). Beyond that: a square is the only edge a player can state as a rule, and the lit region is the most-rendered object in the game (Pillar 2); and radius 4 Chebyshev is exactly the corner-to-corner span of the largest room, so a flash lights one room from anywhere in it. Runner-up Euclidean lost on Pillar 1, not on looks — a disc leaves 4-5 tiles of a 5×4 room dark unless you stand near the middle, making "walk to the centre, then flash" the always-correct move, which is an autopilot turn. Manhattan lost twice over: same autopilot, plus a diamond of light reads as a rendering bug |
+| 2026-07-29 | Light and ember-sense share the metric, and ember-sense radius (5) exceeds the lit radius (4) | It buys a containment guarantee: the lit region is always a subset of the sensed region, so **everything a flash can wake, you can already feel**. The price of opening the shutter is knowable before you pay it (Pillar 2). A separate metric for ember-sense would break containment at the corners and produce this system's one genuinely unfair death — a creature woken inside your own light that you had no way to sense |
+| 2026-07-29 | The two-metric split is now a stated rule: **regions on screen are Chebyshev, steps of movement are Manhattan** | §5's spawn exclusion stays Manhattan. Recorded as a line rather than an exception so the next agent applies it instead of relitigating it. Light is a field the player measures by looking; spawn distance asks how many turns until that thing reaches me, and no human ever counts it |
+| 2026-07-29 | **Ember-sense radius corrected 6 → 5 (tuning)** | Forced by the metric, not a balance opinion. Chebyshev 6 is a 13×13 box on an 11×15 map — ~87% of the floor from the middle band, and it stops varying with position. That falsifies §5's "there are two things in the room north of me" and makes the top two steps of the adaptation ramp provable no-ops. Whether 5 should be 4 or 3 is an M2 playtest question; whether 6 was a radius at all is not |
+| 2026-07-29 | **Dark-adaptation floor corrected 2 → 1**; ramp is 1→2→3→4→5 | Knock-on from the ceiling drop: floor 2 against ceiling 5 gives a three-turn ramp, and §4 has always claimed four turns. Floor 1 restores it *and* subtracts a constant — it is the same 1 as the dark touch radius, so the rule states itself: shuttered, you know only what you can touch, and your sense of the living grows a tile a turn back to five |
+| 2026-07-29 | §4's "light reveals ~20 tiles per turn" replaced with the room-level arithmetic | Wrong number and wrong unit. A first flash into a fresh room reveals ~40 tiles (20-25 floor plus its walls) and every flash after reveals roughly none, so there is no per-turn rate. On this map **walls, not the radius, are what bound a flash** — that is the fact the fuel economy actually rests on, and it was not written down |

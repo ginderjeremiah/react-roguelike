@@ -58,6 +58,19 @@ So the rule is scoped by what is being measured, not by taste:
   there is no yardstick inside it to divide the machine out with, and because the frame budget has
   to be anchored to real time somewhere or it is not a budget.
 
+**The taxonomy is about which benchmark owns the anchor, not about which operations happen to be
+composite** — and one case makes the difference visible. A lit turn *is* composite: it contains the
+lit field `fov.bench.test.ts` budgets at 0.05ms, and `step.bench.test.ts` measures exactly that
+decomposition as a ratio (`A_LIT_TURN_CONTAINS_A_FIELD`). Yet `light.bench.test.ts` holds the same
+operation to an absolute 0.2ms, and that is correct, because **a subsystem benchmark anchors the
+layer it owns in real time even where that layer decomposes**. The ratio form is for whole-`step()`
+composites, where hardware spread is worst and where an absolute figure has already been shown to be
+unsettable. So the same operation is legitimately measured both ways, by two files with two
+different jobs: one asks "is this layer still affordable in milliseconds", the other asks "does the
+whole turn still cost about what its parts cost". Converting the subsystem files to ratios would
+delete the anchor the ratios are interpreted against, which is the mistake this ADR exists to
+prevent in the opposite direction.
+
 The leaf budgets are set an order of magnitude above measurement (0.05ms against ~0.004ms actual)
 precisely so a 4x machine spread does not reach them. That is what makes them survivable as
 absolutes and what made the descent's 1.72ms-against-2ms unsurvivable.

@@ -325,9 +325,29 @@ describe('layer contract', () => {
     // but an instruction is the same class of defence that already failed seven times: it works
     // exactly as long as someone chooses to read. This is the structural version.
     const journal = fs.readFileSync(path.join(ROOT, 'docs/JOURNAL.md'), 'utf8');
-    const fence = /```markdown\n([\s\S]*?)```/.exec(journal);
 
-    expect(fence, 'docs/JOURNAL.md has no ```markdown template block').not.toBeNull();
+    // Scoped to the `## Format` section, not to the first fence in the file. Matching the first
+    // ```markdown anywhere was a demonstrated bypass: adding an ordinary example fence to the
+    // prose *above* Format made this test pass green with the full 184-line corruption still in
+    // the template. A guard someone can walk past by writing documentation is not a guard.
+    //
+    // The section has to be found by walking lines and tracking fence state, not by searching for
+    // the next `## `: the template's own `## YYYY-MM-DD` heading is *inside* the fence, so a naive
+    // search ends the section in the middle of the thing being checked.
+    const all = journal.split('\n');
+    const from = all.findIndex((line) => line.trim() === '## Format');
+    expect(from, 'docs/JOURNAL.md has no `## Format` section').toBeGreaterThan(-1);
+
+    const section: string[] = [];
+    let inFence = false;
+    for (const line of all.slice(from + 1)) {
+      if (line.startsWith('```')) inFence = !inFence;
+      if (!inFence && line.startsWith('## ')) break;
+      section.push(line);
+    }
+
+    const fence = /```markdown\n([\s\S]*?)```/.exec(section.join('\n'));
+    expect(fence, 'the `## Format` section has no ```markdown template block').not.toBeNull();
     const template = (fence as RegExpExecArray)[1];
     const lines = template.split('\n').filter((line) => line.trim() !== '');
 
@@ -336,8 +356,21 @@ describe('layer contract', () => {
     expect(lines.length, `the template block has ${lines.length} non-blank lines:\n${template}`)
       .toBeLessThanOrEqual(10);
 
-    // The specific thing that leaked, named so a failure explains itself rather than reporting a
-    // line count. Real entries are prose; a template is field names.
+    // The general check, and the one that does the work: **a template is a heading and field
+    // labels, and nothing else.** Real entries are wrapped prose, so their *continuation* lines
+    // never begin with `**` — which is what makes this catch a leak on its second line no matter
+    // what bold label opened it. A list of known labels is the check that rots: a novel one
+    // (`**Post-merge note:**`) walked past exactly such a list, and the next leak will not be
+    // considerate enough to reuse a name we already know.
+    const notTemplateShaped = lines.filter((line) => !/^(## |\*\*)/.test(line));
+    expect(
+      notTemplateShaped,
+      'prose was appended into the format template — move it to the entry it belongs to',
+    ).toEqual([]);
+
+    // Kept alongside the general check, not instead of it: when the leak *is* one of the two
+    // shapes that actually happened, this names it, and a failure that explains itself gets fixed
+    // properly rather than deleted.
     const leaked = lines.filter((line) => /^\*\*(Review addendum|Design rulings)/.test(line));
     expect(leaked, 'journal content was appended into the format template — move it to its entry')
       .toEqual([]);

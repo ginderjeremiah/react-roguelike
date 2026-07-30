@@ -71,11 +71,31 @@ a `**Did:**`/`**Next:**`/`**Watch:**` label — those all appear in the template
 **Two guards, and only one of them is worth much.** The `code-reviewer` agent now checks *where* an
 entry landed rather than only what the hunk says. That is the right instruction and it would have
 caught this — but it is the same class of defence that already failed seven times, because it works
-exactly as long as someone chooses to read. So there is also a test:
-`tests/unit/infrastructure.test.ts` asserts the format fence holds no more than ten non-blank lines
-and no `**Review addendum` line, verified by planting one and watching it go red. A structural check
-beats a diligent one, and the reviewer's argument for it was better than my reason for not writing
-it — I had been about to file it as an issue, which is where guards go to wait.
+exactly as long as someone chooses to read. So there is also a test in
+`tests/unit/infrastructure.test.ts`. A structural check beats a diligent one, and the reviewer's
+argument for writing it now was better than my reason for not: I had been about to file it as an
+issue, which is where guards go to wait.
+
+**The first version of that test had two demonstrated bypasses, which is the part worth recording.**
+Both were found by the reviewer *walking past the guard*, not by reading it:
+
+- It matched the first ```markdown fence **anywhere in the file**. Inserting an innocuous example
+  fence into the prose above `## Format` made it pass green with the full 184-line corruption still
+  sitting in the template. No leak-shape change needed — an ordinary documentation edit disarms it.
+- Its content check listed the two labels that had actually leaked (`**Review addendum`,
+  `**Design rulings`), so a novel one (`**Post-merge note:**`) walked straight through, and the
+  ten-line cap had four lines of slack to hide a three-line addendum in.
+
+The fix for the second is the general one and is worth stealing elsewhere: **assert the shape, not
+the names.** Every non-blank line of a template is a `## ` heading or a `**Field:**` label, whereas
+real entries are wrapped prose — so their *continuation* lines never start with `**`. That catches
+any multi-line leak on its second line regardless of what opened it, and it would have caught the
+historical one. The named-label check stays for its better failure message; it is just no longer the
+thing doing the work. The section is now also found by walking lines with fence state, because the
+template's own `## YYYY-MM-DD` heading is inside the fence and a naive "next `## `" search ends the
+section in the middle of what it is checking. Verified against all four cases: clean file passes,
+`main`'s real 184-line corruption fails by a factor of 15, the decoy-fence bypass fails, the
+novel-label leak fails.
 
 **Three factual errors in #18's entry, fixed rather than annotated.** It was written across three
 rounds and the later rounds contradicted the earlier ones:

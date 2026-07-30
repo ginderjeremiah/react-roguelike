@@ -128,8 +128,20 @@ have invented:
   *Genuinely new* is not a property the player has access to. §4 gives ember-sense position and
   nothing else, and `game/fov/perceive.ts` implements the promise as a type — `CreatureSense` is a
   union precisely so that a `felt` creature is "a position and *nothing else* — no identity, no
-  health, no intent". So in the swap case the player's screen is **identical** to one creature
-  walking from the first tile to the second. Identity-keying therefore fails Pillar 2 from both ends
+  health, no intent". So in the swap case the player's screen can be **indistinguishable** from one
+  creature walking from the first tile to the second.
+
+  **That is narrower than it first looks, and the narrowing is worth writing down rather than
+  leaning on the strong form.** Creatures move one orthogonal step per player turn, and marks are
+  drawn at absolute tile positions — so a mark appearing more than one step from any previous mark
+  *cannot* be a walk, and the player can see that. Both halves of a swap happen at the boundary of
+  the sense disc, and two boundary tiles of a Chebyshev-5 square are usually far apart, so the
+  **visible** swap is the ordinary case and the indistinguishable one is the exception. The ruling
+  does not depend on this: count-keying never stops *wrongly*, it only ever under-stops, and a
+  travelling player cannot be hit at all (clause 3), so the residual cost is bounded. But the honest
+  statement is that giving up the swap case gives up a little, not nothing — see the revisit below.
+
+  Identity-keying therefore fails Pillar 2 from both ends
   at once. In the swap case travel stops and nothing on screen explains why — a stop the player
   cannot account for. And because the stop is itself observable (mid-route, HP unchanged, nothing
   adjacent, nothing arrived: clause 1 must have fired), a player who knows the rule can run the
@@ -379,6 +391,26 @@ can tell a swap from a walk, and clause 1 would then under-stop in a state where
 have the information — at which point the honest rule in the lit column is the identity one, and the
 two columns of §4's table would legitimately key differently. Do not pre-build that; it is an M3
 question and lit travel is self-punishing anyway.
+
+**The counted list must be the rendered list, and nothing enforces that across two issues.** The
+count is only "checkable by looking" while the creatures the simulation counts are exactly the marks
+`render/` draws. Those are chosen in two different places by two different sessions — #19 builds the
+presentation model and will pick its own creature list; this rule is #32's. If they ever diverge —
+the player counted as a creature, a 0-HP creature not yet resolved, a creature filtered by liveness
+in one place and not the other — the count stops matching the screen and the ruling's whole premise
+quietly becomes false, with nothing failing. It is latent today (travel samples after phase 5 and
+cannot kill anything), but latent-and-unowned is how the `Perception` collision survived three
+journal entries. Whoever implements travel must assert the two lists agree, not assume it.
+
+**A refinement deliberately not taken, recorded so it is not re-derived:** the fully principled rule
+is one-step explainability of the mark *set* — stop unless every new mark can be accounted for by an
+old one moving at most one step. It uses positions only, so §4 stays intact and the identity leak
+stays closed, and it catches the *visible* swap that count-keying lets past. It was not taken
+because it is a strictly more complex rule bought for a case that costs a travelling player nothing
+today, and because "more marks than there were" is a sentence a player can hold while "the new marks
+are explained by the old ones" is not. If a playtest ever produces a travel that walked past a swap
+the player clearly saw, this is the rule to reach for — it is a `game-designer` call, not an
+implementation detail.
 
 **Revisit if:** the first playtest with travel in it reports that it stops on nearly every step. That
 would mean the stop rule is wrong at the concept level rather than the tuning level, and a travel

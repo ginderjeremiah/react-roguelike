@@ -603,7 +603,8 @@ Touch-first (Pillar 3):
     Ember-sense gives position and nothing else (§4), so the player cannot tell one mark from
     another — and travel may not key on anything the player cannot see. "More marks than there were"
     is checkable by looking. *Losing* contact therefore never interrupts, and a creature arriving as
-    another leaves does not either, because the player's screen cannot tell those apart. It is judged
+    another leaves does not either — that swap is sometimes visible as a mark that moved further than
+    one step, and the rule deliberately does not chase it (ADR-0009). It is judged
     on the finished state of each step, which is the state a player tapping one step at a time would
     have been looking at.
   - **An interrupted travel costs every turn it spent.** No rewind, at any granularity — a rewind

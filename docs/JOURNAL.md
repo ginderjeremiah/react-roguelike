@@ -51,10 +51,19 @@ permanently occupies thumb space at the bottom of the screen, which is exactly w
 touch-native roguelike wants its controls (Pillar 3). If navigation is needed later it should be a
 modal over the game.
 
-**Kept deliberately:** `themed-text`/`themed-view` (generic, and dark mode is an M4 accessibility
-requirement), the color-scheme hooks, `constants/theme.ts`, and `expo-haptics` — unused today but
-M2 explicitly calls for haptic feedback when moving in darkness, so removing and re-adding it
-would be churn.
+**Kept deliberately:** `themed-text`/`themed-view`, the color-scheme hooks, `constants/theme.ts`,
+and `expo-haptics`.
+
+A correction on the reasoning, because the first version of this entry cited a requirement that
+does not exist. I justified keeping the themed components with "dark mode is an M4 accessibility
+requirement" — it is not. ROADMAP M4 and GDD §11 list colorblind-safe palette, text scaling, and
+reduced motion; no document mentions color schemes at all. The actual mechanism is `app.json`'s
+`userInterfaceStyle: "automatic"`. The honest reason is narrower: they are ~40 generic lines that
+give the placeholder something to render and are cheap to delete later. Recording this because a
+cited-but-nonexistent requirement becomes folklore the next session defends.
+
+`expo-haptics` is the opposite case and the reasoning does hold — ROADMAP M2 really does say
+"sound/haptic feedback for moving blind."
 
 **Learned:** `eslint .` linted the agent worktrees under `.claude/worktrees/`. A design agent was
 running in one, so `npm run verify` failed with 19 errors from a *different agent's copy of the

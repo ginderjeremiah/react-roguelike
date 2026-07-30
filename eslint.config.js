@@ -126,6 +126,10 @@ module.exports = defineConfig([
       // Agents run in git worktrees created under .claude/worktrees/. Those contain a full copy
       // of the repo, so without this `eslint .` lints every agent's working tree as well as your
       // own — reporting failures for code that is not in your branch.
+      //
+      // CI CANNOT CATCH A REGRESSION HERE: it runs on a clean checkout where the directory never
+      // exists, so deleting this line stays green in CI and only breaks on a machine mid-agent-run.
+      // The same applies to the matching entries in .gitignore, tsconfig.json, and metro.config.js.
       '.claude/worktrees/**',
     ],
   },

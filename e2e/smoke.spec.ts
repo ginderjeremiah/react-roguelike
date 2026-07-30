@@ -23,6 +23,11 @@ test('the app boots and renders', async ({ page }) => {
   await expect(root).toBeVisible();
   await expect(root).not.toBeEmpty();
 
+  // Assert on actual content, not just that something rendered. Without this the spec passes
+  // identically whether the router serves the index route, the sitemap, or an error boundary —
+  // so a routing regression would slip through both assertions above.
+  await expect(page.getByText('EMBERDEPTH')).toBeVisible();
+
   expect(consoleErrors, 'the app booted without console errors').toEqual([]);
 });
 

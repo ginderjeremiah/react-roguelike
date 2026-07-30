@@ -15,8 +15,10 @@ Deciding *what* to build. Output is documents and issues, never code.
 - Proposals land as GitHub issues labeled `design`, or as PRs editing `docs/GDD.md`.
 - A design proposal must state: the decision, which pillar it serves, what it costs, what it
   replaces, and how we will know if it is bad.
-- **Design work is where the owner's attention is most valuable.** Anything that changes a pillar,
-  the concept, or a milestone's goal gets `needs-owner` and waits. Everything else proceeds.
+- **Design is ours to decide, including the pillars and the core concept.** A change that big
+  earns an ADR showing its reasoning, its rejected alternatives, and the signal that would make us
+  revisit it — but it does not earn a `needs-owner` label. See "When to stop and ask the owner"
+  below; that rule used to say the opposite and was wrong.
 
 ### 2. Development
 

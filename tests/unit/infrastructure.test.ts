@@ -311,6 +311,38 @@ describe('layer contract', () => {
     expect(violations.map((v) => `${v.file}: ${v.detail}`)).toEqual([]);
   });
 
+  it("the journal's format template holds a template and nothing else", () => {
+    // Not hypothetical, and not a small mistake: between PR #10 and PR #30, **175 lines of real
+    // journal content** accumulated inside this fenced block. Every review addendum went there,
+    // because an agent appending after its entry's `**Next:**` line matched the *template's*
+    // `**Next:**` first, and each PR appended after the last. The block grew from 9 lines to 184
+    // across seven merged PRs with a `code-reviewer` pass on every one of them, because a diff
+    // cannot show you that a file's structure is wrong — each individual hunk looked like a
+    // plausible addendum near the top of a journal.
+    //
+    // `CLAUDE.md` sends every session to this file first, so the cost was paid by every cold
+    // reader. The `code-reviewer` agent now has an instruction to check where an entry landed,
+    // but an instruction is the same class of defence that already failed seven times: it works
+    // exactly as long as someone chooses to read. This is the structural version.
+    const journal = fs.readFileSync(path.join(ROOT, 'docs/JOURNAL.md'), 'utf8');
+    const fence = /```markdown\n([\s\S]*?)```/.exec(journal);
+
+    expect(fence, 'docs/JOURNAL.md has no ```markdown template block').not.toBeNull();
+    const template = (fence as RegExpExecArray)[1];
+    const lines = template.split('\n').filter((line) => line.trim() !== '');
+
+    // The skeleton is one heading plus the five `**Field:**` lines. Ten is roomy enough that
+    // adding a field is not a test failure, and far below the 184 lines this reached.
+    expect(lines.length, `the template block has ${lines.length} non-blank lines:\n${template}`)
+      .toBeLessThanOrEqual(10);
+
+    // The specific thing that leaked, named so a failure explains itself rather than reporting a
+    // line count. Real entries are prose; a template is field names.
+    const leaked = lines.filter((line) => /^\*\*(Review addendum|Design rulings)/.test(line));
+    expect(leaked, 'journal content was appended into the format template — move it to its entry')
+      .toEqual([]);
+  });
+
   it('the pure layers contain only .ts files', () => {
     // A .tsx or .js under game/ or render/ is itself a violation — those layers have no JSX and
     // no untyped code. Asserting this directly is stronger than widening every rule's glob to

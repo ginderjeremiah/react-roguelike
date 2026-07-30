@@ -37,11 +37,32 @@ Two further failures surfaced while fixing it, and both shaped the decision:
 
 ## Decision
 
-**Every performance threshold in this repository is a ratio against a cheaper quantity measured in
-the same process, in interleaved batches whose order swaps each round.** No threshold is a
-millisecond figure.
+**A threshold on a whole-`step()` operation is a ratio against a cheaper quantity measured in the
+same process, in interleaved batches whose order swaps each round.** That is `game/core/`'s
+benchmark, and today it is the only file here that works this way.
 
-Four rules follow, all of them paid for:
+**The subsystem benchmarks keep their absolute millisecond budgets, and that is deliberate — the
+ratios depend on them.** `fov.bench.test.ts` (0.05ms per lit field, 2ms floor-wide),
+`generate.bench.test.ts` (2ms per floor), `light.bench.test.ts` (0.2ms per turn) and
+`actors.bench.test.ts` (2ms per actor phase) are all still absolute, and `step.bench.test.ts`'s own
+header cites two of them as the reason it does not need to be: a ratio says a descent costs little
+more than the generation it contains, and it takes an *absolute* budget somewhere to say that the
+generation itself is affordable. A ratio alone cannot notice everything getting slower together.
+
+So the rule is scoped by what is being measured, not by taste:
+
+- **A composite operation** — one built from parts that have budgets of their own — is asserted as a
+  **ratio** to its dominant part. It is the only assertion that means the same thing on every
+  machine, and the composite is where hardware spread is worst.
+- **A leaf operation** — one nothing decomposes further — keeps an **absolute** budget, because
+  there is no yardstick inside it to divide the machine out with, and because the frame budget has
+  to be anchored to real time somewhere or it is not a budget.
+
+The leaf budgets are set an order of magnitude above measurement (0.05ms against ~0.004ms actual)
+precisely so a 4x machine spread does not reach them. That is what makes them survivable as
+absolutes and what made the descent's 1.72ms-against-2ms unsurvivable.
+
+Four rules follow, all of them paid for, and all of them about the ratio side:
 
 1. **The yardstick is a component of the subject.** A descent is measured against a bare
    `generateFloor`; a lit turn against the lit field it computes; a refusal against an ordinary

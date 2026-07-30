@@ -72,6 +72,11 @@ like a plausible addendum near the top of a journal**. A diff cannot show you th
 structure is wrong; only reading the file can. The cost was real — `CLAUDE.md` sends every session
 to this file first, and two entries had lost content that a later session needed.
 
+That specific leak now has a test behind it (`tests/unit/infrastructure.test.ts`, "the journal's
+format template holds a template and nothing else"), because an instruction is the same class of
+defence that already failed seven times — it holds exactly as long as someone chooses to read. The
+instruction stays because the test only guards the one place the damage happened.
+
 The general form, worth applying beyond this one file: when a diff appends to a long document,
 check the *document*, not the hunk.
 

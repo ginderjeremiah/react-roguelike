@@ -54,11 +54,28 @@ design rulings entirely.
 
 **Repaired by moving each chunk verbatim to the end of its own entry**, not by rewriting or
 summarising: `git blame` attributed each block to a commit, each commit to a PR, each PR to an
-entry. Verified by asserting the sorted multiset of non-blank lines was byte-identical before and
-after — 1600 lines in, 1600 out, nothing lost. This is a relocation, not a history rewrite.
+entry. Verified by comparing the non-blank lines of the old and new files as sorted multisets:
+of the old file's 1,339 non-blank lines, **1,333 survive byte-identically with unchanged
+multiplicity, and the 6 that do not are exactly the three disclosed corrections to #18's entry**
+(the stale test count, the millisecond-threshold paragraph, the resolved `Watch` bullet). Nothing
+was reworded in the move and nothing was duplicated. This is a relocation, not a history rewrite.
+
+Both the count and the attribution were re-derived independently by the reviewer rather than taken
+on trust — the attribution mattering more, because content preservation says nothing about whether
+a chunk landed under the *right* entry, and an addendum filed under the wrong PR is worse than one
+left in the template: it looks correct.
 
 **Guard for next time:** when appending to an entry, anchor on text unique to *that entry*, never on
 a `**Did:**`/`**Next:**`/`**Watch:**` label — those all appear in the template too.
+
+**Two guards, and only one of them is worth much.** The `code-reviewer` agent now checks *where* an
+entry landed rather than only what the hunk says. That is the right instruction and it would have
+caught this — but it is the same class of defence that already failed seven times, because it works
+exactly as long as someone chooses to read. So there is also a test:
+`tests/unit/infrastructure.test.ts` asserts the format fence holds no more than ten non-blank lines
+and no `**Review addendum` line, verified by planting one and watching it go red. A structural check
+beats a diligent one, and the reviewer's argument for it was better than my reason for not writing
+it — I had been about to file it as an issue, which is where guards go to wait.
 
 **Three factual errors in #18's entry, fixed rather than annotated.** It was written across three
 rounds and the later rounds contradicted the earlier ones:
@@ -78,8 +95,9 @@ Two findings worth more than the checkboxes:
 
 - **A run can be won, and the roadmap had never said so.** GDD §13 settled it in #18 — take floor
   8's stairs. M1's goal and exit criterion both described only dying. Amended.
-- **M1 absorbed four of M2's five bullets** (#16 dormant behaviour, #17 fuel and the light economy,
-  #14 light-dependent visibility). Flagged rather than corrected, because the absorption was right —
+- **M1 absorbed three of M2's five bullets outright and most of a fourth** (#16 dormant behaviour,
+  #14 light-dependent visibility, #17 fuel — whose economy is implemented and calibrated once, with
+  the tuning still open). Flagged rather than corrected, because the absorption was right —
   the light wager *is* the turn loop — but the consequence is not free: **M2 can no longer be the
   cheap place we discover the concept does not work**, because the simulation is already committed.
   §12's fallback (strip fuel, keep the positional tactics) is still the escape hatch and is now named
@@ -130,9 +148,9 @@ decision before #20 starts.
 - **`RunRecord.version` is 2 and there is no fixture from version 1.** Bumping is documented and
   routine; just know that cross-version inspection has only `runCommands()` and no stored counterpart
   to compare against.
-- **#34 has no GitHub milestone** because M3 and M4 do not exist as milestones. It is parked in
-  `ROADMAP.md` under M4 instead. If milestones get created, move it — a milestone-less issue is the
-  one that gets forgotten, which is how #36 spent three entries as a Watch note.
+- **M3 and M4 now exist as GitHub milestones**, created in this session so that deferred work has
+  somewhere to live rather than surviving only as a line in a doc — a milestone-less issue is the one
+  that gets forgotten, which is how #36 spent three entries as a Watch note. #34 is filed under M4.
 
 ## 2026-08-03 — The real `GameState`, the real `Command`, and a run you can win (#18)
 

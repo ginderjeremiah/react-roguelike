@@ -29,9 +29,9 @@ argue or to hand-verify.
 **Exit criteria:** an agent can take an issue from the queue to a merged, CI-verified PR without
 human involvement, and `docs/GDD.md` describes a game we are confident is worth building.
 
-**Both met.** Every PR since #7 has gone queue → merge without human involvement, and the GDD has
-survived a design review plus one measured correction (2026-08-04). The GitHub milestone still
-shows open with 0 open issues; it can be closed.
+**Both met**, and the GitHub milestone is closed. Every PR since #7 has gone queue → merge without
+human involvement, and the GDD has survived a design review plus one measured correction
+(2026-08-04).
 
 ## M1 — Playable core — *in progress*
 
@@ -76,7 +76,8 @@ but must be decided before #20 commits to an input model.
 
 Flagged rather than corrected, because the absorption was right and the roadmap was wrong. #17
 (fuel, the shutter, the light economy) and #16 (dormant-in-darkness behaviour) landed under M1 and
-between them deliver four of M2's five bullets at the simulation level. That was not scope creep by
+between them deliver three of M2's five bullets outright and most of a fourth — the fuel economy is
+implemented and calibrated once, but its tuning is still open below. That was not scope creep by
 inattention: the light wager *is* the turn loop, and a "playable core" that resolves turns without
 fuel or waking would have been a different game with a second implementation to throw away.
 
@@ -136,9 +137,9 @@ thing M2 is really for.
 - Onboarding that teaches by playing, not by text
 - Accessibility: colorblind-safe palette, text scaling, reduced motion
 - Save/resume mid-run
-- Native (iOS/Android) verification pass — **#34 is parked here**: a descent measures 1.7ms of
-  ARCHITECTURE's 2ms per-turn budget on a GitHub runner, and ~92% of that is level generation. It
-  has no GitHub milestone because M3 and M4 do not exist as milestones yet; do not lose it.
+- Native (iOS/Android) verification pass — **#34 belongs to this one**: a descent measures 1.7ms of
+  ARCHITECTURE's 2ms per-turn budget on a GitHub runner, and ~92% of that is level generation.
+  Measure it on a real device before deciding whether it needs fixing.
 
 **Exit criteria:** a stranger can install it, learn it, and finish a run without being told
 anything.

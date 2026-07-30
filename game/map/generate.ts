@@ -56,7 +56,7 @@
 import { int, shuffle, weighted, type Draw, type Rng } from '../rng';
 import {
   CACHE,
-  chebyshevDistance,
+  manhattanDistance,
   DOORWAY,
   ENTRANCE,
   FLOOR,
@@ -110,12 +110,16 @@ const LEAF_ROOM_CACHE_WEIGHT = 3;
 const ORDINARY_ROOM_CACHE_WEIGHT = 1;
 
 /**
- * §5 step 7: no creature "within 2 tiles of the entrance".
+ * How close to the entrance a creature may spawn, in **Manhattan** steps.
  *
- * Measured as Chebyshev (king-move) distance even though movement is 4-directional, because that is
- * the stricter of the two readings — every tile a Manhattan-2 rule would exclude is also excluded
- * here, plus the diagonals. The invariant is a safety guarantee for the player's first turns, and
- * the conservative reading is the one that cannot be wrong.
+ * Ruled Manhattan by the game-designer during the §5 correction, overturning an earlier Chebyshev
+ * reading. Movement and attacks are 4-directional, so the player's unit of distance is the step: a
+ * creature at (+2,+2) is four steps away and four moves from threatening you. Excluding it would
+ * make the rule impossible to check by counting, which is what Pillar 2 asks of a rule, and
+ * Chebyshev has no referent anywhere else in the rules.
+ *
+ * The stricter reading was not merely conservative — it systematically thinned spawns in the rooms
+ * adjacent to the entrance, making the early floor emptier than §8's curve says.
  */
 const CREATURE_ENTRANCE_EXCLUSION = 2;
 
@@ -497,7 +501,22 @@ function roomAdjacency(doorways: readonly Doorway[], merge: Merge): number[][] {
   };
 
   for (const doorway of doorways) join(doorway.rooms[0], doorway.rooms[1]);
-  if (merge.kind === 'merged') join(merge.rooms[0], merge.rooms[1]);
+
+  // A merged pair is ONE node, not two joined by an edge — ruled by the game-designer during the
+  // §5 correction. §5's own claim is that the unit of memory is "a room and its doors", and a
+  // merge crosses no door. This also removes a self-contradiction: `forbiddenRooms` already
+  // treated the merged partner as the entrance room for creature spawns (step 7) while this
+  // function treated the merge as an ordinary hop for stairs distance (step 6).
+  //
+  // Contracting rather than joining: every neighbour of one half becomes a neighbour of the
+  // other, so a BFS crosses the whole hall for free. Testable corollary — if the entrance is in
+  // a merged hall, neither half can hold the stairs.
+  if (merge.kind === 'merged') {
+    const [a, b] = merge.rooms;
+    for (const neighbour of [...adjacency[a]]) join(b, neighbour);
+    for (const neighbour of [...adjacency[b]]) join(a, neighbour);
+    join(a, b);
+  }
 
   for (const list of adjacency) list.sort((a, b) => a - b);
   return adjacency;
@@ -633,7 +652,7 @@ function creatureCandidates(
     if (draft.tiles[index].kind !== 'floor') continue;
     if (taken[index]) continue;
     const at = positionOf(draft.grid, index);
-    if (chebyshevDistance(at, entrance) <= CREATURE_ENTRANCE_EXCLUSION) continue;
+    if (manhattanDistance(at, entrance) <= CREATURE_ENTRANCE_EXCLUSION) continue;
     const room = roomContaining(rooms, at);
     if (room === null || forbiddenRooms.includes(room)) continue;
     out.push(index);

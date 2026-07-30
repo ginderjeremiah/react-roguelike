@@ -177,7 +177,20 @@ export function blocksEmberSense(tile: Tile): boolean {
   }
 }
 
-/** Chebyshev (king-move) distance. The stricter reading of "within N tiles" — see `generate.ts`. */
+/**
+ * Manhattan (step) distance — the number of 4-directional moves between two tiles.
+ *
+ * This is the game's unit of distance: movement and attacks are 4-directional (GDD §3), so "within
+ * N tiles" means "within N moves". Used for the creature/entrance spawn exclusion.
+ *
+ * Note that GDD §4 has **not** yet settled which metric measures the *vision* radii — see issue
+ * #25. Do not assume this one applies to light; Manhattan light would render as a diamond.
+ */
+export function manhattanDistance(a: Position, b: Position): number {
+  return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+}
+
+/** Chebyshev (king-move) distance. Not used by any rule; kept for measurement and debugging. */
 export function chebyshevDistance(a: Position, b: Position): number {
   return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
 }

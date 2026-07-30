@@ -30,6 +30,7 @@ export {
   blocksMovement,
   CACHE,
   chebyshevDistance,
+  manhattanDistance,
   comparePositions,
   DOORWAY,
   ENTRANCE,

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createRng, next, type Rng } from '@/game/rng';
 import { findFieldDivergence, formatFieldDivergence } from '@/game/core';
 import {
-  chebyshevDistance,
+  manhattanDistance,
   COLUMN_SEPARATOR_X,
   COLUMN_SPANS,
   creatureCount,
@@ -125,7 +125,20 @@ function roomAdjacency(floor: Floor, edges: 'all' | 'tree'): number[][] {
     if (edges === 'tree' && doorway.origin !== 'tree') continue;
     join(doorway.rooms[0], doorway.rooms[1]);
   }
-  if (floor.merge.kind === 'merged') join(floor.merge.rooms[0], floor.merge.rooms[1]);
+  if (floor.merge.kind === 'merged') {
+    // A merged pair is ONE node, not two rooms joined by an edge (GDD §5, ruled during the
+    // lattice correction). Contract them: anything adjacent to one half is adjacent to the other.
+    // Written here as a contraction over the finished lists rather than mirroring the
+    // implementation's incremental join, so the two are not the same code twice.
+    const [a, b] = floor.merge.rooms;
+    const union = [...new Set([...adjacency[a], ...adjacency[b], a, b])].sort((x, y) => x - y);
+    for (const room of union) {
+      if (room === a || room === b) continue;
+      join(a, room);
+      join(b, room);
+    }
+    join(a, b);
+  }
   return adjacency;
 }
 
@@ -264,7 +277,7 @@ describe('§5 invariant: no creature within 2 tiles of the entrance', () => {
         const floor = generateFloor(createRng(seed), number).value;
         for (const creature of floor.creatures) {
           expect(
-            chebyshevDistance(creature.at, floor.entrance),
+            manhattanDistance(creature.at, floor.entrance),
             `${context(seed, floor)}\ncreature at ${JSON.stringify(creature.at)}`,
           ).toBeGreaterThan(2);
         }
@@ -835,23 +848,23 @@ describe('pinned floors', () => {
       '#....#....#',
       '#.<o.+....#',
       '#+######+##',
-      '#....#.....',
-      '#....#.....',
-      '#c...+..$co',
+      '#....#>....',
+      '#....#....c',
+      '#....+..c$o',
       '#....#.....',
       '#....#.....',
       '#....######',
-      'o.o..#>...#',
-      '.....#.c..#',
-      '.....+...$#',
+      'o.o..#....#',
+      '.....#c...#',
+      '.....+..$.#',
       '######....#',
     ]);
     expect(floor.entrance).toEqual({ x: 2, y: 3 });
-    expect(floor.stairs).toEqual({ x: 6, y: 11 });
+    expect(floor.stairs).toEqual({ x: 6, y: 5 });
     expect(floor.merge).toEqual({ kind: 'merged', edge: 4, rooms: [2, 4] });
     expect(floor.caches).toEqual([
-      { x: 8, y: 7 },
-      { x: 9, y: 13 },
+      { x: 9, y: 7 },
+      { x: 8, y: 13 },
     ]);
   });
 
@@ -873,5 +886,88 @@ describe('pinned floors', () => {
       '#....#....#',
       '######.<..#',
     ]);
+  });
+});
+
+describe('§5 step 2-3: the room graph actually varies', () => {
+  /**
+   * Found in review, and the single most valuable gap in this suite.
+   *
+   * `chooseLinks` shuffles the candidate edges and runs Kruskal over the shuffled order. Replacing
+   * `for (const id of order.value)` with `for (const id of LATTICE_EDGE_IDS)` — keeping the shuffle
+   * so the draw count is untouched — passed all 370 tests. Every unmerged floor then gets the
+   * identical spanning tree, forever.
+   *
+   * Nothing structural catches it: connectivity holds, the tree still spans, loops are still 1-2,
+   * there are still no corridors, and floors still *look* different because jitter, pillars and
+   * the entrance vary. But §5's whole premise is that "the mental map you build in the dark is
+   * rooms and which wall the door was in" — a fixed room graph is precisely the failure that rule
+   * exists to prevent, and it is the one structure that had no variance test.
+   */
+  it('produces many different spanning trees', () => {
+    const trees = new Set(
+      corpus().map(({ floor }) =>
+        floor.doorways
+          .filter((d) => d.origin === 'tree')
+          .map((d) => d.edge)
+          .sort((a, b) => a - b)
+          .join('-'),
+      ),
+    );
+
+    // 15 of the 21 five-edge subsets of the 7 lattice edges are spanning trees; the corpus reaches
+    // most of them. A fixed-order Kruskal collapses this to 1.
+    expect(trees.size).toBeGreaterThan(6);
+  });
+
+  it('produces many different room graphs once loops and merges are counted', () => {
+    const graphs = new Set(
+      corpus().map(({ floor }) => {
+        const edges = floor.doorways
+          .map((d) => `${d.origin[0]}${d.edge}`)
+          .sort()
+          .join(',');
+        const merge = floor.merge.kind === 'merged' ? `m${floor.merge.edge}` : 'm-';
+        return `${edges}|${merge}`;
+      }),
+    );
+    expect(graphs.size).toBeGreaterThan(20);
+  });
+});
+
+describe('§5 step 6: the stairs tie-break is a draw, not the lowest room id', () => {
+  /**
+   * Found in review. `placeStairs`'s docstring states the rule explicitly — "ties are broken by a
+   * draw among the tied rooms, ascending by id — not by taking the lowest id, which would make
+   * some rooms systematically likelier to hold the stairs on symmetric layouts."
+   *
+   * Replacing `chooseFrom(rng, tied)` with `chooseFrom(rng, tied.slice(0, 1))` — the exact
+   * anti-pattern the comment warns against, same draw count — passed all 370 tests. Ties are not
+   * rare: roughly a third of floors have more than one room at maximum distance.
+   *
+   * A stated design rule with no test is the thing that gets "simplified away" in six months.
+   */
+  it('does not always pick the lowest-id room among those tied at maximum distance', () => {
+    let tiedFloors = 0;
+    let pickedNonLowest = 0;
+
+    for (const { floor } of corpus()) {
+      const entranceRoom = roomOf(floor, floor.entrance)!;
+      const stairsRoom = roomOf(floor, floor.stairs)!;
+      const distance = roomDistances(roomAdjacency(floor, 'all'), entranceRoom.id);
+      const farthest = Math.max(...distance);
+      const tied = distance
+        .map((d, id) => ({ d, id }))
+        .filter(({ d }) => d === farthest)
+        .map(({ id }) => id);
+
+      if (tied.length < 2) continue;
+      tiedFloors += 1;
+      if (stairsRoom.id !== Math.min(...tied)) pickedNonLowest += 1;
+    }
+
+    // The corpus must actually exercise the tie, or this test proves nothing.
+    expect(tiedFloors, 'no floor in the corpus had a tie — this test is vacuous').toBeGreaterThan(10);
+    expect(pickedNonLowest).toBeGreaterThan(0);
   });
 });

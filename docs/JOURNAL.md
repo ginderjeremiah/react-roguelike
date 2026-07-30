@@ -78,6 +78,48 @@ first command's divergence as a seed mismatch. All four verified by mutation.
 Filed #12: the determinism lint rules are disabled inside `game/**/*.test.ts`, so this PR's
 property corpus is protected by discipline rather than enforcement.
 
+**Design rulings applied (post-review):** the `game-designer` pass on GDD §5 changed two things
+about what every seed produces, both applied here before merge.
+
+**The entrance exclusion is Manhattan, not Chebyshev.** I had chosen Chebyshev as the conservative
+reading. That was wrong, and the designer's argument is better than "it is stricter": movement and
+attacks are 4-directional, so the player's unit of distance is the step. A creature at (+2,+2) is
+four steps away; excluding it makes the rule uncheckable by counting, which is what Pillar 2 asks
+of a rule. Chebyshev has no referent anywhere else in the rules. The side effect of the strict
+reading was a systematic thinning of spawns in rooms next to the entrance — the early floor was
+quietly emptier than §8's curve says. `chebyshevDistance` stays in `grid.ts` for measurement but no
+rule uses it.
+
+**A merged pair is ONE node for graph distance, not two joined by an edge.** The decisive point is
+that the implementation was self-contradictory: `forbiddenRooms` already treated the merged partner
+as the entrance room for spawns, while `roomAdjacency` treated the merge as an ordinary hop for
+stairs. Now contracted in both. Corollary worth knowing: if the entrance is in a merged hall,
+neither half can hold the stairs.
+
+Both pinned floors were **deliberately re-pinned**, which is the process ARCHITECTURE.md describes —
+a rules change invalidates fixtures and they get re-recorded on purpose, never silently
+regenerated. No `RULES_VERSION` bump: nothing has shipped and `Floor` is not in `GameState` yet.
+
+**Review addendum:** the reviewer found the fifth check-that-enforces-nothing in five PRs, and it
+was in the highest-value place — the room graph. `chooseLinks` shuffles the candidate edges and
+runs Kruskal over the shuffled order, but *nothing tested that*. Replacing `order.value` with
+`LATTICE_EDGE_IDS` (keeping the shuffle so the draw count is untouched) passed all 370 tests, while
+collapsing unmerged floors from 15 distinct spanning trees to exactly **one** — the same room
+graph, every floor, forever. Connectivity held, the tree still spanned, loops were still 1-2, no
+corridors, and floors still looked different because jitter and pillars vary. §5's premise is that
+the mental map is "rooms and which wall the door was in"; a fixed room graph is exactly the failure
+that rule exists to prevent, and it was the one structure with no variance test.
+
+Second: `placeStairs`'s docstring states that ties are broken by a draw rather than by lowest id,
+precisely to avoid bias on symmetric layouts — and `chooseFrom(rng, tied.slice(0, 1))` passed
+everything. Ties are not rare; roughly a third of floors have one. A stated design rule with no
+test is what gets simplified away later.
+
+The lesson generalizing across both: **an all-negative suite cannot catch a generator that stopped
+generating.** Every invariant here is of the form "nothing is wrong with this floor", and a
+degenerate generator satisfies all of them. Variance needs its own positive assertions, and the
+structures most worth varying are the ones least likely to have them.
+
 **Watch:** known risks, deferred cleanup, things that will bite later. Omit if none.
 ```
 
@@ -95,7 +137,7 @@ did — it is the only thing stopping a future session from repeating it.
 
 **Did:** Built `game/map/` — the `Tile` union, the 2x3 room lattice, and `generateFloor(rng,
 floorNumber)`, which produces an 11x15 chambered ruin satisfying every invariant in GDD §5. Six
-modules, 141 new tests (313 total). Not wired into `GameState` yet: that changes what a replay
+modules, 145 new tests (374 total). Not wired into `GameState` yet: that changes what a replay
 produces and belongs with the command work, per one-issue-one-PR.
 
 **The GDD has an arithmetic error in §5 and it needs a one-line correction.** §5 states

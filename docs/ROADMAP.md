@@ -20,8 +20,8 @@ argue or to hand-verify.
 - [x] Process, agents, and documentation scaffolding
 - [x] CI pipeline: typecheck, lint, unit tests, web build, E2E smoke
 - [x] Test infrastructure: Vitest + Playwright, both proven against a real assertion
-- [ ] Strip the Expo tutorial boilerplate down to a bare shell
-- [ ] Seeded RNG with a full property-test suite
+- [x] Strip the Expo tutorial boilerplate down to a bare shell
+- [x] Seeded RNG with a full property-test suite
 - [ ] Core types and the `step()` reducer skeleton, with the replay-determinism test in place
 - [ ] Design review of the *Emberdepth* concept — validate, sharpen, or replace it (`design`)
 

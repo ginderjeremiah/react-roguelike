@@ -437,6 +437,30 @@ The file now carries the standing instruction in its header: **calibrate against
 against this file alone.** Three thresholds in its short history were set from isolated figures and
 all three flaked.
 
+The reviewer then attacked the estimator and found the *justification* wrong while the behaviour was
+right, which is worth recording because the correct argument is more useful than the one it
+replaced. "The filter never looks at the ratio, so it cannot prefer a round for agreeing with the
+threshold" does not follow: keeping only rounds within 1.25x of each series' own minimum confines
+every kept ratio to ±25% of `min(s)/min(y)` — which is estimator #2, the one this file rejects three
+paragraphs earlier as biased. Form-blindness is not independence. What actually holds is **scale
+invariance**: both predicates are homogeneous of degree 1 in their own series, so scaling every
+subject batch by a constant leaves the kept set identical and scales every kept ratio by exactly
+that constant. A regression here *is* such a scaling, because each subject is N identical calls of a
+pure function on a frozen `(state, command)` and per-call cost cannot vary between batches. So the
+filter provably cannot mask one. The precondition is the part worth carrying forward: that argument
+fails for a subject whose per-call cost genuinely varies — a future benchmark that steps a
+*sequence* of commands rather than repeating one.
+
+The same round made a degraded reading retry rather than pass quietly, **and the retry immediately
+found two defects in the harness that nothing else had noticed**: it fired on 21 of 30 whole-suite
+runs, always on the descent. The floor batch was 5 calls (~2.1ms), small enough that a minor GC
+landing in one half of a pair was a large fraction of it — and one-sidedly, since the subject
+allocates more, which pushed readings as low as 0.845x against a 0.8x containment floor. And warmup
+was 3 rounds, so the descent comparison began on a heap full of `atTheStairs`' seven-floor dive.
+12 calls and 8 rounds: retries 21/30 → 3/30, degraded readings surviving all attempts 0/30, and the
+lit turn's margin *improved* without any threshold moving. A retry that fires constantly is
+diagnostic output, not a nuisance.
+
 Also from the review, all applied: the GDD's §2 refusal table was written as exhaustive at three
 rows while the implementation refuses a fourth (`setShutter` to the setting already held) — the rule
 lived only in a reducer comment, which is the shape this PR spent its whole effort avoiding, so it

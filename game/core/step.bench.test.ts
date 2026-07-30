@@ -31,8 +31,8 @@ import { step } from './step';
  * fails intermittently near its threshold, say so in the journal rather than quietly raising the
  * number: the budget is a design constraint from ADR-0004, not a knob.
  *
- * **Calibrate against `npm test`, never against this file alone.** Every threshold below is set from
- * 60 runs of the whole 44-file suite, because that is the only condition under which these
+ * **Calibrate against `npm test`, never against this file alone.** Every threshold below is set
+ * from 44 runs of the whole 44-file suite, because that is the only condition under which these
  * measurements are ever taken, and it is far noisier than running this file by itself. Three
  * separate thresholds in this file's history were set from figures measured in isolation, and all
  * three flaked. The numbers a single-file run prints are prettier and they are not the ones to
@@ -110,20 +110,22 @@ import { step } from './step';
  *
  * ### The thresholds
  *
- * Ranges are the full spread over 60 whole-suite runs; the planted figure is the regression each
- * limit exists to catch, measured the same way.
+ * Ranges are the full spread over 44 whole-suite runs; the planted figure is the regression each
+ * limit exists to catch, measured the same way. Zero failures and zero degraded readings over those
+ * 44.
  *
  * | assertion | measured | limit | planted regression |
  * | --- | --- | --- | --- |
- * | descent / its generation | 0.893-1.19x | 1.6x | 2.03-2.11x, a second `generateFloor` |
- * | lit turn / one lit field | 3.19-3.97x | 5x | 5.91-6.48x, phase 3 resolved twice |
- * | refusal / a resolved wait | 0.0064-0.0076x | 0.1x | 36.7-38.9x, a floor generated before the refusal |
+ * | descent / its generation | 0.909-1.20x | 1.6x | 2.05-2.06x, a second `generateFloor` |
+ * | lit turn / one lit field | 3.42-3.70x | 5x | 5.76-5.85x, phase 3 resolved twice |
+ * | refusal / a resolved wait | 0.0062-0.0072x | 0.1x | 40.0x, a floor generated before the refusal |
  *
- * `DESCENT_RATIO_LIMIT` sits at 1.34x the worst honest reading and 1.27x under the mutation, which
+ * `DESCENT_RATIO_LIMIT` sits at 1.33x the worst honest reading and 1.28x under the mutation, which
  * is as near the middle of the available room as it can be put.
  *
- * `LIT_TURN_RATIO_LIMIT` replaces an absolute 0.1ms that measured 0.013-0.016ms here and **0.0839ms
- * on the runner** — 84% of its threshold, with nothing wrong. As a multiple of one lit field a turn
+ * `LIT_TURN_RATIO_LIMIT` has 1.35x of margin below and 1.15x above, which is the whole of the room
+ * there is: the regression it is aimed at is only 1.6x. It replaces an absolute 0.1ms that measured
+ * 0.013-0.016ms here and **0.0839ms on the runner** — 84% of its threshold, with nothing wrong. As a multiple of one lit field a turn
  * is close to a count of casts (§2's phase 3 casts to perceive and again for the light query, phase
  * 4 once more), which is why the number holds across machines. What the limit does *not* catch is
  * calibrated too, so nobody assumes more than is there: recomputing the lit field per query instead
@@ -155,11 +157,12 @@ const REFUSAL_RATIO_LIMIT = 0.1;
  * thing to something it *contains*, so the honest floor is arithmetically 1.0.
  *
  * It is set at 0.8 rather than 1.0 because a descent's own garbage is collected during whichever
- * batch follows it, which is the yardstick's on half the rounds — so the pair can read a little
- * under 1 without anything being wrong. The lowest of 60 whole-suite runs was **0.893x**. 0.8 sits
- * between that and every reading this guard exists to catch: the 0.69x CI mismeasurement that
- * started all this, 0.337x from a yardstick planted three times too slow, and 0.00026x from a
- * subject the optimizer deleted.
+ * batch follows it, which is the yardstick's on half the rounds — so a pair can read a little under
+ * 1 without anything being wrong. `FLOOR_BATCH` is sized to keep that small; the lowest of 44
+ * whole-suite runs is **0.909x**, and it was 0.845x before that batch was widened. 0.8 sits between
+ * those and every reading this guard exists to catch: the 0.69x CI mismeasurement that started all
+ * this, 0.350x from a yardstick planted three times too slow, and 0.00033x from a subject the
+ * optimizer deleted.
  */
 const CONTAINMENT_FLOOR = 0.8;
 
@@ -182,8 +185,17 @@ const REFUSAL_FLOOR = 0.0015;
 
 /** Rounds of interleaved batches per reading. Odd, so the median is a measured value. */
 const ROUNDS = 31;
-/** Full batches of both, discarded, so the JIT has tiered up and the heap has settled. */
-const WARMUP_ROUNDS = 3;
+/**
+ * Full batches of both, discarded, so the JIT has tiered up and **the heap has settled**.
+ *
+ * Eight rather than the three it started with, and the second half of that sentence is why. The
+ * descent's fixture is `atTheStairs`, a scripted seven-floor dive, so the comparison begins on a
+ * heap full of that dive's garbage; the first reading was landing 2-4 undisturbed pairs out of 31
+ * and being thrown away by `compare` as degraded on 21 of 30 whole-suite runs. That is a warmup
+ * problem wearing a noise problem's clothes — the retry was working, it was just paying ~300ms to
+ * do what warmup should have. Eight rounds took it to 3 retries in 30.
+ */
+const WARMUP_ROUNDS = 8;
 /** A physically impossible reading is remeasured at most this many times before it is reported. */
 const MAX_ATTEMPTS = 3;
 
@@ -193,10 +205,19 @@ const MAX_ATTEMPTS = 3;
  * far bigger fraction of a 1ms batch than of a 5ms one, so batches of unequal duration reintroduce
  * exactly the bias the interleaving removes.
  */
-const FLOOR_BATCH = 5; // ~0.42ms each          -> ~2.1ms a batch
+const FLOOR_BATCH = 12; // ~0.42ms each         -> ~5ms a batch
 const TURN_BATCH = 240; // ~0.0088ms each      -> ~2.1ms a batch
 const FIELD_BATCH = 850; // ~0.0025ms each     -> ~2.1ms a batch
 const REFUSAL_BATCH = 35_000; // ~0.00006ms each -> ~2.1ms a batch
+//
+// The descent pair is deliberately the long one. At the ~2ms the others use, a batch was 5 calls of
+// the most allocation-heavy operation in the game, and a minor GC landing in one member of a pair
+// but not the other is then a large fraction of it. Because the subject allocates more than the
+// yardstick and the collection lands in whichever batch runs *next*, that asymmetry was one-sided:
+// it pushed descent readings as low as **0.845x**, under a ratio that arithmetic says cannot go
+// below 1, and left the containment floor only 1.06x away. Twelve calls a batch amortises the
+// collections evenly across both members and the readings moved to 0.909-1.20x. Pair tightness is
+// still what matters against *scheduler* noise, which moves on a far longer timescale than 5ms.
 
 /**
  * No single batch may run longer than this, checked every `CEILING_STRIDE` calls.
@@ -264,9 +285,8 @@ function median(values: readonly number[]): number {
  *
  * Interference is one-sided — a scheduler steal, a GC pause, a cache evicted by a neighbouring
  * worker can only ever *add* time — so a batch that lands close to the cheapest one seen for that
- * subject is one that got a clean run at the machine, and this is a cleanliness test that never
- * looks at the ratio. That independence is what makes it a legitimate filter rather than a way of
- * choosing the answer: it cannot prefer a round because the round agrees with the threshold.
+ * subject is one that got a clean run at the machine. Why that is a legitimate filter and not a way
+ * of choosing the answer is argued at `compareOnce`, and it is **not** the obvious argument.
  */
 const UNDISTURBED = 1.25;
 /** Below this many surviving pairs the filter is abandoned rather than trusted. See `compareOnce`. */
@@ -284,9 +304,9 @@ const ENOUGH_CLEAN_PAIRS = 5;
  * does not land symmetrically: the subject of each pair here has the larger working set, so it is
  * hurt more when a neighbouring worker evicts the cache. Measured over 30 whole-suite runs that bias
  * pushed `wait (lit)` from the 3.43-3.61x it reads in isolation up to **5.59x**, through a 5x limit,
- * with nothing wrong with the code. So a round now produces a *ratio*, from two batches milliseconds
- * apart, and the reading is a median over rounds. A steal inside a round spoils that round and
- * nothing else.
+ * with nothing wrong with the code. So a round now produces a *ratio*, from two batches a couple of
+ * milliseconds apart, and the reading is a median over rounds. A steal inside a round spoils that
+ * round and nothing else.
  *
  * ## Why the pairs are then filtered
  *
@@ -302,9 +322,41 @@ const ENOUGH_CLEAN_PAIRS = 5;
  * the yardstick got is not the one the subject got. That produced 0.818x and 0.892x on a descent,
  * which *contains* its yardstick and cannot honestly be cheaper. A pair cannot do that to itself.
  *
- * If too few pairs survive the filter, the machine never went quiet and the filter is abandoned
- * rather than trusted to five samples of nothing: the reading falls back to the median of every
- * pair, and the caller's floor is left to catch it if that is worthless.
+ * ## Why the filter cannot hide a regression
+ *
+ * The tempting argument is that the predicates never look at the ratio, so they cannot prefer a
+ * round for agreeing with a threshold. **That argument is wrong and should not be restored.** The
+ * kept set satisfies `s_r <= 1.25 * min(s)` and `y_r <= 1.25 * min(y)`, so every kept ratio lies in
+ * `[0.8 * R0, 1.25 * R0]` where `R0 = min(s) / min(y)` — a +-25% truncation centred on the
+ * minimum-of-series estimator this very docstring rejects two paragraphs above. Not looking at the
+ * ratio plainly does not mean not constraining it.
+ *
+ * What does hold is **scale invariance**. Each predicate is homogeneous of degree 1 in its own
+ * series: multiply every `s_r` by a constant `k` and `min(s)` scales by `k` too, so each comparison
+ * is unchanged and the kept set is *identical*. Every kept ratio is then exactly `k` times what it
+ * was, so the median of them is too. A regression that makes the subject `k` times more expensive is
+ * precisely that multiplication, and the reported ratio moves by exactly `k` — whatever the filter
+ * does to the shape of the distribution, it cannot damp a regression by even a percent.
+ *
+ * **The precondition, which matters to whoever adds a fourth subject.** That proof needs the
+ * regression to be *unconditional* — the same factor on every batch. It is, for these three, because
+ * each subject is N identical calls of a pure function on a frozen `(state, command)`: per-call cost
+ * cannot vary from batch to batch, so a regression cannot be intermittent at batch granularity.
+ * Nothing in `game/` can express one either, since the determinism contract bars module-level
+ * mutable state, so call #1 and call #2000 do the same work by construction. A subject that stepped
+ * a *sequence* of commands would break that precondition: per-call cost would genuinely vary, a
+ * regression could bite on only some commands, and it could then correlate with which batches look
+ * disturbed. This proof would not cover it, and the filter would need re-arguing rather than reusing.
+ *
+ * ## When the filter gives up
+ *
+ * If fewer than `ENOUGH_CLEAN_PAIRS` survive, the machine never went quiet and the filter is
+ * abandoned rather than trusted to a handful of samples of nothing. The reading falls back to the
+ * median of *every* pair — which is exactly estimator #3 above, with its measured range: 0.889-1.26x
+ * on a descent and 3.49-4.38x on a lit turn over 30 whole-suite runs. Every threshold in this file
+ * still holds under it, but the lit turn's margin degrades from 1.26x to 1.14x, and that is the cost
+ * a reader is being asked to accept. `compare` remeasures first and says so out loud if it persists;
+ * see there.
  *
  * The order within a round alternates, so neither side is permanently the one inheriting the other's
  * garbage.
@@ -367,10 +419,9 @@ function describeReading(subject: Subject, yardstick: Subject, reading: Reading)
  * **The floor a ratio cannot honestly fall below**, and why it cannot.
  *
  * Every comparison in this file has one, and it is always an arithmetic fact about the two subjects
- * rather than a performance expectation — which is what makes remeasuring on a violation safe. A
- * *regression* pushes each of these ratios up, so no number of retries can turn a real one into a
- * pass; the retry can only fail closed. What it stops is a reading that has already been destroyed
- * by the machine from sailing under a threshold it was never measuring.
+ * rather than a performance expectation — which is what makes remeasuring on a violation safe (see
+ * `untrustworthy`). What it stops is a reading that has already been destroyed by the machine from
+ * sailing under a threshold it was never measuring.
  */
 type Floor = {
   readonly at: number;
@@ -380,15 +431,66 @@ type Floor = {
   readonly orElse: string;
 };
 
-/** A reading, remeasured while it is physically impossible. Every discarded attempt is logged. */
+/** Did the machine ever go quiet enough for the filter at `compareOnce` to run? */
+function fellBack(reading: Reading): boolean {
+  return reading.quiet < ENOUGH_CLEAN_PAIRS;
+}
+
+/**
+ * Why a reading should not be trusted, or `null` if it should be.
+ *
+ * Two ways, and both are properties of the *instrument* rather than of the number it produced:
+ *
+ *   - **impossible** — the ratio is under an arithmetic floor, so the reading has been destroyed;
+ *   - **degraded** — too few pairs were undisturbed, so the reading is estimator #3 rather than the
+ *     one this file's thresholds were calibrated against.
+ *
+ * Both are safe to remeasure on, and for the same reason: neither test can be passed or failed *by
+ * a regression*. The floor is only reachable from below and a regression pushes every ratio here up;
+ * the quiet count is scale-invariant, by the argument at `compareOnce`, so multiplying the subject's
+ * cost by `k` leaves it identical. So this is not "retry until green" in either arm — no amount of
+ * remeasuring can make a real regression look smaller, and the retry can only ever fail closed.
+ */
+function untrustworthy(reading: Reading, floor: Floor): string | null {
+  if (reading.ratio < floor.at) return 'an impossible';
+  if (fellBack(reading)) return 'a degraded';
+  return null;
+}
+
+/**
+ * A reading, remeasured while the instrument is visibly unwell, and loud about it if it stays that
+ * way.
+ *
+ * A degraded reading that persists is **not** turned into a failure. Under load the fallback fired
+ * on 2 of 18 readings and both were still comfortably inside their limits; going red because a
+ * neighbouring worker was busy is the worse trade, and this file's whole argument is that a flaky
+ * assertion teaches people to re-run CI. But it is not allowed to be *silent* either — a
+ * silently-degraded instrument reporting green is the exact failure this file exists to have
+ * opinions about — so it warns, names the estimator that actually produced the number, and prints
+ * the spread of the pairs it had to fall back on. Kept-set spreads of 69x and 83x have been seen
+ * when it fires, which is a median that is not measuring much.
+ */
 function compare(subject: Subject, yardstick: Subject, floor: Floor): Reading {
   let reading = compareOnce(subject, yardstick);
-  for (let attempt = 2; reading.ratio < floor.at && attempt <= MAX_ATTEMPTS; attempt += 1) {
+  for (let attempt = 2; attempt <= MAX_ATTEMPTS; attempt += 1) {
+    const wrong = untrustworthy(reading, floor);
+    if (wrong === null) break;
     console.log(
-      `discarded an impossible reading — ${describeReading(subject, yardstick, reading)}; ` +
+      `discarded ${wrong} reading — ${describeReading(subject, yardstick, reading)}; ` +
         `remeasuring (attempt ${attempt} of ${MAX_ATTEMPTS})`,
     );
     reading = compareOnce(subject, yardstick);
+  }
+
+  if (fellBack(reading)) {
+    console.warn(
+      `DEGRADED MEASUREMENT: ${subject.label} settled with only ${reading.quiet} of ${ROUNDS} pairs ` +
+        `undisturbed after ${MAX_ATTEMPTS} attempts, so the quiet-pair filter was abandoned and the ` +
+        `figure below is a median over all ${ROUNDS} pairs spanning ${reading.spread.toFixed(1)}x. ` +
+        `That estimator ranges 0.889-1.26x on a descent and 3.49-4.38x on a lit turn, so the ` +
+        `assertion still holds, but the lit turn's margin is 1.14x rather than 1.26x. The box was ` +
+        `busy; treat a pass as weaker evidence than usual and do not calibrate anything from it.`,
+    );
   }
   return reading;
 }

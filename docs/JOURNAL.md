@@ -34,6 +34,71 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-08-05 — Auto-travel: `travel(to)`, terrain never interrupts, and the build moves to M2 (#32)
+
+**Did:** Docs only, no code. Settled auto-travel's command shape as **one `travel(to)` command**
+resolving many turns inside `step()`, narrowed its interrupt rule, and **deferred the build to M2**.
+[ADR-0009](decisions/0009-auto-travel-command-shape.md) is the record; GDD §9's auto-travel bullet is
+rewritten and marked ***Settled (design) — deferred to M2 (build)***; `ROADMAP.md` moves the bullet
+to M2 with the signal that decides whether it is ever built, and records that **#20 is now blocked
+only by #19**. The full ruling with its arguments is on issue #32.
+
+**Why:** Three things, and only the first was asked for.
+
+**The shape.** The runner-up — a UI-emitted sequence of `move` commands with a polled interrupt
+query — loses on a rule `game/core/command.ts` already states: "a command carries intent, not
+resolution." Under that shape the stored log records *how far you got*, not the one tap that was the
+intent. Concretely: a backgrounded app or an unmounted component leaves a run half-travelled with
+nothing in `game/` knowing; the interrupt rule becomes a Playwright assertion instead of three Vitest
+cases; and the run stays a function of the *log* while ceasing to be a function of the player's
+*taps*, so the same seed and the same taps diverge across devices. The draw budget, which #32 flagged
+as the cost of the command shape, turned out to be a non-issue: travel never descends, so it consumes
+**zero** draws and `expectedDrawCount` is untouched. The property that carries the whole design is
+that **a travel must be indistinguishable from the `move` sequence it stands for** — a foldable
+property test, and the thing that makes the economy, the spent turns and the draw count all answer
+themselves.
+
+**The interrupt rule.** §9's "the moment anything new becomes visible or sensed" is unimplementable
+as written *in both directions*, which nobody had noticed: shuttered, touch radius 1 means nearly
+every step perceives a tile it has not perceived before, so travel never travels; lit, "anything new"
+has no edge a player can state, which is the Pillar 2 failure the sentence exists to prevent. Terrain
+was **cut rather than qualified**: the route runs over remembered tiles only, so a travel cannot
+enter unmapped space, and the only mode travel is economically sensible in is dark, where items are
+invisible and terrain reaches one tile. What is left is one sentence — *you walk until something
+living appears, or something touches you.*
+
+**The deferral.** Auto-travel creates no decisions; it removes taps. That is legitimate under
+Pillar 1 only if the taps it removes are autopilot, and **nobody has tapped this game once** — there
+is no `render/`. Every remaining question about the stop rule is a playtest question, so building it
+now means tuning it against imagination.
+
+**Learned:** The design question was answerable entirely from rules that already existed — the
+command module's intent-not-resolution rule decided the shape, and §4's fuel arithmetic decided that
+lit travel is self-punishing, which is what made cutting the terrain clause safe rather than
+convenient. Also worth recording: **`game/core/command.ts` rule 3 and `game/core/replay.ts`'s bump
+policy contradict each other** on whether adding a `Command` variant bumps `RULES_VERSION`. `command.ts`
+says only if it changes what an existing log does (it does not); `replay.ts` — the canonical home per
+ARCHITECTURE's *Versioning* section — lists any change to the set of variants. ADR-0009 rules that
+`replay.ts` wins. Deliberately **not** filed as an issue and deliberately not fixed here: it is a
+two-line edit that only becomes true inside the PR that adds the variant.
+
+**Next:** #19 (presentation model in `render/`) is unblocked and is the only unblocked build issue.
+#20 follows it and inherits exactly one constraint from this work: leave a tap on a distant tile
+unbound, and make the tap handler able to produce a `Position`, not only a `Direction`.
+
+**Watch:** The M1 playtester will cross known space by hand, up to about twenty tiles a floor. Two
+ways that can mislead. The Pillar 1 autopilot count will include those steps, and that is *not* an
+indictment of the level generator — §5 forbids corridors precisely so there are no autopilot turns,
+and a mapped room crossed on the way back is a different animal; report the two separately. And
+"tapping is tedious" is a loud finding that could crowd out the quiet one M1 exists to get, which is
+whether the flash-and-crawl wager is the reason to play. The playtest brief should say travel is
+deliberately absent and ask for the tap count as its own line item.
+
+Three code sites become wrong the day `travel` lands and must not be touched before then, listed in
+ADR-0009's Consequences: `ARCHITECTURE.md`'s "`Command` is four variants and no more" (twice),
+`step.ts`'s contract point 6 ("exhaustive for this build"), and the `command.ts`/`replay.ts`
+contradiction above.
+
 ## 2026-08-05 — `Perception` was two types; now it is `TurnPerception` and `LightQuery` (#36)
 
 **Did:** Pure rename, no behaviour change, no `RULES_VERSION` bump. `game/fov/perceive.ts`'s

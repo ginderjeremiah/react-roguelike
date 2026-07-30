@@ -53,7 +53,8 @@ is layered on top.
 - [ ] Player movement and touch input — #20
 - [ ] Death, winning, and a run-summary screen — #21
 - [ ] Determinism rules applied to `game/**/*.test.ts` — #12
-- [ ] Auto-travel's command shape (a determinism question; gates #20) — #32
+- [x] Auto-travel's command shape — settled by [ADR-0009](decisions/0009-auto-travel-command-shape.md);
+      **the build moved to M2**, and #32 with it
 - [x] Rename the two colliding `Perception` types — #36; now `TurnPerception` (`game/fov/`) and
       `LightQuery` (`game/entities/`)
 
@@ -70,8 +71,10 @@ no `render/` directory and no `platform/` directory, only the Expo shell in `app
 `components/`. So the three open build issues are strictly sequential:
 
 **#19 → #20 → #21.** Only #19 is unblocked today. #20 needs the presentation model to consume and
-#21 needs a screen to draw the summary on. #32 (auto-travel's command shape) is not blocking #19
-but must be decided before #20 commits to an input model.
+#21 needs a screen to draw the summary on. **#20 is no longer blocked by #32** — ADR-0009 settled
+auto-travel's shape and moved the build to M2, so all #20 inherits is one constraint: *a tap on a
+distant tile stays unbound, and the tap handler must be able to produce a `Position`, not only a
+`Direction`.*
 
 ### Scope note: M1 absorbed most of M2's simulation work
 
@@ -113,6 +116,25 @@ fallback (strip fuel, keep the positional tactics) is what "change direction" me
 - [ ] Sound/haptic feedback for moving blind
 - [ ] Does a creature on a marked tile take the hit? — #28, a design ruling §6 is missing
 - [ ] `litQuery`'s once-per-turn invariant has no test behind it — #35
+- [ ] Auto-travel: implement `travel(to)` per [ADR-0009](decisions/0009-auto-travel-command-shape.md)
+      — #32, **gated on the M1 playtest**, not automatic
+
+**Auto-travel is gated, and this is the gate.** Its rules are settled; whether it is built is not.
+Moved here from M1 because the friction it removes had never been felt — nothing above `game/`
+existed, so tuning a stop rule would have been tuning it against imagination.
+
+- **Build it** if the M1 playtester reports crossing already-mapped space by hand as tedium, naming
+  turns rather than vibes, or if the Pillar 1 autopilot count is dominated by known-empty dark steps.
+- **Do not build it** if the playtester rarely crosses known space (floors get abandoned for the
+  stairs), or crosses it *lit* — in which case travel is a trap that costs 4 a turn and wakes the
+  floor, and the fix is elsewhere.
+- **Kill it permanently** if, once built, it stops on nearly every step. That is the stop rule being
+  wrong at the concept level rather than the tuning level, and a travel that stops every step is
+  worse than twenty taps because it also lies about what it does.
+
+If it is built, `game/systems/economy.test.ts`'s corpus must be re-measured with travel in it. Travel
+changes no arithmetic, but it changes how many turns a player is willing to spend, and §4's third
+invariant was calibrated against scripted one-step-at-a-time play (ADR-0009's Consequences).
 
 **Exit criteria:** the playtester reports the light decision recurring naturally and being
 genuinely tense — and can point to specific turns where it mattered. Unchanged, and now the only

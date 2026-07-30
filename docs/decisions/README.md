@@ -50,3 +50,4 @@ Superseding, never editing: to reverse a decision, write a new ADR and mark the 
 | [0006](0006-local-first-no-backend.md) | Local-first persistence, no backend | Accepted |
 | [0007](0007-emberdepth-sharpened.md) | Emberdepth sharpened — darkness carries information | Accepted |
 | [0008](0008-benchmark-thresholds-as-ratios.md) | Benchmark thresholds are ratios, not milliseconds | Accepted |
+| [0009](0009-auto-travel-command-shape.md) | Auto-travel is one `travel(to)` command, deferred to M2 | Accepted |

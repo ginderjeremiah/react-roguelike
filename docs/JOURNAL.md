@@ -120,6 +120,28 @@ generating.** Every invariant here is of the form "nothing is wrong with this fl
 degenerate generator satisfies all of them. Variance needs its own positive assertions, and the
 structures most worth varying are the ones least likely to have them.
 
+**Review addendum:** the reviewer found that the branching-experiment test killed the reactive bug
+only in its *unconditional* form. The form a real author would write is guarded — retarget only if
+the player is still orthogonally adjacent — and that survived all 488 tests.
+
+The reason is geometric and worth remembering: stepping one orthogonal tile off a marked tile
+always lands at Manhattan distance 2 from the creature, because the marked tile's other three
+neighbours are diagonal to it. So in a **one-move window the guard is never true** and the mutant
+is provably identical to correct code. Every existing test was a one-move window.
+
+The window is two moves wide only on the **free-action path**, because a free command does not
+charge the player, so the player acts again at the same instant before the creature resolves. The
+new test drives exactly that trace and the guarded mutant now dies. Note this also means a creature
+woken during a free action sees two player commands before resolving — more conservative than §2
+requires, legible in play, but undocumented until now.
+
+Second finding: `bump` enforced its stated adjacency precondition on the move branch only.
+`resolveAttack` validates liveness and self-targeting but not adjacency, so a bump onto a distant
+or diagonal *occupied* tile resolved as a ranged, 8-directional strike and returned cleanly — while
+the same bump onto an *empty* tile threw. The loud failure was on the harmless branch and the
+silent one on the dangerous branch, and `bump` is what #18's tap handler will call with a raw tap
+target.
+
 **Watch:** known risks, deferred cleanup, things that will bite later. Omit if none.
 ```
 
@@ -132,6 +154,114 @@ is worth the file.
 did — it is the only thing stopping a future session from repeating it.
 
 ---
+
+## 2026-08-01 — `game/entities/`: actors, deterministic combat, and the Cinder (#16)
+
+**Did:** Built `game/entities/` (actor model, Cinder behaviour, pathing, the lighting seam),
+`game/systems/combat.ts` and `game/systems/actors.ts` (deterministic damage, bump-to-attack, the
+dormant strike, deaths, and the rules half of GDD §2 phases 3 and 4), and `game/content/` (the
+creature table and the player's numbers). 114 new tests, 488 total. Not wired into `GameState` —
+that is #18, and `Floor` is not in `GameState` yet.
+
+**The scheduling invariant is the spine of the whole thing:**
+
+> an actor is in the schedule ⟺ it is alive AND (it is the player OR it is awake)
+
+Both directions were arrived at by working backwards from GDD §2 and both turned out to answer a
+question the issue asked separately.
+
+*Dormant creatures are not in the queue.* That is what makes "a creature woken by light declares
+this turn and acts next turn" (§2 phase 3, and `turn.ts`'s header) true rather than aspirational:
+waking joins the schedule at `now + ACTION_COST`, so a creature woken in phase 3 is not due when
+phase 4 runs three lines later. The alternative — scheduling sleepers and no-oping their turn —
+would have made that ordering depend on wake order, and phase 4 would have needed to know what
+dormancy is.
+
+*Dead actors leave the queue at kill time, in phase 1.* This is the first of the two things PR #22's
+review handed over. Deaths still **resolve** at phase 5 (embers drop, the body leaves), and that
+order is right; what cannot wait is the queue entry, because a creature killed in phase 1 is still
+due at `now` and would take its turn in phase 4 and attack from the grave. `resolveAttack`
+unschedules on the killing blow, and `resolveDeaths` throws if it ever finds a corpse still holding
+a place — the two halves check each other.
+
+The second handover, *a free action must skip the actor phase entirely*, is expressed as a required
+argument: `actorPhase(cost: TurnCost, perception)` where `TurnCost` is `'costsATurn' | 'free'` and
+has no default. #17 cannot wire the shutter toggle without saying which it is, and `'free'` returns
+`identity` rather than "run the phase but skip the charge", which is the mistake `turn.test.ts`
+documents.
+
+**Commit one turn ahead is a data decision before it is a code decision.** The declared action is a
+field on the creature (`Mind` is a union, so an awake creature *always* has one and a dormant one
+cannot), written on turn N and read on turn N+1. A behaviour function that looked at the world and
+returned an action would be reactive by construction and no care at the call site would fix it.
+Two corollaries fell out and both are load-bearing: **an attack marks a tile, not an actor** (so
+stepping aside works — §2's whole reason movement is a combat action), and **a declared move can be
+blocked** (so baiting costs the creature its turn). `commit.test.ts` is written as branching
+experiments — same world, two different player commands, assert the creature resolved the same
+committed action — because a test asserting "it moved to (4,1)" passes just as happily for a
+creature that recomputed and happened to agree. `floorplay.test.ts` carries the corpus form: **the
+player can only ever be hit on a tile that was already marked when the turn began.**
+
+**The lighting seam is one boolean.** `Perception = { isPlayerLightVisibleFrom(at): boolean }`,
+injected, exactly as `resolveTurn` takes its phases. `game/entities/` contains no radius, no shutter
+state, no line of sight, and exports no default query — so there is nothing to delete when #17 and
+#14 land. What "visible" means is deliberately not this layer's decision: §4 says "while the shutter
+is open", §6 says "where it last saw your light", and #25 has not settled the metric. All three
+readings plug into that signature unchanged. The *other* half of contact, adjacency, is **not**
+injected, because §3 settles it: 4-directional, one orthogonal step, one meaning.
+
+**Two design gaps, flagged rather than invented:**
+
+1. **"Then searches" (§6) has no definition.** Implemented as the smallest honest reading: the
+   creature walks to the last tile it saw light and then holds position until re-dormancy. Wandering
+   needs a wander model nobody has designed and, worse, needs a random draw on a path taken a
+   variable number of times per turn. If the playtester reports that a searching Cinder is a statue,
+   `nextMind` case 5 is the only thing that changes.
+2. **Creatures cannot hurt each other.** A declared attack marks a tile, so a creature *can* end up
+   standing on a tile another creature marked. Making that hit would add a real tactic (bait them
+   into each other) that §6 does not describe, so the conservative reading — nothing happens — is
+   what shipped. `game-designer`'s call.
+
+**Nothing in `game/entities/` touches the RNG, at all.** Pathing is a breadth-first distance field
+from the goal plus one step down the gradient, with ties broken by the fixed `ORTHOGONAL_STEPS`
+order. A drawn tie-break was the obvious alternative and was rejected on determinism grounds rather
+than taste: it would put entropy consumption on a path taken a variable number of times per turn,
+which shifts the whole run's generator stream and surfaces days later somewhere unrelated.
+
+**Learned:** the issue's warning — *an all-negative combat suite cannot catch an enemy that stopped
+thinking* — is exactly right, and writing the sweep made it concrete. "HP never negative", "nobody
+in a wall", "the schedule is consistent", "damage is deterministic" are all satisfied by a Cinder
+that never moves. So `floorplay.test.ts` tallies evidence as it plays 24 floors × 90 turns and then
+asserts the behaviour *happened*: 70 wakings, 170 moves, 139 of them closing distance, 68 landed
+hits, 73 attacks dodged, 116 kills, 5 returns to dormancy. Thresholds sit at about half of each, and
+the tally is printed so the margin is visible instead of guessed at.
+
+**Mutation testing: 36 mutants, 34 killed, 2 survivors, both argued equivalent and documented at the
+site.** The killed set includes every rule that matters — dormant strike removed, kill left in the
+queue, attack retargeted to the player's current tile (the reactive bug, unconditional form), declare-before-resolve,
+free action running the actor phase, proximity waking a sleeper, waking scheduled for this turn,
+re-dormancy off by one, creature ids assigned in reverse spawn order, pathing that sidesteps or
+wanders. Three survived the first pass and one was a real hole: **removing the dead-player check in
+`hasContact` left every test green**, which would have left creatures permanently awake swinging at
+a corpse in a state the re-dormancy clock can never leave. That now has a test. The two remaining
+survivors are `wakeInLight` iterating in reverse id order and `occupantAt` returning the last match
+instead of the first; both are unobservable *today* — the schedule re-canonicalises, and two living
+actors never share a tile — and both are the shape of ADR-0004's iteration-order bug before it
+bites. They are written in id order deliberately, with a comment saying so and saying that no test
+can currently kill them. Writing a test that passes for both would have been worse than none.
+
+**Next:** #18 wires this into `GameState` and `step()` — the sketch it should follow is in
+`game/systems/index.ts`'s header, and three of the six phases (`lightingAndWaking` minus the
+lighting, `actors`, `deaths`) exist today. #17 (shutter, fuel) supplies the real `Perception` and
+must decide whether a free action still burns fuel; #14 (FOV) supplies what "visible" means, after
+#25 settles the metric.
+
+**Watch:** `restoreOnDescent` exists and is tested but has no caller until floor transitions land,
+so "descending restores 2 HP" is a rule nothing exercises end to end yet. Ember *drops* are
+implemented, ember *collection* is not — `world.embers` accumulates and nothing consumes it until
+fuel exists (#17). And the pathing distance field is recomputed per creature per declaration: 0.095ms
+for a full six-creature turn against a 2ms budget, benchmarked in `actors.bench.test.ts`, but that
+is the number that moves if pathing ever accounts for other actors.
 
 ## 2026-07-31 — The vision metric is Chebyshev; ember-sense drops 6 → 5 (#25)
 
@@ -185,6 +315,7 @@ not yet settled" the vision metric, and `chebyshevDistance`'s "not used by any r
 false three times over. #14 touches that file and should fix both. Also: ADR-0007 records
 ember-sense radius 6; it is a historical record and was not edited, but the GDD change log says
 explicitly that §4 supersedes it, so a future session reading the ADR alone will get the old number.
+
 
 ## 2026-07-31 — `game/map/`: tiles, the room lattice, and the chambered-ruin generator (#13)
 

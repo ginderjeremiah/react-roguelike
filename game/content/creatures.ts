@@ -62,7 +62,14 @@ export const CINDER: CreatureDefinition = {
   name: 'Cinder',
   maxHp: 5,
   attack: 2,
-  emberDrop: 30,
+  /**
+   * 20, not the 30 §4 first wrote down. **Moved by measurement, not by taste** — §4's third
+   * invariant ("a floor played well nets *slightly* positive fuel") failed at 30: a scripted
+   * competent run netted about +85 fuel a floor against a starting reserve of 80, so the lantern
+   * stopped being a resource after the first floor. See `game/systems/economy.test.ts`, which is
+   * what caught it and what will catch it again. GDD change log, 2026-08-02.
+   */
+  emberDrop: 20,
   glyphDormant: 'c',
   glyphAwake: 'C',
 };

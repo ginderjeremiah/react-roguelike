@@ -1,0 +1,618 @@
+/**
+ * Scripted play styles, for measuring GDD §4's light economy.
+ *
+ * ```ts
+ * const run = playRun('seed-3', STALKER, 8);
+ * run.floors[0].income / run.floors[0].spend   // what a well-played floor earns per fuel spent
+ * ```
+ *
+ * ## Why the styles are a 2×2 and not three ad-hoc scripts
+ *
+ * §4's three invariants are all *comparative* — a pacifist runs dry, a floodlit run runs dry
+ * **faster**, a floor played well nets positive. Comparisons need a control, so the styles vary
+ * exactly two things, independently:
+ *
+ * ```
+ *            |  flashes and shutters  |  holds the shutter open
+ *   fights   |  STALKER               |  FLOODLIT
+ *   pacifist |  PACIFIST              |  FLOODLIT_PACIFIST
+ * ```
+ *
+ * `STALKER` vs `PACIFIST` isolates *combat* — same route, same light policy, one of them kills.
+ * `STALKER` vs `FLOODLIT` isolates *light* — same route, same kills, one of them pays 4/turn.
+ * That is what makes the assertions bite: in an economy where nothing meaningful is ever spent or
+ * earned, all four cells are equal, and equality fails every comparison. A suite of "fuel never goes
+ * negative" and "burn is 4 when open" would pass on that economy happily.
+ *
+ * ## What the scripts are allowed to know
+ *
+ * Only what the player knows, because the whole claim under test is about the *cost of information*:
+ *
+ *   - **Terrain**: `vision.remembered` only. Routes are planned over remembered passable tiles, so
+ *     an unexplored floor genuinely has to be explored — at the touch radius if unlit. A script that
+ *     pathed over the real grid would cross a floor in a fraction of the turns and would make the
+ *     economy look far kinder than it is.
+ *   - **Creatures**: this turn's `perceive` — seen in the lit region, or felt through walls within
+ *     the *current* ember-sense radius. Never the actor list.
+ *   - **Caches**: only once the tile has been perceived, which is what §4's "caches require light to
+ *     find" costs.
+ *
+ * ## What they are not
+ *
+ * Not optimal play, and not an AI. They are legal, plausible command sequences, and the invariants
+ * are asserted as the *direction of the differences between them* rather than as absolute numbers,
+ * precisely because a script cannot be optimal. Where an absolute number is asserted
+ * (`economy.test.ts`), it is anchored to something the GDD states independently — §5's "~40-70 turns
+ * per floor" is the anchor for whether these scripts play at a believable pace at all.
+ *
+ * ## Two harness liberties, both deliberate and both marked
+ *
+ * 1. **The player does not die.** `IMMORTAL_HP` replaces the player's HP pool. The claim under test
+ *    is about *fuel*: a pacifist beaten to death by a Cinder has demonstrated a different kind of
+ *    unsustainability, and if the floodlit style died first, "runs dry faster" would be
+ *    unmeasurable. Survival is exercised in `game/systems/floorplay.test.ts` and what a dead player
+ *    *means* is #18's.
+ * 2. **Descending is done here, not by the simulation.** Floor transitions are #18's. The harness
+ *    generates the next floor and carries the fuel across — the only part of a descent the economy
+ *    cares about — and deliberately invents nothing else about it.
+ */
+
+import { CACHE_FUEL, CINDER } from '@/game/content';
+import {
+  createActorWorld,
+  isAlive,
+  PLAYER_ID,
+  playerOf,
+  withActor,
+  type ActorWorld,
+  type CreatureActor,
+} from '@/game/entities';
+import {
+  EMBER_SENSE_RADIUS,
+  hasTile,
+  perceive,
+  tileSetPositions,
+  type ShutterState,
+  type TileSet,
+} from '@/game/fov';
+import {
+  chebyshevDistance,
+  generateFloor,
+  inBounds,
+  isPassableAt,
+  manhattanDistance,
+  ORTHOGONAL_STEPS,
+  samePosition,
+  tileAt,
+  tileIndex,
+  type Floor,
+  type Grid,
+  type Position,
+} from '@/game/map';
+import { createRng } from '@/game/rng';
+import {
+  bump,
+  burnRate,
+  canOpen,
+  chargeActor,
+  createLantern,
+  isDry,
+  lanternPhases,
+  lightOf,
+  resolveTurn,
+  toggleShutterTurn,
+  type LanternWorld,
+} from '@/game/systems';
+
+/** See liberty 1 in the header. Large enough that no run of this length can exhaust it. */
+const IMMORTAL_HP = 100_000;
+
+/**
+ * Give up on a floor rather than loop forever. A pacifist can be walled in by a creature it will
+ * not fight, and a floodlit style with no fuel left cannot open the shutter it wants open.
+ */
+const TURN_CAP_PER_FLOOR = 200;
+
+/** Tiles inside the lit radius a flash would newly reveal, above which flashing is worth 4 fuel. */
+const FLASH_THRESHOLD = 8;
+
+/** How a style works the shutter. */
+export type LightPolicy =
+  /** Never opens it. The cheapest possible crawl, and blind to every cache. */
+  | 'never'
+  /** Opens it to read an unmapped room, shuts it again. §4's "flash and crawl". */
+  | 'flash'
+  /** Holds it open for the whole floor. §4's second invariant, as a play style. */
+  | 'always';
+
+export type Style = {
+  readonly name: string;
+  /** Does it ever attack? `false` is §4's pacifist. */
+  readonly fights: boolean;
+  readonly light: LightPolicy;
+};
+
+export const STALKER: Style = { name: 'stalker', fights: true, light: 'flash' };
+export const PACIFIST: Style = { name: 'pacifist', fights: false, light: 'flash' };
+export const FLOODLIT: Style = { name: 'floodlit', fights: true, light: 'always' };
+export const FLOODLIT_PACIFIST: Style = {
+  name: 'floodlit-pacifist',
+  fights: false,
+  light: 'always',
+};
+/**
+ * Outside the 2×2: the cheapest crawl the rules permit, and the floor under every fuel curve.
+ *
+ * It is **not** blind to caches, despite §4 saying it should be. A shuttered crawler still reads
+ * the Chebyshev-1 touch field into `vision.remembered`, so frontier exploration maps the whole
+ * floor and passes within one tile of nearly every cache; and `collectFuelUnderfoot` pays on the
+ * tile kind, never on whether the tile was lit. Measured in review: 119 of 121 caches collected.
+ * See issue #31 — this is a missing rule, not a harness artefact (forcing the script to only
+ * *route* to caches while lit still takes 89 of 121 by walking over them).
+ */
+export const DARK_PACIFIST: Style = { name: 'dark-pacifist', fights: false, light: 'never' };
+
+/**
+ * §4's desperate state, as a style: a lantern with nothing in it. Never opens the shutter — it
+ * cannot — and fights whatever stands between it and the stairs. Run with `startFuel` 0.
+ */
+export const DRY_CRAWL: Style = { name: 'dry-crawl', fights: true, light: 'never' };
+
+/** What one floor cost and paid. */
+export type FloorResult = {
+  readonly floorNumber: number;
+  /** Turns consumed. Free actions are not turns and are not counted here. */
+  readonly turns: number;
+  /** Commands issued, free ones included. Always >= `turns`. */
+  readonly commands: number;
+  /** Shutter toggles that opened the lantern — one per flash. */
+  readonly flashes: number;
+  /** Paid turns taken with the shutter already open: light *held*, rather than flashed. */
+  readonly litTurns: number;
+  readonly kills: number;
+  readonly cachesTaken: number;
+  readonly fuelBefore: number;
+  readonly fuelAfter: number;
+  /** Fuel added by kills and caches — counted from the events, not inferred from the total. */
+  readonly income: number;
+  /** Fuel actually burned. `income - (fuelAfter - fuelBefore)`, which is exact even on the turns
+   * a dry lantern is asked for more than it has and burns less than its rate. */
+  readonly spend: number;
+  /**
+   * Fuel the lantern was *asked* for: the sum of the burn rate over every command, ignoring the
+   * clamp at 0.
+   *
+   * The measure the economy has to be judged on. `spend` is clamped, so a run that spends its
+   * whole floor dry reports `income === spend` and a net of exactly zero — which reads as a
+   * break-even floor when it is in fact a floor the player could not pay for. On a floor that never
+   * ran dry the two are equal, and `economy.test.ts` asserts that as the instrument's self-check.
+   */
+  readonly demand: number;
+  readonly reachedStairs: boolean;
+  /** The lantern hit 0 at some point on this floor. */
+  readonly ranDry: boolean;
+};
+
+export type RunResult = {
+  readonly style: Style;
+  readonly floors: readonly FloorResult[];
+  readonly fuelAfter: number;
+  /** 1-based floor on which fuel first reached 0, or `null` if the run never ran dry. */
+  readonly driedOnFloor: number | null;
+  /**
+   * Turns played through the END of the floor on which fuel first reached 0, or `null`.
+   *
+   * Not "turns before the lantern died" — an earlier label said that and it was wrong. Floors are
+   * played to completion or to `TURN_CAP_PER_FLOOR`, so a run that dries early still accrues the
+   * rest of that floor, and a capped floor contributes the cap rather than a measurement. Use it
+   * for *ordering* styles, which is what the invariant-2 comparison does; do not read it as a
+   * duration.
+   */
+  readonly driedAfterTurns: number | null;
+};
+
+/**
+ * A floor at the moment of arrival: everything dormant, nothing seen, shuttered, carrying `fuel`.
+ *
+ * Shuttered because you descend into a lightless ruin and because it is the only starting state the
+ * rules can express at 0 fuel; §4 does not say, and this is a harness, not a ruling.
+ */
+export function arriveOn(floor: Floor, fuel?: number): LanternWorld {
+  const world = createActorWorld(floor);
+  const player = playerOf(world);
+  return {
+    // Liberty 1: the fuel economy is the subject here, not survival.
+    world: withActor(world, { ...player, hp: IMMORTAL_HP, maxHp: IMMORTAL_HP }),
+    lantern: createLantern(floor.grid, 'shuttered', fuel),
+  };
+}
+
+/** Play `floors` floors of one run, carrying fuel across. §5: a run is 8 floors. */
+export function playRun(seed: string, style: Style, floors: number, startFuel?: number): RunResult {
+  const results: FloorResult[] = [];
+  let fuel = startFuel;
+  let driedOnFloor: number | null = null;
+  let driedAfterTurns: number | null = null;
+  let turnsSoFar = 0;
+
+  for (let floorNumber = 1; floorNumber <= floors; floorNumber += 1) {
+    const floor = generateFloor(createRng(`${seed}-${floorNumber}`), floorNumber).value;
+    const result = playFloor(arriveOn(floor, fuel), style);
+    results.push(result);
+    fuel = result.fuelAfter;
+    if (driedOnFloor === null && result.ranDry) {
+      driedOnFloor = floorNumber;
+      driedAfterTurns = turnsSoFar + result.turns;
+    }
+    turnsSoFar += result.turns;
+  }
+
+  return { style, floors: results, fuelAfter: fuel ?? 0, driedOnFloor, driedAfterTurns };
+}
+
+/**
+ * Play one floor to the stairs, or until the cap.
+ *
+ * The loop issues exactly one command per iteration. A free command advances neither the clock nor
+ * the turn count — that is the property under test — so `commands` and `turns` are counted
+ * separately and both are reported.
+ */
+export function playFloor(start: LanternWorld, style: Style): FloorResult {
+  let state = start;
+  const memory: ScriptMemory = { flashedFrom: [] };
+  let turns = 0;
+  let commands = 0;
+  let flashes = 0;
+  let litTurns = 0;
+  let income = 0;
+  let demand = 0;
+  let kills = 0;
+  let cachesTaken = 0;
+  let ranDry = isDry(start.lantern);
+  let reachedStairs = false;
+
+  while (turns < TURN_CAP_PER_FLOOR && commands < TURN_CAP_PER_FLOOR * 2) {
+    const before = state;
+    const action = chooseAction(state, style, memory);
+    if (action.kind === 'descend') {
+      reachedStairs = true;
+      break;
+    }
+
+    const wasOpen = before.lantern.vision.shutter === 'open';
+    // What phase 2 will charge: the burn is read off the shutter *after* the command phase, so a
+    // toggle pays at its new setting. Reconstructed here rather than observed because a phase
+    // between two others cannot be watched from outside `resolveTurn`; the reconstruction is
+    // checked against the simulation by the `demand === spend` assertion in `economy.test.ts`.
+    demand += burnRate(shutterAfter(before, action));
+    if (action.kind === 'toggle' && !wasOpen) {
+      flashes += 1;
+      memory.flashedFrom.push(playerOf(before.world).at);
+    }
+    state = apply(state, action);
+    commands += 1;
+    if (state.world.schedule.now > before.world.schedule.now) {
+      turns += 1;
+      if (wasOpen) litTurns += 1;
+    }
+
+    const killedNow = countLiving(before.world) - countLiving(state.world);
+    const cachesNow = before.world.floor.caches.length - state.world.floor.caches.length;
+    kills += killedNow;
+    cachesTaken += cachesNow;
+    income += killedNow * CINDER.emberDrop + cachesNow * CACHE_FUEL;
+    if (isDry(state.lantern)) ranDry = true;
+  }
+
+  return {
+    floorNumber: start.world.floor.floorNumber,
+    turns,
+    commands,
+    flashes,
+    litTurns,
+    kills,
+    cachesTaken,
+    fuelBefore: start.lantern.fuel,
+    fuelAfter: state.lantern.fuel,
+    income,
+    // Exact, and correct even on the turn the lantern clamps at 0 and burns less than its rate.
+    spend: income - (state.lantern.fuel - start.lantern.fuel),
+    demand,
+    reachedStairs,
+    ranDry,
+  };
+}
+
+/**
+ * The little the script remembers between commands.
+ *
+ * One thing: which tiles it has already flashed from. Without it the flash condition is a function
+ * of the state alone, and since a flash can never reveal the tiles a wall hides, a room with an
+ * unreachable corner would be flashed from the same tile forever — burning fuel and taking no turns.
+ * "I have already looked from here" is also just what a player knows.
+ */
+type ScriptMemory = { readonly flashedFrom: Position[] };
+
+/** Where the shutter will be when phase 2 reads it — a toggle has already resolved by then. */
+function shutterAfter(state: LanternWorld, action: Action): ShutterState {
+  const open = state.lantern.vision.shutter === 'open';
+  if (action.kind !== 'toggle') return open ? 'open' : 'shuttered';
+  if (open) return 'shuttered';
+  return canOpen(state.lantern) ? 'open' : 'shuttered';
+}
+
+function livingCreatures(world: ActorWorld): CreatureActor[] {
+  return world.actors.filter(
+    (actor): actor is CreatureActor => actor.kind === 'creature' && isAlive(actor),
+  );
+}
+
+function countLiving(world: ActorWorld): number {
+  return livingCreatures(world).length;
+}
+
+// --- the script ---------------------------------------------------------------------------------
+
+type Action =
+  | { readonly kind: 'toggle' }
+  | { readonly kind: 'wait' }
+  | { readonly kind: 'bump'; readonly to: Position }
+  | { readonly kind: 'descend' };
+
+/** Resolve one command through the real pipeline — `lanternPhases`, in GDD §2 order. */
+function apply(state: LanternWorld, action: Action): LanternWorld {
+  if (action.kind === 'toggle') return toggleShutterTurn(state);
+
+  return resolveTurn(
+    state,
+    lanternPhases('costsATurn', (current) => {
+      // Charged before the action resolves, exactly as `runActorPhase` charges a creature before
+      // its action resolves, so a kill made by this command stays out of the queue.
+      const charged: LanternWorld = {
+        lantern: current.lantern,
+        world: { ...current.world, schedule: chargeActor(current.world.schedule, PLAYER_ID) },
+      };
+      if (action.kind !== 'bump') return charged;
+      return {
+        lantern: charged.lantern,
+        world: bump(charged.world, PLAYER_ID, action.to, lightOf(current)),
+      };
+    }),
+  );
+}
+
+/** What the player currently perceives — the only creature information a script may use. */
+function perceivedCreatures(state: LanternWorld): Position[] {
+  const world = state.world;
+  return perceive(
+    world.floor.grid,
+    state.lantern.vision,
+    playerOf(world).at,
+    livingCreatures(world).map((creature) => creature.at),
+  ).creatures.map((sense) => sense.at);
+}
+
+function chooseAction(state: LanternWorld, style: Style, memory: ScriptMemory): Action {
+  const shutterMove = chooseShutter(state, style, memory);
+  if (shutterMove !== null) return shutterMove;
+
+  const grid = state.world.floor.grid;
+  const known = state.lantern.vision.remembered;
+  const at = playerOf(state.world).at;
+  const creatures = perceivedCreatures(state);
+
+  if (style.fights) {
+    const adjacent = creatures.find((creature) => manhattanDistance(at, creature) === 1);
+    if (adjacent !== undefined) return { kind: 'bump', to: adjacent };
+  }
+
+  const errands = [
+    ...knownCaches(state),
+    ...state.world.embers.map((drop) => drop.at),
+    ...(style.fights ? creatures : []),
+    ...frontierTiles(grid, known),
+  ];
+  const toErrand = firstStepToward(state, errands, style.fights);
+  if (toErrand !== null) return { kind: 'bump', to: toErrand };
+
+  // Nothing left worth doing on this floor. Leave.
+  const stairs = knownStairs(grid, known);
+  if (stairs === null) return { kind: 'wait' };
+  if (samePosition(stairs, at)) return { kind: 'descend' };
+  const toStairs = firstStepToward(state, [stairs], style.fights);
+  return toStairs === null ? { kind: 'wait' } : { kind: 'bump', to: toStairs };
+}
+
+/**
+ * §4's "flash and crawl", as a policy.
+ *
+ * Two conditions on opening, and both are things a player would actually reason about:
+ *
+ *   - **Only at full ember-sense.** §4's containment guarantee holds only while the sense radius is
+ *     at least the lit radius — "everything a flash can wake, you can already feel". Flashing
+ *     mid-ramp is the gamble the ramp exists to create, and a script that took it would be modelling
+ *     a *reckless* player, not a competent one.
+ *   - **Never twice from the same tile.** A flash reveals what the walls allow and no more; looking
+ *     again from where you already looked buys nothing.
+ *
+ * Closing is unconditional on the very next command, and that is not a shortcut: phase 3 has already
+ * folded the whole lit room into terrain memory, so there is nothing further to buy by holding the
+ * shutter open — except enemy intent, which is what `FLOODLIT` is for. A flash therefore costs
+ * 4 fuel (the open command burns at the lit rate) plus the 1 the closing command burns, and no turns.
+ *
+ * A toggle that would be refused is never issued: at 0 fuel `open` is a no-op (§4), and asking for
+ * it every iteration would spin forever without ever spending a turn.
+ */
+function chooseShutter(state: LanternWorld, style: Style, memory: ScriptMemory): Action | null {
+  const open = state.lantern.vision.shutter === 'open';
+  const couldOpen = canOpen(state.lantern);
+
+  switch (style.light) {
+    case 'never':
+      return open ? { kind: 'toggle' } : null;
+    case 'always':
+      return !open && couldOpen ? { kind: 'toggle' } : null;
+    case 'flash': {
+      if (open) return { kind: 'toggle' };
+      const at = playerOf(state.world).at;
+      if (memory.flashedFrom.some((seen) => samePosition(seen, at))) return null;
+      const unknown = unknownNearby(state.world.floor.grid, state.lantern.vision.remembered, at);
+      const adapted = state.lantern.vision.senseRadius >= EMBER_SENSE_RADIUS;
+      return unknown >= FLASH_THRESHOLD && adapted && couldOpen ? { kind: 'toggle' } : null;
+    }
+    default:
+      return null;
+  }
+}
+
+function unknownNearby(grid: Grid, known: TileSet, at: Position): number {
+  let count = 0;
+  for (let y = at.y - 4; y <= at.y + 4; y += 1) {
+    for (let x = at.x - 4; x <= at.x + 4; x += 1) {
+      if (!inBounds(grid, x, y)) continue;
+      if (chebyshevDistance(at, { x, y }) > 4) continue;
+      if (!hasTile(known, x, y)) count += 1;
+    }
+  }
+  return count;
+}
+
+/** Caches on tiles the player has actually seen. Unseen ones are, by §4, invisible. */
+function knownCaches(state: LanternWorld): Position[] {
+  const known = state.lantern.vision.remembered;
+  return state.world.floor.caches.filter((cache) => hasTile(known, cache.x, cache.y));
+}
+
+function knownStairs(grid: Grid, known: TileSet): Position | null {
+  for (const at of tileSetPositions(known)) {
+    if (tileAt(grid, at.x, at.y).kind === 'stairs') return at;
+  }
+  return null;
+}
+
+/** Remembered passable tiles with an unremembered neighbour — where exploring happens. */
+function frontierTiles(grid: Grid, known: TileSet): Position[] {
+  const out: Position[] = [];
+  for (const at of tileSetPositions(known)) {
+    if (!isPassableAt(grid, at.x, at.y)) continue;
+    for (const step of ORTHOGONAL_STEPS) {
+      const x = at.x + step.x;
+      const y = at.y + step.y;
+      if (inBounds(grid, x, y) && !hasTile(known, x, y)) {
+        out.push(at);
+        break;
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * One step toward the nearest goal, routed only through **remembered** passable terrain.
+ *
+ * A single breadth-first sweep from the player with predecessor tracking, so the route and the step
+ * cost one pass. Neighbours are visited in the fixed `ORTHOGONAL_STEPS` order and goals are compared
+ * by breadth-first distance, so the step is a pure function of the grid, what is remembered, and
+ * where the goals are — never of the order the caller listed them in.
+ *
+ * A goal the player cannot stand on (a creature felt through a wall) is approached via its
+ * neighbours, which is why the goal test is "adjacent to or on".
+ *
+ * @param fights whether a creature's tile counts as somewhere the route may go. It must, for a
+ *   fighter — `bump` resolves a step onto an occupied tile as an attack, and that is how a fighter
+ *   reaches a creature at all. It must **not** for a pacifist: the pacifist is defined by never
+ *   attacking, and a route that walked into a Cinder would quietly make it a fighter. That was a
+ *   real bug in this harness — the "pacifist" was killing four creatures a floor, which would have
+ *   made §4's first invariant meaningless while looking green.
+ */
+function firstStepToward(
+  state: LanternWorld,
+  goals: readonly Position[],
+  fights: boolean,
+): Position | null {
+  if (goals.length === 0) return null;
+  const grid = state.world.floor.grid;
+  const known = state.lantern.vision.remembered;
+  const from = playerOf(state.world).at;
+  const blocked = fights ? () => false : occupiedTiles(state.world);
+
+  const wanted = new Array<boolean>(grid.tiles.length).fill(false);
+  for (const goal of goals) {
+    markGoal(grid, wanted, goal);
+  }
+
+  const cameFrom = new Array<number>(grid.tiles.length).fill(-1);
+  const start = tileIndex(grid, from.x, from.y);
+  const seen = new Array<boolean>(grid.tiles.length).fill(false);
+  seen[start] = true;
+
+  const queue: Position[] = [from];
+  for (let head = 0; head < queue.length; head += 1) {
+    const here = queue[head];
+    const index = tileIndex(grid, here.x, here.y);
+    if (wanted[index] && index !== start) return firstStepOf(grid, cameFrom, start, index);
+
+    for (const step of ORTHOGONAL_STEPS) {
+      const x = here.x + step.x;
+      const y = here.y + step.y;
+      if (!inBounds(grid, x, y)) continue;
+      if (!hasTile(known, x, y) || !isPassableAt(grid, x, y)) continue;
+      const next = tileIndex(grid, x, y);
+      if (seen[next] || blocked(next)) continue;
+      seen[next] = true;
+      cameFrom[next] = index;
+      queue.push({ x, y });
+    }
+  }
+  // Nothing reachable through what is known. A creature standing in the only route is not "unknown"
+  // terrain, so a fighter tries again by swinging at whatever is in the way.
+  return fights ? stepIntoBlocker(state, goals) : null;
+}
+
+/** Tile indices held by a living creature. A pacifist's routes may not pass through one. */
+function occupiedTiles(world: ActorWorld): (index: number) => boolean {
+  const grid = world.floor.grid;
+  const taken = new Array<boolean>(grid.tiles.length).fill(false);
+  for (const creature of livingCreatures(world)) {
+    taken[tileIndex(grid, creature.at.x, creature.at.y)] = true;
+  }
+  return (index) => taken[index];
+}
+
+/** Mark a goal tile, or — if it is not somewhere the player could stand — its neighbours. */
+function markGoal(grid: Grid, wanted: boolean[], goal: Position): void {
+  if (!inBounds(grid, goal.x, goal.y)) return;
+  if (isPassableAt(grid, goal.x, goal.y)) {
+    wanted[tileIndex(grid, goal.x, goal.y)] = true;
+    return;
+  }
+  for (const step of ORTHOGONAL_STEPS) {
+    const x = goal.x + step.x;
+    const y = goal.y + step.y;
+    if (inBounds(grid, x, y) && isPassableAt(grid, x, y)) wanted[tileIndex(grid, x, y)] = true;
+  }
+}
+
+/** Walk the predecessor chain back from `goal` to the tile the player should step onto. */
+function firstStepOf(grid: Grid, cameFrom: readonly number[], start: number, goal: number): Position {
+  let index = goal;
+  while (cameFrom[index] !== start && cameFrom[index] !== -1) index = cameFrom[index];
+  return { x: index % grid.width, y: (index - (index % grid.width)) / grid.width };
+}
+
+/** A creature adjacent to the player and in the way. Attacking it is how a fighter unblocks a route. */
+function stepIntoBlocker(state: LanternWorld, goals: readonly Position[]): Position | null {
+  const at = playerOf(state.world).at;
+  const world = state.world;
+  for (const step of ORTHOGONAL_STEPS) {
+    const to = { x: at.x + step.x, y: at.y + step.y };
+    if (!inBounds(world.floor.grid, to.x, to.y)) continue;
+    const blocker = world.actors.find(
+      (actor) => actor.id !== PLAYER_ID && isAlive(actor) && samePosition(actor.at, to),
+    );
+    if (blocker === undefined) continue;
+    // Only worth swinging at if it is actually between the player and something wanted.
+    if (goals.some((goal) => manhattanDistance(to, goal) < manhattanDistance(at, goal))) return to;
+  }
+  return null;
+}

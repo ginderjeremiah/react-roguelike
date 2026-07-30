@@ -77,7 +77,9 @@ describe('the creature table', () => {
     // together — that pairing is the whole point of writing the numbers out twice.
     expect(CINDER.maxHp).toBe(5);
     expect(CINDER.attack).toBe(2);
-    expect(CINDER.emberDrop).toBe(30);
+    // 20, moved from §4's original 30 by `game/systems/economy.test.ts` — at 30 a well-played floor
+    // netted about +85 fuel against a starting reserve of 80, which fails §4's third invariant.
+    expect(CINDER.emberDrop).toBe(20);
     expect(CINDER.glyphDormant).toBe('c');
     expect(CINDER.glyphAwake).toBe('C');
     expect(EMBER_SENSE_GLYPH).toBe('*');

@@ -166,6 +166,36 @@ case, in both orientations — a bug that clamps rather than transposes survives
 Also fixed: the shape check's only mismatch fixture differed in *both* dimensions, so a width-only
 comparison survived and would then read past the end of the shorter flag array.
 
+**Review addendum:** two blocking findings, and the first rhymes exactly with the FOV suite's
+square grids.
+
+**Phase 4's light query was not pinned to the player's position.** The test written in this PR to
+kill the permanently-dark mutant uses `scenario()`, which sets `floor.entrance` to the `@` glyph —
+so `floor.entrance === playerOf(world).at` in every ascii fixture, and the player never moved
+during it. A phase-4 query built from `floor.entrance` instead of the player therefore passed all
+712 tests while genuinely changing behaviour (the economy log moved from `floodlit 99` to
+`floodlit 62`, so it was not an equivalent mutant). The new test walks the player two tiles off the
+entrance before the creature re-declares. **Note it took two attempts:** the first version asserted
+after the creature merely *woke*, which happens in phase 3 and uses the correct query in both
+versions — the discriminating assertion has to come after a phase-4 *declaration*.
+
+**The corpus documentation asserted the opposite of what the corpus does.** `DARK_PACIFIST` is
+described as finding no caches "because caches need light". Measured: it collects 119 of 121, and
+cache fuel is its entire income. §4 says caches require light to find and its vision table marks
+items invisible while shuttered — neither is enforced. `collectFuelUnderfoot` pays on tile kind,
+and a shuttered crawler's Chebyshev-1 touch field maps the whole floor. Filed as #31 with the
+design question first, since "requires light to find" has three defensible readings.
+
+That one is worth remembering for its shape: the numbers moved in this PR were calibrated against a
+model whose *stated* assumptions were false. The invariants still hold in direction — enforcing the
+rule makes a pacifist dry sooner — but the calibration rests on ~37 fuel/floor of income that a
+style §4 says should have none, so both numbers need re-deriving when #31 lands.
+
+Also corrected: `driedAfterTurns` was labelled "turns before the lantern died" but is turns through
+the *end* of the drying floor, and four of ten floodlit-pacifist floors hit the turn cap — censored
+rather than measured. The reported 99/144/206 ordering survives (proved by `FUEL_BURN_LIT = 1`
+turning it red), but the true gap is wider than those numbers suggest.
+
 **Watch:** known risks, deferred cleanup, things that will bite later. Omit if none.
 ```
 
@@ -178,6 +208,166 @@ is worth the file.
 did — it is the only thing stopping a future session from repeating it.
 
 ---
+
+## 2026-08-02 — Fuel, the shutter, and the light economy (#17)
+
+**Did:** Built the fuel half of GDD §4 — `game/systems/lantern.ts` (fuel, the shutter transitions,
+the 0-fuel rule), `game/systems/light.ts` (the real `Perception`, and five of §2's six phases), and
+`game/content/lantern.ts` (the tuning numbers). 90 new tests, 712 total. **Two tuning numbers moved
+and are recorded in the GDD change log**; see below, because that is the substantive part of this
+entry.
+
+The three seams other PRs left open are now joined: `game/entities/`'s injected light query has a
+real implementation, `game/systems/turn.ts`'s phase sketch is a real `lanternPhases(cost, command)`,
+and #18 is left with exactly one phase to supply — the player's command.
+
+**The real `Perception` is the player's lit field read backwards, and that only works because the
+shadowcaster is symmetric.** `game/entities/` asks "is the player's light visible *from this tile*",
+which is a creature's-eye question; `computeLitField` answers a player's-eye one. Those are the same
+set if and only if visibility is symmetric — which is exactly why #14 chose Albert Ford's symmetric
+variant over the classic Bergström one, and it is the difference between correct code and the bug
+this journal's own format uses as its example ("enemies could see the player through walls the
+player couldn't see through"). It is now asserted from *this* side of the seam too: every ordered
+pair of passable tiles on six generated floors, both directions, ~14,000 pairs, plus a positive
+count so a query that answered `false` everywhere cannot pass by being trivially symmetric.
+
+**Two numbers moved, and the reason is the whole point of the issue.** §4's third invariant is "a
+floor played well nets **slightly** positive fuel". At the GDD's original numbers — Cinder 30, cache
+40 — a scripted competent run netted **+85 fuel a floor** against a starting reserve of 80. One good
+floor bought the next two; the lantern stopped being a resource somewhere on floor one. That is the
+trivially-winnable economy the issue warned about, and no amount of "fuel is never negative" testing
+would have found it.
+
+**Cinder 30 → 20 and cache 40 → 25.** They moved *together* on purpose so a cache stays worth ~1.25
+kills (it was 1.33): shrinking only the drop would have made exploration the income side of the
+economy and combat the garnish, inverting §1's "fuel comes from kills". At the new numbers the same
+corpus nets +11 a floor at an income/spend ratio of 1.10, about one floor in five is a net loss, and
+a competent eight-floor run ends with roughly twice the reserve it started with rather than five
+times. The burn pair (4/1) deliberately did **not** move: §4's prose is written in terms of that
+ratio ("dark is four times cheaper for travelling", "light is roughly three times cheaper in fuel"),
+and rescaling income was the change that leaves every sentence in §4 true.
+
+**How the economy suite is built, because "fuel never goes negative" tests nothing.** Every
+assertion is a *difference between play styles*, arranged as a 2×2 that varies two things
+independently — whether the script fights, and how it works the shutter:
+
+|              | flashes and shutters | holds the shutter open |
+| ---          | ---                  | ---                    |
+| **fights**   | `STALKER`            | `FLOODLIT`             |
+| **pacifist** | `PACIFIST`           | `FLOODLIT_PACIFIST`    |
+
+`STALKER` vs `PACIFIST` isolates combat; `STALKER` vs `FLOODLIT` isolates light. In an economy where
+nothing meaningful is ever spent or earned all four cells are identical, and every comparison fails.
+The measured corpus: a pacifist's lantern dies on floor 1-3 on **every** seed; the floodlit pacifist
+dies after 99 turns against the flashing pacifist's 144 and the never-flashing one's 206 — monotone
+in how much light the style buys, which is invariant 2's actual shape rather than one comparison
+that could hold by accident; and a floodlit *fighter* still runs dry despite taking every kill and
+every cache on the floor.
+
+The scripts route only over `vision.remembered` and only see creatures through `perceive`, so an
+unexplored floor genuinely has to be explored at the touch radius if unlit. Two liberties, both
+marked in the source: the player does not die (the claim under test is fuel, and if the floodlit
+style died first "runs dry faster" would be unmeasurable), and the harness does the descending,
+since floor transitions are #18's.
+
+**Two harness bugs found by looking at the output rather than at the assertions**, both of which
+would have made the suite lie: the "pacifist" was killing four creatures a floor, because its route
+stepped onto occupied tiles and `bump` resolves that as an attack; and the "flash" policy never
+closed the shutter, because it waited for the unknown-tile count near the player to reach zero and
+tiles behind walls never become known — so the stalker was silently a second floodlit style. Neither
+was visible in a pass/fail; both were obvious in a printed tally.
+
+**A measurement trap worth remembering: a clamped meter reads as break-even.** `spend` measured as
+"income minus the change in fuel" is exact, but a style that spends a whole floor at zero fuel burns
+less than its rate, so income and spend come out equal and the floor reports a net of exactly 0.
+That made the pacifist's median net read 0 — a *break-even* floor — when it is a floor the player
+could not pay for. The suite now measures **demand** (the burn rate summed over the commands,
+ignoring the clamp) and asserts, as the instrument's own test, that demand equals spend on every
+floor that never ran dry and is strictly greater on floors that did.
+
+**Four design readings, all read off the GDD rather than chosen, and all flagged for the designer.**
+The sharpest is which phases a free action runs. `turn.ts` settled phase 4 and left fuel and dark
+adaptation to this issue:
+
+- **Fuel burns on a free action.** §4's exploration arithmetic is priced in it — "a flash buys a
+  room ... for 4 fuel ... light is roughly three times cheaper in fuel ... neither dominates, and
+  the reason is arithmetic rather than a special rule". If a flash were free, light would be
+  *infinitely* cheaper than touch and would simply dominate exploring. This is not the fuel *tax*
+  §4 rules out: there is no surcharge for toggling, the lantern just burns at the rate it is set to.
+- **Dark adaptation does not.** §4 recovers ember-sense "+1 per *turn*", and a free action is not a
+  turn; if it ticked, `shutter → toggle → toggle` would buy ramp progress without spending turns.
+- **Lighting and waking does**, non-negotiably: opening the shutter wakes the room *immediately*.
+- **A dry lantern is the shuttered column of §4's table, permanently** — not a fifth vision state.
+  Ember-sense is the player's dark-adapted eyes, not the lamp. The alternative reading (sense dies
+  with the fuel) makes 0 fuel unrecoverable in practice, which is the "unplayable rather than
+  desperate" failure §4 exists to prevent. A whole eight-floor run starting from an empty lantern
+  reaches the stairs on **80/80** floors, still kills things, and earns its way back above zero.
+
+There is a residual tension in §4 worth a designer's eye: with a free toggle that burns fuel, a
+flash costs its 4 fuel but costs **no turn**, so §4's "light is ten times cheaper in *turns* for
+exploring" is really "infinitely cheaper". The fuel half of that sentence — the half §4 says the
+balance rests on — is preserved exactly. Flagged, not decided.
+
+**Mutation testing: 35 mutants, 33 killed, 2 survivors, both provably equivalent and documented at
+the site.** The killed set includes every rule that matters: light costing the shuttered rate, fuel
+not clamping, running dry leaving the shutter open, a dry lantern that can be opened, income doing
+nothing, light leaking through a closed shutter, the lit query transposed, nothing ever waking, a
+free action that burns no fuel / ticks adaptation / runs the actor phase, the toggle costing a turn,
+a cache that never stops being a cache, and a cache tile index transposed.
+
+One survivor was a **real gap**: replacing the light query given to the *actor* phase with a
+permanently-dark one left the whole suite green. Phase 3 wakes creatures with the correct query, so
+the first declaration looked right and every declaration after it silently behaved as though the
+shutter were shut — which deletes §6's "the Cinder is drawn to light" one turn after it wakes.
+`turnsSinceContact` is the observable, and it now has a test with the shuttered contrast beside it.
+
+Another survivor was resolved by **deleting code rather than adding a test**: `lightingAndWakingPhase`
+was computing the living-creature list to hand to `perceive`, whose creature half nothing in the
+simulation reads (it is the renderer's, recomputed there). Filtering it by `isAlive` or not made no
+difference to anything, because there was no observable to make a difference to. An unkillable line
+is a line that should not exist; `perceive` is now handed an empty list and the comment says why.
+
+The two remaining survivors are argued equivalent and written down at the site so a later run does
+not re-investigate: phase 3 building its light query from the pre-`remember` lantern (the two differ
+only in `remembered`, which the query does not read), and phase 5 collecting before resolving deaths
+(a creature dies on its own tile and two living actors never share one, so an ember dropped this
+turn can never be under the player this turn).
+
+**Benchmark: 0.0144ms for a lit turn on a floor of six awake creatures, against ARCHITECTURE's 2ms.**
+A turn now computes two or three lit fields — phase 3 for terrain memory, phase 3 again for the
+waking query, phase 4 so creatures declare against the lighting phase 3 just recomputed. Recomputing
+rather than threading one field through is a correctness choice (each phase must see the lighting as
+it stands *at that phase*), and it costs nothing worth having. Threshold set at 0.2ms, a tenth of
+the budget, deliberately: a threshold a fifty-fold regression satisfies enforces nothing.
+
+**Learned:** rewriting files with Python's default text mode on Windows silently converts them to
+CRLF, which broke half of the second mutation run — every multi-line pattern stopped matching and
+was reported as `SKIP`, not as a survivor. It was visible only because the skip count changed. If a
+mutation harness starts skipping, that is a harness failure and not a smaller mutant set.
+
+**Next:** #18 wires this into `GameState` and `step()`. It needs to supply exactly one phase:
+`resolveTurn(state, lanternPhases(cost, command))`, with `TurnCost` stated rather than inferred. The
+shutter is already whole — `toggleShutterTurn(state)` takes no cost parameter to get wrong. #18 also
+has to answer which way the shutter starts a run (§4 does not say, and `createLantern` refuses to
+guess) and bump `RULES_VERSION`, since embedding any of this in `GameState` is the first change that
+alters what an existing replay does.
+
+**Watch:**
+- The economy numbers rest on scripted play, not on a human. The scripts are honest about what they
+  know but they are not optimal, and a `playtester` run in M2 is what should confirm or move the
+  numbers next. The thresholds are relative (to the starting reserve, to what the floor cost) so a
+  retune of the burn rates does not silently invalidate them.
+- The stalker crosses a floor in ~75 turns against §5's "~40-70". It also hunts every creature on
+  the floor, which §5's estimate does not assume, so the band in the test is widened at the top
+  rather than the estimate being treated as wrong. Worth a look if pacing ever feels slow.
+- Collecting a cache rewrites the floor's grid tile to `floor` and drops it from `floor.caches`.
+  That is the first thing in the codebase to mutate a generated `Floor` during a run, and
+  `map/floor.ts`'s header says a `Floor` "stays valid however the run goes" — it still does, but it
+  is no longer constant. The alternative (a run-level list of taken caches) was rejected as a second
+  source of truth about what is on a tile.
+- `game/fov/` and `game/entities/` both export a type called `Perception` and they mean different
+  things. `light.ts` imports one of them aliased. A rename would be an improvement and is not this
+  PR's to make.
 
 ## 2026-08-01 — `game/fov/`: symmetric shadowcasting, touch, ember-sense, dark adaptation (#14)
 

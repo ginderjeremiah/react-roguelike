@@ -64,7 +64,7 @@ and the summary screen has to render both.
 
 ### Where M1 actually stands
 
-**The whole simulation is done.** `game/` is 44 test files and 796 tests: generation, FOV, light,
+**The whole simulation is done.** `game/` is 44 test files and 797 tests: generation, FOV, light,
 fuel, the scheduler, combat, descent, and the endings. Nothing above `game/` exists yet — there is
 no `render/` directory and no `platform/` directory, only the Expo shell in `app/` and
 `components/`. So the three open build issues are strictly sequential:

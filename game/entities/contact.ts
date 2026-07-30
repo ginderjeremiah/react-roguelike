@@ -1,5 +1,7 @@
 /**
- * The seam between "the Cinder is drawn to light" and any actual model of light.
+ * Contact is adjacency **or** light. This file owns the first half and injects the second.
+ *
+ * It is therefore the seam between "the Cinder is drawn to light" and any actual model of light.
  *
  * ═══════════════════════════════════════════════════════════════════════════════════════════════
  * WHY THIS IS AN INJECTED QUERY AND NOT A LIGHTING MODEL

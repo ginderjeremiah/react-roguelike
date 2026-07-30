@@ -218,7 +218,12 @@ therefore restorative: a botched flash is recoverable by skilled dark play, with
 to a cleared room and pressing wait, it is broken. The fix is a distance requirement, not a fuel
 tax.
 
-*Open:* adjustable lit radius, thrown/placed light sources (parked as a candidate M3 item, §12),
+*Open:* **what "radius" means** — Chebyshev (a square), Euclidean (a disc), or Manhattan (a
+diamond). Not yet settled and it must be before field-of-view is implemented, because it changes
+what a flash reveals in the corners of a room. It is *not* implied by §5's Manhattan ruling on
+creature spawn distance: that rule is about counting steps, and light does not walk. A Manhattan
+radius is almost certainly wrong for light — a diamond of light reads as a bug on a glyph grid.
+Also open: adjustable lit radius, thrown/placed light sources (parked as a candidate M3 item, §12),
 whether floors ever have ambient light.
 
 ## 5. Level generation — *Settled for M1*
@@ -226,36 +231,80 @@ whether floors ever have ambient light.
 **One algorithm, one theme: chambered ruin.**
 
 **Grid: 11 wide × 15 tall.** Derived from the screen, not chosen aesthetically: a 6-inch phone in
-portrait is ~390 logical px wide; 11 columns gives ~35px cells, which is a defensible tap target
-with a HUD above and a lantern control below, and no panning ever (Pillar 3). Width is the binding
-constraint; 15 rows fits comfortably.
+portrait is ~390 logical px wide; 11 columns gives ~35px cells, which is a defensible tap target,
+and no panning ever (Pillar 3). **Width is the binding constraint. Rows are not:** 15 rows × ~35px
+is ~525px of a ~844px portrait viewport, leaving ~240px after safe areas for the HUD above and the
+lantern control below — comfortable for a one-line HUD and a thumb-sized shutter toggle. 14 rows
+would also fit. We take the fifteenth row because board area is the scarce commodity on a phone and
+vertical space is the space we actually have; a bigger board is where the doorway chokepoints and
+the loop escape routes get room to matter. **Changing the column count needs an ADR; the row count
+does not.**
 
 **Structure: a 2 × 3 lattice of rooms separated by 1-tile walls.**
 
 ```
 width  = 5 + 1 + 5           = 11
-height = 4 + 1 + 4 + 1 + 4   = 15
+height = 4 + 1 + 5 + 1 + 4   = 15
 ```
+
+**The middle band is 5 tall, the outer bands 4** — rooms are 5×4 / 5×5 / 5×4 before jitter
+(20 / 25 / 20 tiles). The odd row goes to the middle band because rooms 2 and 3 are the only
+lattice rooms with three neighbours: they carry the most doors and are where you are most likely to
+be pressed from two sides, so they are the rooms most worth having floor in. Vertical symmetry is
+the second reason — no band is systematically roomier than its mirror, so there is no north/south
+fact for the player to exploit and no north/south bias in any spawn or cache statistic.
 
 Six rooms of ~20 tiles. Six is a graph you can hold in your head, which is the point — the mental
 map you build in the dark is *rooms and which wall the door was in*, not a pixel-accurate map.
 
 **Generation steps (all from the seeded RNG):**
 
-1. Lay the lattice. Jitter each room's interior by 0-1 tiles where the lattice allows.
+1. Lay the lattice. Jitter each room's interior by 0-1 tiles **only on a side facing the screen
+   edge** — never on a side facing a separator wall. That is what "where the lattice allows" means,
+   and it is what makes connectivity structural rather than something to verify afterwards: both
+   rooms always touch their shared wall, so a doorway carved anywhere in it has floor on both
+   sides. Middle-band rooms are pinned between both separator rows and so never jitter vertically.
 2. Random spanning tree over the 6 rooms; each tree edge becomes a 1-tile doorway at a random
    position on the shared wall. **Guarantees connectivity.**
 3. Add 1-2 extra doorways to create loops. Loops are not decoration — they are escape routes, and
    without them waking a room is a death sentence rather than a problem.
-4. **0-1 room merges:** delete a shared wall entirely, creating a 5×9 hall. The cheapest source of
-   floor-to-floor variety (Pillar 4).
+4. **0-1 room merges:** delete a shared wall entirely, creating a hall of **up to 5 × 10** — 9 or
+   10 tall, and not always a clean rectangle, since jitter can leave one half a tile narrower. The
+   cheapest source of floor-to-floor variety (Pillar 4).
+   **Only vertically stacked pairs may merge.** A side-by-side merge would delete a stretch of the
+   column separator, which is the only wall running the full height of the level — the wall that
+   makes "which side of the floor am I on" a question ember-sense can answer *through stone*, and
+   the thing the mental map is organised around. It would also leave that band with no threshold in
+   it at all: a floor whose entrance and stairs both landed there would contain no doorway decision,
+   and standing in a doorway is one of the densest turns in the game (§3). The hall's exact
+   dimensions are not load-bearing; what a merge is *for* is deleting a chokepoint and leaving one
+   space on the floor that no doorway lets you hold.
 5. Place 0-2 pillars per room (`o`, blocks movement and light, does not block ember-sense). Cover
    for positioning, and something for ember-sense to be "behind".
-6. Entrance in one room; **stairs in the room with the greatest graph distance from it**.
-7. Creatures: `min(2 + floor, 6)`, dormant, never in the entrance room, never within 2 tiles of the
-   entrance.
+6. Entrance in one room; **stairs in the room with the greatest graph distance from it, counted in
+   doors crossed.** **A merged pair counts as one room**, not as two rooms one hop apart: there is
+   no wall, no door and no threshold between its halves, and the player perceives one chamber. It
+   follows that if the entrance is in a merged hall, neither half can hold the stairs. Ties among
+   equally distant rooms are broken by a draw rather than by lowest room id, so symmetric layouts do
+   not favour a fixed room.
+7. Creatures: `min(2 + floor, 6)`, dormant, never in the entrance room — **including the room it is
+   merged with, if any**, since the two are one space — and **never within 2 tiles of the entrance,
+   measured in orthogonal steps (Manhattan)**. Manhattan and not Chebyshev because movement and
+   attacks are 4-directional (§3): the player counts steps, and a creature two tiles diagonally away
+   is four steps away by every other rule in the game. A distance metric with no referent anywhere
+   in the rules cannot be verified by looking at the board, which is what Pillar 2 asks of a rule.
+   (This settles the metric for *this* rule only. The metric behind the lit radius and the
+   ember-sense radius is a separate, still-open question — see §4.) Note that the entrance-room rule
+   already subsumes most of this one: with merged pairs counted as one room, the 2-tile rule can only
+   ever exclude tiles on the far side of a wall. It is a guardrail, which is a further reason to take
+   the reading that means what it says rather than the stricter one.
 8. Caches: 1-2, biased toward leaf rooms of the spanning tree — so going off-route for fuel is
    itself the fuel wager VISION asks for.
+
+**Nothing is ever placed on a doorway tile** — no creature, cache, entrance or stairs. A doorway is
+the one tile in the level with exactly two opposite exits; anything standing in it converts a
+threshold into a passage that must be cleared before the floor is crossable, which is the corridor
+problem (below) wearing a different hat.
 
 **No corridors.** Not "short corridors" — none. A corridor is a sequence of turns with one legal
 move, which is Pillar 1's definition of a turn that should not exist. Rooms and thresholds only.
@@ -268,8 +317,10 @@ generated by the level shape, every floor, for free.
 **Run length: 8 floors (tuning).** ~40-70 turns per floor × 8 ≈ 400-550 turns ≈ 15-25 minutes.
 
 **Testable invariants** (for the `test-engineer`, property-tested over many seeds): every floor is
-connected; stairs are reachable from the entrance; no creature spawns within 2 tiles of the
-entrance; grid is exactly 11×15; the same seed produces the identical floor.
+connected; stairs are reachable from the entrance; no creature spawns in the entrance room (or the
+room merged with it) or within Manhattan distance 2 of the entrance; nothing occupies a doorway
+tile; a merge only ever deletes a row separator; grid is exactly 11×15; the same seed produces the
+identical floor.
 
 ## 6. Entities — *Settled for M1*
 
@@ -401,3 +452,11 @@ recorded at the moment we made it, is the part git cannot give us.
 | 2026-07-29 | Ember-sense gives position only — cut brightness-encoded health | Colour/brightness cannot be the sole carrier of meaning (§11), and position alone is already sufficient for stalking. Subtract before adding |
 | 2026-07-29 | Level gen: 11×15 chambered ruin, 2×3 rooms, no corridors | Grid size derived from a 390px phone width with ~35px taps and no panning. Corridors are turns with one legal move, which Pillar 1 forbids outright |
 | 2026-07-29 | One enemy for M1: the Cinder, drawn to light | Its one rule makes the lantern a combat control, keeping the light decision alive inside a fight rather than settled at the start |
+| 2026-07-29 | **§5 band arithmetic corrected: the middle band is 5 tall (`4+1+5+1+4 = 15`), not 4** | The old decomposition summed to 14 and contradicted the bolded, screen-derived, property-tested 11×15. The grid size wins. The odd row goes to the middle band because rooms 2 and 3 are the only three-neighbour rooms — most doors, most flanking, most need of floor — and because a symmetric split leaves no north/south bias for the player or for balance statistics |
+| 2026-07-29 | Grid stays 11×15; 11×14 rejected | 14 was defensible (three uniform 4-tall bands make every §5 sentence true at once) but it buys doc tidiness, which this correction supplies for free, and pays for it in board area. Rows are not the binding screen constraint — 15 rows leaves ~240px for HUD and lantern control on a 844px viewport — so a row we can afford is a row worth having. No ADR: 11 columns, the constraint that is screen-derived, did not move |
+| 2026-07-29 | The merged hall is "up to 5 × 10", not "5 × 9" | Follows from the 5-tall middle band. The hall's size was never load-bearing: a merge exists to delete a chokepoint and create the floor's one unholdable, un-flashable space. Changing the band split to preserve a 9 would be tuning dictating structure |
+| 2026-07-29 | **Only vertically stacked room pairs may merge** | A side-by-side merge deletes the column separator — the only wall spanning the level's full height, the one ember-sense reads through to answer "which side am I on", and the axis the mental map is built on. It would also leave a full-width band with no threshold in it, so a floor could contain no doorway decision at all (Pillar 1) |
+| 2026-07-29 | **The 2-tile entrance exclusion is Manhattan, not Chebyshev** | Movement and attacks are 4-directional, so the player's unit of distance is the step. A creature two tiles diagonally away is four steps away; excluding it means the rule cannot be checked by looking at the board (Pillar 2). Stricter is not safer when the strictness has no referent in the rules. Confirmed against the runner-up (Chebyshev) on legibility, not on candidate-count |
+| 2026-07-29 | **A merged pair counts as one room when measuring graph distance to the stairs** | The generator already treated a merged pair as one room for spawn exclusion and as two for distance; one of them had to give. "No wall, no door, no threshold, one perceived chamber" is the reading that matches §5's own claim that the unit of memory is a room and its doors — a merge crosses no door |
+| 2026-07-29 | Doorway tiles hold nothing — no creature, cache, entrance or stairs | A doorway is the only tile with exactly two opposite exits; occupying it turns a threshold into a passage that must be cleared, which is the corridor problem in another costume |
+| 2026-07-29 | §4: flagged the vision-radius metric (Chebyshev / Euclidean / Manhattan) as unsettled | It was never stated, and §5's Manhattan ruling makes it likely to be wrongly inferred. Must be settled before field-of-view is built |

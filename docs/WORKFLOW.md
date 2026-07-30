@@ -15,8 +15,10 @@ Deciding *what* to build. Output is documents and issues, never code.
 - Proposals land as GitHub issues labeled `design`, or as PRs editing `docs/GDD.md`.
 - A design proposal must state: the decision, which pillar it serves, what it costs, what it
   replaces, and how we will know if it is bad.
-- **Design work is where the owner's attention is most valuable.** Anything that changes a pillar,
-  the concept, or a milestone's goal gets `needs-owner` and waits. Everything else proceeds.
+- **Design is ours to decide, including the pillars and the core concept.** A change that big
+  earns an ADR showing its reasoning, its rejected alternatives, and the signal that would make us
+  revisit it — but it does not earn a `needs-owner` label. See "When to stop and ask the owner"
+  below; that rule used to say the opposite and was wrong.
 
 ### 2. Development
 
@@ -154,14 +156,29 @@ context is going to read it.
 Genuinely rare. Label the issue `needs-owner`, comment with the specific question and your
 recommendation, and go work on something else — do not sit idle waiting.
 
-Ask when:
+The owner's stated boundary is narrow and worth quoting, because an earlier version of this
+document ignored it: *"You should most likely only need my input/assistance regarding
+resources/architecture available to the project."*
 
-- A design pillar or the core concept needs to change.
-- External infrastructure is needed (a backend, a paid service, app store credentials).
-- A dependency with a restrictive license or a large native footprint is required.
-- Two reasonable paths diverge expensively and the choice is a matter of taste, not correctness.
+Ask when the answer requires something **only the owner can provide**:
 
-Do **not** ask for: routine implementation choices, library selection within the existing
+- External infrastructure or credentials (a backend, a paid service, app store accounts).
+- A dependency with a restrictive license, or one needing an account the project does not have.
+- Anything that spends money or exposes something publicly under his name.
+
+Do **not** ask for anything else — including **design decisions, up to and including changing the
+core concept or a pillar**. Those are ours. Write the ADR, record the reasoning and the cut
+signal, and proceed.
+
+> This rule previously read "ask when a design pillar or the core concept needs to change," and it
+> was wrong. It was written by an agent, not by the owner; it contradicted his stated boundary; and
+> when offered "you approve design docs only" as an autonomy model he explicitly chose self-merge
+> instead. It cost a round-trip on ADR-0007 for no benefit — the concept being revised had been
+> invented by an agent in the first place, so there was nothing of the owner's to override. If you
+> find yourself reaching for `needs-owner` on a judgment call, that is the smell this note exists
+> to catch.
+
+Also do not ask for: routine implementation choices, library selection within the existing
 footprint, balance numbers, refactors, or permission to merge green work. Decide, record the
 decision, move on.
 

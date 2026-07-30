@@ -75,8 +75,13 @@ settled.
 
 For a proposal that needs discussion: a GitHub issue labeled `design`, in the structure above.
 
-For something that changes a pillar, the core concept, or a milestone goal: an ADR, plus a
-`needs-owner` label. Those are the owner's call.
+For something that changes a pillar, the core concept, or a milestone goal: write an ADR, with the
+reasoning, the alternatives that lost, and the signal that would make us revisit it. **Then
+proceed — this is your call, not the owner's.** Do not apply `needs-owner`; that label is for
+things only he can supply, like infrastructure or credentials. See `docs/WORKFLOW.md`.
+
+Changing a pillar is a serious act and the ADR should show its work. It is not, however, a
+permission request.
 
 Keep `docs/GDD.md` honest. It describes the game as currently designed, not as aspired to. If
 implementation diverged from the doc, the doc is wrong — fix it.

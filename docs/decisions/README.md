@@ -48,3 +48,4 @@ Superseding, never editing: to reverse a decision, write a new ADR and mark the 
 | [0004](0004-deterministic-pure-core.md) | Deterministic pure-TypeScript simulation core | Accepted |
 | [0005](0005-vitest-and-playwright.md) | Vitest + Playwright, no Jest | Accepted |
 | [0006](0006-local-first-no-backend.md) | Local-first persistence, no backend | Accepted |
+| [0007](0007-emberdepth-sharpened.md) | Emberdepth sharpened — darkness carries information | Proposed |

@@ -136,9 +136,13 @@ roadmap, and issue state before stopping.
 
 ## Stop and ask the owner only if
 
-A design pillar or the core concept needs to change; external infrastructure or credentials are
-needed; a restrictive-license or heavy-native dependency is required; or two paths diverge
-expensively on taste rather than correctness.
+The answer requires something **only he can supply**: external infrastructure or credentials, a
+dependency needing an account the project lacks, or anything that spends money or publishes
+something under his name.
+
+**Design decisions are not on that list** — not balance, not mechanics, not the pillars, not the
+core concept. Those get an ADR and proceed. See `docs/WORKFLOW.md`, which explains why this rule
+used to say otherwise and was wrong.
 
 Label the issue `needs-owner`, comment with the specific question **and your recommendation**, then
 go work on something else. Don't sit idle.

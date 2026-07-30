@@ -103,6 +103,6 @@ Deliberately parked. Revisit only after M4, and only if the game is actually goo
 
 ## Amending this roadmap
 
-Milestone *goals* and exit criteria are owner-visible: changing one gets a `needs-owner` issue.
-The tasks within a milestone are ours to add, cut, and reorder freely as we learn — that is
-expected, and the journal is where we record why.
+Milestone goals, exit criteria, and the tasks within them are all ours to change as we learn.
+Amending a goal or an exit criterion deserves an ADR or at least a journal entry explaining why —
+it is a significant act — but it does not need the owner's sign-off. See `docs/WORKFLOW.md`.

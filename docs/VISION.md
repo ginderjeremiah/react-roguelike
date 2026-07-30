@@ -36,27 +36,41 @@ Because runs are deterministic and seeded, a run is a shareable artifact. Design
 swings — the moment the lantern died, the gamble that paid — rather than a smooth difficulty
 curve.
 
-## The concept seed
+## The concept
 
-*Status: proposed. Milestone 0 exists to validate or replace this. It is deliberately written as a
-concrete thing to attack rather than a vague space to explore.*
+*Status: **settled**, as amended by [ADR-0007](decisions/0007-emberdepth-sharpened.md) following
+the M0 design review. `docs/GDD.md` is the detailed specification; this is the one-paragraph
+version. The original seed's wording is preserved in ADR-0007's Context section — it claimed
+something this game no longer does.*
 
 **Working title: Emberdepth.**
 
-You descend a lightless ruin carrying a lantern. Light is the core resource and the core tension:
+You descend a lightless ruin carrying a lantern. Light is the core resource and the core tension —
+but the wager is not "see or be blind", it is **which half of the truth you want**:
 
-- Your lantern burns fuel every turn it is lit. Fuel is the run timer, and it is scarce.
-- Lit tiles are safe and legible — you see enemies, their intent, and the layout.
-- Unlit tiles hide the map, but many of the ruin's inhabitants are *dormant in darkness* and wake
-  in light. Moving dark is faster and cheaper but blind.
-- So the central loop is a wager made every few turns: burn fuel to see and be seen, or move dark
-  and gamble on what you cannot see.
+- Your lantern burns fuel every turn, faster when open than when shuttered. Fuel is the run timer.
+- **Open, you see stone:** terrain, items, creatures, and their intent — but only within a short
+  radius, and not through walls. Light is also what wakes the ruin's dormant inhabitants, so an
+  open lantern announces you.
+- **Shuttered, you see souls:** *ember-sense* gives you the position of every living thing around
+  you, **through walls** — but no identity, no health, no intent, and no map.
+- Fuel is **earned by killing**, because the ruin's creatures are made of ember. So you often want
+  to wake something.
+- Attacking a dormant creature deals double damage. Free kills exist, and exist only in the dark.
+
+So the loop is **flash and crawl**: crawl dark to stalk and steer, flash to learn a room's shape
+and find its cache, accept that the flash announced you, then deal with what you woke. The second
+resource the wager needs is HP, which already exists — fighting spends HP to earn fuel, light
+spends fuel to preserve HP.
 
 Why this concept and not another: it pairs with our technology instead of fighting it. A glyph
-grid renders light falloff beautifully as pure cell tinting, so our cheapest rendering primitive
-becomes the game's signature look. A small vision radius means a small grid, which is exactly what
-a phone screen wants. And light-vs-dark gives Pillar 1 a decision that recurs naturally every
-handful of turns without any bolted-on system.
+grid renders light falloff beautifully as pure cell tinting, and ember-sense is a dim mark on an
+unknown tile — so our cheapest rendering primitive becomes the game's signature look. A small
+vision radius means a small grid, which is exactly what a phone screen wants.
+
+**If this fails:** GDD §12 records pure positional tactics with no resource clock as the designated
+fallback. If the M2 playtest reports the light decision is not tense, or that the lantern is opened
+only when lost, the response is to *subtract* fuel — not to add another mechanic on top.
 
 ## Non-goals
 

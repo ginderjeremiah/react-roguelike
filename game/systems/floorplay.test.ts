@@ -11,7 +11,7 @@ import {
   stepToward,
   PLAYER_ID,
   type ActorWorld,
-  type Perception,
+  type LightQuery,
 } from '../entities';
 import { generateFloor, manhattanDistance, type Position } from '../map';
 import { createRng, int, type Rng } from '../rng';
@@ -37,7 +37,7 @@ import { ACTION_COST } from './schedule';
  * ═══════════════════════════════════════════════════════════════════════════════════════════════
  *
  * The lighting query here is a **stand-in** — "lit within 4 steps of the player while the shutter is
- * open" — and it is written in the test rather than in `game/` for the reason `perception.ts` gives:
+ * open" — and it is written in the test rather than in `game/` for the reason `contact.ts` gives:
  * the real one is #14/#17's, its metric is still open (#25), and a placeholder living in the
  * simulation is a lie that outlives the session that wrote it. Nothing asserted here depends on the
  * shape of the lit area, only on light existing and going away.
@@ -50,7 +50,7 @@ const SHUTTER_PERIOD = 24;
 const SHUTTER_OPEN_FOR = 6;
 
 /** Placeholder lighting. See the header: not a model, just something for the seam to be handed. */
-function lightAround(player: Position, open: boolean): Perception {
+function lightAround(player: Position, open: boolean): LightQuery {
   return {
     isPlayerLightVisibleFrom: (at) => open && manhattanDistance(at, player) <= 4,
   };
@@ -143,7 +143,7 @@ describe('playing whole floors', () => {
       for (let turn = 0; turn < TURNS; turn += 1) {
         const open = turn % SHUTTER_PERIOD < SHUTTER_OPEN_FOR;
         const before = world;
-        const perception = lightAround(playerOf(world).at, open);
+        const light = lightAround(playerOf(world).at, open);
         const marked = markedTiles(world);
         const beforeHp = hpById(world);
         const beforeAwake = world.actors.filter((a) => a.kind === 'creature' && a.mind.kind === 'awake').length;
@@ -155,7 +155,7 @@ describe('playing whole floors', () => {
 
         const scripted = scriptPlayer(world, rng, turn);
         rng = scripted.rng;
-        world = playTurn(world, scripted.action, perception);
+        world = playTurn(world, scripted.action, light);
 
         // --- the invariants ---------------------------------------------------------------------
         expect(findWorldProblems(world)).toEqual([]);
@@ -287,9 +287,9 @@ describe('the same commands always produce the same floor', () => {
   it('does not mutate the world it is given', () => {
     const floor = generateFloor(createRng('frozen'), 2).value;
     const world = deepFreeze(createActorWorld(floor));
-    const perception = lightAround(playerOf(world).at, true);
+    const light = lightAround(playerOf(world).at, true);
 
-    expect(() => playTurn(world, { kind: 'wait' }, perception)).not.toThrow();
+    expect(() => playTurn(world, { kind: 'wait' }, light)).not.toThrow();
     expect(world.schedule.now).toBe(0);
   });
 });

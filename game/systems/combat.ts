@@ -55,7 +55,7 @@ import {
   type Actor,
   type ActorWorld,
   type EmberDrop,
-  type Perception,
+  type LightQuery,
 } from '../entities';
 import { blocksMovement, inBounds, tileAt, type Position } from '../map';
 import { hasActor, removeActor, type ActorId } from './schedule';
@@ -111,7 +111,7 @@ function unschedule(world: ActorWorld, id: ActorId): ActorWorld {
  * is a legal, meaningful outcome of a committed action: the target stepped aside, or what moved in
  * is not an enemy. The turn is still spent — the caller charged for it.
  *
- * @param perception needed only because a dormant creature that survives **wakes** (§3), and waking
+ * @param light needed only because a dormant creature that survives **wakes** (§3), and waking
  *   declares an intent (§2), which is what light is for.
  * @throws if the attacker does not exist, is dead, or is attacking its own tile.
  */
@@ -119,7 +119,7 @@ export function resolveAttack(
   world: ActorWorld,
   attackerId: ActorId,
   at: Position,
-  perception: Perception,
+  light: LightQuery,
 ): ActorWorld {
   const attacker = actorById(world, attackerId);
   if (!isAlive(attacker)) {
@@ -145,7 +145,7 @@ export function resolveAttack(
 
   // §3/§6: "If the target survives, it wakes." A dormant creature that ate a stalked strike and
   // lived is the one thing in the game that turns a free kill into a fight.
-  if (damaged.kind === 'creature') return wakeCreature(afterDamage, damaged, perception);
+  if (damaged.kind === 'creature') return wakeCreature(afterDamage, damaged, light);
   return afterDamage;
 }
 
@@ -209,7 +209,7 @@ export function bump(
   world: ActorWorld,
   actorId: ActorId,
   to: Position,
-  perception: Perception,
+  light: LightQuery,
 ): ActorWorld {
   const actor = actorById(world, actorId);
   if (!isAdjacent(actor.at, to)) {
@@ -228,7 +228,7 @@ export function bump(
   }
   const occupant = occupantAt(world, to);
   if (occupant !== null && occupant.id !== actorId && isHostile(actor, occupant)) {
-    return resolveAttack(world, actorId, to, perception);
+    return resolveAttack(world, actorId, to, light);
   }
   return resolveMove(world, actorId, to);
 }

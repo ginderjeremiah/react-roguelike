@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { playTurn } from '@/tests/unit/support/scenario';
-import { createActorWorld, type ActorWorld, type Perception } from '../entities';
+import { createActorWorld, type ActorWorld, type LightQuery } from '../entities';
 import { generateFloor } from '../map';
 import { createRng } from '../rng';
 
@@ -35,7 +35,7 @@ function busyFloor(seed: string): ActorWorld {
   return createActorWorld(floor);
 }
 
-const floodlit: Perception = { isPlayerLightVisibleFrom: () => true };
+const floodlit: LightQuery = { isPlayerLightVisibleFrom: () => true };
 
 function medianTurnCost(world: ActorWorld): number {
   for (let i = 0; i < WARMUP; i += 1) playTurn(world, { kind: 'wait' }, floodlit);

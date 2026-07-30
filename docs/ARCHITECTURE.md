@@ -191,7 +191,7 @@ Three tiers, each catching what the tier below cannot:
 
 | Tier | Tool | Covers |
 | --- | --- | --- |
-| Unit / property | Vitest | `game/` (and `render/` once it exists). The bulk of the tests — 796 across 44 files today. Fast, no DOM. |
+| Unit / property | Vitest | `game/` (and `render/` once it exists). The bulk of the tests — 797 across 44 files today. Fast, no DOM. |
 | Replay | Vitest | Recorded runs reproduce byte-identically. The determinism tripwire. |
 | End-to-end | Playwright | The real built web app in a real browser. Input, rendering, persistence. |
 

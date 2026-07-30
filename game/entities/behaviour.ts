@@ -61,7 +61,7 @@ import {
   type Mind,
 } from './actor';
 import { stepToward } from './pathing';
-import { hasContact, type Perception } from './perception';
+import { hasContact, type LightQuery } from './contact';
 import { playerOf, withActor, withSchedule, type ActorWorld } from './world';
 
 /**
@@ -95,11 +95,11 @@ function moveOrWait(world: ActorWorld, creature: CreatureActor, goal: Position):
 export function nextMind(
   world: ActorWorld,
   creature: CreatureActor,
-  perception: Perception,
+  light: LightQuery,
 ): Mind {
   const player = playerOf(world);
 
-  if (hasContact(world, creature, perception)) {
+  if (hasContact(world, creature, light)) {
     const awareness: Awareness = { kind: 'lastSeen', at: player.at };
     const intent: Intent = isAdjacent(creature.at, player.at)
       ? { kind: 'attack', at: player.at }
@@ -158,10 +158,10 @@ function setMind(world: ActorWorld, creature: CreatureActor, mind: Mind): ActorW
 export function wakeCreature(
   world: ActorWorld,
   creature: CreatureActor,
-  perception: Perception,
+  light: LightQuery,
 ): ActorWorld {
   if (!isAlive(creature) || creature.mind.kind === 'awake') return world;
-  return setMind(world, creature, nextMind(world, creature, perception));
+  return setMind(world, creature, nextMind(world, creature, light));
 }
 
 /**
@@ -175,9 +175,9 @@ export function wakeCreature(
 export function commitNextIntent(
   world: ActorWorld,
   id: ActorId,
-  perception: Perception,
+  light: LightQuery,
 ): ActorWorld {
   const creature = world.actors.find((actor) => actor.id === id);
   if (creature === undefined || creature.kind !== 'creature' || !isAlive(creature)) return world;
-  return setMind(world, creature, nextMind(world, creature, perception));
+  return setMind(world, creature, nextMind(world, creature, light));
 }

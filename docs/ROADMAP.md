@@ -54,7 +54,8 @@ is layered on top.
 - [ ] Death, winning, and a run-summary screen — #21
 - [ ] Determinism rules applied to `game/**/*.test.ts` — #12
 - [ ] Auto-travel's command shape (a determinism question; gates #20) — #32
-- [ ] Rename the two colliding `Perception` types — #36, cheapest before #19
+- [x] Rename the two colliding `Perception` types — #36; now `TurnPerception` (`game/fov/`) and
+      `LightQuery` (`game/entities/`)
 
 **A run can be won, which this roadmap never said.** GDD §13 settled it in #18: the run ends by
 death *or* by taking the stairs on floor 8 (`LAST_FLOOR`). There is no floor 9 and no boss. The
@@ -63,7 +64,7 @@ and the summary screen has to render both.
 
 ### Where M1 actually stands
 
-**The whole simulation is done.** `game/` is 44 test files and 796 tests: generation, FOV, light,
+**The whole simulation is done.** `game/` is 44 test files and 797 tests: generation, FOV, light,
 fuel, the scheduler, combat, descent, and the endings. Nothing above `game/` exists yet — there is
 no `render/` directory and no `platform/` directory, only the Expo shell in `app/` and
 `components/`. So the three open build issues are strictly sequential:

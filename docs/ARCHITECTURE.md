@@ -116,7 +116,7 @@ replay is free.
 A run is fully described by:
 
 ```ts
-type RunRecord = { version: number; seed: string; commands: Command[] };
+type RunRecord = { version: number; seed: string; commands: readonly Command[] };
 ```
 
 Replaying that record must reproduce the exact final state. There is a property test asserting

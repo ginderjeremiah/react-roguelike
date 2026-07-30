@@ -59,6 +59,24 @@ const LONG_RUN: Command[] = Array.from({ length: 200 }, (_, i) =>
   i % 3 === 0 ? { kind: 'wait' } : { kind: 'roll', sides: (i % 12) + 1 },
 );
 
+describe('snapshot (the other tool this suite depends on)', () => {
+  it('actually copies, so before/after comparisons are meaningful', () => {
+    // Mirror of the deepFreeze instrument test below. Without this, replacing
+    // `structuredClone(value)` with `return value` leaves the whole suite green — `before` and
+    // `expected` would be the same object, so "leaves the input structurally unchanged" could
+    // not fail for any mutation of step(). An untested instrument measures nothing.
+    const source = { outer: { inner: { value: 1 } } };
+    const copy = snapshot(source);
+
+    expect(copy).not.toBe(source);
+    expect(copy.outer).not.toBe(source.outer);
+    expect(copy.outer.inner).not.toBe(source.outer.inner);
+
+    source.outer.inner.value = 2;
+    expect(copy.outer.inner.value).toBe(1);
+  });
+});
+
 describe('deepFreeze (the tool this suite depends on)', () => {
   it('actually prevents nested writes in strict mode', () => {
     // Without this, every test below could pass because nothing was frozen. A test whose

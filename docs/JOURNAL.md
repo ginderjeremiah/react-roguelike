@@ -39,6 +39,28 @@ they do not, since `%` preserves both. And a collision test whose threshold rest
 factor-of-1000 birthday-bound error: it tolerated 99 collisions where the expectation is 0.047,
 and would have passed for a 22-bit hash.
 
+**Review addendum:** the reviewer found a false green in the comparator itself — the worst place
+for one. `walk` compared any two objects by their own enumerable keys, and `Map`, `Set`, and
+`Date` have none, so `new Set([1])` vs `new Set([2, 3])` reported *no divergence at all*.
+
+Three defenses failed together: the replay properties are all phrased as "divergence is null"; the
+JSON round-trip property passes too, because `JSON.stringify` renders a Map as `{}` and `{}`
+equals `{}`; and `purity.test.ts` claimed the structural snapshot covered what freezing could not
+(`Map`/`Set` contents) when the snapshot is compared with the same blind comparator.
+
+Not hypothetical: ARCHITECTURE.md's module map has `fov/` and `entities/` next, which is exactly
+where `readonly seen: Set<TileIndex>` would enter `GameState`. The fix throws on any non-plain
+object, naming the field — which turns a silent pass into a loud error and makes `state.ts`'s
+"plain JSON-shaped data" rule enforced rather than aspirational.
+
+Also fixed: `snapshot()` had no instrument test (replacing it with `return value` left all 173
+tests green, making the purity suite unfalsifiable); the reported `turn` was not pinned to the left
+sequence; and the `commandIndex === 0` boundary was untested, where an off-by-one misreports the
+first command's divergence as a seed mismatch. All four verified by mutation.
+
+Filed #12: the determinism lint rules are disabled inside `game/**/*.test.ts`, so this PR's
+property corpus is protected by discipline rather than enforcement.
+
 **Watch:** known risks, deferred cleanup, things that will bite later. Omit if none.
 ```
 

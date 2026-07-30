@@ -146,6 +146,26 @@ function missing(path: string, left: unknown, right: unknown, leftHas: boolean):
   };
 }
 
+/**
+ * Throw unless `value` is a plain object — one whose prototype is `Object.prototype` or `null`.
+ *
+ * Comparing a `Map`, `Set`, `Date`, or class instance by its own enumerable keys silently reports
+ * two different values as identical. Failing loudly here turns a false green into an accurate
+ * error naming the offending field, and makes `state.ts`'s "plain JSON-shaped data" rule
+ * mechanically enforced rather than aspirational.
+ */
+function assertPlainObject(value: unknown, path: string): void {
+  const proto = Object.getPrototypeOf(value);
+  if (proto === Object.prototype || proto === null) return;
+
+  const name = (value as object).constructor?.name ?? 'unknown';
+  throw new TypeError(
+    `divergence: ${label(path)} is a ${name}, not a plain object. GameState must be plain ` +
+      `JSON-shaped data (see game/core/state.ts) — a ${name} would be compared as vacuously ` +
+      `identical, which would make the replay tripwire report a false pass.`,
+  );
+}
+
 function walk(left: unknown, right: unknown, path: string, depth: number): FieldDivergence | null {
   if (depth > MAX_DEPTH) {
     throw new Error(
@@ -179,6 +199,20 @@ function walk(left: unknown, right: unknown, path: string, depth: number): Field
   }
 
   if (leftKind === 'object') {
+    // Refuse anything that is not a plain object. `Map`, `Set`, and `Date` have no own enumerable
+    // keys, so the key walk below would compare their *contents* as vacuously identical:
+    // `new Set([1])` vs `new Set([2, 3])` would report no divergence at all.
+    //
+    // That is a false green in the one artifact this module exists to make trustworthy, and it is
+    // not hypothetical — `ARCHITECTURE.md`'s module map has `fov/` and `entities/` next, which is
+    // exactly where `readonly seen: Set<TileIndex>` or `Map<EntityId, Actor>` would appear in
+    // GameState. The JSON round-trip property could not catch it either, since `JSON.stringify`
+    // renders a Map as `{}` and the comparison then finds `{}` equal to `{}`.
+    //
+    // `state.ts` already says GameState is plain JSON-shaped data. This is what enforces it.
+    assertPlainObject(left, path);
+    assertPlainObject(right, path);
+
     const a = left as Record<string, unknown>;
     const b = right as Record<string, unknown>;
     // Sorted union of both sides' keys. Sorted for determinism (see the header); union so that a

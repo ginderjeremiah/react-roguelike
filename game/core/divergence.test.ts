@@ -262,10 +262,12 @@ describe('findStateSequenceDivergence — the generator is part of the compariso
     const commands: Command[] = [{ kind: 'wait' }, { kind: 'roll', sides: 6 }];
     const left = runStates('named', commands);
     const right = left.map((state, i) => (i >= 2 ? { ...state, turn: state.turn + 1 } : state));
-    expect(findStateSequenceDivergence(left, right, commands)?.command).toEqual({
-      kind: 'roll',
-      sides: 6,
-    });
+    const found = findStateSequenceDivergence(left, right, commands);
+    expect(found?.command).toEqual({ kind: 'roll', sides: 6 });
+    // Pinned explicitly: the reported turn must come from the LEFT sequence. Right's turn is
+    // deliberately +1 here, so `turn: right[i].turn` would survive without this assertion — and
+    // would misreport which turn to look at, in the one message meant to localize the bug.
+    expect(found?.turn).toBe(left[2].turn);
   });
 });
 
@@ -317,5 +319,85 @@ describe('assertSameState', () => {
     expect(() => assertSameState(createInitialState('s'), createInitialState('t'), 'ctx')).toThrow(
       /ctx: states differ at rng\./,
     );
+  });
+});
+
+describe('non-plain objects', () => {
+  // Regression tests for a false green found in review. `Map`, `Set`, and `Date` have no own
+  // enumerable keys, so a key-walk comparison reported two different ones as identical. That is
+  // the worst possible failure mode here: the replay tripwire returning null while the run has
+  // genuinely diverged. GameState is plain JSON-shaped data by contract (state.ts) — this is what
+  // enforces the contract rather than trusting it.
+
+  it('throws rather than silently passing on a Set', () => {
+    expect(() => findFieldDivergence({ s: new Set([1]) }, { s: new Set([2, 3]) })).toThrow(
+      /\bs is a Set, not a plain object/,
+    );
+  });
+
+  it('throws rather than silently passing on a Map', () => {
+    expect(() =>
+      findFieldDivergence({ m: new Map([['a', 1]]) }, { m: new Map([['a', 999]]) }),
+    ).toThrow(/\bm is a Map, not a plain object/);
+  });
+
+  it('throws rather than silently passing on a Date', () => {
+    expect(() => findFieldDivergence({ d: new Date(0) }, { d: new Date(5) })).toThrow(
+      /\bd is a Date, not a plain object/,
+    );
+  });
+
+  it('throws when only one side is exotic', () => {
+    // Previously reported null: an empty plain object and an empty-keyed Map both walk to nothing.
+    expect(() => findFieldDivergence({ x: new Map([['a', 1]]) }, { x: {} })).toThrow(
+      /is a Map, not a plain object/,
+    );
+    expect(() => findFieldDivergence({ x: {} }, { x: new Map([['a', 1]]) })).toThrow(
+      /is a Map, not a plain object/,
+    );
+  });
+
+  it('throws on a class instance', () => {
+    class Actor {
+      constructor(readonly hp: number) {}
+    }
+    expect(() => findFieldDivergence({ a: new Actor(1) }, { a: new Actor(2) })).toThrow(
+      /is a Actor, not a plain object/,
+    );
+  });
+
+  it('still accepts null-prototype objects', () => {
+    // Object.create(null) is plain data — no prototype to hide behaviour in.
+    const left = Object.create(null) as Record<string, unknown>;
+    const right = Object.create(null) as Record<string, unknown>;
+    left.v = 1;
+    right.v = 2;
+    expect(findFieldDivergence({ o: left }, { o: right })).toEqual({
+      path: 'o.v',
+      left: '1',
+      right: '2',
+    });
+  });
+
+  it('names the field path, so the error says where to look', () => {
+    expect(() =>
+      findFieldDivergence({ deep: { nested: { s: new Set() } } }, { deep: { nested: { s: new Set() } } }),
+    ).toThrow(/deep\.nested\.s is a Set/);
+  });
+});
+
+describe('formatRunDivergence at command 0', () => {
+  it('does not claim the initial states differ', () => {
+    // Boundary left untested by the original suite: mutating `commandIndex < 0` to `<= 0` survived
+    // it, and under that mutation a divergence at the very first command is misreported as a seed
+    // mismatch — exactly the misdirection this module exists to prevent.
+    const message = formatRunDivergence({
+      commandIndex: 0,
+      command: { kind: 'roll', sides: 6 } as Command,
+      turn: 1,
+      field: { path: 'state.rng.s0', left: '1', right: '2' },
+    });
+    expect(message).not.toMatch(/before any command ran/);
+    expect(message).toMatch(/command 0/);
   });
 });

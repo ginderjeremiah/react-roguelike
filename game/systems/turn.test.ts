@@ -48,6 +48,13 @@ function record(world: World, actorId: ActorId): World {
   return { ...world, log: [...world.log, `actor ${actorId}`] };
 }
 
+/**
+ * "Never stop the sweep early." The default a caller would have got if `halt` had one — which is
+ * exactly why it does not: GDD §13's stop-on-death is a rule, and a rule that arrives by default is
+ * a rule nobody decided. Used everywhere below except the halting tests, which pass a real one.
+ */
+const NEVER = (): boolean => false;
+
 function world(schedule: Schedule): World {
   return { schedule, log: [] };
 }
@@ -138,7 +145,7 @@ describe('runActorPhase', () => {
     const start = world(
       createSchedule([2, 0, 1]), // inserted 2, 0, 1 — the queue must not care
     );
-    expect(runActorPhase(start, lens, record).log).toEqual(['actor 0', 'actor 1', 'actor 2']);
+    expect(runActorPhase(start, lens, record, NEVER).log).toEqual(['actor 0', 'actor 1', 'actor 2']);
   });
 
   it('leaves an actor that is not yet due alone', () => {
@@ -146,14 +153,14 @@ describe('runActorPhase', () => {
     // variable costs later, that would let a slow actor act on someone else's turn; in M1 it would
     // let the player's own charged entry act as if it were a creature.
     const start = world(addActor(createSchedule([0]), 1, ACTION_COST));
-    const after = runActorPhase(start, lens, record);
+    const after = runActorPhase(start, lens, record, NEVER);
 
     expect(after.log).toEqual(['actor 0']);
     expect(nextActAtOf(after.schedule, 1)).toBe(ACTION_COST);
   });
 
   it('charges every actor that acts exactly ACTION_COST', () => {
-    const after = runActorPhase(world(createSchedule([0, 1])), lens, record);
+    const after = runActorPhase(world(createSchedule([0, 1])), lens, record, NEVER);
     expect(nextActAtOf(after.schedule, 0)).toBe(ACTION_COST);
     expect(nextActAtOf(after.schedule, 1)).toBe(ACTION_COST);
   });
@@ -162,7 +169,7 @@ describe('runActorPhase', () => {
     // Without this the clock would never move and the same actors would be due forever. The jump
     // is to the head of the queue, not by a fixed amount, which is the part that generalizes if a
     // cost ever differs.
-    const after = runActorPhase(world(createSchedule([0, 1])), lens, record);
+    const after = runActorPhase(world(createSchedule([0, 1])), lens, record, NEVER);
     expect(after.schedule.now).toBe(ACTION_COST);
   });
 
@@ -171,14 +178,14 @@ describe('runActorPhase', () => {
     // gap happens to be exactly one action — which is exactly why this needs its own test instead
     // of being assumed from the alternation cases.
     const start = world(addActor(createSchedule([]), 5, 350));
-    const after = runActorPhase(start, lens, record);
+    const after = runActorPhase(start, lens, record, NEVER);
 
     expect(after.log).toEqual([]);
     expect(after.schedule.now).toBe(350);
   });
 
   it('does not move the clock when there is nothing scheduled', () => {
-    const after = runActorPhase(world(createSchedule([], 700)), lens, record);
+    const after = runActorPhase(world(createSchedule([], 700)), lens, record, NEVER);
     expect(after.log).toEqual([]);
     expect(after.schedule.now).toBe(700);
   });
@@ -191,7 +198,7 @@ describe('runActorPhase', () => {
       return actorId === 0 ? lens.set(logged, removeActor(logged.schedule, 0)) : logged;
     };
 
-    const after = runActorPhase(world(createSchedule([0, 1])), lens, dies);
+    const after = runActorPhase(world(createSchedule([0, 1])), lens, dies, NEVER);
     expect(after.log).toEqual(['actor 0', 'actor 1']);
     expect(hasActor(after.schedule, 0)).toBe(false);
   });
@@ -205,7 +212,7 @@ describe('runActorPhase', () => {
       return actorId === 0 ? lens.set(logged, removeActor(logged.schedule, 1)) : logged;
     };
 
-    const after = runActorPhase(world(createSchedule([0, 1, 2])), lens, killsTheNext);
+    const after = runActorPhase(world(createSchedule([0, 1, 2])), lens, killsTheNext, NEVER);
     expect(after.log).toEqual(['actor 0', 'actor 2']);
   });
 
@@ -215,7 +222,7 @@ describe('runActorPhase', () => {
       return actorId === 0 ? lens.set(logged, addActor(logged.schedule, 9, w.schedule.now)) : logged;
     };
 
-    const after = runActorPhase(world(createSchedule([0, 1])), lens, spawns);
+    const after = runActorPhase(world(createSchedule([0, 1])), lens, spawns, NEVER);
     expect(after.log).toEqual(['actor 0', 'actor 1', 'actor 9']);
   });
 
@@ -226,15 +233,48 @@ describe('runActorPhase', () => {
     const neverProgresses = (w: World, actorId: ActorId): World =>
       lens.set(w, reschedule(w.schedule, actorId, w.schedule.now));
 
-    expect(() => runActorPhase(world(createSchedule([0])), lens, neverProgresses)).toThrow(
+    expect(() => runActorPhase(world(createSchedule([0])), lens, neverProgresses, NEVER)).toThrow(
       /without the queue emptying/,
     );
   });
 
   it('does not mutate the state it is given', () => {
     const start = deepFreeze(world(createSchedule([0, 1, 2])));
-    expect(() => runActorPhase(start, lens, record)).not.toThrow();
+    expect(() => runActorPhase(start, lens, record, NEVER)).not.toThrow();
     expect(start.log).toEqual([]);
+  });
+
+  it('stops the sweep when the halt predicate fires, leaving the clock where it was', () => {
+    // GDD §13's "a terminal state stops the turn where it happens", as a scheduling property. The
+    // clock standing still is the observable half: the actors after the halt do not act, *and* the
+    // phase does not tidy up by advancing time past them.
+    const after = runActorPhase(
+      world(createSchedule([0, 1, 2])),
+      lens,
+      record,
+      (w) => w.log.length >= 2,
+    );
+
+    expect(after.log).toEqual(['actor 0', 'actor 1']);
+    expect(after.schedule.now).toBe(0);
+    // Actor 2 is still owed its turn — the phase abandoned it rather than skipping it.
+    expect(nextActAtOf(after.schedule, 2)).toBe(0);
+  });
+
+  it('asks the halt only after an action, so a turn is never abandoned before it starts', () => {
+    // If the predicate were checked on entry, a phase beginning in a halting state would return
+    // without advancing the clock — which for the real caller (`isRunOver`) is unreachable, and
+    // for any future caller would be a silently frozen turn. The first actor always acts.
+    const after = runActorPhase(world(createSchedule([0, 1])), lens, record, () => true);
+    expect(after.log).toEqual(['actor 0']);
+  });
+
+  it('runs to completion when the halt never fires, which is what makes the stop mean something', () => {
+    // The contrast: a `halt` that was ignored entirely would pass the two tests above only if they
+    // were the only ones. Every other case in this file passes `NEVER`, and they all sweep fully.
+    const after = runActorPhase(world(createSchedule([0, 1, 2])), lens, record, () => false);
+    expect(after.log).toEqual(['actor 0', 'actor 1', 'actor 2']);
+    expect(after.schedule.now).toBe(ACTION_COST);
   });
 
   it('acts in the same order however the actors were inserted', () => {
@@ -250,7 +290,7 @@ describe('runActorPhase', () => {
       let schedule = createSchedule([]);
       for (const actorId of shuffled.value) schedule = addActor(schedule, actorId, 0);
 
-      const after = runActorPhase(world(schedule), lens, record);
+      const after = runActorPhase(world(schedule), lens, record, NEVER);
       expect(after.log).toEqual(['actor 2', 'actor 4', 'actor 7', 'actor 9', 'actor 11']);
     }
   });
@@ -270,7 +310,7 @@ describe('a turn loop built out of these pieces', () => {
       command: (w) => lens.set(record(w, playerId), chargeActor(w.schedule, playerId)),
       fuelBurn: identity,
       lightingAndWaking: identity,
-      actors: (w) => runActorPhase(w, lens, record),
+      actors: (w) => runActorPhase(w, lens, record, NEVER),
       deaths: identity,
       darkAdaptation: identity,
     };
@@ -434,7 +474,7 @@ describe('a free action', () => {
       command: (w) => record(w, 0),
       fuelBurn: identity,
       lightingAndWaking: identity,
-      actors: (w) => runActorPhase(w, lens, record),
+      actors: (w) => runActorPhase(w, lens, record, NEVER),
       deaths: identity,
       darkAdaptation: identity,
     });

@@ -178,31 +178,34 @@ describe('findRunDivergence', () => {
   const seed = 'divergence';
 
   it('returns null when two records describe the same run', () => {
-    const record = recordRun(seed, [{ kind: 'wait' }, { kind: 'roll', sides: 6 }]);
+    const record = recordRun(seed, [{ kind: 'wait' }, { kind: 'setShutter', to: 'shuttered' }]);
     expect(findRunDivergence(record, record)).toBeNull();
     expect(findRunDivergence(record, recordRun(seed, [...record.commands]))).toBeNull();
   });
 
   it('names the index of the first command whose result differed', () => {
     // The number that turns an afternoon into five minutes. Commands 0 and 1 agree; 2 does not.
-    const shared: Command[] = [{ kind: 'wait' }, { kind: 'roll', sides: 6 }];
+    const shared: Command[] = [{ kind: 'wait' }, { kind: 'wait' }];
     const left = recordRun(seed, [...shared, { kind: 'wait' }, { kind: 'wait' }]);
-    const right = recordRun(seed, [...shared, { kind: 'roll', sides: 6 }, { kind: 'wait' }]);
+    const right = recordRun(seed, [...shared, { kind: 'setShutter', to: 'shuttered' }, { kind: 'wait' }]);
 
     const found = findRunDivergence(left, right);
     expect(found?.commandIndex).toBe(2);
     expect(found?.command).toEqual({ kind: 'wait' });
-    expect(found?.turn).toBe(3);
-    // The difference is in the generator, and nowhere else — exactly the case a visible-state-only
-    // comparison would miss.
-    expect(found?.field.path).toMatch(/^(lastOutcome|rng)\b/);
+    // Read from the LEFT run, which spent a turn on command 2 where the right run spent a free
+    // action — so from here on the two are at different points in the game, not merely in the log.
+    expect(found?.turnsElapsed).toBe(3);
+    expect(found?.field.path).toMatch(/^lantern\b/);
   });
 
   it('reports index -1 when the seeds already disagree', () => {
     const found = findRunDivergence(recordRun('one', []), recordRun('two', []));
     expect(found?.commandIndex).toBe(-1);
     expect(found?.command).toBeNull();
-    expect(found?.field.path).toMatch(/^rng\./);
+    // Two seeds now differ in the whole *floor* before they differ in the generator, and keys are
+    // walked in sorted order, so the first reported path is inside the lantern's terrain memory of
+    // two different entrance rooms. Which field is named is not the claim; that one is named, is.
+    expect(found?.field.path).toMatch(/^(lantern|rng|world)\b/);
   });
 
   it('reports a command-log length mismatch, and where', () => {
@@ -217,7 +220,7 @@ describe('findRunDivergence', () => {
     // An off-by-one in the loop bound would let the final command escape comparison entirely,
     // which is the one place a real bug is most likely to be noticed last.
     const left = recordRun(seed, [{ kind: 'wait' }, { kind: 'wait' }]);
-    const right = recordRun(seed, [{ kind: 'wait' }, { kind: 'roll', sides: 6 }]);
+    const right = recordRun(seed, [{ kind: 'wait' }, { kind: 'setShutter', to: 'shuttered' }]);
     expect(findRunDivergence(left, right)?.commandIndex).toBe(1);
   });
 });
@@ -231,52 +234,56 @@ describe('findStateSequenceDivergence — the generator is part of the compariso
     // subset of fields would call them identical, and since the entire replay suite is phrased as
     // "this returned null", the tripwire would be disarmed with no other symptom.
     //
-    // Found by mutation testing: projecting the per-command comparison down to
-    // `{ turn, lastOutcome }` survived the whole suite. It could not be caught through the record
-    // API, because no pair of `wait`/`roll` logs can differ in the generator alone — anything that
-    // changes the draw count also changes `lastOutcome`. Hence the sequence-level entry point.
+    // Found by mutation testing: projecting the per-command comparison down to a couple of
+    // interesting-looking fields survived the whole suite. It cannot be caught through the record
+    // API, because the only command that draws also rebuilds the entire floor — so no pair of
+    // command logs produces states differing in the generator *alone*. Hence the sequence entry
+    // point, which a test can hand exactly that case.
     const commands: Command[] = [{ kind: 'wait' }, { kind: 'wait' }, { kind: 'wait' }];
     const left = runStates('rng-only', commands);
-    // Identical turn, identical lastOutcome, generator nudged one draw forward from index 2 on.
+    // Identical in every visible field; generator nudged one draw forward from index 2 on.
     const right = left.map((state, i) => (i >= 2 ? { ...state, rng: next(state.rng).rng } : state));
 
     for (let i = 0; i < left.length; i += 1) {
-      expect(right[i].turn).toBe(left[i].turn);
-      expect(right[i].lastOutcome).toEqual(left[i].lastOutcome);
+      expect(right[i].turnsElapsed).toBe(left[i].turnsElapsed);
+      expect(right[i].lantern).toEqual(left[i].lantern);
+      expect(right[i].world).toEqual(left[i].world);
     }
 
     const found = findStateSequenceDivergence(left, right, commands);
     expect(found?.commandIndex).toBe(1);
-    expect(found?.turn).toBe(2);
+    expect(found?.turnsElapsed).toBe(2);
     expect(found?.field.path).toMatch(/^rng\./);
   });
 
   it('reports agreement for two identical sequences', () => {
-    const commands: Command[] = [{ kind: 'roll', sides: 6 }, { kind: 'wait' }];
+    const commands: Command[] = [{ kind: 'setShutter', to: 'shuttered' }, { kind: 'wait' }];
     expect(
       findStateSequenceDivergence(runStates('same', commands), runStates('same', commands), commands),
     ).toBeNull();
   });
 
   it('names the command from the log it was given', () => {
-    const commands: Command[] = [{ kind: 'wait' }, { kind: 'roll', sides: 6 }];
+    const commands: Command[] = [{ kind: 'wait' }, { kind: 'wait' }];
     const left = runStates('named', commands);
-    const right = left.map((state, i) => (i >= 2 ? { ...state, turn: state.turn + 1 } : state));
+    const right = left.map((state, i) =>
+      i >= 2 ? { ...state, turnsElapsed: state.turnsElapsed + 1 } : state,
+    );
     const found = findStateSequenceDivergence(left, right, commands);
-    expect(found?.command).toEqual({ kind: 'roll', sides: 6 });
-    // Pinned explicitly: the reported turn must come from the LEFT sequence. Right's turn is
-    // deliberately +1 here, so `turn: right[i].turn` would survive without this assertion — and
-    // would misreport which turn to look at, in the one message meant to localize the bug.
-    expect(found?.turn).toBe(left[2].turn);
+    expect(found?.command).toEqual({ kind: 'wait' });
+    // Pinned explicitly: the reported count must come from the LEFT sequence. Right's is
+    // deliberately +1 here, so reading it from the right would survive without this assertion —
+    // and would misreport which turn to look at, in the one message meant to localize the bug.
+    expect(found?.turnsElapsed).toBe(left[2].turnsElapsed);
   });
 });
 
 describe('runStates', () => {
   it('returns the initial state plus one state per command', () => {
-    const commands: Command[] = [{ kind: 'wait' }, { kind: 'roll', sides: 6 }];
+    const commands: Command[] = [{ kind: 'wait' }, { kind: 'wait' }];
     const states = runStates('trajectory', commands);
     expect(states).toHaveLength(3);
-    expect(states.map((s) => s.turn)).toEqual([0, 1, 2]);
+    expect(states.map((s) => s.turnsElapsed)).toEqual([0, 1, 2]);
     expect(findFieldDivergence(states[0], createInitialState('trajectory'))).toBeNull();
   });
 
@@ -288,7 +295,7 @@ describe('runStates', () => {
 describe('formatting', () => {
   it('names the command, the turn, the path, and both values', () => {
     const left = recordRun('fmt', [{ kind: 'wait' }, { kind: 'wait' }]);
-    const right = recordRun('fmt', [{ kind: 'wait' }, { kind: 'roll', sides: 6 }]);
+    const right = recordRun('fmt', [{ kind: 'wait' }, { kind: 'setShutter', to: 'shuttered' }]);
     const message = formatRunDivergence(findRunDivergence(left, right)!);
 
     expect(message).toContain('command 1');
@@ -317,7 +324,7 @@ describe('assertSameState', () => {
 
   it('throws with the context and the located difference', () => {
     expect(() => assertSameState(createInitialState('s'), createInitialState('t'), 'ctx')).toThrow(
-      /ctx: states differ at rng\./,
+      /ctx: states differ at \w+/,
     );
   });
 });
@@ -393,8 +400,8 @@ describe('formatRunDivergence at command 0', () => {
     // mismatch — exactly the misdirection this module exists to prevent.
     const message = formatRunDivergence({
       commandIndex: 0,
-      command: { kind: 'roll', sides: 6 } as Command,
-      turn: 1,
+      command: { kind: 'wait' } as Command,
+      turnsElapsed: 1,
       field: { path: 'state.rng.s0', left: '1', right: '2' },
     });
     expect(message).not.toMatch(/before any command ran/);

@@ -56,11 +56,19 @@ describe('the §4 numbers', () => {
 });
 
 describe('createVision', () => {
-  it('starts fully adapted with nothing remembered', () => {
-    const vision = createVision(ROOM.grid, 'shuttered');
-    expect(vision.shutter).toBe('shuttered');
-    expect(vision.senseRadius).toBe(EMBER_SENSE_RADIUS);
-    expect(tileSetSize(vision.remembered)).toBe(0);
+  it('starts at the adaptation floor with nothing remembered — full adaptation is earned', () => {
+    // §4: "Full adaptation is always earned. Ember-sense reaches 5 only after four turns spent
+    // shuttered, so a run's sense radius starts at the floor, 1, not at the ceiling." The old
+    // behaviour was the ceiling, on the reasoning that no *shuttering* had happened yet — which
+    // handed `createVision(grid, 'shuttered')` a free radius-5 wall-piercing sense on turn 1.
+    // Unobservable in play; §9 puts the number on the HUD, and a HUD that lies is worse.
+    for (const shutter of ['shuttered', 'open'] as const) {
+      const vision = createVision(ROOM.grid, shutter);
+      expect(vision.shutter).toBe(shutter);
+      expect(vision.senseRadius).toBe(ADAPTATION_FLOOR);
+      expect(vision.senseRadius).not.toBe(EMBER_SENSE_RADIUS);
+      expect(tileSetSize(vision.remembered)).toBe(0);
+    }
   });
 
   it('sizes memory to the grid it was given', () => {

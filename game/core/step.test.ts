@@ -1,7 +1,25 @@
 import { describe, expect, it } from 'vitest';
-import { createRng, int, next, type Rng } from '../rng';
-import { COMMAND_KINDS, type Command } from './command';
-import { createInitialState, type GameState } from './state';
+import { scenario } from '@/tests/unit/support/scenario';
+import { atTheStairs, diveToTheBottom, standUntilDead } from '@/tests/unit/support/run-script';
+import {
+  CACHE_FUEL,
+  CINDER,
+  DESCENT_HEAL,
+  FUEL_BURN_LIT,
+  FUEL_BURN_SHUTTERED,
+  LAST_FLOOR,
+  PLAYER_MAX_HP,
+  STARTING_FUEL,
+} from '../content';
+import { isAlive, playerOf, PLAYER_ID, type ActorWorld } from '../entities';
+import { ADAPTATION_FLOOR, computeLitField, hasTile, tileSetsEqual, type ShutterState } from '../fov';
+import { expectedDrawCount, generateFloor, samePosition, tileAt, type Floor, type Position } from '../map';
+import { createRng, next, type Rng } from '../rng';
+import { ACTION_COST, createLantern } from '../systems';
+import { COMMAND_KINDS, DIRECTIONS, neighbourOf, SHUTTER_STATES, type Command } from './command';
+import { findFieldDivergence } from './divergence';
+import { replay, runCommands } from './replay';
+import { createInitialState, floorNumberOf, RUNNING, withWorld, worldOf, type GameState } from './state';
 import { step } from './step';
 
 /**
@@ -10,8 +28,13 @@ import { step } from './step';
  * The replay suite proves that whatever `step` does, it does the same way twice. That is not the
  * same as doing the right thing — a `step` that ignored its command entirely would satisfy every
  * determinism property in the repo. These tests pin what it actually does, with particular
- * attention to the generator, because "consumed a draw it should not have" is invisible in the
- * visible state and shifts every subsequent value in the run.
+ * attention to three things that are invisible in a casual reading of the state:
+ *
+ *   - **the generator**, because "consumed a draw it should not have" shifts every subsequent value
+ *     in the run and surfaces later, somewhere else, looking like a bug in whatever drew next;
+ *   - **refusals**, which must be byte-identical no-ops (contract 6) and are therefore exactly the
+ *     thing a passing test can fail to notice;
+ *   - **the two counters**, which mean different things and are easy to conflate back together.
  */
 
 const SEED = 'emberdepth';
@@ -23,40 +46,138 @@ function advance(rng: Rng, count: number): Rng {
   return current;
 }
 
+/**
+ * A `GameState` around a hand-drawn floor.
+ *
+ * Generated floors are used where the point is that something holds over the whole space of floors;
+ * an ASCII scene is used where the point is a *situation* — the player one step west of a wall, or
+ * standing on the stairs with a Cinder in the doorway — which cannot be arranged on a generated
+ * floor without first finding one that happens to contain it.
+ */
+function sceneState(
+  lines: readonly string[],
+  shutter: ShutterState = 'shuttered',
+  fuel = 40,
+  floorNumber = 1,
+): GameState {
+  const built = scenario(lines);
+  const world: ActorWorld = {
+    ...built.world,
+    floor: { ...built.world.floor, floorNumber },
+  };
+  return {
+    world,
+    lantern: createLantern(world.floor.grid, shutter, fuel),
+    status: RUNNING,
+    turnsElapsed: 0,
+    commandsResolved: 0,
+    rng: createRng(`scene/${lines.join('|')}`),
+  };
+}
+
+function playerAt(state: GameState): Position {
+  return playerOf(state.world).at;
+}
+
+/** The same state with a wounded player. §3 forbids healing, so this cannot be arranged by play. */
+function withPlayerHp(state: GameState, hp: number): GameState {
+  return {
+    ...state,
+    world: {
+      ...state.world,
+      actors: state.world.actors.map((actor) => (actor.kind === 'player' ? { ...actor, hp } : actor)),
+    },
+  };
+}
+
+function litTileCount(state: GameState): number {
+  return state.lantern.vision.remembered.flags.filter(Boolean).length;
+}
+
+// --- the start of a run ---------------------------------------------------------------------------
+
 describe('createInitialState', () => {
-  it('derives the generator from the seed', () => {
-    // Catches: an initial state that ignores the seed. Every replay test in the repo would still
-    // pass, because a constant generator is perfectly reproducible — and every run would be
-    // identical, which nobody would notice until someone typed a seed and got the same map.
-    expect(createInitialState(SEED).rng).toEqual(createRng(SEED));
-    expect(createInitialState('other').rng).not.toEqual(createRng(SEED));
+  it('derives the whole floor from the seed, and nothing from anywhere else', () => {
+    // Catches: an initial state that ignores its seed. Every replay test in the repo would still
+    // pass, because a constant generator is perfectly reproducible — and every run would be the
+    // same run, which nobody notices until someone types a seed and gets the map they had before.
+    const floor = generateFloor(createRng(SEED), 1).value;
+    expect(createInitialState(SEED).world.floor).toEqual(floor);
+    expect(findFieldDivergence(createInitialState('other').world.floor, floor)).not.toBeNull();
   });
 
-  it('starts at turn zero with no outcome recorded', () => {
-    expect(createInitialState(SEED)).toEqual({
-      turn: 0,
-      rng: createRng(SEED),
-      lastOutcome: { kind: 'none' },
-    });
+  it('leaves the generator exactly where generating floor 1 left it', () => {
+    // The draw-budget anchor at turn 0. A run consumes entropy *before* its first command, so a
+    // budget computed from the command log alone would be short by `expectedDrawCount(1)` — this
+    // is the assertion that pins where the count actually starts.
+    expect(createInitialState(SEED).rng).toEqual(advance(createRng(SEED), expectedDrawCount(1)));
+  });
+
+  it('starts the run GDD §4 says it starts: floor 1, at the entrance, open, 80 fuel', () => {
+    const state = createInitialState(SEED);
+    expect(floorNumberOf(state)).toBe(1);
+    expect(playerAt(state)).toEqual(state.world.floor.entrance);
+    expect(state.lantern.vision.shutter).toBe('open');
+    expect(state.lantern.fuel).toBe(STARTING_FUEL);
+    expect(playerOf(state.world).hp).toBe(PLAYER_MAX_HP);
+    expect(state.status).toEqual({ kind: 'running' });
+    expect(state.turnsElapsed).toBe(0);
+    expect(state.commandsResolved).toBe(0);
+  });
+
+  it('starts at the adaptation floor, because full adaptation is always earned', () => {
+    // §4, and the reason it is asserted here rather than left to `createVision`: the alternative —
+    // starting at `EMBER_SENSE_RADIUS` — hands the player a radius-5 wall-piercing sense on turn 1
+    // for free, is invisible in play (shuttering resets it anyway), and shows on §9's HUD as a
+    // number the player will act on. An unobservable-in-play rule needs a test or it will be
+    // "simplified" back.
+    expect(createInitialState(SEED).lantern.vision.senseRadius).toBe(ADAPTATION_FLOOR);
+  });
+
+  it('has already perceived the entrance room, and exactly the lit field', () => {
+    // §4: "the entrance room is already on screen — the opening perception is not something the
+    // first command pays for". Two halves, and the second is what makes it a test: the remembered
+    // set is the *lit* field from the entrance, so a start that ran the touch field instead (9
+    // tiles rather than a room) fails, and one that ran no perception at all fails harder.
+    const state = createInitialState(SEED);
+    const lit = computeLitField(state.world.floor.grid, state.world.floor.entrance);
+    expect(tileSetsEqual(state.lantern.vision.remembered, lit)).toBe(true);
+    expect(litTileCount(state)).toBeGreaterThan(9);
+  });
+
+  it('charges no fuel for the opening perception', () => {
+    // The other half of "not something the first command pays for". A start that ran a whole turn
+    // to light the room would open at 76.
+    expect(createInitialState(SEED).lantern.fuel).toBe(STARTING_FUEL);
+  });
+
+  it('starts every creature dormant, and the player alone in the schedule', () => {
+    const state = createInitialState(SEED);
+    expect(state.world.actors.filter((actor) => actor.kind === 'creature' && actor.mind.kind === 'awake')).toEqual([]);
+    expect(state.world.schedule.entries).toEqual([{ actorId: PLAYER_ID, nextActAt: 0 }]);
+    expect(state.world.schedule.now).toBe(0);
   });
 
   it('accepts the empty seed', () => {
-    // Catches: a guard that rejects '' as falsy. The seed comes from a text field, and an empty
-    // one must be a valid run rather than a crash on first launch.
+    // Catches: a guard that rejects '' as falsy. The seed comes from a text field, and an empty one
+    // must be a valid run rather than a crash on first launch.
     expect(() => createInitialState('')).not.toThrow();
   });
 });
 
+// --- every command kind ---------------------------------------------------------------------------
+
 describe('step — every command kind', () => {
   /**
-   * One representative command per kind. `Record<Command['kind'], Command>` requires every kind
-   * and permits no others, so adding a `Command` variant without adding it here is a compile
-   * error — which is the point. A table test that has to be remembered is a table test that gets
-   * forgotten.
+   * One representative command per kind. `Record<Command['kind'], Command>` requires every kind and
+   * permits no others, so adding a `Command` variant without adding it here is a compile error —
+   * which is the point. A table test that has to be remembered is a table test that gets forgotten.
    */
   const SAMPLES: Record<Command['kind'], Command> = {
-    roll: { kind: 'roll', sides: 6 },
+    move: { kind: 'move', dir: 'north' },
     wait: { kind: 'wait' },
+    setShutter: { kind: 'setShutter', to: 'shuttered' },
+    descend: { kind: 'descend' },
   };
 
   it('covers exactly the declared command kinds', () => {
@@ -66,142 +187,571 @@ describe('step — every command kind', () => {
     expect([...COMMAND_KINDS].sort()).toEqual(Object.keys(SAMPLES).sort());
   });
 
-  for (const kind of COMMAND_KINDS) {
-    it(`resolves '${kind}' into a new state, advancing exactly one turn`, () => {
-      const before = createInitialState(SEED);
-      const after = step(before, SAMPLES[kind]);
+  it('lists the four directions and the two shutter settings, sorted', () => {
+    // The same rule for the payload vocabularies, which are declared out of sorted order on purpose
+    // so that dropping the `.sort()` is observable. Found by mutation testing: `COMMAND_KINDS` had
+    // this assertion and `DIRECTIONS` did not, so its sort was a line that could be deleted with
+    // every test still green — which is the same as not having it. Nothing in the simulation
+    // iterates either list today; both are declared sorted, and a declared property with no test is
+    // what gets tidied away.
+    expect(DIRECTIONS).toEqual(['east', 'north', 'south', 'west']);
+    expect(DIRECTIONS).toEqual([...DIRECTIONS].sort());
+    expect(SHUTTER_STATES).toEqual(['open', 'shuttered']);
+    expect(SHUTTER_STATES).toEqual([...SHUTTER_STATES].sort());
+  });
 
-      expect(after.turn).toBe(1);
-      // Catches: a command handled by returning the input. Every command resolves a turn, so the
-      // returned state is always a different object.
-      expect(after).not.toBe(before);
-      expect(before.turn).toBe(0);
+  for (const kind of COMMAND_KINDS) {
+    it(`resolves '${kind}' without throwing, from a state where it is legal`, () => {
+      // The legality precondition differs per command, so each sample is issued from a state that
+      // permits it — a table that issued them all from the entrance would silently test four
+      // refusals and pass.
+      const start = kind === 'descend' ? atTheStairs(SEED) : createInitialState(SEED);
+      const before = start.commandsResolved;
+      const after = step(start, SAMPLES[kind]);
+      expect(after.commandsResolved, `'${kind}' was refused`).toBe(before + 1);
+      expect(after).not.toBe(start);
     });
   }
 });
 
+// --- move -----------------------------------------------------------------------------------------
+
+describe("step — 'move'", () => {
+  const ROOM = ['#####', '#...#', '#.@.#', '#...#', '#####'];
+
+  it('steps exactly one tile in the direction named', () => {
+    // Catches a transposed or sign-flipped direction table. The scene is asymmetric about both
+    // axes only in the assertions, so each direction is checked against the position it must land
+    // on rather than against "it moved".
+    const start = sceneState(ROOM);
+    const from = playerAt(start);
+    for (const dir of ['north', 'east', 'south', 'west'] as const) {
+      expect(playerAt(step(start, { kind: 'move', dir }))).toEqual(neighbourOf(from, dir));
+    }
+  });
+
+  it('costs exactly one turn, and moves the clock by exactly one action', () => {
+    const start = sceneState(ROOM);
+    const after = step(start, { kind: 'move', dir: 'north' });
+    expect(after.turnsElapsed).toBe(1);
+    expect(after.commandsResolved).toBe(1);
+    expect(after.world.schedule.now).toBe(start.world.schedule.now + ACTION_COST);
+    expect(after.lantern.fuel).toBe(start.lantern.fuel - FUEL_BURN_SHUTTERED);
+  });
+
+  it('attacks what is standing there instead of moving into it (§3, bump-to-attack)', () => {
+    // The rule §3 settles by *subtracting* a command: "what a tap on an adjacent tile does is
+    // decided by what is standing there, never by a mode". A `move` that resolved through
+    // `resolveMove` instead of `bump` would leave the Cinder untouched and the player in place,
+    // spending the turn on nothing — and every determinism property would still pass.
+    const start = sceneState(['#####', '#@c.#', '#####']);
+    const after = step(start, { kind: 'move', dir: 'east' });
+    const cinder = after.world.actors.find((actor) => actor.kind === 'creature');
+
+    expect(playerAt(after)).toEqual(playerAt(start));
+    // Dormant, so §3's double damage applies and 3 × 2 kills a 5 HP Cinder outright. Phase 5 then
+    // drops its ember where it fell — on the tile the player did *not* step onto, so the fuel is
+    // still on the ground and the turn cost its 1.
+    expect(cinder).toBeUndefined();
+    expect(after.world.embers).toEqual([{ at: { x: 2, y: 1 }, amount: CINDER.emberDrop }]);
+    expect(after.lantern.fuel).toBe(start.lantern.fuel - FUEL_BURN_SHUTTERED);
+    // ...and stepping onto it next turn collects it, which is what makes the line above a
+    // statement about *where* the ember is rather than about it not existing.
+    expect(step(after, { kind: 'move', dir: 'east' }).lantern.fuel).toBe(
+      start.lantern.fuel - 2 * FUEL_BURN_SHUTTERED + CINDER.emberDrop,
+    );
+  });
+
+  it('is refused by a wall, byte-identically', () => {
+    // §2: "a move into a wall, a pillar, or off the grid — there is nowhere to step", and "a
+    // refusal costs nothing: no fuel, no creature turn, no adaptation tick, no change to any field
+    // of the state". Asserted as reference identity, which is the strongest form of that and the
+    // only one that cannot rot.
+    const start = sceneState(['###', '#@#', '###']);
+    for (const dir of ['north', 'east', 'south', 'west'] as const) {
+      expect(step(start, { kind: 'move', dir })).toBe(start);
+    }
+  });
+
+  it('is refused by a pillar and off the grid, not only by a wall', () => {
+    // Three tiles named in §2 and three separately reachable branches: `blocksMovement` for the
+    // pillar, `inBounds` for the edge. A `canBump` that checked only the tile kind would walk the
+    // player off the grid and throw somewhere inside the FOV code next turn.
+    const pillar = sceneState(['####', '#@o#', '####']);
+    expect(step(pillar, { kind: 'move', dir: 'east' })).toBe(pillar);
+
+    // No wall on the west side: the player is at x = 0 and the tile beyond is off the grid.
+    const edge = sceneState(['@.#', '...', '###']);
+    expect(step(edge, { kind: 'move', dir: 'west' })).toBe(edge);
+    expect(step(edge, { kind: 'move', dir: 'north' })).toBe(edge);
+  });
+
+  it('collects an ember cache by walking onto it', () => {
+    // Phase 5 runs on a move, and the tile stops being a cache. Included here rather than only in
+    // `light.test.ts` because collection is the one thing in the game that *mutates the generated
+    // floor*, and `Floor` lives inside `GameState` precisely so that mutation is replayed.
+    const built = scenario(['#####', '#@♦.#', '#####']);
+    const withCache: GameState = {
+      ...sceneState(['#####', '#@♦.#', '#####']),
+      world: { ...built.world, floor: { ...built.world.floor, caches: [{ x: 2, y: 1 }] } },
+    };
+    const after = step(withCache, { kind: 'move', dir: 'east' });
+    expect(after.lantern.fuel).toBe(withCache.lantern.fuel - FUEL_BURN_SHUTTERED + CACHE_FUEL);
+    expect(tileAt(after.world.floor.grid, 2, 1).kind).toBe('floor');
+    expect(after.world.floor.caches).toEqual([]);
+  });
+});
+
+// --- wait -----------------------------------------------------------------------------------------
+
 describe("step — 'wait'", () => {
-  it('advances the turn by exactly one', () => {
-    let state = createInitialState(SEED);
-    for (let i = 1; i <= 5; i += 1) {
-      state = step(state, { kind: 'wait' });
-      expect(state.turn).toBe(i);
-    }
+  it('spends the turn without moving', () => {
+    const start = sceneState(['#####', '#.@.#', '#####']);
+    const after = step(start, { kind: 'wait' });
+    expect(playerAt(after)).toEqual(playerAt(start));
+    expect(after.turnsElapsed).toBe(1);
+    expect(after.world.schedule.now).toBe(ACTION_COST);
+    expect(after.lantern.fuel).toBe(start.lantern.fuel - FUEL_BURN_SHUTTERED);
   });
 
-  it('leaves the generator byte-identical', () => {
-    // THE test for this command. A stray draw here produces no visible change and shifts every
-    // subsequent value in the run — the failure would surface much later, in whatever system
-    // happened to draw next, looking like a bug in that system.
-    const before = createInitialState(SEED);
-    const after = step(before, { kind: 'wait' });
-    expect(after.rng).toEqual(before.rng);
+  it('is legal on the stairs, which is the whole reason descend is its own command', () => {
+    // §9: "Not the self-tap — that is `wait`, and **waiting on the stairs is a real move**: the
+    // stairs are exactly where §3's macro decision is made." A `wait` that was quietly rerouted to
+    // `descend` on the stairs would delete that decision and pass every other test in this file.
+    const start = atTheStairs(SEED);
+    const after = step(start, { kind: 'wait' });
+    expect(floorNumberOf(after)).toBe(floorNumberOf(start));
+    expect(after.rng).toEqual(start.rng);
+    expect(after.turnsElapsed).toBe(start.turnsElapsed + 1);
   });
 
-  it('clears the previous outcome', () => {
-    // `lastOutcome` is the result of the command just resolved, and waiting has no result.
+  it('consumes no randomness', () => {
+    // Every command except `descend` must leave the generator byte-identical. A stray draw here is
+    // invisible in the visible state and shifts every subsequent value in the run.
+    const start = sceneState(['#####', '#.@.#', '#####']);
+    expect(step(start, { kind: 'wait' }).rng).toEqual(start.rng);
+  });
+});
+
+// --- setShutter -----------------------------------------------------------------------------------
+
+describe("step — 'setShutter'", () => {
+  const ROOM = ['#######', '#@...c#', '#######'];
+
+  it('is free: no turn passes and no creature acts', () => {
+    // §2: "a free action runs 1, 2, 3 and 5 and skips 4 and 6". The mistake this guards against is
+    // not subtle in its consequences — a free command wired as costing a turn hands every creature
+    // on the floor a free turn — but it is entirely invisible in the lantern's own fields.
     //
-    // This is what makes command *order* observable: found by mutation testing, because when
-    // `wait` passed the previous outcome through instead, shuffling an entire command log changed
-    // nothing at all — a `roll` consumes the same draw wherever it sits, and `turn` counts
-    // commands regardless of order. See state.ts.
-    const rolled = step(createInitialState(SEED), { kind: 'roll', sides: 6 });
-    expect(rolled.lastOutcome.kind).toBe('rolled');
-    expect(step(rolled, { kind: 'wait' }).lastOutcome).toEqual({ kind: 'none' });
+    // The Cinder is woken by a *first* flash, so the command under test is issued against a floor
+    // that already has something in the queue with an action declared. A test that shuttered an
+    // empty floor would pass on a free action that ran the whole actor phase.
+    const flashed = step(sceneState(ROOM, 'shuttered', 50), { kind: 'setShutter', to: 'open' });
+    const declared = flashed.world.actors.find((actor) => actor.kind === 'creature');
+    expect(declared?.kind === 'creature' && declared.mind.kind).toBe('awake');
+
+    const after = step(flashed, { kind: 'setShutter', to: 'shuttered' });
+    expect(after.turnsElapsed).toBe(0);
+    expect(after.commandsResolved).toBe(2);
+    expect(after.world.schedule.now).toBe(flashed.world.schedule.now);
+    expect(after.world.schedule.entries).toEqual(flashed.world.schedule.entries);
+    // The creature still holds what it declared: it has not resolved it, and has not re-declared.
+    expect(after.world.actors.find((actor) => actor.kind === 'creature')).toEqual(declared);
   });
 
-  it('makes a reordered command log produce a different state', () => {
-    // The property the clearing above buys. Guards it directly, so that anyone who "simplifies"
-    // `wait` back to passing the outcome through sees why it was written that way.
-    const rollThenWait = [{ kind: 'roll' as const, sides: 6 }, { kind: 'wait' as const }];
-    const waitThenRoll = [{ kind: 'wait' as const }, { kind: 'roll' as const, sides: 6 }];
-    const left = rollThenWait.reduce(step, createInitialState(SEED));
-    const right = waitThenRoll.reduce(step, createInitialState(SEED));
-    expect(left.lastOutcome).not.toEqual(right.lastOutcome);
+  it('still burns its fuel, at the rate the shutter now sits at', () => {
+    // §4's arithmetic — "a flash buys a room for 4 fuel", "light is roughly three times cheaper in
+    // fuel" — is false if a flash is free, and light would simply dominate exploring.
+    const start = sceneState(ROOM, 'shuttered', 50);
+    const opened = step(start, { kind: 'setShutter', to: 'open' });
+    expect(opened.lantern.fuel).toBe(50 - FUEL_BURN_LIT);
+    expect(step(opened, { kind: 'setShutter', to: 'shuttered' }).lantern.fuel).toBe(
+      50 - FUEL_BURN_LIT - FUEL_BURN_SHUTTERED,
+    );
+  });
+
+  it('wakes the room immediately, without costing a turn to do it', () => {
+    const start = sceneState(ROOM, 'shuttered', 50);
+    const flashed = step(start, { kind: 'setShutter', to: 'open' });
+    expect(flashed.world.actors.filter((actor) => actor.kind === 'creature' && actor.mind.kind === 'awake')).toHaveLength(1);
+    expect(flashed.world.schedule.now).toBe(start.world.schedule.now);
+  });
+
+  it('drops ember-sense to the adaptation floor on shuttering, and does not tick it back', () => {
+    const start = sceneState(ROOM, 'open', 50);
+    const shut = step(start, { kind: 'setShutter', to: 'shuttered' });
+    expect(shut.lantern.vision.senseRadius).toBe(ADAPTATION_FLOOR);
+    // §4: the ramp recovers "+1 per turn", and a free action is not a turn — so strobing cannot
+    // buy ramp progress. The `wait` afterwards is the contrast that makes this assertion mean
+    // something rather than pass on a ramp that never moves at all.
+    const strobed = step(step(shut, { kind: 'setShutter', to: 'open' }), { kind: 'setShutter', to: 'shuttered' });
+    expect(strobed.lantern.vision.senseRadius).toBe(ADAPTATION_FLOOR);
+    expect(step(strobed, { kind: 'wait' }).lantern.vision.senseRadius).toBe(ADAPTATION_FLOOR + 1);
+  });
+
+  it('is refused when the shutter is already set that way', () => {
+    // Not §2's table — this case did not exist while the command was a *toggle*. Refused because
+    // §2 makes the toggle free and re-asserting a setting is not a toggle: resolving it would
+    // charge 4 fuel for a double-tap on a control that already read "open", which is exactly the
+    // fat-fingered-tap argument §2 uses to justify the free toggle in the first place.
+    const open = sceneState(ROOM, 'open', 50);
+    expect(step(open, { kind: 'setShutter', to: 'open' })).toBe(open);
+    const shut = sceneState(ROOM, 'shuttered', 50);
+    expect(step(shut, { kind: 'setShutter', to: 'shuttered' })).toBe(shut);
+  });
+
+  it('resolves — does not refuse — an open the lantern is too dry to honour', () => {
+    // §4: at 0 fuel "the shutter can no longer be opened", and `lantern.ts` implements that as a
+    // legal no-op rather than an error: the control is still under the player's thumb. So this is
+    // a *resolved* free action whose effect on the lantern is nil, and it is the one case where
+    // `commandsResolved` is the only field that moves. Conflating it with a refusal is the bug
+    // this test exists to catch — it would make a resolved command byte-identical to a refused one
+    // and quietly falsify the replay suite's "identical means refused" cross-check.
+    const dry = sceneState(['#####', '#@..#', '#####'], 'shuttered', 0);
+    const after = step(dry, { kind: 'setShutter', to: 'open' });
+    expect(after).not.toBe(dry);
+    expect(after.commandsResolved).toBe(1);
+    expect(after.turnsElapsed).toBe(0);
+    expect(after.lantern.vision.shutter).toBe('shuttered');
+    expect(after.lantern.fuel).toBe(0);
   });
 });
 
-describe("step — 'roll'", () => {
-  it('consumes exactly one draw', () => {
-    // Catches: drawing twice, or drawing and discarding the resulting generator state (which
-    // would replay the same value forever).
-    const before = createInitialState(SEED);
-    const after = step(before, { kind: 'roll', sides: 6 });
-    expect(after.rng).toEqual(advance(before.rng, 1));
+// --- descend ---------------------------------------------------------------------------------------
+
+describe("step — 'descend'", () => {
+  it('is refused anywhere but the stairs', () => {
+    // §9/§13: "the stairs are where you take them." Byte-identical, and in particular **no draw**:
+    // a refused descent that generated a floor and threw it away would advance the generator by
+    // ~57 steps and poison every subsequent value in the run without changing anything visible.
+    const start = createInitialState(SEED);
+    expect(step(start, { kind: 'descend' })).toBe(start);
+    expect(step(start, { kind: 'descend' }).rng).toEqual(start.rng);
   });
 
-  it('records exactly the value int() would produce from the pre-step generator', () => {
-    // Pins the mapping from generator to result, not just its range. Catches `float()` instead of
-    // `int()`, `int(rng, 0, sides)`, or a different helper with the same draw count — all of which
-    // preserve every property asserted elsewhere in this file while changing what a seed produces.
-    for (const sides of [1, 2, 6, 20, 1000]) {
-      const before = createInitialState(`roll-${sides}`);
-      const expected = int(before.rng, 1, sides);
-      const after = step(before, { kind: 'roll', sides });
-      expect(after.lastOutcome).toEqual({ kind: 'rolled', value: expected.value });
-      expect(after.rng).toEqual(expected.rng);
-    }
+  it('draws exactly what generating the floor below costs, and nothing else does', () => {
+    const start = atTheStairs(SEED);
+    const after = step(start, { kind: 'descend' });
+    expect(after.rng).toEqual(advance(start.rng, expectedDrawCount(floorNumberOf(after))));
   });
 
-  it('stays within 1..sides and reaches both endpoints', () => {
-    // Catches an off-by-one at either end: a d6 that never rolls 6, or one that can roll 0.
-    let state: GameState = createInitialState('roll-range');
-    const seen = new Set<number>();
-    for (let i = 0; i < 2_000; i += 1) {
-      state = step(state, { kind: 'roll', sides: 6 });
-      if (state.lastOutcome.kind !== 'rolled') throw new Error('roll did not record a value');
-      expect(state.lastOutcome.value).toBeGreaterThanOrEqual(1);
-      expect(state.lastOutcome.value).toBeLessThanOrEqual(6);
-      seen.add(state.lastOutcome.value);
-    }
-    expect([...seen].sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6]);
+  it('carries the lantern, the eyes and the wounds (§13)', () => {
+    // The whole of §13's "carries" column, on a state contrived to make every one of them visible:
+    // shuttered (so the shutter has something to carry), mid-ramp (so the sense radius does), and
+    // wounded (so the heal does).
+    const arrivedAbove = atTheStairs(SEED);
+    const start: GameState = {
+      ...arrivedAbove,
+      world: {
+        ...arrivedAbove.world,
+        actors: arrivedAbove.world.actors.map((actor) =>
+          actor.kind === 'player' ? { ...actor, hp: 5 } : actor,
+        ),
+      },
+      lantern: {
+        fuel: 33,
+        vision: { ...arrivedAbove.lantern.vision, shutter: 'shuttered', senseRadius: 3 },
+      },
+    };
+
+    const after = step(start, { kind: 'descend' });
+    expect(floorNumberOf(after)).toBe(floorNumberOf(start) + 1);
+    expect(after.lantern.vision.shutter).toBe('shuttered');
+    expect(after.lantern.vision.senseRadius).toBe(3 + 1); // carried, then phase 6 ticks it
+    expect(after.lantern.fuel).toBe(33 - FUEL_BURN_SHUTTERED);
+    expect(playerOf(after.world).hp).toBe(5 + DESCENT_HEAL);
   });
 
-  it('consumes one draw even for a one-sided die', () => {
-    // The draw-count contract at the step level: consumption depends on the command's shape, never
-    // on whether the outcome was a foregone conclusion.
-    const before = createInitialState(SEED);
-    const after = step(before, { kind: 'roll', sides: 1 });
-    expect(after.lastOutcome).toEqual({ kind: 'rolled', value: 1 });
-    expect(after.rng).toEqual(advance(before.rng, 1));
+  it('caps the descent heal at the player’s maximum', () => {
+    const start = atTheStairs(SEED);
+    expect(playerOf(start.world).hp).toBe(PLAYER_MAX_HP);
+    expect(playerOf(step(start, { kind: 'descend' }).world).hp).toBe(PLAYER_MAX_HP);
+  });
+
+  it('leaves the map behind: a fresh, empty, correctly sized memory', () => {
+    // §13's sharpest "does not": "Memory is of a place, and you have never been to this one." A
+    // descent that carried `remembered` across would show the player the floor above's walls drawn
+    // over the floor below's, and — because a `TileSet` is a flat array indexed by tile — would
+    // index one row out on any grid of a different width.
+    const start = atTheStairs(SEED);
+    const before = start.lantern.vision.remembered;
+    expect(before.flags.filter(Boolean).length).toBeGreaterThan(0);
+
+    const after = step(start, { kind: 'descend' });
+    const arrived = after.lantern.vision.remembered;
+    expect(arrived.width).toBe(after.world.floor.grid.width);
+    expect(arrived.flags).toHaveLength(after.world.floor.grid.tiles.length);
+    // Phase 3 runs on the new floor, so the arriving memory is exactly what is perceived from the
+    // new entrance — not the old floor's, and not nothing.
+    expect(hasTile(arrived, after.world.floor.entrance.x, after.world.floor.entrance.y)).toBe(true);
+    expect(arrived.flags.filter(Boolean).length).toBeLessThan(before.flags.filter(Boolean).length + 1);
+  });
+
+  it('leaves the creatures, the embers and the clock behind', () => {
+    const start = atTheStairs(SEED);
+    const after = step(start, { kind: 'descend' });
+
+    expect(after.world.embers).toEqual([]);
+    expect(after.world.actors.filter((actor) => actor.kind === 'creature' && actor.mind.kind === 'awake')).toEqual([]);
+    // §13: nothing about the clock is floor-crossing, and the arriving schedule holds exactly the
+    // player, charged for the turn the descent cost. If the player were still due, phase 4 would
+    // have thrown "the player was due in phase 4" — which is why this is the assertion and not a
+    // comment.
+    expect(after.world.schedule.now).toBe(ACTION_COST);
+    expect(after.world.schedule.entries).toEqual([{ actorId: PLAYER_ID, nextActAt: ACTION_COST }]);
+  });
+
+  it('puts the player on the new floor’s entrance', () => {
+    const after = step(atTheStairs(SEED), { kind: 'descend' });
+    expect(playerAt(after)).toEqual(after.world.floor.entrance);
+  });
+
+  it('pays the turn on the floor below, so the floor above gets no parting shot', () => {
+    // §13: "The creatures on the floor you left get no parting shot ... **the stairs are the one
+    // escape nothing follows you down**." Contrived on a hand-drawn floor: the player stands on the
+    // stairs, flashes (free, so nothing resolves), and the Cinder below wakes with an attack
+    // declared on the tile the player is standing on. The next turn either eats that attack or
+    // does not — which is the whole assertion.
+    // The player starts wounded, so that "took the hit" and "took the hit and then healed the
+    // descent's +2" are different numbers. At full HP they are the same number and this test would
+    // pass on a rule that resolved the parting shot and then papered over it.
+    const scene = ['#####', '#@>.#', '#.c.#', '#####'];
+    const wounded = withPlayerHp(sceneState(scene, 'shuttered', 40), 6);
+    const onStairs = step(wounded, { kind: 'move', dir: 'east' });
+    const woken = step(onStairs, { kind: 'setShutter', to: 'open' });
+
+    const cinder = woken.world.actors.find((actor) => actor.kind === 'creature');
+    expect(cinder?.kind === 'creature' && cinder.mind.kind === 'awake' && cinder.mind.intent).toEqual({
+      kind: 'attack',
+      at: playerAt(woken),
+    });
+
+    // §2: "a creature woken *during* a free action sees two player commands before its declared
+    // action resolves." So one turn passes before the attack is due; this is that turn.
+    const poised = step(woken, { kind: 'wait' });
+    expect(playerOf(poised.world).hp).toBe(6);
+
+    // The control: spend the turn here, and the declared attack lands.
+    expect(playerOf(step(poised, { kind: 'wait' }).world).hp).toBe(6 - CINDER.attack);
+
+    // The rule: take the stairs instead, and it does not — the turn is paid on a floor that Cinder
+    // is not on. What the player arrives with is the +2, not the −2.
+    const after = step(poised, { kind: 'descend' });
+    expect(playerOf(after.world).hp).toBe(6 + DESCENT_HEAL);
+    expect(floorNumberOf(after)).toBe(2);
   });
 });
+
+// --- the end of a run -------------------------------------------------------------------------------
+
+describe('the end of a run', () => {
+  it('wins by descending from the last floor, and generates no floor 9', () => {
+    // §13: "The eighth descent *is* the ending", and it "ends in phase 1 and nothing else runs,
+    // because there is no floor below to burn fuel on". Both halves asserted: the status, and the
+    // generator standing exactly where it stood — a `step` that generated floor 9 and discarded it
+    // would satisfy the status assertion alone.
+    const start = sceneState(['#####', '#@>.#', '#####'], 'shuttered', 40, LAST_FLOOR);
+    const onStairs = step(start, { kind: 'move', dir: 'east' });
+    expect(tileAt(onStairs.world.floor.grid, playerAt(onStairs).x, playerAt(onStairs).y).kind).toBe('stairs');
+
+    const won = step(onStairs, { kind: 'descend' });
+    expect(won.status).toEqual({ kind: 'reachedBottom' });
+    expect(won.rng).toEqual(onStairs.rng);
+    expect(floorNumberOf(won)).toBe(LAST_FLOOR);
+    expect(won.lantern.fuel).toBe(onStairs.lantern.fuel);
+    expect(won.world.schedule.now).toBe(onStairs.world.schedule.now);
+    // It is still a turn the player spent, and §13's summary screen counts it.
+    expect(won.turnsElapsed).toBe(onStairs.turnsElapsed + 1);
+    expect(won.commandsResolved).toBe(onStairs.commandsResolved + 1);
+  });
+
+  it('refuses every command once the run has been won', () => {
+    const start = sceneState(['#####', '#@>.#', '#####'], 'shuttered', 40, LAST_FLOOR);
+    const won = step(step(start, { kind: 'move', dir: 'east' }), { kind: 'descend' });
+    for (const command of [
+      { kind: 'wait' },
+      { kind: 'move', dir: 'west' },
+      { kind: 'setShutter', to: 'open' },
+      { kind: 'descend' },
+    ] as Command[]) {
+      expect(step(won, command), JSON.stringify(command)).toBe(won);
+    }
+  });
+
+  it('ends the run when the player dies, and refuses everything after', () => {
+    // §13: "a stored run whose command log runs past the death must still replay." So the trailing
+    // commands are not an error and are not resolved — the state at the end of the log is the
+    // state at the moment of the blow.
+    const record = standUntilDead('grave', 4);
+    const final = replay(record);
+    expect(final.status).toEqual({ kind: 'died' });
+    expect(playerOf(final.world).hp).toBe(0);
+    // Four commands were issued after the death and none of them resolved.
+    expect(final.commandsResolved).toBe(record.commands.length - 4);
+    expect(step(final, { kind: 'wait' })).toBe(final);
+  });
+
+  it('stops the turn where the killing blow lands: phases 5 and 6 do not run', () => {
+    // §13, and the part of it that is genuinely easy to ship wrong, because the wrong version
+    // looks like nothing at all. Two observables:
+    //
+    //   - the clock does not advance past the blow (`runActorPhase` returns without
+    //     `advanceToNextActor`), so `schedule.now` is one action behind `turnsElapsed`;
+    //   - dark adaptation does not tick on the turn the player dies.
+    const record = standUntilDead('grave', 0);
+    const states = record.commands.map((_, i) => runCommands(record.seed, record.commands.slice(0, i + 1)));
+    const fatal = states[states.length - 1];
+    const before = states[states.length - 2];
+
+    expect(fatal.status).toEqual({ kind: 'died' });
+    expect(fatal.world.schedule.now).toBe(before.world.schedule.now);
+    expect(fatal.lantern.vision.senseRadius).toBe(before.lantern.vision.senseRadius);
+    // ...and an ordinary turn does advance the clock, or the assertion above passes on a clock
+    // that never moves.
+    expect(before.world.schedule.now).toBeGreaterThan(0);
+  });
+
+  it('runs a whole eight-floor run to the bottom', () => {
+    // The full loop, end to end, through the real `step()`. Everything below is a property of a
+    // *run* rather than of a turn, and none of it is checkable one command at a time.
+    const record = diveToTheBottom(SEED);
+    const final = replay(record);
+
+    expect(final.status).toEqual({ kind: 'reachedBottom' });
+    expect(floorNumberOf(final)).toBe(LAST_FLOOR);
+    expect(isAlive(playerOf(final.world))).toBe(true);
+    // Seven descents plus the eighth that wins it — so the floor number moved exactly seven times.
+    expect(record.commands.filter((command) => command.kind === 'descend')).toHaveLength(LAST_FLOOR);
+    // A free action is in there, so the two counters must disagree by exactly the number of them.
+    const free = record.commands.filter((command) => command.kind === 'setShutter').length;
+    expect(final.commandsResolved).toBe(record.commands.length);
+    expect(final.turnsElapsed).toBe(record.commands.length - free);
+    // §4: 0 fuel is not an ending. This run reaches the bottom on an empty lantern, which is the
+    // situation §4 says is desperate rather than lost — and the assertion that says so.
+    expect(final.lantern.fuel).toBe(0);
+  });
+});
+
+// --- refusals, as a class -------------------------------------------------------------------------
+
+describe('refusals', () => {
+  it('return the input state itself, not a copy of it', () => {
+    // Contract 6. Reference identity is a stronger statement than structural equality and it is
+    // the one that cannot rot: a later `{ ...state }` that also touched the generator would still
+    // pass a `toEqual` against a state whose `rng` had not been read.
+    const start = createInitialState(SEED);
+    expect(step(start, { kind: 'descend' })).toBe(start);
+  });
+
+  it('leave the generator, the clock, the fuel and both counters untouched', () => {
+    // Spelled out field by field as well as by identity, because identity is what a refactor
+    // breaks first and this is the list of what breaking it would cost.
+    const start = step(createInitialState(SEED), { kind: 'setShutter', to: 'shuttered' });
+    const refused = step(start, { kind: 'descend' });
+    expect(refused.rng).toEqual(start.rng);
+    expect(refused.world.schedule.now).toBe(start.world.schedule.now);
+    expect(refused.lantern.fuel).toBe(start.lantern.fuel);
+    expect(refused.turnsElapsed).toBe(start.turnsElapsed);
+    expect(refused.commandsResolved).toBe(start.commandsResolved);
+  });
+
+  it('do not hand the floor a turn', () => {
+    // The consequence §2 gives as the reason refusals are free: charging for a fat-fingered tap
+    // "hands every creature on the floor a free turn". A woken Cinder next door must not move.
+    const start = sceneState(['#######', '#@...c#', '#######'], 'open', 40);
+    const woken = step(start, { kind: 'setShutter', to: 'shuttered' });
+    const before = woken.world.actors.find((actor) => actor.kind === 'creature');
+    const refused = step(woken, { kind: 'move', dir: 'north' });
+    expect(refused).toBe(woken);
+    expect(refused.world.actors.find((actor) => actor.kind === 'creature')).toBe(before);
+  });
+});
+
+// --- malformed commands ---------------------------------------------------------------------------
 
 describe('step — malformed commands', () => {
-  const before = createInitialState(SEED);
-
-  it.each([
-    ['zero sides', { kind: 'roll', sides: 0 }],
-    ['negative sides', { kind: 'roll', sides: -3 }],
-    ['fractional sides', { kind: 'roll', sides: 2.5 }],
-    ['NaN sides', { kind: 'roll', sides: Number.NaN }],
-    ['unsafe integer sides', { kind: 'roll', sides: 2 ** 60 }],
-  ])('rejects %s', (_label, command) => {
-    expect(() => step(before, command as Command)).toThrow(/roll requires/);
-  });
-
-  it('rejects a malformed payload itself, rather than letting the RNG do it', () => {
-    // A note on a test that is NOT here, because it looked valuable and is not: "a rejected
-    // command consumes no entropy". With a threaded generator that cannot fail — the caller's
-    // `Rng` is an immutable value they still hold, so a half-consumed draw is discarded with the
-    // exception no matter where the throw happens. The assertion would be tautological.
-    //
-    // What is real is *which* error you get. Delete the validation in `step` and every rejection
-    // above still throws, but from inside `int()`, with a message about spans and safe integers
-    // and no mention of the command. Debugging a corrupt save file then starts in the RNG.
-    for (const sides of [0, -3, 2.5, Number.NaN]) {
-      const attempt = () => step(before, { kind: 'roll', sides } as Command);
-      expect(attempt).toThrow(/^step: roll requires/);
-      expect(attempt).not.toThrow(/^rng:/);
-    }
-  });
+  const start = createInitialState(SEED);
 
   it('throws on an unknown command kind rather than silently doing nothing', () => {
-    // A record parsed from a save file is `unknown` whatever its declared type says. A default
-    // case that returned the state unchanged would make a corrupt record replay as a plausible run
-    // that never happened.
+    // A record parsed from a save file is `unknown` whatever its declared type says. A default case
+    // that returned the state unchanged would make a corrupt record replay as a plausible run that
+    // never happened — which is worse than a crash, because it is believable.
     const bogus = { kind: 'teleport' } as unknown as Command;
-    expect(() => step(before, bogus)).toThrow(/unhandled variant/);
-    expect(() => step(before, bogus)).toThrow(/teleport/);
+    expect(() => step(start, bogus)).toThrow(/unknown command kind/);
+    expect(() => step(start, bogus)).toThrow(/teleport/);
+  });
+
+  it.each([
+    ['a diagonal', { kind: 'move', dir: 'northeast' }],
+    ['a vector', { kind: 'move', dir: { x: 1, y: 0 } }],
+    ['nothing at all', { kind: 'move' }],
+  ])('throws on a move with %s', (_label, command) => {
+    expect(() => step(start, command as unknown as Command)).toThrow(/move requires a direction/);
+  });
+
+  it.each([
+    ['ajar', { kind: 'setShutter', to: 'ajar' }],
+    ['missing', { kind: 'setShutter' }],
+  ])('throws on a setShutter to %s', (_label, command) => {
+    expect(() => step(start, command as unknown as Command)).toThrow(/setShutter requires/);
+  });
+
+  it('validates before it draws, so a malformed command cannot move the generator', () => {
+    // `draw.ts`'s corollary, one level up: nothing may consume entropy and then throw. With an
+    // immutable threaded generator the caller's `Rng` survives the exception anyway — the real
+    // content of this test is that the *state* is untouched and the error names the command rather
+    // than coming from somewhere inside the map generator.
+    const onStairs = atTheStairs(SEED);
+    const broken = { kind: 'descend', dir: 'nowhere' } as unknown as Command;
+    expect(() => step(onStairs, broken)).not.toThrow(); // `descend` carries no payload to break
+    expect(() => step(onStairs, { kind: 'move', dir: 'up' } as unknown as Command)).toThrow(/^step: /);
+    expect(onStairs.rng).toEqual(atTheStairs(SEED).rng);
+  });
+});
+
+// --- the floor is inside the state -----------------------------------------------------------------
+
+describe('the seam between the run and the floor', () => {
+  it('hands game/systems/ the floor and the lantern, and nothing else', () => {
+    // `worldOf` is a *projection*, and the projection is the point: a turn phase must not be able
+    // to reach the run's generator, its counters or its ending. Spreading the whole state instead
+    // would compile, would pass every behavioural test (the extra fields are dropped again on the
+    // way back), and would quietly make `game/systems/` able to read `rng` — at which point the
+    // determinism argument for keeping randomness in one layer stops being structural.
+    const state = createInitialState(SEED);
+    expect(Object.keys(worldOf(state)).sort()).toEqual(['lantern', 'world']);
+  });
+
+  it('puts the resolved floor and lantern back, keeping the run’s own fields', () => {
+    const state = step(createInitialState(SEED), { kind: 'wait' });
+    const elsewhere = createInitialState('elsewhere');
+    const merged = withWorld(state, worldOf(elsewhere));
+
+    expect(merged.world).toBe(elsewhere.world);
+    expect(merged.lantern).toBe(elsewhere.lantern);
+    expect(merged.rng).toEqual(state.rng);
+    expect(merged.turnsElapsed).toBe(state.turnsElapsed);
+    expect(merged.status).toEqual(state.status);
+  });
+});
+
+describe('the floor lives inside GameState', () => {
+  it('is a plain, JSON-round-trippable value, all the way down', () => {
+    // `divergence.ts` throws on a `Map`, a `Set`, or a class instance rather than reporting two
+    // different ones as identical, so this is the assertion that keeps the replay tripwire honest
+    // about the largest thing in the state.
+    const state = replay(diveToTheBottom(SEED, 2));
+    const divergence = findFieldDivergence(JSON.parse(JSON.stringify(state)) as GameState, state);
+    expect(divergence).toBeNull();
+  });
+
+  it('carries the floor’s own number rather than a second copy of it', () => {
+    // One source of truth. A `floorNumber` field on `GameState` could disagree with the map the
+    // player is standing on, and the disagreement would be invisible until something generated the
+    // wrong next floor.
+    const state = replay(diveToTheBottom(SEED, 3));
+    const floor: Floor = state.world.floor;
+    expect(floorNumberOf(state)).toBe(floor.floorNumber);
+    expect(samePosition(playerAt(state), floor.entrance)).toBe(true);
   });
 });

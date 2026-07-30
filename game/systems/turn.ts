@@ -15,36 +15,20 @@
  *
  * ## The seam
  *
- * Only the scheduling half of this exists today. `game/fov/` (#14), `game/entities/` (#16), and
- * the fuel system (#17) are not written, and this module deliberately does **not** stub them:
- * an empty `burnFuel` that returns its state unchanged is a lie that passes tests, and the next
- * session finds it and assumes fuel is done.
+ * The phases are *injected*. `TurnPhases<S>` is a `Record` over the phase union, so a caller that
+ * forgets one does not compile, and each system supplies its own phase without this file ever
+ * learning what fuel is. `game/systems/light.ts` supplies five of the six through
+ * `lanternPhases(cost, command)`; `game/core/step.ts` supplies the sixth — the player's command —
+ * because the `Command` union is `game/core/`'s.
  *
- * Instead the phases are *injected*. `TurnPhases<S>` is a `Record` over the phase union, so a
- * caller that forgets one does not compile, and each system supplies its own phase without this
- * file ever learning what fuel is. When `step()` is wired up (#16) it should read:
+ * Two rules the callers must keep, both of which have a loud failure rather than a quiet one:
  *
- * ```ts
- * // GDD §2: toggling the shutter is a FREE action — it must not consume a turn.
- * // A free action is one that does not charge the actor, and `runActorPhase` charges every
- * // actor due at `now` — including the player. So a free command must skip the actor phase
- * // entirely, not merely skip its own charge. Getting this wrong costs the player a turn AND
- * // hands every creature on the floor a free one.
- * const isFree = command.kind === 'toggleShutter';
- *
- * return resolveTurn(state, {
- *   command:          (s) => resolveCommand(s, command),
- *   fuelBurn:         burnFuel,
- *   lightingAndWaking: recomputeLighting,
- *   actors:           isFree ? identity : (s) => runActorPhase(s, scheduleLens, actOnce),
- *   deaths:           resolveDeaths,
- *   darkAdaptation:   isFree ? identity : tickDarkAdaptation,
- * });
- * ```
- *
- * (Whether a free action also skips `fuelBurn` and `darkAdaptation` is #17's and #14's call —
- * the shutter toggle plausibly should still burn the turn's fuel. What is *not* open is the
- * actor phase: a free action that lets every creature act is not free.)
+ *   - **A command that costs a turn must charge the player in phase 1.** `runActorPhase` charges
+ *     and runs every actor due at `now`, and the player is due at `now` when a turn begins, so a
+ *     command that forgets leaves the player due in phase 4 and `actOnce` throws.
+ *   - **A free action skips phase 4 entirely** — not "runs it without charging". A free command
+ *     that merely declines to charge itself still gets charged by phase 4 *and* hands every
+ *     creature on the floor a free turn. `TurnCost` has no default anywhere, for that reason.
  *
  * Injecting functions is not a hole in the determinism contract: the *state* stays plain data, and
  * the phases are supplied at the call site by `game/` code, not from outside the simulation.
@@ -65,7 +49,7 @@ import {
  * "harmless" reordering fails a test that names the GDD rather than merely failing something.
  */
 export const RESOLUTION_PHASES = [
-  /** 1. The player's command resolves: move, attack, wait, toggle shutter, descend. */
+  /** 1. The player's command resolves: move-or-attack, wait, set shutter, descend (§3, §9). */
   'command',
   /** 2. Fuel burns at the current shutter rate. */
   'fuelBurn',
@@ -134,9 +118,9 @@ const MAX_ACTS_PER_TURN = 1024;
  * to the next instant at which anything happens.
  *
  * `act` is the *rules* half — resolve the action this actor declared last turn, then declare its
- * next (#16). This function is the *scheduling* half, and the two are separated because the
- * scheduling half is where the order-dependence bugs live and it can be tested exhaustively
- * without an actor model existing.
+ * next. This function is the *scheduling* half, and the two are separated because the scheduling
+ * half is where the order-dependence bugs live and it can be tested exhaustively without an actor
+ * model existing.
  *
  * **The actor is charged before it acts**, which buys two things:
  *
@@ -148,12 +132,19 @@ const MAX_ACTS_PER_TURN = 1024;
  * The queue is re-read after every action, so an actor killed by an earlier actor in the same
  * phase never gets its turn, and a creature spawned mid-phase is picked up if it is due.
  *
+ * @param halt asked after every action: **should the sweep stop here?** GDD §13's "a terminal
+ *   state stops the turn where it happens" — if the player dies to the second of three Cinders,
+ *   the third does not act and the clock does not advance, so the final state is the frame of the
+ *   killing blow rather than three creatures shuffling around a corpse. It is a required argument
+ *   and not a default, because "keep going" is a rules answer and this file has no rules in it;
+ *   the caller that owns the rules (`actors.ts`) is the one that must say.
  * @throws if the phase fails to make progress — see `MAX_ACTS_PER_TURN`.
  */
 export function runActorPhase<S>(
   state: S,
   lens: ScheduleLens<S>,
   act: (state: S, actorId: ActorId) => S,
+  halt: (state: S) => boolean,
 ): S {
   let current = state;
 
@@ -167,6 +158,9 @@ export function runActorPhase<S>(
 
     current = lens.set(current, chargeActor(schedule, next.actorId));
     current = act(current, next.actorId);
+    // Asked *after* the action, never before: a sweep that halted on entry would leave the clock
+    // where it was on a perfectly ordinary turn. The killing blow has to have landed first.
+    if (halt(current)) return current;
   }
 
   throw new Error(

@@ -49,7 +49,7 @@ import { step } from './step';
 import { createInitialState, type GameState } from './state';
 
 /** The rules version this build of the simulation implements. See the header. */
-export const RULES_VERSION = 1;
+export const RULES_VERSION = 2;
 
 /**
  * Append-only. One line per bump, newest last, so that a fixture pinned at version N can be
@@ -57,6 +57,10 @@ export const RULES_VERSION = 1;
  */
 export const RULES_VERSION_LOG: readonly string[] = [
   '1 — initial: `wait` and `roll` scaffolding commands, xoshiro128** generator (#3).',
+  '2 — the real game (#18): the scaffolding `wait | roll` union is replaced by ' +
+    '`move | wait | setShutter | descend`; `GameState` gains the floor, the actors, the lantern ' +
+    'and a run status, and `createInitialState` now generates floor 1 (so a run consumes draws ' +
+    'before its first command). Every version-1 record is meaningless under these rules.',
 ];
 
 /**
@@ -71,7 +75,11 @@ export type RunRecord = {
   readonly version: number;
   /** Any string. Human-shareable by design — see `game/rng/seed.ts`. */
   readonly seed: string;
-  /** In order. Index `i` is the command resolved on turn `i + 1`. */
+  /**
+   * In order. Index `i` is the `i`-th command *issued* — not the `i`-th turn: a free action costs
+   * no turn and a refused action costs nothing at all, so the log is longer than the run is
+   * (`step.ts`, contract 5).
+   */
   readonly commands: readonly Command[];
 };
 

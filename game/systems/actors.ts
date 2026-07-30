@@ -42,6 +42,7 @@ import {
   declaredIntent,
   isAlive,
   isAwake,
+  playerOf,
   scheduleLens,
   wakeCreature,
   type ActorWorld,
@@ -119,10 +120,28 @@ export function actOnce(world: ActorWorld, id: ActorId, perception: Perception):
 }
 
 /**
+ * GDD §13: the run is over the moment the player's HP reaches 0.
+ *
+ * The *only* ending this layer can see. The other one — taking the stairs on the last floor — is a
+ * fact about which floor you are on, which an `ActorWorld` does not know and `game/systems/run.ts`
+ * does; and it ends the turn in phase 1, before this could be asked. So there is deliberately no
+ * "or the run was won" branch here to fall out of date.
+ *
+ * **0 fuel is not an ending** (§4, §13), which is why fuel is not consulted and cannot be.
+ */
+export function isRunOver(world: ActorWorld): boolean {
+  return !isAlive(playerOf(world));
+}
+
+/**
  * GDD §2 phase 4, whole: every actor owed a turn acts, or nothing at all if the command was free.
  *
  * The `free` branch is `identity` — not "run the phase but skip charging", which is the mistake
  * this signature exists to make unavailable.
+ *
+ * The sweep stops the instant the player dies (§13). Without that, a player killed by the first of
+ * three due Cinders would still watch the other two take their turns, and the state a summary
+ * screen renders would be three turns after the blow that ended the run.
  */
 export function actorPhase(cost: TurnCost, perception: Perception): TurnPhase<ActorWorld> {
   switch (cost) {
@@ -130,7 +149,12 @@ export function actorPhase(cost: TurnCost, perception: Perception): TurnPhase<Ac
       return (world) => world;
     case 'costsATurn':
       return (world) =>
-        runActorPhase(world, scheduleLens, (current, id) => actOnce(current, id, perception));
+        runActorPhase(
+          world,
+          scheduleLens,
+          (current, id) => actOnce(current, id, perception),
+          isRunOver,
+        );
     default:
       return assertNever(cost, 'actorPhase');
   }

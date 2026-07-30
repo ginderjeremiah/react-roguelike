@@ -10,8 +10,8 @@ import {
 } from '@/tests/unit/support/scenario';
 import { CINDER, PLAYER_MAX_HP } from '../content';
 import { creatureById, playerOf, withActor, withHp, PLAYER_ID } from '../entities';
-import { actOnce, actorPhase, wakeInLight } from './actors';
-import { ACTION_COST, hasActor, nextActAtOf } from './schedule';
+import { actOnce, actorPhase, isRunOver, wakeInLight } from './actors';
+import { ACTION_COST, chargeActor, hasActor, nextActAtOf } from './schedule';
 
 describe('actOnce', () => {
   it('resolves the declared move, then declares the next action from where it landed', () => {
@@ -150,5 +150,57 @@ describe('waking in light', () => {
   it('is a no-op when nothing is lit', () => {
     const { world } = scenario(['#######', '#@...c#', '#######']);
     expect(wakeInLight(world, SHUTTERED)).toBe(world);
+  });
+});
+
+describe('the run ends where the killing blow lands (§13)', () => {
+  it('reports the run over exactly when the player has no HP left', () => {
+    // The predicate that phase 4 and phases 5-6 both consult. **Fuel is deliberately not in it**:
+    // §4 and §13 are explicit that 0 fuel is a desperate state and not a loss state, and it is the
+    // first thing anyone assumes, so it is asserted rather than merely left out.
+    const { world } = scenario(['#####', '#@c.#', '#####']);
+    expect(isRunOver(world)).toBe(false);
+    expect(isRunOver(withActor(world, withHp(playerOf(world), 1)))).toBe(false);
+    expect(isRunOver(withActor(world, withHp(playerOf(world), 0)))).toBe(true);
+  });
+
+  it('stops the actor sweep the moment the player dies, mid-phase', () => {
+    // §13: "If the player dies in phase 4, the actor sweep stops there ... the final state is the
+    // frame of the killing blow, which is Pillar 2 in its most literal form: the last thing on
+    // screen is the thing that killed you, not three Cinders shuffling around a corpse."
+    //
+    // Two Cinders, both due, both with an attack declared on the player's tile. The player has
+    // exactly one Cinder's worth of HP, so the first kills them. Without the halt the second acts
+    // anyway — and the observable is not the second attack (a corpse takes no more damage) but the
+    // clock: the sweep would run to completion and advance it.
+    const { world, ids, at } = scenario(['#####', '#c@c#', '#####']);
+    let committed = awaken(world, ids[0], { kind: 'attack', at: at('@') });
+    committed = awaken(committed, ids[1], { kind: 'attack', at: at('@') });
+    committed = allDueNow(withActor(committed, withHp(playerOf(committed), CINDER.attack)));
+    // Phase 1 charges the player; this stands in for it, or phase 4 refuses to give the player a turn.
+    committed = { ...committed, schedule: chargeActor(committed.schedule, PLAYER_ID) };
+
+    const after = actorPhase('costsATurn', SHUTTERED)(committed);
+
+    expect(playerOf(after).hp).toBe(0);
+    // The second Cinder never resolved its declared attack, so it still holds it.
+    expect(creatureById(after, ids[1]).mind).toMatchObject({ intent: { kind: 'attack' } });
+    // ...and the clock is standing at the blow rather than advanced past it.
+    expect(after.schedule.now).toBe(committed.schedule.now);
+  });
+
+  it('runs the whole sweep when the player survives, which is what makes the stop mean something', () => {
+    // The contrast. Same setup, enough HP to survive both: both Cinders act, both re-declare, and the
+    // clock advances. Without this, a halt that fired unconditionally would pass the test above.
+    const { world, ids, at } = scenario(['#####', '#c@c#', '#####']);
+    let committed = awaken(world, ids[0], { kind: 'attack', at: at('@') });
+    committed = awaken(committed, ids[1], { kind: 'attack', at: at('@') });
+    committed = allDueNow(withActor(committed, withHp(playerOf(committed), 2 * CINDER.attack + 1)));
+    committed = { ...committed, schedule: chargeActor(committed.schedule, PLAYER_ID) };
+
+    const after = actorPhase('costsATurn', SHUTTERED)(committed);
+
+    expect(playerOf(after).hp).toBe(1);
+    expect(after.schedule.now).toBe(committed.schedule.now + ACTION_COST);
   });
 });

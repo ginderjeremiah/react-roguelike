@@ -47,7 +47,8 @@ Three facts make that decision have teeth:
 So the loop is **flash and crawl**: crawl dark, using ember-sense to stalk and to steer around what
 you cannot fight; flash the lantern for one or two turns to learn a room's shape and find its
 cache, accepting that you have just announced yourself to everything in it; shutter and deal with
-what you woke. Repeat down eight floors.
+what you woke. Repeat down eight floors — taking the stairs on the last one is how a run is won
+(§13).
 
 **The four M0 open questions, answered:**
 
@@ -98,7 +99,8 @@ and unknown. This does not violate Pillar 2: the information exists and is purch
 
 **Resolution order for one player command:**
 
-1. Player command resolves (move, attack, wait, toggle shutter, descend).
+1. Player command resolves (move-or-attack, wait, toggle shutter, descend — §3 and §9 give the
+   whole vocabulary, and it is four commands, not five).
 2. Fuel burns at the current shutter rate.
 3. Lighting and vision recompute. Any dormant creature now inside the lit radius **wakes** and
    immediately declares.
@@ -127,6 +129,34 @@ Concretely, in terms of the six phases above: a free action runs **1, 2, 3 and 5
 One consequence worth knowing: a creature woken *during* a free action sees two player commands
 before its declared action resolves. That is more conservative than commit-one-turn-ahead requires.
 
+**Refused actions run no phases at all.** A free action runs four of the six phases. Three
+well-formed commands run **none**, because the situation forbids them outright:
+
+| Refused | Because |
+| --- | --- |
+| A move into a wall, a pillar, or off the grid | There is nowhere to step |
+| `descend` while not standing on the stairs | §9 — the stairs are where you take them |
+| Any command at all once the run has ended | §13 |
+
+A refusal costs nothing: no fuel, no creature turn, no adaptation tick, no change to any field of
+the state. It is not an error either — `step()` throws only on a **malformed** command (an unknown
+kind, a direction that is not one of four). A tap that arrives a frame after the killing blow, or a
+thumb that lands one cell off, is an ordinary thing for a phone to produce and crashing on it is
+not an option (Pillar 3).
+
+**This is not a licence to probe the dark for free**, and the reason is a rule §4 states: *you always
+know your own four neighbours.* The tile you bumped was already in your perceived set at the start
+of the turn — in light, in darkness, and at the very bottom of the adaptation ramp. Nothing is
+learned by walking into a wall, so nothing is being bought for free. What charging a turn for it
+*would* buy is a fat-fingered tap that also hands every creature on the floor a turn: punishing the
+interface rather than the decision, which is the same argument that made the shutter toggle free.
+
+**The input layer refuses first and `step()` is the backstop.** An impassable neighbour is not a tap
+target and the descend control is absent unless you are on the stairs (§9), so a refusal should be
+rare in play. And **a refused tap must still produce feedback** — a tap that does nothing at all
+reads on a phone as "the touch did not register", which is a UI failure wearing the costume of a
+rule. The treatment is the `ui-engineer`'s call; that there is one is not.
+
 *Open:* variable action speeds; any action costing more or less than one turn. Deliberately not
 designed yet.
 
@@ -144,6 +174,12 @@ designed yet.
 - **One action per turn. Attacking is your action.** No attack-and-move, no free attacks. This is
   what makes position cost something, and it is why a doorway is worth standing in.
 - **Bump to attack.** Tapping an adjacent occupied tile attacks it. One tap, one action.
+- **One directional command, not two. There is no separate `attack`.** What a tap on an adjacent
+  tile does is decided by what is standing there at the moment of the tap — never by a mode, never
+  by a modifier. So "attack an empty tile" is not something the player can ask for: the same tap is
+  a move. The only reason to want it would be to strike a tile a creature is *about to* enter, and
+  player attacks resolve immediately against what is there **now**, so it buys nothing and costs a
+  second tap target per direction on a 6-inch screen (Pillar 3).
 - **Movement is 4-directional.** No diagonals. Chosen over 8-directional because: tap targets are
   larger and unambiguous on a phone (Pillar 3); "adjacent" has exactly one meaning for attacks and
   dormant strikes; and doorways become genuine chokepoints instead of tiles you slip past
@@ -207,6 +243,15 @@ Two asymmetries are doing all the work and both are single rules:
   times cheaper for travelling through space you have already seen. Neither dominates, and the
   reason is arithmetic rather than a special rule.
 
+**You always know your own four neighbours.** The dark touch radius and the adaptation floor are
+the same 1, deliberately (below), and that has a consequence worth stating as its own rule: however
+the shutter is set and however blind you currently are, **all four tiles you could step to are
+perceived at the start of your turn.** Touch reaches them for stone; ember-sense reaches them for
+the living, even at the bottom of the ramp; and with the shutter open the radius-4 field covers them
+too, since an orthogonal neighbour is never behind a wall from where you stand. There is no unknown
+among your move targets, ever. This is the guarantee that lets §2 refuse an illegal move for free —
+walking into a wall teaches you nothing you did not already know.
+
 **Why a square — the metric ruling.**
 
 The radii were written before anyone said what measured them. Three candidates: Chebyshev (a
@@ -261,6 +306,14 @@ window (below) the tensest state in the game, and why the HUD must show the curr
 tiles and produce the one genuinely unfair death this system can generate: a creature woken inside
 your own light that you had no way to know about.
 
+**It also holds only on a floor you have already felt**, and that clause was missed for a while.
+Ember-sense does not operate while the shutter is open, so if you arrive somewhere with the lantern
+already lit, there was no moment at which you could have felt anything: the light and the floor
+arrive together. **Arrival is the third case where containment does not apply** — the other two
+being the adaptation ramp and, trivially, a shutter that never closed. What replaces it there is not
+another containment claim but a *spatial* bound §5 provides, and it is weaker than it looks; see
+*Where a run starts*, below.
+
 **Ember-sense gives position only.** Not identity, not health, not intent. This was deliberately
 cut back from a richer version: brightness-encoded health cannot be the sole carrier of meaning
 (§11) and "a living thing is there" is already the information that makes stalking work.
@@ -293,6 +346,54 @@ gamble the ramp exists to create, and it stays legible because the HUD shows the
 
 The second brake on strobing is not a fuel tax at all: **opening the shutter wakes things, and
 nothing ever un-wakes because you shuttered again.** A player who strobes wakes the floor.
+
+**Where a run starts, and what crosses the stairs.**
+
+**A run begins at the entrance with the lantern open and 80 fuel**, and the entrance room is already
+on screen — the opening perception is not something the first command pays for. Three reasons, none
+of them fiction:
+
+1. **§5 bounds the opening flash without making it safe.** This reason was originally written as
+   *"the opening flash wakes nothing, guaranteed by the generator"*, and **that was measured and it
+   is false** — one arrival in five wakes something (below). The false step was reading a *room*
+   exclusion as a *light* exclusion. §5 step 7 constrains where a creature may **stand**: not in the
+   entrance room, not in the room merged with it, not within 2 tiles of the entrance. It says
+   nothing about what is **visible** from the entrance, and the lit field is Chebyshev 4 *with line
+   of sight* — which runs straight through a doorway into the next room, where §5 is perfectly happy
+   to put creatures. Over 480 generated floors, **97 (20%) wake at least one creature on arrival.**
+
+   What §5 actually promises is weaker and worth having:
+
+   > **You never arrive on top of something. You sometimes arrive in sight of something.**
+
+   Anything the arriving flash wakes is at least three tiles off, in another room, with a doorway it
+   must cross to reach you — and it is lit, so you can see it, its intent is telegraphed (§4's
+   table), and §2 phase 3 wakes it into a declaration rather than an action, so the telegraph
+   arrives before the blow. §4's re-dormancy rule is the answer the rules already contain: shutter,
+   stay away and out of its light for 8 turns, and it goes back to sleep as a dormant-strike target.
+   A run that opens this way opens by posing the exact problem the game is about, with the tools to
+   solve it already in the player's hand.
+2. **Starting shuttered creates an autopilot opening.** At the adaptation floor you know nothing, on
+   a floor §5 guarantees is safe to *stand* on and which nothing can wake up on you while the
+   shutter is shut — so the correct opening is four turns of *wait* while the ramp climbs. An
+   obvious optimal sequence is the turn Pillar 1 says should not exist, and it would happen at the
+   start of a run rather than buried in one. **The correction above strengthens this reason rather
+   than weakening it:** now that the lit opening is known to cost something one time in five, the
+   shuttered opening is the only *guaranteed*-safe one on offer, which makes the ritual more
+   attractive, not less. This reason and reason 3 carry the ruling on their own.
+3. **The first frame of a game with no tutorial text has to be readable.** A lit room teaches what
+   light is and lets the player discover darkness by choosing it. Nine tiles of stone and two `*`
+   marks teaches nothing, and the player learns the rule by losing (Pillar 2).
+
+**Full adaptation is always earned.** Ember-sense reaches 5 only after four turns spent shuttered,
+so a run's sense radius **starts at the floor, 1, not at the ceiling.** With the shutter open the
+number is unobservable — shuttering resets it to 1 regardless — but §9 puts it on the HUD, and a HUD
+that reads 5 before the player has ever been dark is a lie the player will act on.
+
+**On descent, the lantern and the eyes carry; the floor does not.** Fuel, shutter state and the
+current ember-sense radius all cross the stairs unchanged; remembered terrain does not, because it
+is memory of a place you have never been. §13 states the whole rule and why the alternative was
+rejected.
 
 **Fuel.**
 
@@ -475,7 +576,13 @@ Touch-first (Pillar 3):
   becomes visible or sensed, or any creature wakes.** Auto-travel that walks you into an ambush
   violates Pillar 1.
 - Lantern shutter: a persistent, thumb-reachable toggle. **Free action.**
-- Stairs: tap them while standing on them.
+- **Descend: its own control, present only while you are standing on the stairs**, in the thumb zone
+  beside the shutter. Not the self-tap — that is `wait`, and **waiting on the stairs is a real
+  move**: the stairs are exactly where §3's macro decision is made ("clear this floor for fuel, or
+  dive now and bank the heal"), so it is the worst tile in the game to take a turn's worth of choice
+  away from. The control appearing is also unambiguous confirmation that you are on the stairs,
+  which is worth something in the dark.
+- **An impassable neighbour is not a tap target**, and a refused tap still gives feedback (§2).
 - Keyboard on web is a convenience layer, never the primary design target.
 
 HUD, minimum: HP, fuel, floor number, shutter state, ember-sense radius (because dark adaptation is
@@ -534,6 +641,87 @@ an existing system is depth rather than a new system.
 the second axis already existed: HP. Adding a bar would have been additive design solving a problem
 that subtraction solved better.
 
+## 13. Descent and the end of a run — *Settled for M1*
+
+The rules that span floors. §5 owns what a floor *is*; this owns what happens between them and what
+stops the run.
+
+**Descent is legal only on the stairs, and it costs a turn.** §9 gives the control; §3 gives the
++2 HP. Only the shutter toggle is free (§2), and it is called out as an exception precisely because
+everything else is not.
+
+**What crosses the stairs:**
+
+> **Down the stairs you take your lantern, your eyes and your wounds. You leave the map behind.**
+
+| Carries | Does not |
+| --- | --- |
+| Fuel — the run's reserve is run-long (§4) | **Remembered terrain.** Memory is of a place, and you have never been to this one |
+| Shutter state — walking downstairs does not touch a setting on a lamp you are holding | Ember on the ground you did not pick up. Fuel you did not collect is fuel you did not earn |
+| Ember-sense radius. The ramp is triggered by the *act* of shuttering (§4), and descending is not shuttering | The creatures. A new floor's are all dormant, and re-dormancy timers (§4) are per creature, so nothing about the clock is floor-crossing |
+| HP, plus §3's +2 | |
+
+**The turn descent costs is paid on the floor below.** Phase 1 puts you at the new entrance; phases
+2-6 then run there. Three consequences, all of them the point:
+
+- **The creatures on the floor you left get no parting shot.** A creature adjacent to you had
+  declared an attack on your tile, and you are not on that tile any more — descending *is* §2's
+  "step off the marked tile", which has always been a defensive move that costs a turn. **The stairs
+  are the one escape nothing follows you down.** This is what makes running for them at 3 HP a play
+  rather than a prayer (Pillar 4), and it is not free: you forfeit the floor's remaining kills and
+  caches, which is exactly §3's "clear this floor, or dive now" wager.
+- **Arriving with the shutter open is a wager. It is not a safe reset.** This was written here as a
+  guarantee — *§5 keeps the entrance room empty, so the arriving flash wakes nothing* — and the
+  guarantee is false. §5's exclusion governs where creatures **stand**; the lit field is Chebyshev 4
+  **with line of sight**, and line of sight goes through a doorway into the next room. Measured over
+  480 generated floors, **97 of them (20%) wake at least one creature on arrival.** §4's containment
+  guarantee cannot cover this: you were on a different floor a moment ago, so there was nothing you
+  could have felt. The true promise is spatial, not sensory — **you never arrive on top of
+  something; you sometimes arrive in sight of something** (§4).
+
+  **Keep it. It is better than the guarantee it replaces.** A safe arrival makes the stairs a reset
+  button and the descent decision a formality. A one-in-five arrival makes "which way do I go down"
+  a real question asked one turn before it is answered, which is what Pillar 1 wants from the
+  densest tile on the floor. It is also the mechanism that makes the shutter *carrying* across the
+  stairs (above) worth something rather than a tidiness rule: the choice only exists because the
+  setting persists.
+- **Arriving shuttered, nothing wakes, and you arrive with the sense radius you earned above** — so
+  the floor below announces its neighbours to you before you decide whether to spend 4 fuel looking
+  at the room. That is §4's containment restored by the player's own choice, one turn later, instead
+  of by construction. Resetting adaptation on descent was the runner-up and lost badly: it would
+  make the four turns after every descent a guaranteed-safe wait-and-adapt ritual, seven times a
+  run — Pillar 1's autopilot turn with a fresh coat of paint.
+
+**A run ends in exactly two ways, and neither of them is running out of fuel.**
+
+| Ending | When |
+| --- | --- |
+| **Died** | The player's HP reaches 0 |
+| **Reached the bottom** | The player takes the stairs on the last floor (**8, tuning** — §5) |
+
+- **0 fuel is not an ending.** §4 is explicit: it is a desperate state, not a loss state, and it is
+  recoverable. Saying so here because it is the first thing anyone assumes.
+- **There is no floor 9 and there is no boss.** §6 has one creature and every other one is M3. The
+  eighth descent *is* the ending; inventing something at the bottom now would be M3 content wearing
+  a milestone it does not belong to.
+- **A terminal state stops the turn where it happens.** If the player dies in phase 4, the actor
+  sweep stops there and phases 5 and 6 do not run — the final state is the frame of the killing
+  blow, which is Pillar 2 in its most literal form: the last thing on screen is the thing that
+  killed you, not three Cinders shuffling around a corpse. If the run ends by descending from the
+  last floor, it ends in phase 1 and nothing else runs, because there is no floor below to burn fuel
+  on. One rule, both endings.
+- **Once the run has ended it accepts no more commands.** They are refused, exactly as §2 refuses an
+  illegal move — not resolved, and not thrown. A tap landing a frame after the killing blow is an
+  ordinary thing for a touchscreen to produce, and a stored run whose command log runs past the
+  death must still replay.
+- **Death is permanent and a run is not resumable.** No continue, no rewind. VISION.md.
+
+*What this section deliberately does not own:* the summary screen. The **state** is settled here so
+that it does not have to be re-decided later; what is drawn on top of it — floors reached, kills,
+fuel spent, turns taken, the seed (Pillar 4) — is the run-loop work. Note for whoever builds it: the
+terminal state is a snapshot of the moment the run ended, not a tidied-up world, so counters must be
+accumulated as they happen rather than derived from it afterwards.
+
 ---
 
 ## Change log
@@ -573,3 +761,11 @@ recorded at the moment we made it, is the part git cannot give us.
 | 2026-08-02 | **Cinder ember drop 30 → 20 and cache 40 → 25 (both tuning)** | **§4's third invariant failed measurement.** At 30/40 a scripted competent run netted about **+85 fuel a floor** against a starting reserve of 80 — one good floor bought the next two, and the lantern stopped being a resource somewhere on floor one. That is "trivially winnable", not "slightly positive". At 20/25 the same corpus nets +11 a floor at an income/spend ratio of 1.10, roughly one floor in five is a net loss, and a competent eight-floor run ends with about twice the reserve it started with rather than five times. The two moved **together** so the ratio between a kill and a cache is preserved (1.25 against the old 1.33): shrinking only the drop would have made exploration the income side of the economy and combat the garnish, which inverts §1. The invariant is the design; these numbers are not. `game/systems/economy.test.ts` is what caught it and what will catch the next drift |
 | 2026-08-02 | **§2: a free action runs phases 1, 2, 3 and 5, and skips 4 and 6** | `turn.ts` settled phase 4 and left 2 and 6 open for the fuel work; this closes them, and each answer is read off the GDD rather than chosen. Fuel **runs**, because §4's exploration arithmetic is priced in it — "a flash buys a room ... for 4 fuel ... light is roughly three times cheaper in fuel ... neither dominates, and the reason is arithmetic" is false if a flash is free, and light would simply dominate exploring. This is not the fuel *tax* §4 rules out: there is no surcharge for toggling. Dark adaptation **skips**, because §4 recovers ember-sense "+1 per turn" and a free action is not a turn; ticking it would let a player climb the ramp by strobing |
 | 2026-08-02 | §4: a dry lantern is the shuttered column of the vision table, permanently — not a fifth state | The smallest reading of "you can still crawl at radius 1 with ember-sense", and the only one that keeps 0 fuel recoverable. Ember-sense belongs to the player's dark-adapted eyes rather than to the lamp; if it went out with the fuel you could not find anything to kill and could not earn your way back, which is the unplayable-rather-than-desperate failure the rule exists to prevent |
+| 2026-08-03 | **§4: a run starts with the lantern open, at the entrance, with the entrance room already perceived** | **Reason 1 below was measured false — see the 2026-08-04 row. The ruling stands; only the reasoning moved.** §4 never said, and the two systems that need to know both refused to guess. Read off §5 rather than chosen: step 7 guarantees no creature in the entrance room or the room merged with it, so the opening flash is the one flash whose safety the *generator* provides — it costs 4 fuel and wakes nothing. The runner-up, starting shuttered at the adaptation floor, loses on Pillar 1: on a floor guaranteed safe to stand on, the correct opening becomes four turns of *wait* while the ramp climbs, which is an obvious optimal sequence at the most visible moment in the run. It also loses on Pillar 2 — a first frame of nine tiles of stone teaches nothing, and a game with no tutorial text has to be readable on turn 1 |
+| 2026-08-03 | **§4: full ember-sense adaptation is always earned; a run's sense radius starts at 1, not 5** | The implementation's default was full adaptation whichever way the shutter started, which silently hands out a radius-5 wall-piercing sense for free. Unobservable at M1 (shuttering resets to 1 anyway), but §9 puts the number on the HUD and a HUD reading 5 before the player has ever been dark is a lie they will act on. Stating it as *earned* also closes the door on the next start-state (a debug mode, a new floor) reintroducing the gift |
+| 2026-08-03 | **§2: an illegal-but-well-formed action runs no phases and costs nothing** | Walking into a wall, descending off the stairs, or commanding a finished run. The "harsh" option — charge the turn to stop free probing of the dark — was refuted rather than out-voted: §4's touch radius and adaptation floor are both 1, so *you always know your own four neighbours*, and a bumped wall was in your perceived set before you tapped it. There is no information to buy, so charging a turn only punishes a fat-fingered tap on a 6-inch screen — and hands every creature on the floor a free turn while doing it (Pillar 3, the same argument that made the shutter toggle free). The input layer refuses first; `step()` refusing is the backstop that keeps the simulation total. A refused tap must still give feedback: a dead tap on a phone reads as a missed touch, not as a rule |
+| 2026-08-03 | **§3/§9: there is no separate `attack` command — the command set is move-or-attack, wait, toggle shutter, descend** | §3 already settled bump-to-attack ("what a tap does is decided by what is standing there, never by a mode"); a separate attack command reintroduces the mode it removed. It also dissolves one of the three illegal-action cases instead of answering it: attacking an empty tile stops being expressible. The only thing it could buy — striking a tile a creature is about to enter — is worth nothing, because player attacks resolve immediately against what is there now. Subtraction over a ruling |
+| 2026-08-03 | **§9: descend is its own control, shown only while standing on the stairs — not the self-tap** | §9's old wording ("tap them while standing on them") collided with "tap your own tile to wait" and silently deleted *waiting on the stairs*. That is the worst tile in the game to lose a turn's worth of choice on: it is exactly where §3's "clear this floor for fuel, or dive now and bank the heal" decision is made. A second, *conditional* thumb control is not clutter — its presence is also unambiguous confirmation you are standing on the stairs, which is worth something in the dark |
+| 2026-08-03 | **New §13: descent costs a turn, the turn is paid on the floor below, and the lantern and the eyes cross the stairs while the map does not** | Fuel, shutter and ember-sense radius carry (the ramp is triggered by the *act* of shuttering, and descending is not shuttering); remembered terrain does not, because memory is of a place. Paying the turn below rather than above means the creatures you fled get no parting shot — descending *is* §2's "step off the marked tile", which has always been a defensive move that costs a turn — so **the stairs are the one escape nothing follows you down**, at the price of the floor's remaining kills and caches. Resetting dark adaptation on descent was the runner-up and lost on Pillar 1: it would make the four turns after every descent a guaranteed-safe wait-and-adapt ritual, seven times a run |
+| 2026-08-03 | **New §13: a run ends in exactly two ways — died, or took the stairs on the last floor — and a terminal state stops the turn where it happens** | The GDD had never said the run could be *won*; §1 said "repeat down eight floors" and stopped. There is no floor 9 and no boss (§6 has one creature; the rest is M3), so the eighth descent is the ending. Death stops the actor sweep mid-phase so the final frame is the killing blow rather than three Cinders shuffling around a corpse (Pillar 2, most literally). Commands after the end are **refused**, not thrown — a tap landing a frame after the killing blow is ordinary touchscreen behaviour, and a stored run whose log runs past the death must still replay. This also dissolves the frozen-clock hazard by construction: a finished run consults no schedule, so it cannot matter that the schedule is empty |
+| 2026-08-04 | **Correction, measured: the arriving flash does *not* wake nothing. §4 and §13 both claimed it did; 20% of arrivals wake something** | **The ruling ("a run starts open", 2026-08-03) survives; one of its three reasons does not.** The bad step was reading a **room** exclusion as a **light** exclusion: §5 step 7 constrains where a creature may *stand* (not the entrance room, not its merged partner, not within 2 tiles), and I concluded the entrance was therefore safe to light. But the lit field is Chebyshev 4 **with line of sight**, and line of sight runs through a doorway into the next room — which is exactly where §5 is happy to put creatures. #18's implementation measured it over 480 generated floors: **97 (20%) wake at least one creature on arrival.** Reasons 2 and 3 carry the ruling alone, and reason 2 is *strengthened* — a shuttered opening is now the only guaranteed-safe one, so the four-turn wait-and-adapt ritual it invites is more attractive, not less, and Pillar 1 wants it gone more than before. Three edits follow. §4's containment guarantee gains the clause it was always missing — it holds only on a floor you have **already felt**, so **arrival is the third case where it does not apply** (with the adaptation ramp and an open shutter); you cannot have sensed a floor you were not standing on. The promise becomes spatial rather than sensory: **you never arrive on top of something; you sometimes arrive in sight of something** — at least three tiles off, through a doorway, lit, telegraphed, and woken into a *declaration* rather than an action (§2 phase 3), with §4's re-dormancy rule already in the player's hand as the answer. And §13 keeps the behaviour deliberately rather than patching it: a guaranteed-safe arrival makes the stairs a reset button and the descent a formality, where one-in-five makes "which way do I go down" a real question — and it is what gives the *shutter carries across the stairs* ruling a mechanism instead of a tidiness argument. A first-turn exemption was never on the table: it would be a fifth vision state invented to protect a sentence |

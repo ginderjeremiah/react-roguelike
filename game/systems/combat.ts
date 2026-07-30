@@ -57,7 +57,7 @@ import {
   type EmberDrop,
   type Perception,
 } from '../entities';
-import type { Position } from '../map';
+import { blocksMovement, inBounds, tileAt, type Position } from '../map';
 import { hasActor, removeActor, type ActorId } from './schedule';
 
 /**
@@ -177,6 +177,25 @@ export function resolveMove(world: ActorWorld, actorId: ActorId, to: Position): 
 export function canMove(world: ActorWorld, actorId: ActorId, to: Position): boolean {
   const actor = actorById(world, actorId);
   return isAdjacent(actor.at, to) && isVacant(world, to, actorId);
+}
+
+/**
+ * Would `bump` do *anything*? The predicate GDD §2's refusal rule is stated in.
+ *
+ * **Deliberately weaker than `canMove`.** §2 refuses "a move into a wall, a pillar, or off the
+ * grid" and nothing else, so an occupied tile is emphatically **not** a refusal — it is an attack
+ * (§3, bump-to-attack), and using `canMove` here would silently make walking into a Cinder a
+ * free no-op instead of a strike. That is the whole distinction between the two functions and the
+ * reason they are two functions.
+ *
+ * A tile holding a corpse (0 HP, not yet cleared by phase 5) is bumpable and resolves as a move:
+ * `occupantAt` counts only the living, which is the same answer the player reads off the screen.
+ */
+export function canBump(world: ActorWorld, actorId: ActorId, to: Position): boolean {
+  const actor = actorById(world, actorId);
+  if (!isAdjacent(actor.at, to)) return false;
+  if (!inBounds(world.floor.grid, to.x, to.y)) return false;
+  return !blocksMovement(tileAt(world.floor.grid, to.x, to.y));
 }
 
 /**

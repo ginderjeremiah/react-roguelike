@@ -59,8 +59,15 @@ export type RunDivergence = {
   readonly commandIndex: number;
   /** The command at `commandIndex`, or `null` when `commandIndex` is `-1`. */
   readonly command: Command | null;
-  /** Turn number after that command — a cross-check that the two runs were at the same point. */
-  readonly turn: number;
+  /**
+   * Turns elapsed after that command — a cross-check that the two runs were at the same point in
+   * the *game*, not merely at the same index in the log.
+   *
+   * Read from `turnsElapsed` rather than `commandsResolved` because `commandIndex` already says
+   * where in the log you are; what this adds is how far into the run that is, which differs from
+   * the index whenever the log contains a free action or a refusal.
+   */
+  readonly turnsElapsed: number;
   /** Where inside the two states the difference is. */
   readonly field: FieldDivergence;
 };
@@ -274,11 +281,11 @@ export function runStates(seed: string, commands: readonly Command[]): GameState
  * will differ. A comparison that quietly looked at a subset of fields would report those runs as
  * identical, and the replay suite is phrased entirely in terms of this returning `null`.
  *
- * Taking sequences rather than records is what makes that testable: two records built from the
- * `wait`/`roll` commands cannot be made to differ *only* in their generator (any command that
- * changes the draw count also changes `lastOutcome`), so through the record API the omission is
- * invisible. Handed two sequences, a test can construct exactly that case. This restructuring came
- * out of mutation testing — the projection bug survived the entire suite beforehand.
+ * Taking sequences rather than records is what makes that testable: through the record API a state
+ * that differs *only* in its generator position is hard to construct, because the one command that
+ * draws also rebuilds the entire floor. Handed two sequences, a test can construct exactly that
+ * case. This restructuring came out of mutation testing — the projection bug survived the entire
+ * suite beforehand.
  *
  * @param commands only used to name the command in the report; may be empty.
  */
@@ -288,13 +295,25 @@ export function findStateSequenceDivergence(
   commands: readonly Command[] = [],
 ): RunDivergence | null {
   const initial = findFieldDivergence(left[0], right[0]);
-  if (initial) return { commandIndex: -1, command: null, turn: left[0]?.turn ?? 0, field: initial };
+  if (initial) {
+    return {
+      commandIndex: -1,
+      command: null,
+      turnsElapsed: left[0]?.turnsElapsed ?? 0,
+      field: initial,
+    };
+  }
 
   const shared = Math.min(left.length, right.length);
   for (let i = 1; i < shared; i += 1) {
     const field = findFieldDivergence(left[i], right[i]);
     if (field) {
-      return { commandIndex: i - 1, command: commands[i - 1] ?? null, turn: left[i].turn, field };
+      return {
+        commandIndex: i - 1,
+        command: commands[i - 1] ?? null,
+        turnsElapsed: left[i].turnsElapsed,
+        field,
+      };
     }
   }
 
@@ -302,7 +321,7 @@ export function findStateSequenceDivergence(
     return {
       commandIndex: shared - 1,
       command: commands[shared - 1] ?? null,
-      turn: left[shared - 1].turn,
+      turnsElapsed: left[shared - 1].turnsElapsed,
       field: {
         path: 'commands.length',
         left: String(left.length - 1),
@@ -339,7 +358,7 @@ export function formatRunDivergence(divergence: RunDivergence): string {
     divergence.commandIndex < 0
       ? 'before any command ran — the initial states differ, so the seeds are not equivalent'
       : `after command ${divergence.commandIndex} ` +
-        `(${JSON.stringify(divergence.command)}), on turn ${divergence.turn}`;
+        `(${JSON.stringify(divergence.command)}), on turn ${divergence.turnsElapsed}`;
 
   return [
     `runs diverged ${where}`,

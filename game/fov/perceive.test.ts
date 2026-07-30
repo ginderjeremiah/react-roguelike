@@ -106,7 +106,10 @@ describe('the same creature, both ways round', () => {
   const there = creatures(scene);
 
   it('is felt in the dark and invisible in the light', () => {
-    const dark = perceive(scene.grid, createVision(scene.grid, 'shuttered'), at, there);
+    // Fully adapted, stated explicitly: a run starts at the adaptation floor (§4), and the whole
+    // claim here is about what ember-sense reaches *at* full radius.
+    const adapted = { ...createVision(scene.grid, 'shuttered'), senseRadius: EMBER_SENSE_RADIUS };
+    const dark = perceive(scene.grid, adapted, at, there);
     const lit = perceive(scene.grid, createVision(scene.grid, 'open'), at, there);
 
     expect(dark.creatures).toEqual([{ kind: 'felt', at: { x: 4, y: 1 } }]);
@@ -136,7 +139,9 @@ describe('perception is independent of how it was asked', () => {
   ];
 
   it('feels creatures row-major whatever order they arrive in', () => {
-    const vision = createVision(scene.grid, 'shuttered');
+    // Fully adapted, stated explicitly: `createVision` starts at the adaptation *floor* (§4 —
+    // full adaptation is earned), and at radius 1 there would be nothing to order.
+    const vision = { ...createVision(scene.grid, 'shuttered'), senseRadius: EMBER_SENSE_RADIUS };
     const forward = perceive(scene.grid, vision, at, creatures(scene));
     const backward = perceive(scene.grid, vision, at, [...creatures(scene)].reverse());
     expect(backward.creatures).toEqual(forward.creatures);

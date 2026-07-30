@@ -25,3 +25,4 @@ export {
   STARTING_FUEL,
 } from './lantern';
 export { DESCENT_HEAL, PLAYER_ATTACK, PLAYER_MAX_HP } from './player';
+export { FIRST_FLOOR, LAST_FLOOR } from './run';

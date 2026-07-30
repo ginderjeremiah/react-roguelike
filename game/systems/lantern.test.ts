@@ -75,8 +75,13 @@ describe('burning fuel', () => {
   it('costs the four blind turns as well, because running dry is a shuttering', () => {
     // §4: closing resets ember-sense to the adaptation floor. Running dry is the most dramatic
     // shuttering in the game and must not be a quieter one than pressing the button.
-    const full = { ...lantern(FUEL_BURN_LIT, 'open'), fuel: FUEL_BURN_LIT };
-    expect(full.vision.senseRadius).toBe(EMBER_SENSE_RADIUS);
+    // Adapted by hand: `createLantern` starts at the adaptation floor (§4 — full adaptation is
+    // earned), and a drop from 1 to 1 would demonstrate nothing.
+    const base = lantern(FUEL_BURN_LIT, 'open');
+    const full = {
+      fuel: FUEL_BURN_LIT,
+      vision: { ...base.vision, senseRadius: EMBER_SENSE_RADIUS },
+    };
     expect(burn(full).vision.senseRadius).toBe(ADAPTATION_FLOOR);
   });
 
@@ -158,9 +163,12 @@ describe('refuelling', () => {
 });
 
 describe('creating a lantern', () => {
-  it('starts at GDD §4s reserve, fully dark-adapted, however the shutter is set', () => {
+  it('starts at GDD §4s reserve, unadapted, however the shutter is set', () => {
+    // §4: "full adaptation is always earned". The lantern arrives full of fuel and the eyes arrive
+    // knowing only what they can touch — which is the same 1 as the touch radius, deliberately.
     expect(createLantern(grid, 'shuttered').fuel).toBe(STARTING_FUEL);
-    expect(createLantern(grid, 'shuttered').vision.senseRadius).toBe(EMBER_SENSE_RADIUS);
+    expect(createLantern(grid, 'shuttered').vision.senseRadius).toBe(ADAPTATION_FLOOR);
+    expect(createLantern(grid, 'open').vision.senseRadius).toBe(ADAPTATION_FLOOR);
     expect(createLantern(grid, 'open').vision.shutter).toBe('open');
   });
 

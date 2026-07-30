@@ -45,6 +45,8 @@ coverage/
 
 # claude code local overrides (shared settings.json IS committed)
 .claude/settings.local.json
+# agent git worktrees — full repo copies, must never be committed or scanned
+.claude/worktrees/
 
 app-example
 

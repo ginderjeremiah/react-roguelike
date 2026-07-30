@@ -168,9 +168,19 @@ describe('§4 invariant 1: avoiding all combat is unsustainable', () => {
 
   it('runs even the cheapest possible pacifist dry', () => {
     // The floor under the whole economy. `DARK_PACIFIST` never opens the shutter at all, so it pays
-    // the minimum the rules permit — 1 a turn — and finds no caches, because caches need light. If
-    // *this* style could sustain itself, avoiding combat would be a viable strategy and §4's first
-    // invariant would be decoration.
+    // the minimum the rules permit — 1 a turn. If *this* style could sustain itself, avoiding
+    // combat would be a viable strategy and §4's first invariant would be decoration.
+    //
+    // NOTE, measured in review: this style still collects ~98% of the caches on the floor (119 of
+    // 121 across this corpus), and cache fuel is its entire income. §4 says "caches are terrain
+    // and require light to find" and its vision table marks items Invisible while shuttered —
+    // **that rule is not enforced anywhere**, and `collectFuelUnderfoot` pays on the tile kind
+    // regardless of whether the tile was ever lit. See issue #31.
+    //
+    // The invariant below is unaffected in direction: enforcing the rule would make a dark
+    // pacifist dry out *sooner*, not later. But the calibration behind CINDER.emberDrop and
+    // CACHE_FUEL rests on ~37 fuel/floor of income a style §4 says should have none, so those two
+    // numbers should be re-derived when #31 lands.
     for (const result of darkPacifist) expect(result.driedOnFloor).not.toBeNull();
   });
 

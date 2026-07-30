@@ -314,6 +314,53 @@ describe('phase 3: lighting and waking', () => {
     expect(state.world.actors.filter(isAwake)).toHaveLength(1);
   });
 
+  it('centres phase 4 light on the PLAYER, not on some fixed tile', () => {
+    /**
+     * Found in review, and it is the same shape as the FOV suite's square grids: the test below
+     * uses `scenario()`, which sets `floor.entrance` to the `@` glyph — so in every ascii fixture
+     * `floor.entrance === playerOf(world).at`, and the player never moves during it. A phase-4
+     * query built from `floor.entrance` instead of the player's position is therefore
+     * indistinguishable, and it passed all 712 tests while genuinely changing behaviour.
+     *
+     * Here the player walks two tiles off the entrance before the creature re-declares, so the two
+     * origins are four tiles apart and disagree about whether the creature is lit.
+     *
+     *   #############
+     *   #@.....c....#   entrance (1,1) · creature (7,1)
+     *   #############
+     *
+     * Chebyshev 4 from the entrance reaches x=5 — the creature is out of it. From the player's
+     * tile after two steps, (3,1), it reaches x=7 — the creature is in it.
+     */
+    const OFF_ENTRANCE = ['#############', '#@.....c....#', '#############'];
+
+    let state = lit(OFF_ENTRANCE, 'open', 400);
+    expect(state.world.floor.entrance).toEqual({ x: 1, y: 1 });
+
+    // Two paid steps to the right. The creature comes into the player's light and wakes.
+    state = turn(state, { x: 2, y: 1 });
+    state = turn(state, { x: 3, y: 1 });
+    expect(playerOf(state.world).at).toEqual({ x: 3, y: 1 });
+    expect(playerOf(state.world).at).not.toEqual(state.world.floor.entrance);
+
+    // It woke in phase 3, which uses the correct query in both versions — so nothing is proved yet.
+    // One more turn, with the player standing still, is the one where the creature *re-declares*
+    // in phase 4. That declaration is the only thing the mutated query touches.
+    const beforeDeclare = awakeMind(state.world).turnsSinceContact;
+    expect(beforeDeclare).toBe(0);
+
+    state = turn(state);
+
+    // The creature is lit from the player's tile and NOT from the entrance, so contact retained
+    // through a phase-4 declaration can only have come from a query centred on the player.
+    expect(playerOf(state.world).at).toEqual({ x: 3, y: 1 });
+    expect(awakeMind(state.world).turnsSinceContact).toBe(0);
+    expect(awakeMind(state.world).awareness).toEqual({
+      kind: 'lastSeen',
+      at: playerOf(state.world).at,
+    });
+  });
+
   it('lets a creature declaring in phase 4 see the light phase 3 just recomputed', () => {
     // Found by mutation testing: replacing the light query the *actor* phase is given with a
     // permanently-dark one left the whole suite green. Phase 3 wakes creatures with the right query,

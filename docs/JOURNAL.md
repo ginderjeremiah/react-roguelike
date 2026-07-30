@@ -166,6 +166,36 @@ case, in both orientations — a bug that clamps rather than transposes survives
 Also fixed: the shape check's only mismatch fixture differed in *both* dimensions, so a width-only
 comparison survived and would then read past the end of the shorter flag array.
 
+**Review addendum:** two blocking findings, and the first rhymes exactly with the FOV suite's
+square grids.
+
+**Phase 4's light query was not pinned to the player's position.** The test written in this PR to
+kill the permanently-dark mutant uses `scenario()`, which sets `floor.entrance` to the `@` glyph —
+so `floor.entrance === playerOf(world).at` in every ascii fixture, and the player never moved
+during it. A phase-4 query built from `floor.entrance` instead of the player therefore passed all
+712 tests while genuinely changing behaviour (the economy log moved from `floodlit 99` to
+`floodlit 62`, so it was not an equivalent mutant). The new test walks the player two tiles off the
+entrance before the creature re-declares. **Note it took two attempts:** the first version asserted
+after the creature merely *woke*, which happens in phase 3 and uses the correct query in both
+versions — the discriminating assertion has to come after a phase-4 *declaration*.
+
+**The corpus documentation asserted the opposite of what the corpus does.** `DARK_PACIFIST` is
+described as finding no caches "because caches need light". Measured: it collects 119 of 121, and
+cache fuel is its entire income. §4 says caches require light to find and its vision table marks
+items invisible while shuttered — neither is enforced. `collectFuelUnderfoot` pays on tile kind,
+and a shuttered crawler's Chebyshev-1 touch field maps the whole floor. Filed as #31 with the
+design question first, since "requires light to find" has three defensible readings.
+
+That one is worth remembering for its shape: the numbers moved in this PR were calibrated against a
+model whose *stated* assumptions were false. The invariants still hold in direction — enforcing the
+rule makes a pacifist dry sooner — but the calibration rests on ~37 fuel/floor of income that a
+style §4 says should have none, so both numbers need re-deriving when #31 lands.
+
+Also corrected: `driedAfterTurns` was labelled "turns before the lantern died" but is turns through
+the *end* of the drying floor, and four of ten floodlit-pacifist floors hit the turn cap — censored
+rather than measured. The reported 99/144/206 ordering survives (proved by `FUEL_BURN_LIT = 1`
+turning it red), but the true gap is wider than those numbers suggest.
+
 **Watch:** known risks, deferred cleanup, things that will bite later. Omit if none.
 ```
 

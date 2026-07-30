@@ -331,6 +331,12 @@ export function lanternPhases(
     fuelBurn: burnFuelPhase,
     lightingAndWaking: lightingAndWakingPhase,
     actors: actorsPhase(cost),
+    // Runs on a free action too, and that is deliberate. Wrapping this in `perTurn(cost, ...)` is
+    // a third provably-equivalent mutant — a free toggle can neither kill nor move the player, so
+    // both halves of this phase are no-ops — but GDD §2 now explicitly promises phase 5 runs on
+    // every command, and making it conditional would be a rule change disguised as symmetry with
+    // the phases above. Documented here alongside the other two equivalents so a later mutation
+    // run does not spend time re-deriving it.
     deaths: deathsAndCollectionPhase,
     darkAdaptation: perTurn(cost, darkAdaptationPhase),
   };

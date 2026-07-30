@@ -140,7 +140,16 @@ export const FLOODLIT_PACIFIST: Style = {
   fights: false,
   light: 'always',
 };
-/** Outside the 2×2: the cheapest crawl the rules permit, and the floor under every fuel curve. */
+/**
+ * Outside the 2×2: the cheapest crawl the rules permit, and the floor under every fuel curve.
+ *
+ * It is **not** blind to caches, despite §4 saying it should be. A shuttered crawler still reads
+ * the Chebyshev-1 touch field into `vision.remembered`, so frontier exploration maps the whole
+ * floor and passes within one tile of nearly every cache; and `collectFuelUnderfoot` pays on the
+ * tile kind, never on whether the tile was lit. Measured in review: 119 of 121 caches collected.
+ * See issue #31 — this is a missing rule, not a harness artefact (forcing the script to only
+ * *route* to caches while lit still takes 89 of 121 by walking over them).
+ */
 export const DARK_PACIFIST: Style = { name: 'dark-pacifist', fights: false, light: 'never' };
 
 /**
@@ -190,7 +199,15 @@ export type RunResult = {
   readonly fuelAfter: number;
   /** 1-based floor on which fuel first reached 0, or `null` if the run never ran dry. */
   readonly driedOnFloor: number | null;
-  /** Turns played before fuel first reached 0, or `null`. */
+  /**
+   * Turns played through the END of the floor on which fuel first reached 0, or `null`.
+   *
+   * Not "turns before the lantern died" — an earlier label said that and it was wrong. Floors are
+   * played to completion or to `TURN_CAP_PER_FLOOR`, so a run that dries early still accrues the
+   * rest of that floor, and a capped floor contributes the cap rather than a measurement. Use it
+   * for *ordering* styles, which is what the invariant-2 comparison does; do not read it as a
+   * duration.
+   */
   readonly driedAfterTurns: number | null;
 };
 

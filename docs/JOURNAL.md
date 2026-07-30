@@ -78,6 +78,48 @@ first command's divergence as a seed mismatch. All four verified by mutation.
 Filed #12: the determinism lint rules are disabled inside `game/**/*.test.ts`, so this PR's
 property corpus is protected by discipline rather than enforcement.
 
+**Design rulings applied (post-review):** the `game-designer` pass on GDD §5 changed two things
+about what every seed produces, both applied here before merge.
+
+**The entrance exclusion is Manhattan, not Chebyshev.** I had chosen Chebyshev as the conservative
+reading. That was wrong, and the designer's argument is better than "it is stricter": movement and
+attacks are 4-directional, so the player's unit of distance is the step. A creature at (+2,+2) is
+four steps away; excluding it makes the rule uncheckable by counting, which is what Pillar 2 asks
+of a rule. Chebyshev has no referent anywhere else in the rules. The side effect of the strict
+reading was a systematic thinning of spawns in rooms next to the entrance — the early floor was
+quietly emptier than §8's curve says. `chebyshevDistance` stays in `grid.ts` for measurement but no
+rule uses it.
+
+**A merged pair is ONE node for graph distance, not two joined by an edge.** The decisive point is
+that the implementation was self-contradictory: `forbiddenRooms` already treated the merged partner
+as the entrance room for spawns, while `roomAdjacency` treated the merge as an ordinary hop for
+stairs. Now contracted in both. Corollary worth knowing: if the entrance is in a merged hall,
+neither half can hold the stairs.
+
+Both pinned floors were **deliberately re-pinned**, which is the process ARCHITECTURE.md describes —
+a rules change invalidates fixtures and they get re-recorded on purpose, never silently
+regenerated. No `RULES_VERSION` bump: nothing has shipped and `Floor` is not in `GameState` yet.
+
+**Review addendum:** the reviewer found the fifth check-that-enforces-nothing in five PRs, and it
+was in the highest-value place — the room graph. `chooseLinks` shuffles the candidate edges and
+runs Kruskal over the shuffled order, but *nothing tested that*. Replacing `order.value` with
+`LATTICE_EDGE_IDS` (keeping the shuffle so the draw count is untouched) passed all 370 tests, while
+collapsing unmerged floors from 15 distinct spanning trees to exactly **one** — the same room
+graph, every floor, forever. Connectivity held, the tree still spanned, loops were still 1-2, no
+corridors, and floors still looked different because jitter and pillars vary. §5's premise is that
+the mental map is "rooms and which wall the door was in"; a fixed room graph is exactly the failure
+that rule exists to prevent, and it was the one structure with no variance test.
+
+Second: `placeStairs`'s docstring states that ties are broken by a draw rather than by lowest id,
+precisely to avoid bias on symmetric layouts — and `chooseFrom(rng, tied.slice(0, 1))` passed
+everything. Ties are not rare; roughly a third of floors have one. A stated design rule with no
+test is what gets simplified away later.
+
+The lesson generalizing across both: **an all-negative suite cannot catch a generator that stopped
+generating.** Every invariant here is of the form "nothing is wrong with this floor", and a
+degenerate generator satisfies all of them. Variance needs its own positive assertions, and the
+structures most worth varying are the ones least likely to have them.
+
 **Watch:** known risks, deferred cleanup, things that will bite later. Omit if none.
 ```
 
@@ -88,6 +130,94 @@ is worth the file.
 
 **Be honest about failure.** A record of what did not work is worth more than a record of what
 did — it is the only thing stopping a future session from repeating it.
+
+---
+
+## 2026-07-31 — `game/map/`: tiles, the room lattice, and the chambered-ruin generator (#13)
+
+**Did:** Built `game/map/` — the `Tile` union, the 2x3 room lattice, and `generateFloor(rng,
+floorNumber)`, which produces an 11x15 chambered ruin satisfying every invariant in GDD §5. Six
+modules, 145 new tests (374 total). Not wired into `GameState` yet: that changes what a replay
+produces and belongs with the command work, per one-issue-one-PR.
+
+**The GDD has an arithmetic error in §5 and it needs a one-line correction.** §5 states
+`height = 4 + 1 + 4 + 1 + 4 = 15`. That sum is 14. The grid size and the decomposition contradict
+each other, and the grid size wins: 11x15 is bolded twice, derived from a 390px phone at ~35px tap
+targets, called an ADR-level decision in #13, and is one of the property-tested invariants — while
+the decomposition is arithmetic in a prose block. The extra row went to the **middle** band
+(`4 + 1 + 5 + 1 + 4 = 15`), the only assignment that keeps the lattice vertically symmetric so no
+floor has a systematically roomier corner. Rooms are 5x4 / 5x5 / 5x4 before jitter, still "six
+rooms of ~20 tiles". A consequence: a merged hall is 5x10, not the 5x9 §5 predicts. This is
+recorded in `lattice.ts`'s header and guarded by a test that says what to do if someone "fixes" the
+bands back to 4/4/4. **A `game-designer` pass should ratify or overrule the choice and correct §5.**
+
+**Draw-count decision: fixed, `54 + creatureCount(floor)` draws, independent of the seed.** The
+alternative — rejection sampling ("pick a tile, retry if occupied") — was rejected. Two techniques
+buy it. Every placement first builds a *candidate list*, deterministically filtered from the grid
+as it stands and scanned row-major, then spends exactly one draw indexing into it; and optional
+things still draw, so "0-2 pillars per room" rolls the count and then runs both slots, consuming a
+discarded draw for the unused one. It costs a handful of wasted draws and buys a test that asserts
+"floor 1 advances the generator by exactly 57 steps" — so a stray conditional draw added later
+fails at the change that introduced it instead of silently shifting the run and surfacing a
+fortnight later. That test killed a mutation nothing else caught.
+
+**Connectivity and "no corridors" are structural, not checked-afterwards.** Jitter may only pull a
+room *away from the screen edge*, never off a wall it shares with a neighbour — so both sides of a
+shared wall always touch it and a doorway anywhere in the overlap connects by construction. A
+random spanning tree (randomized Kruskal over a shuffled edge list — a fixed 6 draws, where "keep
+adding until spanning" would not be) makes the room graph connected. The only thing that could
+manufacture a passage afterwards is a pillar, so a pillar is only placed on a tile that leaves the
+whole floor *sound*: connected, no tile with fewer than two exits, and no two adjacent
+through-passages. That last clause is the mechanical form of §5's "a corridor is a sequence of
+turns with one legal move" — one through-passage is a threshold, which §5 allows; two in a row is a
+corridor. Notably the "don't put a pillar next to a doorway" rule one reaches for is unnecessary: a
+doorway has exactly two exits, so a pillar on either creates a dead end and is already rejected.
+
+**Learned — the benchmark paid for itself the day it was written.** ARCHITECTURE.md says to add one
+when touching level generation. The first working generator ran at **2.7ms per floor on a desktop**,
+against a 2ms budget for a whole turn on a mid-range phone. The cause was `isSound` defined as
+`findSoundnessProblems(grid).length === 0`, which allocates a position object and several arrays
+per call — and the generator asks it once per candidate tile per pillar, ~240 times per floor.
+Rewriting it as a short-circuiting, allocation-free pass took it to **0.30ms**, a 9x win. Nothing
+else was optimized because nothing else showed up. The cost is two implementations of one
+predicate, which is a genuine drift hazard, so `soundness.test.ts` pins them together — including
+on *every single-tile perturbation* of a room grid, which is exactly the question the generator asks.
+
+**Learned — mutation testing found two false greens, both in tests that looked fine.** 27 deliberate
+breaks, each checked for whether the *intended* test failed, not merely that something did.
+25 were killed first time. Two were not:
+
+- Deleting the row-major sort of `caches` and `creatures` broke **nothing** — the pinned floors
+  happened to have been drawn in row-major order already. It is not a determinism bug (both runs
+  agree), but the entity layer will assign actor ids from that array and §2 breaks scheduler ties by
+  ascending actor id, so draw order would have leaked into turn order. Now covered by an explicit
+  ordering test.
+- Flooring the merged wall over the *union* of the two room widths instead of the overlap was
+  caught only incidentally by a pinned floor, not by any structural claim. The merge test now
+  asserts the separator row is open over exactly the overlap and wall outside it.
+
+A third finding was about the suite's shape rather than its coverage: the seed corpus was a
+module-level `const`, so a generator that *throws* produced a Vitest collection error reading
+"no tests" instead of a named failure. Still red, but "no tests" is a terrible thing to read in CI.
+The corpus is built lazily now; the same mutation reports 47 named failures.
+
+**Watch:**
+- `Floor` is not in `GameState` yet. Putting it there is an outcome-changing change and needs a
+  `RULES_VERSION` bump plus re-pinning the map fixtures.
+- The pinned floors are ground truth *by definition* — generated from this implementation. They
+  prove the generator has not changed, not that it is right. Any deliberate rules change or reorder
+  of `LATTICE_EDGES` means re-pinning them and bumping the version.
+- The benchmark is the one test in the repo that can fail for reasons that are not about the code.
+  It warms up and takes a median of five batches to limit that. If it starts failing intermittently
+  near the threshold, say so here rather than quietly raising the number.
+- Merges are restricted to vertically stacked pairs, because §5 describes the result as "a 5x9
+  hall" and a side-by-side merge would give an 11-wide band spanning the whole floor — a different
+  idea that the GDD did not ask for. Worth a designer's opinion if floors feel samey.
+
+**Next:** FOV and light propagation (`game/fov/`), which is the other place ARCHITECTURE.md says
+performance blows up — add a benchmark there too. It consumes `blocksLight` and `blocksEmberSense`,
+which are deliberately separate predicates in `grid.ts`: the pillar blocks light but not
+ember-sense, and that asymmetry is the whole reason darkness carries information (§4).
 
 ---
 
@@ -176,6 +306,7 @@ pays it. If a second charging path appears, alternation stops being enforced by 
 Also: `MAX_ACTS_PER_TURN` (1024) is a livelock tripwire, not a rule — if a design ever wants an
 actor to act many times per instant, it is the wrong guard and should be replaced deliberately
 rather than raised.
+
 
 ## 2026-07-30 — Core types, `step()`, and the replay-determinism tripwire (#3)
 

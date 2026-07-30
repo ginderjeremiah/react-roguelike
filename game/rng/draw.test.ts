@@ -207,10 +207,10 @@ describe('int', () => {
   it('is not visibly biased for a span that does not divide 2^32', () => {
     // 2^32 mod 7 != 0, so this is where a modulo implementation's bias would live. Ours is
     // multiply-high, whose residual bias (< 7/2^32) is far below anything 140k samples can see —
-    // but the test would catch a regression to plain `% span`, which for small spans is also
-    // undetectable... and that is the honest point: at these sizes the two are statistically
-    // indistinguishable. The real defence against `%` is the draw-count and endpoint tests plus
-    // the pinned stream.
+    // and for small spans plain `% span` is equally undetectable here. That is the honest point:
+    // at these sizes the two are statistically indistinguishable, so this test does NOT defend
+    // against `%`. The pinned helper output at the bottom of this file is what does; the draw
+    // count and endpoint tests do not either, since `%` preserves both.
     const counts = new Array<number>(7).fill(0);
     for (const value of sample('dist-seven', 140_000, (rng) => int(rng, 0, 6))) counts[value] += 1;
     // df = 6, alpha = 0.001 => 22.458
@@ -594,5 +594,92 @@ describe('replay', () => {
     const { log, rng } = script(seed);
     const crits = log.filter((line) => line.startsWith('crit:')).length;
     expect(rng).toEqual(advance(createRng(seed), 250 * 10 + crits));
+  });
+});
+
+// --- Pinned helper output ----------------------------------------------------------------------
+
+describe('pinned helper output', () => {
+  /**
+   * The tripwire for the *mapping* from raw generator word to helper result.
+   *
+   * `xoshiro128.test.ts` pins the generator and the seed derivation. That is not enough. Every
+   * property the rest of this file asserts — bounds, endpoint reachability, uniformity,
+   * permutation, exact draw counts — is preserved by mutations that nonetheless change which
+   * value a given seed produces:
+   *
+   *   - `min + (drawn.value % span)` instead of multiply-high
+   *   - iterating `weighted` entries in reverse
+   *   - returning `shuffle`'s result reversed
+   *   - indexing `pick` from the far end
+   *
+   * All four passed the entire suite before this block existed. They are not academic: issue #3
+   * records replay fixtures in terms of `int`/`pick`/`shuffle`/`weighted`, not raw words, so any
+   * of them would silently invalidate every stored replay while CI stayed green.
+   *
+   * These values are ground truth by definition — they were generated from this implementation,
+   * not derived independently. That is the right and only role for them: they cannot prove the
+   * mapping is *correct* (the bounds, distribution, and BigInt tests do that), only that it has
+   * not *changed*. If a deliberate change makes them fail, re-pin and bump `RunRecord.version`.
+   */
+  const SEED = 'emberdepth';
+
+  /** Run `fn` `n` times from a fresh `SEED`, threading state forward. */
+  function sequence<T>(fn: (rng: Rng) => { value: T; rng: Rng }, n: number): T[] {
+    let current = createRng(SEED);
+    const out: T[] = [];
+    for (let i = 0; i < n; i += 1) {
+      const drawn = fn(current);
+      out.push(drawn.value);
+      current = drawn.rng;
+    }
+    return out;
+  }
+
+  it('pins int() over a small span', () => {
+    expect(sequence((rng) => int(rng, 1, 6), 12)).toEqual([5, 4, 6, 6, 6, 1, 3, 4, 6, 2, 6, 3]);
+  });
+
+  it('pins int() over a span that exercises the high bits', () => {
+    expect(sequence((rng) => int(rng, 0, 79), 8)).toEqual([64, 46, 68, 79, 68, 5, 39, 43]);
+  });
+
+  it('pins int() on a degenerate span', () => {
+    // Still consumes a draw each time, so the stream advances — that is the contract.
+    expect(sequence((rng) => int(rng, 7, 7), 3)).toEqual([7, 7, 7]);
+  });
+
+  it('pins float()', () => {
+    expect(sequence((rng) => float(rng), 4)).toEqual([
+      0.8038606981281191, 0.5807846037205309, 0.8563664774410427, 0.9987541388254613,
+    ]);
+  });
+
+  it('pins pick()', () => {
+    const items = ['a', 'b', 'c', 'd', 'e'] as const;
+    expect(sequence((rng) => pick(rng, items), 10)).toEqual([
+      'e', 'c', 'e', 'e', 'e', 'a', 'c', 'c', 'e', 'a',
+    ]);
+  });
+
+  it('pins shuffle()', () => {
+    expect(sequence((rng) => shuffle(rng, [0, 1, 2, 3, 4, 5, 6]), 4)).toEqual([
+      [1, 0, 2, 6, 4, 3, 5],
+      [1, 5, 2, 0, 4, 6, 3],
+      [2, 5, 0, 4, 3, 1, 6],
+      [3, 0, 2, 6, 4, 5, 1],
+    ]);
+  });
+
+  it('pins weighted()', () => {
+    const table: WeightedEntry<string>[] = [
+      { value: 'common', weight: 70 },
+      { value: 'uncommon', weight: 25 },
+      { value: 'rare', weight: 5 },
+    ];
+    expect(sequence((rng) => weighted(rng, table), 12)).toEqual([
+      'uncommon', 'common', 'uncommon', 'rare', 'uncommon', 'common',
+      'common', 'common', 'rare', 'common', 'uncommon', 'common',
+    ]);
   });
 });

@@ -21,6 +21,24 @@ One entry per meaningful work session or merged PR. Newest first.
 **Why:** the reasoning, especially any non-obvious choice or rejected alternative.
 **Learned:** anything surprising. Wrong assumptions, gotchas, things that cost time.
 **Next:** the immediate next step, specific enough to act on cold.
+**Review addendum (post-review):** the suite pinned the *generator* but nothing pinned the
+*mapping from raw word to helper output* — the surface all game code actually calls. Four
+semantics-preserving mutations passed all 76 tests: modulo instead of multiply-high, reversed
+`weighted` iteration, reversed `shuffle` result, and `pick` indexed from the far end. Each changes
+what a given seed produces while preserving bounds, uniformity, permutation, and exact draw
+counts. That mattered because #3 records replay fixtures in terms of `int`/`pick`/`shuffle`, not
+raw words, so any of them would have invalidated every stored replay with CI green.
+
+Added a pinned-helper-output block and confirmed each mutation is now killed by its intended test.
+Those pins are ground truth by definition, generated from this implementation — they cannot prove
+the mapping is correct, only that it has not changed. A deliberate change means re-pinning and
+bumping `RunRecord.version`.
+
+Also corrected a comment claiming the distribution and draw-count tests defended against `%` —
+they do not, since `%` preserves both. And a collision test whose threshold rested on a
+factor-of-1000 birthday-bound error: it tolerated 99 collisions where the expectation is 0.047,
+and would have passed for a 22-bit hash.
+
 **Watch:** known risks, deferred cleanup, things that will bite later. Omit if none.
 ```
 

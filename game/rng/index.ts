@@ -18,5 +18,5 @@
  */
 
 export { createRng, next, rngFromWords, type Draw, type Rng } from './xoshiro128';
-export { float, int, mulhi32, pick, shuffle, weighted, type WeightedEntry } from './draw';
+export { float, int, pick, shuffle, weighted, type WeightedEntry } from './draw';
 export { hashString, seedWords } from './seed';

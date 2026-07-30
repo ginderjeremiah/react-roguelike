@@ -260,12 +260,17 @@ describe('hashString', () => {
     }
   });
 
-  it('collides rarely across 20,000 realistic seeds', () => {
-    // A 32-bit hash over 20k inputs expects ~46 collisions by the birthday bound alone, so this is
-    // a check for gross clustering, not for perfection.
+  it('does not collide at all across 20,000 sequential seeds', () => {
+    // The birthday expectation for a 32-bit hash over 20k inputs is 20000*19999/(2*2^32) ~= 0.047
+    // collisions, NOT ~46 — an earlier version of this test had that arithmetic wrong by a factor
+    // of ~1000 and tolerated 99 collisions, which a 22-bit hash would have passed.
+    //
+    // FNV-1a is effectively injective on a short structured family like this (verified: zero
+    // collisions even at 1e6 inputs), so the honest assertion is exact. This tests structure, not
+    // randomness — the avalanche test above is what covers diffusion.
     const seen = new Set<number>();
     for (let i = 0; i < 20_000; i += 1) seen.add(hashString(`seed-${i}`));
-    expect(seen.size).toBeGreaterThan(19_900);
+    expect(seen.size).toBe(20_000);
   });
 });
 

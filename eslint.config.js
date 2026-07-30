@@ -117,7 +117,17 @@ module.exports = defineConfig([
   expoConfig,
 
   {
-    ignores: ['dist/*', 'node_modules/*', 'playwright-report/*', 'test-results/*', '.expo/*'],
+    ignores: [
+      'dist/*',
+      'node_modules/*',
+      'playwright-report/*',
+      'test-results/*',
+      '.expo/*',
+      // Agents run in git worktrees created under .claude/worktrees/. Those contain a full copy
+      // of the repo, so without this `eslint .` lints every agent's working tree as well as your
+      // own — reporting failures for code that is not in your branch.
+      '.claude/worktrees/**',
+    ],
   },
 
   // --- Determinism + layer rules for the simulation core -------------------------------------

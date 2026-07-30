@@ -34,6 +34,45 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-07-29 — Stripped the Expo tutorial boilerplate (#1)
+
+**Did:** Reduced the app to a single route. Deleted the three tutorial tabs, the modal, six unused
+components, the React logo assets, and `scripts/reset-project.js`. Removed five dependencies that
+existed only for deleted code: `@react-navigation/bottom-tabs`, `expo-image`, `expo-symbols`,
+`expo-web-browser`, `@expo/vector-icons`. Web export went from 9 routes / 25.7 kB to 3 routes /
+18.4 kB.
+
+**Why:** Every tutorial file left in place is something a future session has to read and rule out,
+and something a search surfaces as a false positive. Cheap to clear now, expensive once real code
+sits beside it.
+
+Collapsed the tab bar rather than keeping the renamed `character`/`settings` tabs: a tab bar
+permanently occupies thumb space at the bottom of the screen, which is exactly where a
+touch-native roguelike wants its controls (Pillar 3). If navigation is needed later it should be a
+modal over the game.
+
+**Kept deliberately:** `themed-text`/`themed-view` (generic, and dark mode is an M4 accessibility
+requirement), the color-scheme hooks, `constants/theme.ts`, and `expo-haptics` — unused today but
+M2 explicitly calls for haptic feedback when moving in darkness, so removing and re-adding it
+would be churn.
+
+**Learned:** `eslint .` linted the agent worktrees under `.claude/worktrees/`. A design agent was
+running in one, so `npm run verify` failed with 19 errors from a *different agent's copy of the
+repo* — code not in my branch and not even in my working tree. Confusing failure, and it would
+have hit anyone running an agent with worktree isolation. Fixed permanently: `.claude/worktrees/`
+is now in `.gitignore`, the ESLint ignore list, and `tsconfig.json`'s `exclude`.
+
+This is a direct consequence of making the lint gate real. `expo lint` only globbed `app/` and
+`components/`, so it never saw worktrees; `eslint .` sees everything, which is the point, and
+means the ignore list now matters.
+
+**Next:** #2 (seeded RNG). #3 is blocked behind it. The design review (#4) is running in parallel.
+
+**Watch:** The five removed dependencies were judged unused by grep after deletion, and the web
+build and E2E pass — but **no native build has ever been run** on this project, so if any of them
+was doing something implicit on iOS/Android it will not surface until the M4 native verification
+pass. `expo-image` in particular is sometimes pulled in indirectly.
+
 ## 2026-07-29 — Review caught the determinism contract was never enforced
 
 **Did:** Fixed three blocking bugs the `code-reviewer` agent found in the PR #5 scaffolding, all in

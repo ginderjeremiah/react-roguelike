@@ -11,7 +11,7 @@ only the first was asked for; the other two fell out of trying to answer it.
 GDD §9 has marked auto-travel *settled* since the M0 design review — "tap a distant **remembered**
 tile to path toward it, interrupted the moment anything new becomes visible or sensed, or any
 creature wakes" — and has never said how it is **commanded**. That looked like a UI detail and is
-not one. The interrupt rule is computed from the lit field, the wake set and **which creatures the
+not one. The interrupt rule is computed from the lit field, the wake set and **how many creatures the
 player is currently perceiving**, and none of those is a thing `components/` may decide, so the loop
 and the rule sit on opposite sides of the `game/` boundary and the question is a determinism
 question.
@@ -92,7 +92,8 @@ against the previous step. Only the second survives.
 
 **Travel stops after a fully resolved step in which any of these happened:**
 
-1. **A creature you were not perceiving is now perceived** — keyed to the creature, not to the tile.
+1. **You are perceiving more creatures than you were** — keyed to the *count*, which is what the
+   player can see. Not to identity, and not to the tile.
 2. **Any creature woke.**
 3. **Your HP went down.**
 
@@ -117,15 +118,37 @@ have invented:
   detail. The upside is that the route is legible by construction: it is computed from the same map
   the player is looking at, so they can trace it themselves. It also means **travel can never enter
   unmapped space**, which is what makes cutting the terrain clause safe.
-- **Contact is keyed to the creature, not the tile.** A `*` moving from one tile to another is not a
-  new contact, so a dark travel with an awake Cinder tracking you does not stop every turn. The
-  player reads this as "a mark I had not seen before appeared", which is what identity-keying
-  produces on screen even though the player is never given identity. A creature that leaves sense
-  and re-enters correctly re-interrupts. It cannot be keyed to contact *count*: one creature leaving
-  as another arrives leaves the count unchanged while something genuinely new is on screen.
-- **Losing contact never interrupts.** Otherwise every dark travel that outpaces a known pursuer
-  stops on its first step. An absence is also the least legible interrupt trigger available — the
-  player would be asked to notice that a `*` is *not* there.
+- **Contact is keyed to the count, and this is the ruling in this ADR that changed most.** An earlier
+  draft keyed it to the *creature* — a `*` moving tile to tile is not a new contact, so a dark travel
+  with a Cinder tracking you does not stop every turn — and killed count-keying with a swap case: one
+  creature leaves as another arrives, the count is unchanged, and "something genuinely new is on
+  screen". **That argument was reasoning from the simulation's knowledge rather than the player's,
+  and it is wrong twice.**
+
+  *Genuinely new* is not a property the player has access to. §4 gives ember-sense position and
+  nothing else, and `game/fov/perceive.ts` implements the promise as a type — `CreatureSense` is a
+  union precisely so that a `felt` creature is "a position and *nothing else* — no identity, no
+  health, no intent". So in the swap case the player's screen is **identical** to one creature
+  walking from the first tile to the second. Identity-keying therefore fails Pillar 2 from both ends
+  at once. In the swap case travel stops and nothing on screen explains why — a stop the player
+  cannot account for. And because the stop is itself observable (mid-route, HP unchanged, nothing
+  adjacent, nothing arrived: clause 1 must have fired), a player who knows the rule can run the
+  inference backwards and learn *that mark is a different creature* — one bit of identity, which
+  §4 promises does not exist. That is free identity information dressed as a stop rule, which is
+  structurally the same defect as routing over the true grid, rejected two sections down as free map
+  information dressed as a pathfinding detail.
+
+  **Keying on the count fixes both ends and costs nothing the player can perceive.** "You stop when
+  there are more marks than there were" is checkable by looking at the screen and counting, which is
+  Pillar 2 at full strength. In the swap case travel walks on — and so would a player, who sees one
+  mark before and one mark after and has no way to tell it is a different one. That is the
+  indistinguishability invariant applied to perception rather than to state: **travel may not key on
+  anything the player cannot see.** In M1 it is exactly faithful even in light, where §4 does grant
+  identity, because §6 has one creature and two Cinders are the same glyph.
+- **Losing contact never interrupts**, and under count-keying this stops being a separate ruling and
+  falls out of the word *more*. It is also the right answer on its own terms: otherwise every dark
+  travel that outpaces a known pursuer stops on its first step, and an absence is the least legible
+  interrupt trigger available — the player would be asked to notice that a `*` is *not* there.
 - **The wake clause is redundant today and stays anyway.** Nothing wakes while shuttered (§4), and a
   creature that wakes during a lit travel does so by entering the lit radius, where clause 1 sees it
   on the same step. It stays because it is the clause the player actually reads, and because the
@@ -139,12 +162,25 @@ have invented:
   resolves, because §2 resolves a declared action on the creature's *next* turn. **Travel therefore
   never eats a hit from something it had not already made contact with**, and the earlier draft of
   this ADR, which claimed it ate exactly one, was wrong about the machinery and contradicted clause 1.
-  Evaluating the stop condition on the state the player would have seen is the same statement as the
-  indistinguishability invariant, applied to the one thing travel decides for you.
-- **Clause 3 is what covers the case clause 1 cannot**: the creature you *had* already felt, that you
-  chose to travel away from anyway. Contact is not new, so clause 1 is silent; the hit lands; travel
-  stops. Without clause 3 a travel could be beaten to death one step at a time while the player
-  watched, and with it the player is returned to manual control after one blow.
+  Note that this is a rule about *which* state the condition samples, not a restatement of the
+  indistinguishability invariant, which is about equality of resolved states — both true, and not the
+  same claim.
+- **Clause 3 cannot fire in M1 either, and it stays** — the same status as clause 2, for a reason
+  worth having. **A travelling player cannot be hit at all**, and it is structural: the only way HP
+  falls is `resolveAttack` finding the player on the marked tile (`combat.ts`), a creature marks its
+  tile when it declares in phase 4 of turn T, `ACTION_COST` is 100 for everyone so that mark resolves
+  in phase 4 of T+1, and travel moves the player in phase 1 of **every** turn — with clause 4
+  guaranteeing the move is a real move and the route strictly decreasing the distance field, so no
+  tile is revisited. The player is never standing where the mark is. `actors.ts` says it outright:
+  "an attack on a tile the player left hits nothing."
+
+  So **travel dodges by construction, because it never stands still** — which is a strengthening of
+  the bullet above rather than an exception to it. Clause 3 is the backstop for the first damage
+  source that is not a one-turn-telegraphed attack on a tile: a creature faster than
+  `ACTION_COST`, an attack that resolves on the move, a trap. It is written down now because the
+  rule the player reads should not change when that creature arrives, and because #32's DoD asks for
+  a test per clause — an implementer who does not know this clause is unreachable today will try to
+  construct a state the rules cannot produce, and end up testing the test.
 - **An interrupted travel costs every turn it spent. There is no rewind**, at any granularity, ever.
   A travel *is* those turns: fuel burned, creatures acted, adaptation ticked.
 
@@ -222,8 +258,17 @@ past a doorway already known about — the case people imagine, travelling lit i
 dormant Cinders, cannot occur, and a creature lit at the fringe wakes and is seen, so clauses 1 and
 2 catch it regardless.
 
-**Interrupting on a tile-keyed contact change, or on lost contact.** Both make travel stop nearly
-every step in the one mode it is for. Covered above.
+**Keying clause 1 on the creature rather than on the count.** The runner-up on the stop rule, and
+the ruling this ADR reversed under review. It is the more *accurate* rule — it knows when a mark is
+genuinely a different creature — and accuracy is exactly its defect: the player cannot know that, so
+travel would be deciding on information the player does not have, and the stop would be
+unexplainable in the case where the two differ. Worse, the stop is observable, so a player who knows
+the rule can invert it and extract one bit of identity that §4 promises does not exist. Count-keying
+gives up the swap case and buys a rule the player can check by looking. Full argument in *Decision*.
+
+**Interrupting on a tile-keyed contact change, or on lost contact.** Tile-keying stops nearly every
+step in the one mode travel is for, since a tracking creature changes tile every turn. Lost contact
+is covered above.
 
 **Build it in M1, after #20, so the milestone ships with the input model complete.** The runner-up on
 schedule. It keeps the schedule pressure without buying the evidence: the playtest still arrives at
@@ -246,19 +291,23 @@ take N times it. The distance field can be computed once per travel command rath
 passable to passable — but vacancy still has to be checked per step, which is the split
 `game/entities/pathing.ts` already makes.
 
-**Two pieces of new machinery, and the second is the one to argue about.** The first is a
+**Two pieces of new machinery, and only one of them is new code.** The first is a
 `stepDistanceField` variant masked by remembered terrain, which is small. The second is
-**identity-keyed creature perception, computed inside `game/`** — the thing clause 1 tests, and the
-thing `light.ts` deliberately removed. That is not a licence to undo its ruling, and the distinction
-is worth stating because an implementer will meet the comment and stop: light.ts removed the creature
-list because *nothing observed it*, and "an unkillable line is a line that should not exist" is a
-statement about observability, not about the computation being unwanted. **Travel is the observer
-that was missing.** Two constraints follow. It belongs to travel's fold, not to phase 3 — phase 3
-still passes `[]` and still stores nothing, because a command that does not travel must not start
-paying for a set nobody reads. And it must key on the creature, not the tile, which means it is not
-quite `TurnPerception` as `perceive` returns it: that type carries positions only, deliberately (§4:
-ember-sense gives no identity), so the stop rule needs the actor ids beside it and must not leak them
-anywhere the player can see.
+**creature perception computed inside `game/` at all** — the thing clause 1 counts, and the thing
+`game/systems/light.ts` deliberately removed when it started passing `perceive` an empty creature
+list. That is not a licence to undo its ruling, and the distinction is worth stating because an
+implementer will meet the comment and stop: light.ts removed the real list because *nothing observed
+it*, and "an unkillable line is a line that should not exist" is a statement about observability, not
+about the computation being unwanted. **Travel is the observer that was missing**, and the moment it
+exists the line is killable — a mutant that filters the list differently changes where a travel
+stops.
+
+Because the ruling above keys on the **count**, this needs no new type and no new field:
+`perceive(grid, vision, origin, creatures).creatures.length` is exactly the quantity, off the
+existing `TurnPerception`, with `CreatureSense` carrying no identity just as §4 requires. One
+constraint remains: it belongs to **travel's fold, not to phase 3**. Phase 3 keeps passing `[]` and
+keeps storing nothing, because a command that does not travel must not start paying for a set nobody
+reads.
 
 **What the deferral costs, stated plainly.** The `playtester` will cross known space by hand at M1's
 exit. On a six-room 11×15 floor the longest crossing is about twenty tiles, so a run that backtracks
@@ -322,6 +371,14 @@ implementing PR inherits the reasoning rather than rediscovering it:
   nothing, because a bump is a normal act; being wrong the other way means a stale build accepts a
   log it cannot resolve. This does not need its own issue — it is a two-line edit that only becomes
   true inside the PR that has to make it.
+
+**Revisit the count-keying if §6 ever ships two creature kinds that are distinguishable in light.**
+It is exactly faithful in M1 because every creature is a Cinder and two of them are the same glyph,
+so even lit, the count is all the player has. With a `C` and something else on screen, a lit player
+can tell a swap from a walk, and clause 1 would then under-stop in a state where the player *does*
+have the information — at which point the honest rule in the lit column is the identity one, and the
+two columns of §4's table would legitimately key differently. Do not pre-build that; it is an M3
+question and lit travel is self-punishing anyway.
 
 **Revisit if:** the first playtest with travel in it reports that it stops on nearly every step. That
 would mean the stop rule is wrong at the concept level rather than the tuning level, and a travel

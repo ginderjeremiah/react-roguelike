@@ -68,7 +68,8 @@ never travels. The lit direction has no good reading at all. Terrain was **cut r
 qualified**: the route runs over remembered tiles only, so a travel cannot enter unmapped space, and
 the only mode travel is economically sensible in is dark, where items are invisible and terrain
 reaches one tile. What is left is one sentence — *you walk until something living appears, or
-something touches you.*
+something touches you.* The stop is keyed to the **count** of perceived creatures, never to
+identity; the reasoning is under **Learned**, because getting there took two tries.
 
 **The deferral.** Auto-travel creates no decisions; it removes taps. That is legitimate under
 Pillar 1 only if the taps it removes are autopilot, and **nobody has tapped this game once** — there
@@ -96,6 +97,31 @@ observer that was missing, which is what makes computing it legitimate against l
 unkillable line is a line that should not exist"; that ruling is about observability, not about the
 computation being unwanted.
 
+**Then I made the same mistake a second time, in the same document, and it took a second review pass
+to see it.** The stop rule was keyed to the *creature*: a mark moving tile to tile is not new
+contact, so a tracked Cinder does not stop you every turn. I had explicitly killed the alternative —
+keying on the **count** of marks — with a swap case: one creature leaves as another arrives, the
+count is unchanged, "something genuinely new is on screen". But *genuinely new* is not something the
+player has. `game/fov/perceive.ts` implements §4's promise as a type: `CreatureSense` is a union so
+that a `felt` creature is "a position and nothing else". In the swap case **the player's screen is
+identical** to one creature walking one tile. So identity-keying stops for a reason nothing on screen
+explains — and because the stop is observable (mid-route, HP unchanged, nothing adjacent, nothing
+arrived ⇒ clause 1 fired), a player who knows the rule can invert it and learn *that mark is a
+different creature*. One bit of identity that §4 says does not exist, which is structurally the same
+defect as the route-over-the-true-grid alternative I rejected in the same document as "free map
+information dressed as a pathfinding detail."
+
+**Ruled: key on the count.** "You stop when there are more marks than there were" is checkable by
+looking, so §4's promise needs no exception and §4 needs no amendment. The swap case is given up
+deliberately — a player would walk on too, seeing one mark before and one after. The generalisation
+worth carrying out of both mistakes is one line: **the simulation may not decide on information the
+player does not have, and I twice reasoned from what the engine knows instead of from what the screen
+shows.** The first time it invented machinery; the second it invented an oracle.
+
+One happy consequence: keying on the count means clause 1 needs no new type. It is
+`perceive(...).creatures.length` off the existing `TurnPerception`, which is precisely the line
+`light.ts` deleted for want of an observer.
+
 Also worth recording: **`game/core/command.ts` rule 3 and `game/core/replay.ts`'s bump
 policy contradict each other** on whether adding a `Command` variant bumps `RULES_VERSION`. `command.ts`
 says only if it changes what an existing log does (it does not); `replay.ts` — the canonical home per
@@ -118,6 +144,15 @@ last two or three journal entries, and by M1's exit this entry is out of that wi
 went there too: `economy.test.ts`'s corpus models one-step play by a *tireless* script, and a
 tap-fatigued playtester goes back for fewer caches, which is exactly the behaviour §4's third
 invariant is calibrated on — so M1's fuel data matches neither the corpus nor travel-present play.
+
+Two of the five stop clauses are **unreachable in M1 and stay anyway**, both flagged as such in the
+ADR so nobody tries to test them into existence. The wake clause is subsumed by clause 1 (nothing
+wakes shuttered; a creature woken by your light is also in your light). And **a travelling player
+cannot be hit at all** — HP only falls when `resolveAttack` finds the player on the tile a creature
+marked when it declared, that mark resolves one turn later at `ACTION_COST` 100, and travel moves the
+player in phase 1 of every turn along a strictly-decreasing route. **Travel dodges by construction,
+because it never stands still.** The HP clause is the backstop for the first damage source that is
+not a one-turn-telegraphed attack on a tile.
 
 Four sites become wrong the day `travel` lands and must not be touched before then, listed in
 ADR-0009's Consequences. Three are comments; **the first is a red test.**

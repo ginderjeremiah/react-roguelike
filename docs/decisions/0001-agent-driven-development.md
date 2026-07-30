@@ -52,6 +52,13 @@ choices in a game — a combat implementation detail is a balance decision. Inst
 where owner attention is *directed* (`needs-owner` on pillar-level changes), without pretending a
 clean line exists.
 
+> **Amended 2026-07-30.** The parenthetical above — `needs-owner` on pillar-level changes — was
+> narrowed. Design decisions, including pillar and concept changes, are the agents' call;
+> `needs-owner` now means only the owner can supply the answer (credentials, money,
+> infrastructure). The original rule contradicted his stated boundary and was never his. The
+> reasoning is recorded in `docs/WORKFLOW.md` and the 2026-07-30 journal entry. The rest of this
+> ADR stands.
+
 ## Consequences
 
 Development runs at agent speed rather than review speed, with a complete audit trail: every

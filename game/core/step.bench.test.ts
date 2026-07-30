@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { atTheStairs } from '@/tests/unit/support/run-script';
 import { LAST_FLOOR } from '../content';
+import { generateFloor } from '../map';
 import { type Command } from './command';
 import { createInitialState, floorNumberOf, type GameState } from './state';
 import { step } from './step';
@@ -29,39 +30,69 @@ import { step } from './step';
  */
 
 /**
- * Half of ARCHITECTURE's 2ms for the descent, because a descent legitimately does ~60 draws of level
- * generation on top of a turn and there is no point pretending otherwise. The ordinary commands are
- * held to a tenth of that. Both leave room for a large regression to be caught before a player
- * could feel it, which a threshold set at the full budget would not.
+ * **The descent is measured as a ratio, not against a millisecond figure, and that is a correction.**
+ *
+ * It was first written as "half of ARCHITECTURE's 2ms", which passed here at 0.45ms and failed on a
+ * GitHub runner at **1.72ms** — a ~4x slower machine, not a regression. Raising the number until the
+ * runner passed would have set the threshold by whichever machine happened to be slowest, and at
+ * 1.72ms against a 2ms budget there is no headroom left to raise it into anyway.
+ *
+ * So the descent is held to what it *is*: a floor generation plus one turn. Generation already has
+ * an absolute budget of its own (`generate.bench.test.ts`, 2ms) and a turn has one
+ * (`light.bench.test.ts`, 0.2ms); what only this layer can see is whether descending costs more than
+ * the sum of its two halves. Measuring both in the same process divides the machine out, so the
+ * assertion means the same thing on a laptop, a runner, and a phone.
+ *
+ * The measurement itself is the interesting part: a descent costs **1.09x** a bare generation here
+ * (0.47ms against 0.43ms), so generating the floor is ~92% of it and the six phases are noise. The
+ * threshold is 1.6x, which trips on a **second floor being generated** (that alone would be 2.0x)
+ * and on roughly a 5x regression in the turn half. Both absolute figures are printed either way, so
+ * a real slowdown is visible in the CI log even on a run where nothing fails.
+ *
+ * Ordinary commands keep an absolute threshold, because they measure two orders of magnitude below
+ * the budget and hardware variance cannot close that gap.
  */
-const DESCENT_BUDGET_MS = 1;
+const DESCENT_RATIO_LIMIT = 1.6;
 const COMMAND_BUDGET_MS = 0.1;
 const WARMUP = 30;
 const BATCHES = 5;
 const BATCH_SIZE = 60;
 
-function medianCost(state: GameState, command: Command): number {
-  for (let i = 0; i < WARMUP; i += 1) step(state, command);
+/** Median of batched medians. Warms up first, so a cold JIT is not what is being measured. */
+function median(once: () => unknown): number {
+  for (let i = 0; i < WARMUP; i += 1) once();
 
   const costs: number[] = [];
   for (let batch = 0; batch < BATCHES; batch += 1) {
     const started = performance.now();
-    for (let i = 0; i < BATCH_SIZE; i += 1) step(state, command);
+    for (let i = 0; i < BATCH_SIZE; i += 1) once();
     costs.push((performance.now() - started) / BATCH_SIZE);
   }
   return costs.sort((a, b) => a - b)[Math.floor(BATCHES / 2)];
 }
 
+function medianCost(state: GameState, command: Command): number {
+  return median(() => step(state, command));
+}
+
 describe('step() against the 2ms turn budget', () => {
-  it('resolves a descent — floor generation plus a whole turn — inside the budget', () => {
+  it('resolves a descent for little more than the floor generation it contains', () => {
     // The deepest floor a run reaches minus one, so the floor being *generated* is the most
     // populated one §8 produces.
     const state = atTheStairs('step-bench', LAST_FLOOR - 1);
     expect(floorNumberOf(state)).toBe(LAST_FLOOR - 1);
 
-    const cost = medianCost(state, { kind: 'descend' });
-    console.log(`descend: ${cost.toFixed(4)}ms (budget ${DESCENT_BUDGET_MS}ms of ARCHITECTURE's 2ms)`);
-    expect(cost).toBeLessThan(DESCENT_BUDGET_MS);
+    const descent = medianCost(state, { kind: 'descend' });
+    // The same floor `step` would generate, generated on its own: the machine's own yardstick,
+    // measured in this process with this harness. `LAST_FLOOR` because that is what descending from
+    // `LAST_FLOOR - 1` produces.
+    const generation = median(() => generateFloor(state.rng, LAST_FLOOR));
+
+    console.log(
+      `descend: ${descent.toFixed(4)}ms = ${(descent / generation).toFixed(2)}x a bare floor ` +
+        `generation (${generation.toFixed(4)}ms), limit ${DESCENT_RATIO_LIMIT}x`,
+    );
+    expect(descent / generation).toBeLessThan(DESCENT_RATIO_LIMIT);
   });
 
   it('resolves an ordinary lit turn inside a tenth of the budget', () => {

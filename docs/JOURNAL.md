@@ -324,6 +324,22 @@ written down at the site alongside this file's other documented equivalents.
 is a real assertion and not vanity: a refused descent that generated a floor before throwing it away
 would be ~0.3ms *and* a replay-breaking draw, and this is the cheapest place to notice it.
 
+**The descent benchmark then failed on CI at 1.72ms and had to be rewritten, which the file's own
+header asks be written down here rather than fixed with a bigger number.** The runner is ~4x slower
+than this machine; nothing regressed. Raising the threshold until CI passed would have set it by
+whichever machine happened to be slowest, and against a 2ms budget there was no headroom to raise it
+into. So the descent is now measured **as a ratio to a bare `generateFloor` taken in the same
+process** — which divides the machine out and means the same thing on a laptop, a runner and a
+phone. It measures **1.06-1.09x**: generating the floor is ~92% of a descent and the six phases are
+noise. The limit is 1.6x, and it was verified by planting a second `generateFloor` in `step` — 2.07x,
+red. The absolute milliseconds are still printed on every run, so a genuine slowdown shows up in the
+CI log even when nothing fails.
+
+Worth knowing for later: **on CI-class hardware a descent takes 1.72ms of ARCHITECTURE's 2ms
+per-turn budget**, essentially all of it, and a phone is not obviously faster than a GitHub runner.
+The cost is level generation, not the turn. Filed as #34 — it is a real number to watch when M4 does
+the native pass, not a problem today.
+
 **Learned:** a mutant killed by the test runner *timing out* is a survivor wearing a red X. The
 "descend regenerates the same floor number" mutant made `diveToTheBottom`'s outer loop descend
 forever; the harness recorded a non-zero exit and called it dead. The fix is in the harness script

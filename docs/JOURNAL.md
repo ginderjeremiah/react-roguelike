@@ -21,6 +21,23 @@ One entry per meaningful work session or merged PR. Newest first.
 **Why:** the reasoning, especially any non-obvious choice or rejected alternative.
 **Learned:** anything surprising. Wrong assumptions, gotchas, things that cost time.
 **Next:** the immediate next step, specific enough to act on cold.
+**Review addendum:** the reviewer found the fourth check-that-enforces-nothing in four PRs, and
+this one was in the phase order itself. `resolveTurn` correctly folds `RESOLUTION_PHASES`, but
+*nothing pinned that* — swapping the fold to `Object.keys(phases)` passed all 233 tests, because
+every phases object in the suite was constructed in GDD order (two of them by iterating
+`RESOLUTION_PHASES` itself, which is self-referential). The new test builds its literal in
+**alphabetical** order — what a tidy-up pass produces — and asserts the trace spelled out
+literally rather than against the constant.
+
+Two other tests were added for mutants that survived: `createSchedule`'s entries were only checked
+via `dueActors`, so scheduling everyone at tick 0 instead of at `now` passed; and `addActor`'s id
+guard was unexercised, where a `NaN` id makes `hasActor` false forever and `removeActor` throw —
+an actor that can never be removed, i.e. a corpse that acts every turn for the rest of the run.
+
+The reviewer also caught that its *own* first harness run was lying: `--reporter=basic` no longer
+exists in Vitest 4, so vitest exited 0 without running anything and reported every mutation
+"killed". Worth remembering — a mutation harness needs a baseline assertion or it measures nothing.
+
 **Review addendum (post-review):** the suite pinned the *generator* but nothing pinned the
 *mapping from raw word to helper output* — the surface all game code actually calls. Four
 semantics-preserving mutations passed all 76 tests: modulo instead of multiply-high, reversed
@@ -73,6 +90,92 @@ is worth the file.
 did — it is the only thing stopping a future session from repeating it.
 
 ---
+
+## 2026-07-30 — Turn scheduler: one clock, a sorted array, and the tie-break (#15)
+
+**Did:** Built `game/systems/` — `schedule.ts` (the integer clock and the priority queue on
+`(nextActAt, actorId)`) and `turn.ts` (the GDD §2 resolution order and the actor phase inside it).
+61 new tests, 233 total. Nothing is wired into `step()` yet; see *Next*.
+
+**Why a sorted plain array and not a heap.** A floor holds ~7 actors, so an O(n) insert is not the
+thing worth optimizing, and the alternative costs more than it saves: `GameState` must be plain
+JSON-shaped data, and `game/core/divergence.ts` now *throws* on a class instance, `Map`, or `Set`
+rather than reporting two different ones as identical. A binary heap is the obvious place to reach
+for a class, and a `Map<ActorId, number>` is the obvious place to reach for insertion order. A
+sorted array is comparable field-by-field, serializable, and readable in a bug report.
+
+**The tie-break is the whole file.** `compareScheduleEntries` never returns 0 for two distinct
+entries, so `(nextActAt, actorId)` is a strict total order and sort stability is irrelevant *by
+construction*. That matters because the failure mode is silent: a comparator that returns 0 on a
+tie hands the decision to `Array.prototype.sort`, which is stable, which means the answer becomes
+"whoever was inserted first" — spawn order, i.e. level-generation order, i.e. a hidden input. In
+M1 ties are not an edge case but the normal case, since every action costs the same and the whole
+floor shares a cadence.
+
+A pleasant consequence: the player is an actor holding the lowest id, so "the player moves first"
+falls out of the ordering instead of being special-cased anywhere in turn resolution.
+
+**The seam for #14/#16/#17.** `RESOLUTION_PHASES` is the GDD §2 order as data, and `resolveTurn`
+folds over it, so there is no second copy of the order to drift. The phases are *injected* as a
+`Record` over the phase union — a caller that forgets one does not compile. The phases that do not
+exist yet are deliberately **not stubbed here**: an empty `burnFuel` returning its state unchanged
+is a lie that passes tests, and the next session finds it and assumes fuel is done. `turn.test.ts`
+supplies them as identity at the call site, which is exactly how `step()` will supply the real ones.
+
+**One design decision inside the actor phase:** the actor is charged *before* it acts. That makes
+a death mid-action stick (charging afterwards would put the corpse back in the queue with a fresh
+act time) and guarantees progress even if a creature's behaviour forgets the schedule entirely. The
+queue is re-read after every action rather than snapshotted, so a creature killed earlier in the
+same phase never gets its turn.
+
+**Variable cost: mechanism built, not designed with.** `nextActAt` is an arbitrary integer and
+`reschedule` accepts any time — that is the entire mechanism, and it is why this was built now
+rather than retrofitted. Every action goes through `chargeActor`, which charges `ACTION_COST` and
+nothing else, so observable behaviour is strict alternation. There are no speed values, no
+per-action costs, and no `cost` parameter on the `act` callback. Adding one is a design change and
+needs a GDD row, not a refactor.
+
+**Learned (mutation testing).** Twelve deliberate breaks, all killed, each by the test written for
+it — including the three the ordering rests on: descending tie-break, tie-break removed, and a
+queue that keeps insertion order with a `peek` that scans for the first minimum. Two findings worth
+recording:
+
+- The insertion-order property is only meaningful because the test sorts with its **own**
+  comparator written out in the test file. Had it used `compareScheduleEntries` as its yardstick,
+  flipping the tie-break would have moved implementation and expectation together and every
+  assertion would still have passed. Same class of false green as the `snapshot()` instrument
+  found in #3.
+- "The clock advances by ACTION_COST" survived every alternation test, because in the M1 steady
+  state every gap *is* one action. Only a drain with random start times, and a phase with a lone
+  actor scheduled at tick 350, distinguish it from "advance to the head of the queue". An
+  invariant that is accidentally true in the common case needs a test built around the uncommon one.
+
+**Next:** #13 (map) is in flight in parallel. The scheduler is standalone until #16 gives
+`GameState` actors to schedule — that PR should add `schedule: Schedule` to `GameState`, rewrite
+`step()` as the `resolveTurn` call sketched in `turn.ts`'s header, and bump `RULES_VERSION` (a new
+`GameState` field is an outcome-changing change by the policy in `replay.ts`). Nothing in this PR
+touches `game/core/`, so no bump was owed here.
+
+**#16 must also do two things this PR cannot do for it**, both found in review:
+
+1. **Remove a killed actor from the schedule at kill time, in phase 1** — not in phase 5. GDD §2
+   puts deaths at phase 5, and that order is right (phase 5 is about embers dropping and the corpse
+   leaving the world). But a creature the player kills in phase 1 will still take its turn in phase
+   4 unless it leaves the queue immediately. `runActorPhase` already supports this — the test
+   `does not give a turn to an actor killed earlier in the same phase` proves it — but #16's author
+   will read GDD §2 as literally as this PR did and land in the same place.
+2. **Wire a free action to skip the actor phase entirely, not merely skip its own charge.** GDD §2
+   says the shutter toggle is free. `runActorPhase` charges every actor due at `now`, and the
+   player is due at `now` when the turn begins — so a command phase that just declines to charge
+   still gets charged by phase 4, *and* hands every creature on the floor a free turn. The
+   corrected wiring is in `turn.ts`'s header sketch, and `a free action` in `turn.test.ts` pins both
+   the right behaviour and the wrong one.
+
+**Watch:** `chargeActor` is the only cost in the game and `runActorPhase` is the only loop that
+pays it. If a second charging path appears, alternation stops being enforced by construction.
+Also: `MAX_ACTS_PER_TURN` (1024) is a livelock tripwire, not a rule — if a design ever wants an
+actor to act many times per instant, it is the wrong guard and should be replaced deliberately
+rather than raised.
 
 ## 2026-07-30 — Core types, `step()`, and the replay-determinism tripwire (#3)
 

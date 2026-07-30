@@ -34,6 +34,105 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-07-29 — Seeded RNG: xoshiro128**, fixed draw counts, 76 tests (#2)
+
+**Did:** Built `game/rng/` — the project's only source of randomness. Three modules: `seed.ts`
+(string → state), `xoshiro128.ts` (the generator), `draw.ts` (`int`/`float`/`pick`/`shuffle`/
+`weighted`), plus a barrel. 76 tests across two suites.
+
+**Why xoshiro128\*\* over PCG32:** both were sanctioned by the issue and both are statistically
+fine. The deciding factor was JavaScript arithmetic. PCG32's state advance is a 64-bit LCG, and JS
+has no 64-bit integer multiply — a faithful port needs either BigInt (allocating, and a
+comparatively lightly-exercised path in Hermes) or a hand-rolled 64×64 multiply from 32-bit halves
+that must be exactly right on every engine forever, or web and native replays diverge.
+xoshiro128** needs only xor, shift, rotate, and multiply-by-constant, all of which `Math.imul` and
+`>>>` perform exactly under ECMA-262 with zero implementation latitude. Cross-platform identity by
+construction rather than by hope. Its state is also four plain uint32s, so it drops into
+`GameState` as JSON-clean immutable data.
+
+**Ergonomics — the decision the whole simulation now lives with:** every operation takes an `Rng`
+and returns `{ value, rng }`. The caller threads the new state forward. The rejected alternative
+was a mutable cursor (`cursor.int(1, 6)`, hand the state back at the end of the turn), which reads
+much better in draw-heavy code like level generation — that is a real cost we are paying, and #3
+onwards will feel it. It was rejected because offering both makes the pure form optional, and the
+boundary between "code that threads" and "code that mutates" is exactly where a state-reuse bug
+hides: a cursor captured in a closure produces *plausible* randomness that quietly repeats. If
+level generation turns into a ladder of `rng1, rng2, rng3`, the fix is a scoped combinator that
+still returns a `Draw`, not a cursor. Objects rather than `[value, rng]` tuples because
+destructuring into pre-declared bindings is genuinely awkward in TypeScript.
+
+**The variable-draw decision, written down so nobody has to reverse-engineer it:** `int()` uses
+multiply-high (Lemire) *without* the rejection step — `min + floor(u32 * n / 2^32)` — so it always
+consumes exactly one draw, including when `min === max`. Textbook rejection sampling is unbiased
+but consumes a variable number of draws, which puts a data-dependent branch on the randomness path
+and makes stream position unpredictable. The cost is a bias below `n / 2^32`: about 1.4e-9 for a
+d6, 9.4e-7 for a tile on an 80×50 map. Detecting that needs ~10^18 samples; a full run draws maybe
+10^6 times. It is unobservable in principle, whereas variable draw counts are the thing the issue
+correctly identified as surfacing days later as an unrelated bug. This is what makes `shuffle`
+exactly `n - 1` draws. If a genuinely unbiased draw is ever needed, add a separate `intUnbiased`
+and document the contract break at its call site — do not change `int`.
+
+**Learned — the tests I wrote first were weaker than they looked.** I wrote the suite, it went
+green, and then I mutation-tested it: 18 deliberate breaks of the implementation, checking not just
+that the suite failed but that the *intended* test was the one that failed. Three mutations
+survived outright:
+
+1. **Rejection sampling in `int()` survived** — the exact bug this issue is about. My "consumes
+   exactly one draw" test used a d6, where the rejection zone is 4 words out of 2^32, so a
+   rejection implementation would never have triggered it. The fix is to test at spans just above
+   2^31, where `floor(2^32 / span)` is 1 and roughly *half* of all draws get rejected; 200 samples
+   there gives a rejection implementation a ~1e-31 chance of surviving. Worth internalizing: to
+   test that something never resamples, you must pick the input where resampling is likely, not a
+   representative one.
+2. **Replacing `mulhi32` with naive `Math.floor(a * b / 2**32)` survived** 20,000 random operand
+   pairs. The naive form is only wrong when the true 64-bit product lands within ~2048 of a
+   multiple of 2^32, i.e. about one pair in a million — so a random sweep finds it never, and a
+   real run finds it as a rare out-of-bounds map coordinate. Fixed by searching for adversarial
+   pairs (products just below a multiple of 2^32, via modular inverse) and pinning eight of them.
+3. **`float()` dividing by 2^32 - 1 survived**, because I had asserted a *range* rather than the
+   divisor. Dividing by 2^32 - 1 lets `float()` return exactly 1.0 on the maximum draw and breaks
+   every `Math.floor(f * n)` caller. Now asserted exactly: `float(rng).value === next(rng).value /
+   2^32`.
+
+Two more were caught only by the pinned-vector tripwire rather than by a test that understood what
+was wrong. Dropping the fmix32 finalizer from `hashString` passed my avalanche test because I
+measured the *average* number of flipped bits over all 32 positions, which is ~16 either way.
+Per-position rates tell the real story: with fmix32 they span 0.484–0.513, without it 0.081–0.953,
+because FNV-1a's multiply only propagates entropy leftward so the low bits stay tied to the input's
+low bits. Averaging hid precisely the structure that matters. Similarly, `rngFromWords` normalizing
+to signed int32 slipped past a test that compared two calls of the same function — self-referential
+assertions pass for any *consistent* wrong answer, so it now asserts absolute values.
+
+All 18 mutations are now caught by the intended test. The general lesson is that a green suite says
+nothing until you have watched it go red for the right reason, and the tests that fail this
+standard are the ones covering rare-but-catastrophic paths — which is most of what matters here.
+
+**Also learned:** the comment-stripping fix from the previous session earned its keep immediately.
+`game/rng/index.ts` legitimately documents that "`Math.random()` is a lint error inside `game/`",
+which the old infrastructure scanner would have flagged. Predicted last session, confirmed this
+one. I also re-verified both gates actually see `game/rng/` by planting five violations
+(`Math.random`, `Date.now`, a `react` import, an upward `render/` import, an `async` function) and
+watching lint reject all five; the scanner catches four, correctly not the `async` one, which is
+the documented ESLint-is-the-authority split.
+
+**Next:** #3 — core types and the `step()` reducer skeleton, with the replay-determinism test.
+`Rng` is designed to drop straight into `GameState` as a field; nothing about it needs to change.
+The RNG's own mini-replay test (a scripted mix of all five helpers reproducing byte-identically
+across 250 turns) is a rehearsal for the real one, not a substitute.
+
+**Watch:** Three things.
+
+- The **pinned stream test** in `xoshiro128.test.ts` fails if the generator or seed derivation ever
+  changes. That is deliberate — such a change invalidates every stored replay fixture and must be a
+  considered `RunRecord.version` bump. If a future session sees it red, the question is "did I mean
+  to change the algorithm", not "how do I update the constants".
+- **`weighted` requires integer weights.** If a designer wants 1.5, the answer is to scale the
+  table, not to relax the check. Float weights would reintroduce a rounding question this module
+  otherwise does not have.
+- **Ergonomics are unproven.** `{ value, rng }` threading has never been used by real draw-heavy
+  code. M1 level generation is the first honest test of it, and if it is bad, it will be bad in a
+  way that shows up as noisy call sites rather than as bugs. Revisit then, deliberately.
+
 ## 2026-07-29 — Stripped the Expo tutorial boilerplate (#1)
 
 **Did:** Reduced the app to a single route. Deleted the three tutorial tabs, the modal, six unused

@@ -55,7 +55,8 @@ Hard rules. Lint enforces all of them except the last, and the unit suite indepe
 `game/` sources as a second line of defense (lint can be disabled inline; a failing test is
 harder to wave away):
 
-- No `Math.random()`. Randomness comes from the `Rng` instance threaded through state.
+- No `Math.random()`. Randomness comes from the `Rng` **value** threaded through state — it is
+  four immutable words, not an object with methods, and every draw returns the next one.
 - No `Date.now()`, `new Date()`, `performance.now()`. The simulation has no clock; it has turns.
 - No imports from `react`, `react-native`, `expo-*`, `app/`, `components/`, `render/`, `platform/`.
 - No `async`, no promises, no I/O.

@@ -21,181 +21,6 @@ One entry per meaningful work session or merged PR. Newest first.
 **Why:** the reasoning, especially any non-obvious choice or rejected alternative.
 **Learned:** anything surprising. Wrong assumptions, gotchas, things that cost time.
 **Next:** the immediate next step, specific enough to act on cold.
-**Review addendum:** the reviewer found the fourth check-that-enforces-nothing in four PRs, and
-this one was in the phase order itself. `resolveTurn` correctly folds `RESOLUTION_PHASES`, but
-*nothing pinned that* — swapping the fold to `Object.keys(phases)` passed all 233 tests, because
-every phases object in the suite was constructed in GDD order (two of them by iterating
-`RESOLUTION_PHASES` itself, which is self-referential). The new test builds its literal in
-**alphabetical** order — what a tidy-up pass produces — and asserts the trace spelled out
-literally rather than against the constant.
-
-Two other tests were added for mutants that survived: `createSchedule`'s entries were only checked
-via `dueActors`, so scheduling everyone at tick 0 instead of at `now` passed; and `addActor`'s id
-guard was unexercised, where a `NaN` id makes `hasActor` false forever and `removeActor` throw —
-an actor that can never be removed, i.e. a corpse that acts every turn for the rest of the run.
-
-The reviewer also caught that its *own* first harness run was lying: `--reporter=basic` no longer
-exists in Vitest 4, so vitest exited 0 without running anything and reported every mutation
-"killed". Worth remembering — a mutation harness needs a baseline assertion or it measures nothing.
-
-**Review addendum (post-review):** the suite pinned the *generator* but nothing pinned the
-*mapping from raw word to helper output* — the surface all game code actually calls. Four
-semantics-preserving mutations passed all 76 tests: modulo instead of multiply-high, reversed
-`weighted` iteration, reversed `shuffle` result, and `pick` indexed from the far end. Each changes
-what a given seed produces while preserving bounds, uniformity, permutation, and exact draw
-counts. That mattered because #3 records replay fixtures in terms of `int`/`pick`/`shuffle`, not
-raw words, so any of them would have invalidated every stored replay with CI green.
-
-Added a pinned-helper-output block and confirmed each mutation is now killed by its intended test.
-Those pins are ground truth by definition, generated from this implementation — they cannot prove
-the mapping is correct, only that it has not changed. A deliberate change means re-pinning and
-bumping `RunRecord.version`.
-
-Also corrected a comment claiming the distribution and draw-count tests defended against `%` —
-they do not, since `%` preserves both. And a collision test whose threshold rested on a
-factor-of-1000 birthday-bound error: it tolerated 99 collisions where the expectation is 0.047,
-and would have passed for a 22-bit hash.
-
-**Review addendum:** the reviewer found a false green in the comparator itself — the worst place
-for one. `walk` compared any two objects by their own enumerable keys, and `Map`, `Set`, and
-`Date` have none, so `new Set([1])` vs `new Set([2, 3])` reported *no divergence at all*.
-
-Three defenses failed together: the replay properties are all phrased as "divergence is null"; the
-JSON round-trip property passes too, because `JSON.stringify` renders a Map as `{}` and `{}`
-equals `{}`; and `purity.test.ts` claimed the structural snapshot covered what freezing could not
-(`Map`/`Set` contents) when the snapshot is compared with the same blind comparator.
-
-Not hypothetical: ARCHITECTURE.md's module map has `fov/` and `entities/` next, which is exactly
-where `readonly seen: Set<TileIndex>` would enter `GameState`. The fix throws on any non-plain
-object, naming the field — which turns a silent pass into a loud error and makes `state.ts`'s
-"plain JSON-shaped data" rule enforced rather than aspirational.
-
-Also fixed: `snapshot()` had no instrument test (replacing it with `return value` left all 173
-tests green, making the purity suite unfalsifiable); the reported `turn` was not pinned to the left
-sequence; and the `commandIndex === 0` boundary was untested, where an off-by-one misreports the
-first command's divergence as a seed mismatch. All four verified by mutation.
-
-Filed #12: the determinism lint rules are disabled inside `game/**/*.test.ts`, so this PR's
-property corpus is protected by discipline rather than enforcement.
-
-**Design rulings applied (post-review):** the `game-designer` pass on GDD §5 changed two things
-about what every seed produces, both applied here before merge.
-
-**The entrance exclusion is Manhattan, not Chebyshev.** I had chosen Chebyshev as the conservative
-reading. That was wrong, and the designer's argument is better than "it is stricter": movement and
-attacks are 4-directional, so the player's unit of distance is the step. A creature at (+2,+2) is
-four steps away; excluding it makes the rule uncheckable by counting, which is what Pillar 2 asks
-of a rule. Chebyshev has no referent anywhere else in the rules. The side effect of the strict
-reading was a systematic thinning of spawns in rooms next to the entrance — the early floor was
-quietly emptier than §8's curve says. `chebyshevDistance` stays in `grid.ts` for measurement but no
-rule uses it.
-
-**A merged pair is ONE node for graph distance, not two joined by an edge.** The decisive point is
-that the implementation was self-contradictory: `forbiddenRooms` already treated the merged partner
-as the entrance room for spawns, while `roomAdjacency` treated the merge as an ordinary hop for
-stairs. Now contracted in both. Corollary worth knowing: if the entrance is in a merged hall,
-neither half can hold the stairs.
-
-Both pinned floors were **deliberately re-pinned**, which is the process ARCHITECTURE.md describes —
-a rules change invalidates fixtures and they get re-recorded on purpose, never silently
-regenerated. No `RULES_VERSION` bump: nothing has shipped and `Floor` is not in `GameState` yet.
-
-**Review addendum:** the reviewer found the fifth check-that-enforces-nothing in five PRs, and it
-was in the highest-value place — the room graph. `chooseLinks` shuffles the candidate edges and
-runs Kruskal over the shuffled order, but *nothing tested that*. Replacing `order.value` with
-`LATTICE_EDGE_IDS` (keeping the shuffle so the draw count is untouched) passed all 370 tests, while
-collapsing unmerged floors from 15 distinct spanning trees to exactly **one** — the same room
-graph, every floor, forever. Connectivity held, the tree still spanned, loops were still 1-2, no
-corridors, and floors still looked different because jitter and pillars vary. §5's premise is that
-the mental map is "rooms and which wall the door was in"; a fixed room graph is exactly the failure
-that rule exists to prevent, and it was the one structure with no variance test.
-
-Second: `placeStairs`'s docstring states that ties are broken by a draw rather than by lowest id,
-precisely to avoid bias on symmetric layouts — and `chooseFrom(rng, tied.slice(0, 1))` passed
-everything. Ties are not rare; roughly a third of floors have one. A stated design rule with no
-test is what gets simplified away later.
-
-The lesson generalizing across both: **an all-negative suite cannot catch a generator that stopped
-generating.** Every invariant here is of the form "nothing is wrong with this floor", and a
-degenerate generator satisfies all of them. Variance needs its own positive assertions, and the
-structures most worth varying are the ones least likely to have them.
-
-**Review addendum:** the reviewer found that the branching-experiment test killed the reactive bug
-only in its *unconditional* form. The form a real author would write is guarded — retarget only if
-the player is still orthogonally adjacent — and that survived all 488 tests.
-
-The reason is geometric and worth remembering: stepping one orthogonal tile off a marked tile
-always lands at Manhattan distance 2 from the creature, because the marked tile's other three
-neighbours are diagonal to it. So in a **one-move window the guard is never true** and the mutant
-is provably identical to correct code. Every existing test was a one-move window.
-
-The window is two moves wide only on the **free-action path**, because a free command does not
-charge the player, so the player acts again at the same instant before the creature resolves. The
-new test drives exactly that trace and the guarded mutant now dies. Note this also means a creature
-woken during a free action sees two player commands before resolving — more conservative than §2
-requires, legible in play, but undocumented until now.
-
-Second finding: `bump` enforced its stated adjacency precondition on the move branch only.
-`resolveAttack` validates liveness and self-targeting but not adjacency, so a bump onto a distant
-or diagonal *occupied* tile resolved as a ranged, 8-directional strike and returned cleanly — while
-the same bump onto an *empty* tile threw. The loud failure was on the harmless branch and the
-silent one on the dangerous branch, and `bump` is what #18's tap handler will call with a raw tap
-target.
-
-**Review addendum:** the reviewer found a *systematic* blind spot rather than a single missing
-test — **every grid this suite pinned positively was square, or had the origin on `x == y`.** Both
-conditions make a coordinate transposition invisible: a 3×3 block centred on the diagonal
-transposes onto itself, and on a square grid `tileIndex(g, x, y)` and `tileIndex(g, y, x)` are both
-in bounds.
-
-Two shipped-code transpositions therefore survived all 629 tests. `computeTouchField` writing
-`tileIndex(grid, y, x)` handed a shuttered player at (2, 9) on the real 11×15 floor a 3×3 block at
-the opposite end of the map — and dark is the state the player spends most turns in, with the touch
-field the only terrain they get. And `positionAt` decoding with `set.height` reported {x: 11, y: 6}
-for a tile at (2, 9), off the grid entirely; `tileSetPositions` is the only way out of a `TileSet`
-and is what `render/` will iterate.
-
-The one non-square scene that called the touch field with assertions put the origin at (3, 3),
-where the transposition is a no-op, and compared the result against another call to the same
-function — mutant against mutant.
-
-Generalizing: **a square fixture cannot catch an axis swap, and a fixture on the diagonal cannot
-catch a transposition.** Any module indexing a 2-D grid needs at least one non-square, off-diagonal
-case, in both orientations — a bug that clamps rather than transposes survives only one of them.
-
-Also fixed: the shape check's only mismatch fixture differed in *both* dimensions, so a width-only
-comparison survived and would then read past the end of the shorter flag array.
-
-**Review addendum:** two blocking findings, and the first rhymes exactly with the FOV suite's
-square grids.
-
-**Phase 4's light query was not pinned to the player's position.** The test written in this PR to
-kill the permanently-dark mutant uses `scenario()`, which sets `floor.entrance` to the `@` glyph —
-so `floor.entrance === playerOf(world).at` in every ascii fixture, and the player never moved
-during it. A phase-4 query built from `floor.entrance` instead of the player therefore passed all
-712 tests while genuinely changing behaviour (the economy log moved from `floodlit 99` to
-`floodlit 62`, so it was not an equivalent mutant). The new test walks the player two tiles off the
-entrance before the creature re-declares. **Note it took two attempts:** the first version asserted
-after the creature merely *woke*, which happens in phase 3 and uses the correct query in both
-versions — the discriminating assertion has to come after a phase-4 *declaration*.
-
-**The corpus documentation asserted the opposite of what the corpus does.** `DARK_PACIFIST` is
-described as finding no caches "because caches need light". Measured: it collects 119 of 121, and
-cache fuel is its entire income. §4 says caches require light to find and its vision table marks
-items invisible while shuttered — neither is enforced. `collectFuelUnderfoot` pays on tile kind,
-and a shuttered crawler's Chebyshev-1 touch field maps the whole floor. Filed as #31 with the
-design question first, since "requires light to find" has three defensible readings.
-
-That one is worth remembering for its shape: the numbers moved in this PR were calibrated against a
-model whose *stated* assumptions were false. The invariants still hold in direction — enforcing the
-rule makes a pacifist dry sooner — but the calibration rests on ~37 fuel/floor of income that a
-style §4 says should have none, so both numbers need re-deriving when #31 lands.
-
-Also corrected: `driedAfterTurns` was labelled "turns before the lantern died" but is turns through
-the *end* of the drying floor, and four of ten floodlit-pacifist floors hit the turn cap — censored
-rather than measured. The reported 99/144/206 ordering survives (proved by `FUEL_BURN_LIT = 1`
-turning it red), but the true gap is wider than those numbers suggest.
-
 **Watch:** known risks, deferred cleanup, things that will bite later. Omit if none.
 ```
 
@@ -209,12 +34,150 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-08-04 — Archivist: 175 lines of journal were filed into the template, and M0 never closed
+
+**Did:** End-of-session reconciliation after #18 merged (`ce47f6f`). No code changed. Docs, ADRs and
+the issue tracker were reconciled against the tree, and one long-running structural defect in this
+file was repaired.
+
+**The big one: every review addendum since PR #10 was written into the `## Format` template instead
+of into its own entry.** 175 lines, seven PRs' worth, sitting inside the ```` ```markdown ```` fence
+that is supposed to show a four-line entry skeleton. Mechanism, and it will recur: an agent
+appending an addendum after its entry's `**Next:**` line matched **the first `**Next:**` in the
+file**, which is the template's. Each PR then appended after the last one, so the block grew every
+time and nobody noticed because the entries below still read fine.
+
+Two costs, both real. `CLAUDE.md` tells every session to read this file first, so the first thing a
+cold reader met was 175 lines of unrelated prose presented as a *format example* — and the entries
+those addenda belonged to were silently incomplete. The map entry (#13) was missing its two applied
+design rulings entirely.
+
+**Repaired by moving each chunk verbatim to the end of its own entry**, not by rewriting or
+summarising: `git blame` attributed each block to a commit, each commit to a PR, each PR to an
+entry. Verified by comparing the non-blank lines of the old and new files as sorted multisets:
+of the old file's 1,339 non-blank lines, **1,333 survive byte-identically with unchanged
+multiplicity, and the 6 that do not are exactly the three disclosed corrections to #18's entry**
+(the stale test count, the millisecond-threshold paragraph, the resolved `Watch` bullet). Nothing
+was reworded in the move and nothing was duplicated. This is a relocation, not a history rewrite.
+
+Both the count and the attribution were re-derived independently by the reviewer rather than taken
+on trust — the attribution mattering more, because content preservation says nothing about whether
+a chunk landed under the *right* entry, and an addendum filed under the wrong PR is worse than one
+left in the template: it looks correct.
+
+**Guard for next time:** when appending to an entry, anchor on text unique to *that entry*, never on
+a `**Did:**`/`**Next:**`/`**Watch:**` label — those all appear in the template too.
+
+**Two guards, and only one of them is worth much.** The `code-reviewer` agent now checks *where* an
+entry landed rather than only what the hunk says. That is the right instruction and it would have
+caught this — but it is the same class of defence that already failed seven times, because it works
+exactly as long as someone chooses to read. So there is also a test in
+`tests/unit/infrastructure.test.ts`. A structural check beats a diligent one, and the reviewer's
+argument for writing it now was better than my reason for not: I had been about to file it as an
+issue, which is where guards go to wait.
+
+**The first version of that test had two demonstrated bypasses, which is the part worth recording.**
+Both were found by the reviewer *walking past the guard*, not by reading it:
+
+- It matched the first ```markdown fence **anywhere in the file**. Inserting an innocuous example
+  fence into the prose above `## Format` made it pass green with the full 184-line corruption still
+  sitting in the template. No leak-shape change needed — an ordinary documentation edit disarms it.
+- Its content check listed the two labels that had actually leaked (`**Review addendum`,
+  `**Design rulings`), so a novel one (`**Post-merge note:**`) walked straight through, and the
+  ten-line cap had four lines of slack to hide a three-line addendum in.
+
+The fix for the second is the general one and is worth stealing elsewhere: **assert the shape, not
+the names.** Every non-blank line of a template is a `## ` heading or a `**Field:**` label, whereas
+real entries are wrapped prose — so their *continuation* lines never start with `**`. That catches
+any multi-line leak on its second line regardless of what opened it, and it would have caught the
+historical one. The named-label check stays for its better failure message; it is just no longer the
+thing doing the work. The section is now also found by walking lines with fence state, because the
+template's own `## YYYY-MM-DD` heading is inside the fence and a naive "next `## `" search ends the
+section in the middle of what it is checking. Verified against all four cases: clean file passes,
+`main`'s real 184-line corruption fails by a factor of 15, the decoy-fence bypass fails, the
+novel-label leak fails.
+
+**Three factual errors in #18's entry, fixed rather than annotated.** It was written across three
+rounds and the later rounds contradicted the earlier ones:
+
+- "793 tests" — the suite is **796**; the review round added three and the `**Did:**` paragraph was
+  never updated. Both the entry and PR #33's description carried the stale number.
+- The `**Benchmarks:**` paragraph presented absolute millisecond thresholds as what the file
+  asserts, and the paragraphs below it describe all three being converted to ratios. A skimmer would
+  have taken the wrong one. Marked as a mid-PR measurement, with the three ratio constants named.
+- A `**Watch:**` bullet said the GDD "asserts [safe arrival] as a guarantee and two sections lean on
+  it" — but the same entry records the `game-designer` pass correcting §4 and §13 *in that PR*. An
+  open item that had already been closed 200 lines above it.
+
+**`docs/ROADMAP.md` was the worst-drifted doc in the repo** and said "Current milestone: M0" with
+two M0 items unchecked, while M0 had been complete for eleven PRs. Rewritten against verified state.
+Two findings worth more than the checkboxes:
+
+- **A run can be won, and the roadmap had never said so.** GDD §13 settled it in #18 — take floor
+  8's stairs. M1's goal and exit criterion both described only dying. Amended.
+- **M1 absorbed three of M2's five bullets outright and most of a fourth** (#16 dormant behaviour,
+  #14 light-dependent visibility, #17 fuel — whose economy is implemented and calibrated once, with
+  the tuning still open). Flagged rather than corrected, because the absorption was right —
+  the light wager *is* the turn loop — but the consequence is not free: **M2 can no longer be the
+  cheap place we discover the concept does not work**, because the simulation is already committed.
+  §12's fallback (strip fuel, keep the positional tactics) is still the escape hatch and is now named
+  in M2's text.
+
+**#20 and #21 were not unblocked, and that is the finding.** The brief assumed all three `blocked`
+issues were waiting on #18. Only **#19** was: #20's own Context says it is blocked by the
+presentation model, and #21 needs a screen to draw on. The real chain is **#19 → #20 → #21**, and
+only #19 is startable today. #20 has a second, softer blocker in #32 — auto-travel's command shape
+decides where the interrupt loop lives relative to the `game/` boundary, so deciding it after the
+screen exists means building the screen twice.
+
+**Wrote ADR-0008 (benchmark thresholds are ratios, not milliseconds).** The decision was made under
+CI pressure during #18 and recorded only in a test-file header and in journal prose — nothing in
+`docs/`. It is precisely the shape of thing a later session "simplifies" back, like `npm run lint`
+in `CLAUDE.md`. Reconstructed while the reasoning was still recoverable, including the precondition
+that makes the ratio estimator valid (each batch is N identical calls of a pure function, so a
+regression is a pure scaling) and the case where it would **not** be — a benchmark stepping a
+*sequence* of commands.
+
+**Learned:** the drift that mattered was invisible to everyone who had been close to it. The
+template corruption survived seven PRs and at least seven `code-reviewer` passes, because a
+reviewer reads the diff — and each diff was a plausible-looking addendum being appended near the top
+of a journal. Nobody re-read the file from line 1. That is an argument for this role existing, and
+also an argument that "docs are updated in the same PR as the work" is necessary but not sufficient.
+
+**Also fixed, smaller:** ADR-0007's index row said *Proposed* while the ADR itself says *Accepted*
+and the journal records the owner accepting it (#8, closed). GDD §1 still said "VISION.md's
+concept-seed wording needs the owner's sign-off" — it was signed off and VISION.md amended on
+2026-07-30. `ARCHITECTURE.md`'s module map described `game/core/` as owning the rules when #18
+deliberately made it thin, did not mention `systems/run.ts`, listed a `systems/` "status effects"
+module that does not exist, and described `render/` and `platform/` in the present tense when
+neither directory exists. Closed the M0 milestone on GitHub (0 open issues since #18's predecessors
+landed). Filed **#36** for the two colliding `Perception` types — a "Watch" note carried across
+three entries and never tracked, and cheapest to fix *before* #19 builds the first module that wants
+both names.
+
+**Next:** #19 is the only startable M1 issue. #36 before it if anyone wants a five-minute win, since
+`render/` is the first consumer that will want both `Perception` types in one file. #32 needs a
+decision before #20 starts.
+
+**Watch:**
+- **`docs/` dates are ahead of `git`.** Journal entries and GDD change-log rows run 2026-07-29 →
+  2026-08-04; every commit in the repo is dated 2026-07-29 or 2026-07-30. #18 is dated 2026-08-03 in
+  the journal and 2026-08-04 in the GDD change log — the same PR. Left alone deliberately: the dates
+  order the record correctly relative to each other, and rewriting them would be a history rewrite
+  for no gain. Do not use a journal date to find a commit.
+- **`RunRecord.version` is 2 and there is no fixture from version 1.** Bumping is documented and
+  routine; just know that cross-version inspection has only `runCommands()` and no stored counterpart
+  to compare against.
+- **M3 and M4 now exist as GitHub milestones**, created in this session so that deferred work has
+  somewhere to live rather than surviving only as a line in a doc — a milestone-less issue is the one
+  that gets forgotten, which is how #36 spent three entries as a Watch note. #34 is filed under M4.
+
 ## 2026-08-03 — The real `GameState`, the real `Command`, and a run you can win (#18)
 
 **Did:** Joined every finished subsystem into the real `step()`. The M0 scaffolding — the
 `wait | roll` union, `lastOutcome`, `NO_OUTCOME` — is **deleted**, not left alongside. `GameState`
 is now `game/systems/`' `LanternWorld` (the floor, everyone on it, the lantern) plus four run-level
-fields: `status`, two counters, and the generator. `RULES_VERSION` → 2, fixtures re-recorded. 793
+fields: `status`, two counters, and the generator. `RULES_VERSION` → 2, fixtures re-recorded. 796
 tests, 44 files.
 
 `game/core/` got **thinner**, which was the design constraint. Every rule the reducer needs is a
@@ -321,9 +284,13 @@ than the pre-charge one — is provably equivalent (`lanternLight` does not read
 written down at the site alongside this file's other documented equivalents.
 
 **Benchmarks:** `descend` — the only command that generates a floor *and* runs six phases — costs
-0.45ms against ARCHITECTURE's 2ms; an ordinary lit turn 0.015ms; a refusal 0.0001ms. That last one
-is a real assertion and not vanity: a refused descent that generated a floor before throwing it away
+0.45ms against ARCHITECTURE's 2ms; an ordinary lit turn 0.015ms; a refusal 0.0001ms. The refusal is
+a real assertion and not vanity: a refused descent that generated a floor before throwing it away
 would be ~0.3ms *and* a replay-breaking draw, and this is the cheapest place to notice it.
+(Written mid-PR. **All three thresholds ended the PR as ratios, not milliseconds** — the paragraphs
+below are what happened to each, and `step.bench.test.ts` today asserts only
+`DESCENT_RATIO_LIMIT`, `LIT_TURN_RATIO_LIMIT` and `REFUSAL_RATIO_LIMIT`. The figures above are
+measurements from this machine, not limits anything checks.)
 
 **The descent benchmark then failed on CI at 1.72ms and had to be rewritten, which the file's own
 header asks be written down here rather than fixed with a bigger number.** The runner is ~4x slower
@@ -354,9 +321,12 @@ world — so a summary's counters must be accumulated as they happen rather than
 afterwards (§13 says so explicitly).
 
 **Watch:**
-- **The §13/§4 "arriving is safe" claim is false 20% of the time.** Not a bug, and not a balance
-  problem — arriving lit into a room whose doorway shows a Cinder is legible and, arguably, the
-  system working. But the GDD asserts it as a guarantee and two sections lean on it.
+- **Arriving lit wakes something 20% of the time.** Not a bug, and not a balance problem — arriving
+  into a room whose doorway shows a Cinder is legible and, arguably, the system working. *(Written
+  before the fix. The rest of this bullet said the GDD still asserted safety as a guarantee and that
+  two sections leaned on it; the `game-designer` pass later in this same PR corrected §4 and §13 and
+  added the 2026-08-04 change-log row, so the doc and the code now agree. Kept as a standing fact
+  about the game, not as an open item.)*
 - `standUntilDead('grave')` is the death fixture, and most seeds do **not** die: the lantern runs
   dry after 20 lit turns, everything goes dark, and the Cinders re-dormant after eight turns of no
   contact. The helper throws if its seed stops dying, which is the signal you want, but it means the
@@ -637,6 +607,36 @@ alters what an existing replay does.
   things. `light.ts` imports one of them aliased. A rename would be an improvement and is not this
   PR's to make.
 
+**Review addendum:** two blocking findings, and the first rhymes exactly with the FOV suite's
+square grids.
+
+**Phase 4's light query was not pinned to the player's position.** The test written in this PR to
+kill the permanently-dark mutant uses `scenario()`, which sets `floor.entrance` to the `@` glyph —
+so `floor.entrance === playerOf(world).at` in every ascii fixture, and the player never moved
+during it. A phase-4 query built from `floor.entrance` instead of the player therefore passed all
+712 tests while genuinely changing behaviour (the economy log moved from `floodlit 99` to
+`floodlit 62`, so it was not an equivalent mutant). The new test walks the player two tiles off the
+entrance before the creature re-declares. **Note it took two attempts:** the first version asserted
+after the creature merely *woke*, which happens in phase 3 and uses the correct query in both
+versions — the discriminating assertion has to come after a phase-4 *declaration*.
+
+**The corpus documentation asserted the opposite of what the corpus does.** `DARK_PACIFIST` is
+described as finding no caches "because caches need light". Measured: it collects 119 of 121, and
+cache fuel is its entire income. §4 says caches require light to find and its vision table marks
+items invisible while shuttered — neither is enforced. `collectFuelUnderfoot` pays on tile kind,
+and a shuttered crawler's Chebyshev-1 touch field maps the whole floor. Filed as #31 with the
+design question first, since "requires light to find" has three defensible readings.
+
+That one is worth remembering for its shape: the numbers moved in this PR were calibrated against a
+model whose *stated* assumptions were false. The invariants still hold in direction — enforcing the
+rule makes a pacifist dry sooner — but the calibration rests on ~37 fuel/floor of income that a
+style §4 says should have none, so both numbers need re-deriving when #31 lands.
+
+Also corrected: `driedAfterTurns` was labelled "turns before the lantern died" but is turns through
+the *end* of the drying floor, and four of ten floodlit-pacifist floors hit the turn cap — censored
+rather than measured. The reported 99/144/206 ordering survives (proved by `FUEL_BURN_LIT = 1`
+turning it red), but the true gap is wider than those numbers suggest.
+
 ## 2026-08-01 — `game/fov/`: symmetric shadowcasting, touch, ember-sense, dark adaptation (#14)
 
 **Did:** Built `game/fov/` — the whole of GDD §4's vision table. Eight modules, 152 new tests
@@ -754,6 +754,30 @@ object when nothing new was perceived.
 where the two design readings above have to be settled and where `RULES_VERSION` gets bumped. #16
 (entities) supplies the creature positions `perceive` already takes.
 
+**Review addendum:** the reviewer found a *systematic* blind spot rather than a single missing
+test — **every grid this suite pinned positively was square, or had the origin on `x == y`.** Both
+conditions make a coordinate transposition invisible: a 3×3 block centred on the diagonal
+transposes onto itself, and on a square grid `tileIndex(g, x, y)` and `tileIndex(g, y, x)` are both
+in bounds.
+
+Two shipped-code transpositions therefore survived all 629 tests. `computeTouchField` writing
+`tileIndex(grid, y, x)` handed a shuttered player at (2, 9) on the real 11×15 floor a 3×3 block at
+the opposite end of the map — and dark is the state the player spends most turns in, with the touch
+field the only terrain they get. And `positionAt` decoding with `set.height` reported {x: 11, y: 6}
+for a tile at (2, 9), off the grid entirely; `tileSetPositions` is the only way out of a `TileSet`
+and is what `render/` will iterate.
+
+The one non-square scene that called the touch field with assertions put the origin at (3, 3),
+where the transposition is a no-op, and compared the result against another call to the same
+function — mutant against mutant.
+
+Generalizing: **a square fixture cannot catch an axis swap, and a fixture on the diagonal cannot
+catch a transposition.** Any module indexing a 2-D grid needs at least one non-square, off-diagonal
+case, in both orientations — a bug that clamps rather than transposes survives only one of them.
+
+Also fixed: the shape check's only mismatch fixture differed in *both* dimensions, so a width-only
+comparison survived and would then read past the end of the shorter flag array.
+
 ## 2026-08-01 — `game/entities/`: actors, deterministic combat, and the Cinder (#16)
 
 **Did:** Built `game/entities/` (actor model, Cinder behaviour, pathing, the lighting seam),
@@ -861,6 +885,28 @@ implemented, ember *collection* is not — `world.embers` accumulates and nothin
 fuel exists (#17). And the pathing distance field is recomputed per creature per declaration: 0.095ms
 for a full six-creature turn against a 2ms budget, benchmarked in `actors.bench.test.ts`, but that
 is the number that moves if pathing ever accounts for other actors.
+
+**Review addendum:** the reviewer found that the branching-experiment test killed the reactive bug
+only in its *unconditional* form. The form a real author would write is guarded — retarget only if
+the player is still orthogonally adjacent — and that survived all 488 tests.
+
+The reason is geometric and worth remembering: stepping one orthogonal tile off a marked tile
+always lands at Manhattan distance 2 from the creature, because the marked tile's other three
+neighbours are diagonal to it. So in a **one-move window the guard is never true** and the mutant
+is provably identical to correct code. Every existing test was a one-move window.
+
+The window is two moves wide only on the **free-action path**, because a free command does not
+charge the player, so the player acts again at the same instant before the creature resolves. The
+new test drives exactly that trace and the guarded mutant now dies. Note this also means a creature
+woken during a free action sees two player commands before resolving — more conservative than §2
+requires, legible in play, but undocumented until now.
+
+Second finding: `bump` enforced its stated adjacency precondition on the move branch only.
+`resolveAttack` validates liveness and self-targeting but not adjacency, so a bump onto a distant
+or diagonal *occupied* tile resolved as a ranged, 8-directional strike and returned cleanly — while
+the same bump onto an *empty* tile threw. The loud failure was on the harmless branch and the
+silent one on the dangerous branch, and `bump` is what #18's tap handler will call with a raw tap
+target.
 
 
 ## 2026-07-31 — The vision metric is Chebyshev; ember-sense drops 6 → 5 (#25)
@@ -1003,6 +1049,48 @@ performance blows up — add a benchmark there too. It consumes `blocksLight` an
 which are deliberately separate predicates in `grid.ts`: the pillar blocks light but not
 ember-sense, and that asymmetry is the whole reason darkness carries information (§4).
 
+**Design rulings applied (post-review):** the `game-designer` pass on GDD §5 changed two things
+about what every seed produces, both applied here before merge.
+
+**The entrance exclusion is Manhattan, not Chebyshev.** I had chosen Chebyshev as the conservative
+reading. That was wrong, and the designer's argument is better than "it is stricter": movement and
+attacks are 4-directional, so the player's unit of distance is the step. A creature at (+2,+2) is
+four steps away; excluding it makes the rule uncheckable by counting, which is what Pillar 2 asks
+of a rule. Chebyshev has no referent anywhere else in the rules. The side effect of the strict
+reading was a systematic thinning of spawns in rooms next to the entrance — the early floor was
+quietly emptier than §8's curve says. `chebyshevDistance` stays in `grid.ts` for measurement but no
+rule uses it.
+
+**A merged pair is ONE node for graph distance, not two joined by an edge.** The decisive point is
+that the implementation was self-contradictory: `forbiddenRooms` already treated the merged partner
+as the entrance room for spawns, while `roomAdjacency` treated the merge as an ordinary hop for
+stairs. Now contracted in both. Corollary worth knowing: if the entrance is in a merged hall,
+neither half can hold the stairs.
+
+Both pinned floors were **deliberately re-pinned**, which is the process ARCHITECTURE.md describes —
+a rules change invalidates fixtures and they get re-recorded on purpose, never silently
+regenerated. No `RULES_VERSION` bump: nothing has shipped and `Floor` is not in `GameState` yet.
+
+**Review addendum:** the reviewer found the fifth check-that-enforces-nothing in five PRs, and it
+was in the highest-value place — the room graph. `chooseLinks` shuffles the candidate edges and
+runs Kruskal over the shuffled order, but *nothing tested that*. Replacing `order.value` with
+`LATTICE_EDGE_IDS` (keeping the shuffle so the draw count is untouched) passed all 370 tests, while
+collapsing unmerged floors from 15 distinct spanning trees to exactly **one** — the same room
+graph, every floor, forever. Connectivity held, the tree still spanned, loops were still 1-2, no
+corridors, and floors still looked different because jitter and pillars vary. §5's premise is that
+the mental map is "rooms and which wall the door was in"; a fixed room graph is exactly the failure
+that rule exists to prevent, and it was the one structure with no variance test.
+
+Second: `placeStairs`'s docstring states that ties are broken by a draw rather than by lowest id,
+precisely to avoid bias on symmetric layouts — and `chooseFrom(rng, tied.slice(0, 1))` passed
+everything. Ties are not rare; roughly a third of floors have one. A stated design rule with no
+test is what gets simplified away later.
+
+The lesson generalizing across both: **an all-negative suite cannot catch a generator that stopped
+generating.** Every invariant here is of the form "nothing is wrong with this floor", and a
+degenerate generator satisfies all of them. Variance needs its own positive assertions, and the
+structures most worth varying are the ones least likely to have them.
+
 ---
 
 ## 2026-07-30 — Turn scheduler: one clock, a sorted array, and the tie-break (#15)
@@ -1090,6 +1178,23 @@ pays it. If a second charging path appears, alternation stops being enforced by 
 Also: `MAX_ACTS_PER_TURN` (1024) is a livelock tripwire, not a rule — if a design ever wants an
 actor to act many times per instant, it is the wrong guard and should be replaced deliberately
 rather than raised.
+
+**Review addendum:** the reviewer found the fourth check-that-enforces-nothing in four PRs, and
+this one was in the phase order itself. `resolveTurn` correctly folds `RESOLUTION_PHASES`, but
+*nothing pinned that* — swapping the fold to `Object.keys(phases)` passed all 233 tests, because
+every phases object in the suite was constructed in GDD order (two of them by iterating
+`RESOLUTION_PHASES` itself, which is self-referential). The new test builds its literal in
+**alphabetical** order — what a tidy-up pass produces — and asserts the trace spelled out
+literally rather than against the constant.
+
+Two other tests were added for mutants that survived: `createSchedule`'s entries were only checked
+via `dueActors`, so scheduling everyone at tick 0 instead of at `now` passed; and `addActor`'s id
+guard was unexercised, where a `NaN` id makes `hasActor` false forever and `removeActor` throw —
+an actor that can never be removed, i.e. a corpse that acts every turn for the rest of the run.
+
+The reviewer also caught that its *own* first harness run was lying: `--reporter=basic` no longer
+exists in Vitest 4, so vitest exited 0 without running anything and reported every mutation
+"killed". Worth remembering — a mutation harness needs a baseline assertion or it measures nothing.
 
 
 ## 2026-07-30 — Core types, `step()`, and the replay-determinism tripwire (#3)
@@ -1194,6 +1299,28 @@ move.
 - `step()` currently costs **~0.13µs**, four orders of magnitude under the 2ms budget, which means
   precisely nothing yet — it does almost nothing. No benchmark committed; per ARCHITECTURE.md the
   ones that matter are FOV and level generation, and neither exists.
+
+**Review addendum:** the reviewer found a false green in the comparator itself — the worst place
+for one. `walk` compared any two objects by their own enumerable keys, and `Map`, `Set`, and
+`Date` have none, so `new Set([1])` vs `new Set([2, 3])` reported *no divergence at all*.
+
+Three defenses failed together: the replay properties are all phrased as "divergence is null"; the
+JSON round-trip property passes too, because `JSON.stringify` renders a Map as `{}` and `{}`
+equals `{}`; and `purity.test.ts` claimed the structural snapshot covered what freezing could not
+(`Map`/`Set` contents) when the snapshot is compared with the same blind comparator.
+
+Not hypothetical: ARCHITECTURE.md's module map has `fov/` and `entities/` next, which is exactly
+where `readonly seen: Set<TileIndex>` would enter `GameState`. The fix throws on any non-plain
+object, naming the field — which turns a silent pass into a loud error and makes `state.ts`'s
+"plain JSON-shaped data" rule enforced rather than aspirational.
+
+Also fixed: `snapshot()` had no instrument test (replacing it with `return value` left all 173
+tests green, making the purity suite unfalsifiable); the reported `turn` was not pinned to the left
+sequence; and the `commandIndex === 0` boundary was untested, where an off-by-one misreports the
+first command's divergence as a seed mismatch. All four verified by mutation.
+
+Filed #12: the determinism lint rules are disabled inside `game/**/*.test.ts`, so this PR's
+property corpus is protected by discipline rather than enforcement.
 
 ## 2026-07-30 — Accepted ADR-0007; fixed the escalation rule that misrouted it
 
@@ -1334,6 +1461,24 @@ across 250 turns) is a rehearsal for the real one, not a substitute.
 - **Ergonomics are unproven.** `{ value, rng }` threading has never been used by real draw-heavy
   code. M1 level generation is the first honest test of it, and if it is bad, it will be bad in a
   way that shows up as noisy call sites rather than as bugs. Revisit then, deliberately.
+
+**Review addendum (post-review):** the suite pinned the *generator* but nothing pinned the
+*mapping from raw word to helper output* — the surface all game code actually calls. Four
+semantics-preserving mutations passed all 76 tests: modulo instead of multiply-high, reversed
+`weighted` iteration, reversed `shuffle` result, and `pick` indexed from the far end. Each changes
+what a given seed produces while preserving bounds, uniformity, permutation, and exact draw
+counts. That mattered because #3 records replay fixtures in terms of `int`/`pick`/`shuffle`, not
+raw words, so any of them would have invalidated every stored replay with CI green.
+
+Added a pinned-helper-output block and confirmed each mutation is now killed by its intended test.
+Those pins are ground truth by definition, generated from this implementation — they cannot prove
+the mapping is correct, only that it has not changed. A deliberate change means re-pinning and
+bumping `RunRecord.version`.
+
+Also corrected a comment claiming the distribution and draw-count tests defended against `%` —
+they do not, since `%` preserves both. And a collision test whose threshold rested on a
+factor-of-1000 birthday-bound error: it tolerated 99 collisions where the expectation is 0.047,
+and would have passed for a 22-bit hash.
 
 ## 2026-07-29 — Stripped the Expo tutorial boilerplate (#1)
 

@@ -62,7 +62,8 @@ what you woke. Repeat down eight floors — taking the stairs on the last one is
 *What this rejects from the concept seed:* the seed said unlit tiles "hide the map" and moving dark
 is "faster and cheaper but blind". Dark being *only* a cost saving is what would have flattened
 this into "keep the lantern off unless lost". Ember-sense is the fix, and it is why the concept
-survives. ADR-0007 records the change; VISION.md's concept-seed wording needs the owner's sign-off.
+survives. ADR-0007 records the change and is **Accepted**; VISION.md was amended to match on
+2026-07-30 (#8), and the original seed's wording survives only in ADR-0007's Context section.
 
 ## 2. Turn structure — *Settled for M1*
 

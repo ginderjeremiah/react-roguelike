@@ -62,6 +62,24 @@ Ask of each test: **what bug would this catch?** If you can't name one, say so.
 **5. Scope.** Does the diff do what the issue asked, and only that? Unrelated changes bundled in
 are a review problem — they hide in the noise.
 
+**6. The journal, as a file and not just as a diff.** Open `docs/JOURNAL.md` and look at where the
+new entry actually landed — its heading level, its position relative to the others, and whether it
+is inside anything it should not be. This is a real defect that survived seven PRs: every review
+addendum from #10 to #30 was appended into the `## Format` section's fenced code block, because an
+agent appending after its entry's `**Next:**` line matched the *template's* `**Next:**` first. The
+block grew from 9 lines to 184 and no review caught it, because **every individual diff looked
+like a plausible addendum near the top of a journal**. A diff cannot show you that a file's
+structure is wrong; only reading the file can. The cost was real — `CLAUDE.md` sends every session
+to this file first, and two entries had lost content that a later session needed.
+
+That specific leak now has a test behind it (`tests/unit/infrastructure.test.ts`, "the journal's
+format template holds a template and nothing else"), because an instruction is the same class of
+defence that already failed seven times — it holds exactly as long as someone chooses to read. The
+instruction stays because the test only guards the one place the damage happened.
+
+The general form, worth applying beyond this one file: when a diff appends to a long document,
+check the *document*, not the hunk.
+
 ## What not to do
 
 Don't relitigate settled decisions — check `docs/decisions/` before objecting to an approach.

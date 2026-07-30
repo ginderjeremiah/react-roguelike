@@ -36,20 +36,33 @@ own work without a human playing the game.
 Dependencies point **strictly downward**. `game/` imports nothing from any other layer. An ESLint
 `no-restricted-imports` rule enforces this; it is not a convention, it is a build failure.
 
+**What exists today:** `game/`, `app/`, `components/`. **`render/` and `platform/` are not built
+yet** — the lint rules for both are already written and will bite the moment the directories appear
+(`render/` is issue #19). This section describes where code goes, not what is on disk.
+
 ### `game/` — the simulation
 
 Pure TypeScript. The whole game rules-wise. Contains:
 
 ```
 game/
-  core/        types, GameState, the step() reducer, command definitions
+  core/        Command, GameState, the step() reducer, replay + divergence
   rng/         seeded PRNG. the ONLY source of randomness in the project
   map/         level generation, tiles, geometry
-  fov/         field of view + light propagation
-  entities/    actors, stats, behavior
-  systems/     turn scheduling, combat, light/fuel, status effects
-  content/     data tables — enemies, items, level themes. data, not logic
+  fov/         field of view, light propagation, ember-sense, vision state
+  entities/    actors, stats, behaviour, pathing
+  systems/     the rules: turn scheduling, combat, light/fuel, and run.ts (what spans floors)
+  content/     data tables — the Cinder, lantern tuning, player stats, run length. data, not logic
 ```
+
+**`core/` is deliberately thin, and `systems/` is where the rules live.** This is the opposite of
+what the directory names suggest, so it is worth stating: `GameState` is `systems/`' `LanternWorld`
+— the floor, everyone on it, and the lantern — plus four run-level fields (`status`, `turnsElapsed`,
+`commandsResolved`, `rng`). `core/` owns the command vocabulary, the generator, and the endings, and
+delegates every actual rule downward. Nothing in `core/` knows what a shutter does.
+
+`systems/run.ts` is the newest member and the easiest to miss: it owns the two moments that belong
+to neither a floor nor a turn — where a run begins, and what crosses the stairs (GDD §13).
 
 Hard rules. Lint enforces all of them except the last, and the unit suite independently scans
 `game/` sources as a second line of defense (lint can be disabled inline; a failing test is
@@ -77,7 +90,7 @@ Two known limits of the mechanical enforcement, so you are not surprised by them
   bypassed lint rule, not to replace one. Never treat a green scanner as evidence that lint would
   have passed.
 
-### `render/` — the translation layer
+### `render/` — the translation layer *(not built yet — #19)*
 
 Turns a `GameState` into a flat, dumb description of what should be on screen: cells with glyphs,
 colors, and opacity; HUD values; queued animation cues. Still pure TypeScript, still unit-tested.
@@ -95,7 +108,7 @@ that logic belongs in `game/`.
 Animation (Reanimated) lives here and only here. Animations are cosmetic; the simulation never
 waits on them.
 
-### `platform/` — the impurity boundary
+### `platform/` — the impurity boundary *(not built yet)*
 
 Storage, clock, haptics, anything device-shaped. Defined as interfaces and injected, with real
 implementations for the app and fakes for tests.
@@ -118,6 +131,23 @@ A run is fully described by:
 ```ts
 type RunRecord = { version: number; seed: string; commands: readonly Command[] };
 ```
+
+`Command` is four variants and no more — `move(dir) | wait | setShutter(to) | descend`. There is no
+`attack` (GDD §3 settled bump-to-attack) and the shutter command names an absolute **setting**, not
+a toggle, because a toggle's meaning depends on prior state and one dropped command would silently
+invert the rest of a stored run. Adding a variant is a `RULES_VERSION` bump.
+
+**The full step contract lives in `game/core/step.ts`'s header** — seven numbered points, and it is
+the authority. Three of them surprise people, so they are named here:
+
+- **A refusal returns the input state itself, by reference.** Not a copy. An illegal-but-well-formed
+  action (walking into a wall, descending off the stairs, commanding a finished run) runs no phases
+  and changes nothing. Code that assumes `step` always allocates is wrong.
+- **Malformed commands throw; illegal actions do not.** An unknown `kind` is corrupt data and fails
+  loudly. A tap that lands a frame after the killing blow is ordinary phone behaviour and is refused.
+- **Neither counter counts `step` calls.** `commandsResolved` counts non-refusals; `turnsElapsed`
+  counts resolved commands that cost a turn. `turnsElapsed` is *not* in correspondence with
+  `schedule.now` and must never be asserted against it — a descent restarts the floor's clock.
 
 Replaying that record must reproduce the exact final state. There is a property test asserting
 this (`game/core/replay.test.ts`), and it is the single most important test in the repo — if it
@@ -161,7 +191,7 @@ Three tiers, each catching what the tier below cannot:
 
 | Tier | Tool | Covers |
 | --- | --- | --- |
-| Unit / property | Vitest | `game/` and `render/`. The bulk of the tests. Fast, no DOM. |
+| Unit / property | Vitest | `game/` (and `render/` once it exists). The bulk of the tests — 796 across 44 files today. Fast, no DOM. |
 | Replay | Vitest | Recorded runs reproduce byte-identically. The determinism tripwire. |
 | End-to-end | Playwright | The real built web app in a real browser. Input, rendering, persistence. |
 
@@ -174,11 +204,26 @@ dev server. That is what CI does and therefore what "it works" means.
 
 ## Performance budget
 
-Not a concern yet, but stated so we notice when we cross it:
-
 - `step()` for one turn: **< 2ms** on a mid-range phone. Turn resolution must feel instant.
 - Frame budget for grid render: **16ms**. A ~40x24 glyph grid is ~1000 `View`s, which is enough to
   matter. If we hit this wall, the presentation-model seam is what makes fixing it tractable.
 
+**The 2ms budget is no longer comfortable.** A `descend` measures **1.72ms on a GitHub runner** —
+essentially the whole budget — and ~92% of that is `generateFloor`, not turn resolution. An ordinary
+turn is nowhere near it. Tracked as #34; it becomes real when there is a UI, because a 1.7ms step
+plus a full re-render on the same frame is what a visible stutter is made of.
+
 Do not optimize before there is a measurement. Do add a benchmark when you touch level generation
 or FOV, since those are the two places that historically blow up.
+
+**Write benchmark thresholds as ratios, never as milliseconds.** This was learned the expensive way
+in #18: an absolute threshold set on a dev machine failed on a ~4x slower CI runner with nothing
+regressed, and against a 2ms budget there was no headroom to raise it into. Every threshold in
+`game/core/step.bench.test.ts` is now a ratio against a cheaper quantity measured in the same
+process, which divides the machine out. Two corollaries, both paid for:
+
+- **Calibrate against `npm test`, never against the benchmark file alone.** Three thresholds were
+  set from in-isolation figures and all three flaked under the 44-file parallel run.
+- **Verify a threshold by planting the regression it exists to catch** and watching it go red. A
+  benchmark can also go green because its *instrument* failed — #18 produced a physically impossible
+  0.69x reading that passed.

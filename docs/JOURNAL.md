@@ -74,6 +74,77 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-07-30 — Turn scheduler: one clock, a sorted array, and the tie-break (#15)
+
+**Did:** Built `game/systems/` — `schedule.ts` (the integer clock and the priority queue on
+`(nextActAt, actorId)`) and `turn.ts` (the GDD §2 resolution order and the actor phase inside it).
+61 new tests, 233 total. Nothing is wired into `step()` yet; see *Next*.
+
+**Why a sorted plain array and not a heap.** A floor holds ~7 actors, so an O(n) insert is not the
+thing worth optimizing, and the alternative costs more than it saves: `GameState` must be plain
+JSON-shaped data, and `game/core/divergence.ts` now *throws* on a class instance, `Map`, or `Set`
+rather than reporting two different ones as identical. A binary heap is the obvious place to reach
+for a class, and a `Map<ActorId, number>` is the obvious place to reach for insertion order. A
+sorted array is comparable field-by-field, serializable, and readable in a bug report.
+
+**The tie-break is the whole file.** `compareScheduleEntries` never returns 0 for two distinct
+entries, so `(nextActAt, actorId)` is a strict total order and sort stability is irrelevant *by
+construction*. That matters because the failure mode is silent: a comparator that returns 0 on a
+tie hands the decision to `Array.prototype.sort`, which is stable, which means the answer becomes
+"whoever was inserted first" — spawn order, i.e. level-generation order, i.e. a hidden input. In
+M1 ties are not an edge case but the normal case, since every action costs the same and the whole
+floor shares a cadence.
+
+A pleasant consequence: the player is an actor holding the lowest id, so "the player moves first"
+falls out of the ordering instead of being special-cased anywhere in turn resolution.
+
+**The seam for #14/#16/#17.** `RESOLUTION_PHASES` is the GDD §2 order as data, and `resolveTurn`
+folds over it, so there is no second copy of the order to drift. The phases are *injected* as a
+`Record` over the phase union — a caller that forgets one does not compile. The phases that do not
+exist yet are deliberately **not stubbed here**: an empty `burnFuel` returning its state unchanged
+is a lie that passes tests, and the next session finds it and assumes fuel is done. `turn.test.ts`
+supplies them as identity at the call site, which is exactly how `step()` will supply the real ones.
+
+**One design decision inside the actor phase:** the actor is charged *before* it acts. That makes
+a death mid-action stick (charging afterwards would put the corpse back in the queue with a fresh
+act time) and guarantees progress even if a creature's behaviour forgets the schedule entirely. The
+queue is re-read after every action rather than snapshotted, so a creature killed earlier in the
+same phase never gets its turn.
+
+**Variable cost: mechanism built, not designed with.** `nextActAt` is an arbitrary integer and
+`reschedule` accepts any time — that is the entire mechanism, and it is why this was built now
+rather than retrofitted. Every action goes through `chargeActor`, which charges `ACTION_COST` and
+nothing else, so observable behaviour is strict alternation. There are no speed values, no
+per-action costs, and no `cost` parameter on the `act` callback. Adding one is a design change and
+needs a GDD row, not a refactor.
+
+**Learned (mutation testing).** Twelve deliberate breaks, all killed, each by the test written for
+it — including the three the ordering rests on: descending tie-break, tie-break removed, and a
+queue that keeps insertion order with a `peek` that scans for the first minimum. Two findings worth
+recording:
+
+- The insertion-order property is only meaningful because the test sorts with its **own**
+  comparator written out in the test file. Had it used `compareScheduleEntries` as its yardstick,
+  flipping the tie-break would have moved implementation and expectation together and every
+  assertion would still have passed. Same class of false green as the `snapshot()` instrument
+  found in #3.
+- "The clock advances by ACTION_COST" survived every alternation test, because in the M1 steady
+  state every gap *is* one action. Only a drain with random start times, and a phase with a lone
+  actor scheduled at tick 350, distinguish it from "advance to the head of the queue". An
+  invariant that is accidentally true in the common case needs a test built around the uncommon one.
+
+**Next:** #13 (map) is in flight in parallel. The scheduler is standalone until #16 gives
+`GameState` actors to schedule — that PR should add `schedule: Schedule` to `GameState`, rewrite
+`step()` as the `resolveTurn` call sketched in `turn.ts`'s header, and bump `RULES_VERSION` (a new
+`GameState` field is an outcome-changing change by the policy in `replay.ts`). Nothing in this PR
+touches `game/core/`, so no bump was owed here.
+
+**Watch:** `chargeActor` is the only cost in the game and `runActorPhase` is the only loop that
+pays it. If a second charging path appears, alternation stops being enforced by construction.
+Also: `MAX_ACTS_PER_TURN` (1024) is a livelock tripwire, not a rule — if a design ever wants an
+actor to act many times per instant, it is the wrong guard and should be replaced deliberately
+rather than raised.
+
 ## 2026-07-30 — Core types, `step()`, and the replay-determinism tripwire (#3)
 
 **Did:** Built `game/core/` — `GameState`, `Command`, `step(state, command)`, `RunRecord` +

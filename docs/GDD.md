@@ -110,6 +110,23 @@ and unknown. This does not violate Pillar 2: the information exists and is purch
 that costs a turn feels punitive on a phone (Pillar 3), and the toggle is already expensive in the
 two ways that matter: fuel rate, and waking the room. Free of tempo is not free of consequence.
 
+Concretely, in terms of the six phases above: a free action runs **1, 2, 3 and 5** and skips **4 and
+6**. It resolves and it is paid for; it just does not hand the floor a turn.
+
+- It skips **4 (actors)**, because that is what "does not consume a turn" means. A command that
+  merely declines to charge the player still gets charged by phase 4 *and* gives every creature on
+  the floor a free turn.
+- It skips **6 (dark adaptation)**, because §4 recovers ember-sense "+1 per *turn*". If a free action
+  ticked it, strobing would climb the ramp without spending turns.
+- It **runs 2 (fuel)**, because §4's exploration arithmetic is priced in it: a flash costs its 4.
+  This is not the fuel tax §4 rules out — there is no surcharge for toggling, the lantern simply
+  burns at the rate the shutter is set to.
+- It **runs 3 (lighting and waking)**, because opening the shutter must wake the room *immediately*.
+  That is the whole cost of the toggle.
+
+One consequence worth knowing: a creature woken *during* a free action sees two player commands
+before its declared action resolves. That is more conservative than commit-one-turn-ahead requires.
+
 *Open:* variable action speeds; any action costing more or less than one turn. Deliberately not
 designed yet.
 
@@ -279,11 +296,17 @@ nothing ever un-wakes because you shuttered again.** A player who strobes wakes 
 
 **Fuel.**
 
-- Sources: **kills** (Cinder drops 30, tuning) and **ember caches** in the level (40 each, 1-2 per
+- Sources: **kills** (Cinder drops 20, tuning) and **ember caches** in the level (25 each, 1-2 per
   floor, tuning). Caches are terrain and require light to find. Start of run: 80 (tuning).
 - Fuel reaching 0: the shutter can no longer be opened. You are not dead — you can still crawl at
   radius 1 with ember-sense, and the stairs are still findable. It is a desperate state, not a
   loss state, and it is exactly the situation Pillar 4 wants people retelling.
+  **A dry lantern is not a fifth vision state**: it is the shuttered column of the table above,
+  permanently. Touch still reaches one tile, ember-sense still climbs back to five, the dormant
+  strike still works, and a kill or a cache re-opens the shutter the moment it lands. Ember-sense is
+  the player's dark-adapted eyes, not the lamp — if it went out with the fuel, 0 fuel would be
+  unrecoverable in practice, which is the "unplayable rather than desperate" failure this rule
+  exists to avoid.
 
 **The three tuning invariants** (these are design; the numbers above are not):
 
@@ -411,7 +434,7 @@ identical floor.
 | --- | --- |
 | Glyph | `c` dormant (seen in light) · `C` awake · `*` ember-sense contact (identity unknown) |
 | HP / attack | 5 / 2 (tuning) |
-| Drops | 30 ember (tuning) |
+| Drops | 20 ember (tuning) |
 | Dormant | Yes. Wakes when caught in the lit radius, or when attacked and survives. |
 
 **Behaviour worth reading (Pillar 2):** the Cinder is drawn to light. Awake, it paths toward you
@@ -547,3 +570,6 @@ recorded at the moment we made it, is the part git cannot give us.
 | 2026-07-29 | **Ember-sense radius corrected 6 → 5 (tuning)** | Forced by the metric, not a balance opinion. Chebyshev 6 is a 13×13 box on an 11×15 map — ~87% of the floor from the middle band, and it stops varying with position. That falsifies §5's "there are two things in the room north of me" and makes the top two steps of the adaptation ramp provable no-ops. Whether 5 should be 4 or 3 is an M2 playtest question; whether 6 was a radius at all is not |
 | 2026-07-29 | **Dark-adaptation floor corrected 2 → 1**; ramp is 1→2→3→4→5 | Knock-on from the ceiling drop: floor 2 against ceiling 5 gives a three-turn ramp, and §4 has always claimed four turns. Floor 1 restores it *and* subtracts a constant — it is the same 1 as the dark touch radius, so the rule states itself: shuttered, you know only what you can touch, and your sense of the living grows a tile a turn back to five |
 | 2026-07-29 | §4's "light reveals ~20 tiles per turn" replaced with the room-level arithmetic | Wrong number and wrong unit. A first flash into a fresh room reveals ~40 tiles (20-25 floor plus its walls) and every flash after reveals roughly none, so there is no per-turn rate. On this map **walls, not the radius, are what bound a flash** — that is the fact the fuel economy actually rests on, and it was not written down |
+| 2026-08-02 | **Cinder ember drop 30 → 20 and cache 40 → 25 (both tuning)** | **§4's third invariant failed measurement.** At 30/40 a scripted competent run netted about **+85 fuel a floor** against a starting reserve of 80 — one good floor bought the next two, and the lantern stopped being a resource somewhere on floor one. That is "trivially winnable", not "slightly positive". At 20/25 the same corpus nets +11 a floor at an income/spend ratio of 1.10, roughly one floor in five is a net loss, and a competent eight-floor run ends with about twice the reserve it started with rather than five times. The two moved **together** so the ratio between a kill and a cache is preserved (1.25 against the old 1.33): shrinking only the drop would have made exploration the income side of the economy and combat the garnish, which inverts §1. The invariant is the design; these numbers are not. `game/systems/economy.test.ts` is what caught it and what will catch the next drift |
+| 2026-08-02 | **§2: a free action runs phases 1, 2, 3 and 5, and skips 4 and 6** | `turn.ts` settled phase 4 and left 2 and 6 open for the fuel work; this closes them, and each answer is read off the GDD rather than chosen. Fuel **runs**, because §4's exploration arithmetic is priced in it — "a flash buys a room ... for 4 fuel ... light is roughly three times cheaper in fuel ... neither dominates, and the reason is arithmetic" is false if a flash is free, and light would simply dominate exploring. This is not the fuel *tax* §4 rules out: there is no surcharge for toggling. Dark adaptation **skips**, because §4 recovers ember-sense "+1 per turn" and a free action is not a turn; ticking it would let a player climb the ramp by strobing |
+| 2026-08-02 | §4: a dry lantern is the shuttered column of the vision table, permanently — not a fifth state | The smallest reading of "you can still crawl at radius 1 with ember-sense", and the only one that keeps 0 fuel recoverable. Ember-sense belongs to the player's dark-adapted eyes rather than to the lamp; if it went out with the fuel you could not find anything to kill and could not earn your way back, which is the unplayable-rather-than-desperate failure the rule exists to prevent |

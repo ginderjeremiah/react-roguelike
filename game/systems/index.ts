@@ -1,36 +1,67 @@
 /**
- * Turn scheduling, and the order one player command resolves in.
+ * Turn scheduling, the light economy, and the order one player command resolves in.
  *
  * ```ts
- * import { chargeActor, createSchedule, resolveTurn, runActorPhase } from '@/game/systems';
+ * import { createLanternWorld, lanternPhases, resolveTurn, toggleShutterTurn } from '@/game/systems';
  *
- * const schedule = createSchedule([PLAYER, cinderA, cinderB]); // everyone due at tick 0
+ * let state = createLanternWorld(floor, 'shuttered');            // full lantern, floor asleep
+ * state = toggleShutterTurn(state);                              // free: no turn, but the room wakes
+ * state = resolveTurn(state, lanternPhases('costsATurn', move)); // one whole turn
  * ```
  *
- * Four files, four jobs: `schedule.ts` owns the clock and the queue (and the `(nextActAt, actorId)`
+ * Six files, six jobs: `schedule.ts` owns the clock and the queue (and the `(nextActAt, actorId)`
  * ordering the whole simulation's determinism rests on), `turn.ts` owns the GDD §2 phase order and
- * the scheduling half of the actor phase, `combat.ts` owns deterministic damage and death, and
- * `actors.ts` owns the rules half of phases 3 and 4 — waking, and resolve-then-declare.
+ * the scheduling half of the actor phase, `combat.ts` owns deterministic damage and death,
+ * `actors.ts` owns the rules half of phases 3 and 4 — waking, and resolve-then-declare — `lantern.ts`
+ * owns fuel and the shutter, and `light.ts` joins them: it answers `game/entities/`'s injected light
+ * query out of `game/fov/`'s lit field, and supplies five of the six phases.
  *
- * Nothing here is wired into `game/core/step.ts` yet — `GameState` has no `Floor` until #18, and
- * lighting and fuel do not exist until #14 and #17. The seam is `resolveTurn`, whose phases are
- * injected; see the header of `turn.ts`. Three of the six can be supplied today:
+ * ## What is left for #18
+ *
+ * Exactly the command phase. `GameState` has no `Floor` and the `Command` union is still
+ * scaffolding, so the player's half of phase 1 belongs there; everything else is here:
  *
  * ```ts
+ * // The cost is stated, never inferred — `TurnCost` has no default anywhere in this directory.
  * const cost: TurnCost = command.kind === 'toggleShutter' ? 'free' : 'costsATurn';
  *
- * resolveTurn(world, {
- *   command:           (w) => resolvePlayerCommand(w, command),   // #18
- *   fuelBurn:          burnFuel,                                  // #17
- *   lightingAndWaking: (w) => wakeInLight(recomputeLighting(w), perception),
- *   actors:            actorPhase(cost, perception),
- *   deaths:            resolveDeaths,
- *   darkAdaptation:    tickDarkAdaptation,                        // #14
- * });
+ * resolveTurn(state, lanternPhases(cost, (s) => resolvePlayerCommand(s, command)));
  * ```
+ *
+ * For the shutter itself there is not even that: `toggleShutterTurn(state)` is the whole turn, and
+ * it takes no `TurnCost` for a caller to get wrong.
  */
 
 export { actOnce, actorPhase, wakeInLight, type TurnCost } from './actors';
+
+export {
+  burnFuelPhase,
+  collectFuelUnderfoot,
+  createLanternWorld,
+  darkAdaptationPhase,
+  deathsAndCollectionPhase,
+  lanternLight,
+  lanternPhases,
+  lightingAndWakingPhase,
+  lightOf,
+  toggleShutterCommand,
+  toggleShutterTurn,
+  type LanternWorld,
+} from './light';
+
+export {
+  burn,
+  burnRate,
+  canOpen,
+  createLantern,
+  isDry,
+  open,
+  refuel,
+  setLanternShutter,
+  shutter,
+  toggleShutter,
+  type Lantern,
+} from './lantern';
 
 export {
   bump,

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { diveToTheBottom } from '@/tests/unit/support/run-script';
 import type { Command } from './command';
 import { assertSameState, findFieldDivergence, formatFieldDivergence } from './divergence';
 import { recordRun, replay, runCommands } from './replay';
@@ -14,8 +15,8 @@ import { step } from './step';
  *
  * **Deep freeze** is the primary check. ES modules are strict mode, so writing to a frozen
  * property throws a `TypeError` *at the offending line*: the stack trace names the mutation. A
- * snapshot comparison can only tell you, afterwards, that something changed — in a simulation with
- * a map and forty actors, that is a bisect.
+ * snapshot comparison can only tell you, afterwards, that something changed — in a state with a
+ * map, a lantern and seven actors, that is a bisect.
  *
  * **The structural snapshot** is the backstop, for the two things freezing cannot do. `Object.freeze`
  * does not protect `Map`/`Set` contents (`frozenMap.set(k, v)` succeeds silently), and `GameState`
@@ -31,8 +32,13 @@ import { step } from './step';
  * every state a run produces, not just the first, is what catches that: turn 40 writing through a
  * reference it inherited from turn 12 throws.
  *
- * Sharing immutable sub-values is fine and expected (`wait` hands every state the same `NO_OUTCOME` object by
- * reference); it is writing through them that is forbidden.
+ * Sharing immutable sub-values is fine and expected — a turn that perceives nothing new hands the
+ * next state the same `remembered` tile set by reference, and every floor tile is one of seven
+ * shared singletons. It is writing *through* them that is forbidden.
+ *
+ * **The one place this file cannot use a `structuredClone` yardstick** is a refused command, which
+ * returns its input by reference on purpose (contract 6). That is not an exception to purity; it is
+ * the strongest possible form of it, and it has its own test in `step.test.ts`.
  */
 
 type Mutable = Record<string, unknown>;
@@ -55,8 +61,17 @@ function snapshot<T>(value: T): T {
   return structuredClone(value);
 }
 
-const LONG_RUN: Command[] = Array.from({ length: 200 }, (_, i) =>
-  i % 3 === 0 ? { kind: 'wait' } : { kind: 'roll', sides: (i % 12) + 1 },
+/**
+ * A real run: three floors of a dark dive, with refusals and free actions salted through it.
+ *
+ * Real rather than synthetic on purpose. A long list of `wait`s exercises one branch of `step` and
+ * never touches the two places a mutation would actually be written — collecting a cache, which
+ * rewrites a tile *in the grid*, and descending, which builds a whole new world. Both are in here.
+ */
+const LONG_RUN: readonly Command[] = diveToTheBottom('purity', 3).commands.flatMap((command, i) =>
+  // Every fifth command is preceded by one that will be refused (a descent taken off the stairs),
+  // so the aliasing sweep runs over refused commands as well as resolved ones.
+  i % 5 === 0 ? [{ kind: 'descend' } as Command, command] : [command],
 );
 
 describe('snapshot (the other tool this suite depends on)', () => {
@@ -90,33 +105,42 @@ describe('deepFreeze (the tool this suite depends on)', () => {
 });
 
 describe('step does not mutate its input', () => {
-  it('resolves a command against a deep-frozen state', () => {
-    for (const command of [{ kind: 'wait' }, { kind: 'roll', sides: 6 }] as Command[]) {
+  it('resolves every kind of command against a deep-frozen state', () => {
+    // If `step` writes to `state.rng.s0`, to a tile in `world.floor.grid.tiles`, or to the
+    // `remembered` flags, this throws a TypeError pointing at the line that did it.
+    for (const command of [
+      { kind: 'wait' },
+      { kind: 'move', dir: 'north' },
+      { kind: 'setShutter', to: 'shuttered' },
+      { kind: 'descend' },
+    ] as Command[]) {
       const before = deepFreeze(createInitialState('purity'));
-      // If `step` writes to `state.turn`, `state.rng.s0`, or `state.lastOutcome.kind`, this throws
-      // a TypeError pointing at the line that did it.
-      expect(() => step(before, command)).not.toThrow();
+      expect(() => step(before, command), command.kind).not.toThrow();
     }
   });
 
   it('leaves the input structurally unchanged', () => {
-    for (const command of [{ kind: 'wait' }, { kind: 'roll', sides: 20 }] as Command[]) {
-      // Deliberately not the initial state: it has `lastOutcome: { kind: 'none' }`, so a `step`
-      // that reset that field in place would leave it *structurally identical* and this test
-      // would report green on a real mutation. Starting from a state that has already rolled
-      // means every field differs from what a mutation would write.
-      const before = step(createInitialState('purity'), { kind: 'roll', sides: 20 });
-      const expected = snapshot(before);
-      step(before, command);
-
-      assertSameState(before, expected, `step mutated its input resolving ${command.kind}`);
+    // Deliberately not the initial state: it has an empty ember list, a full lantern and a pristine
+    // grid, so a `step` that reset any of those in place would leave it *structurally identical*
+    // and this test would report green on a real mutation. Starting from a state a hundred commands
+    // into a run means every field has something in it to be clobbered.
+    const midRun = runCommands('purity', LONG_RUN.slice(0, 100));
+    for (const command of [
+      { kind: 'wait' },
+      { kind: 'move', dir: 'east' },
+      { kind: 'setShutter', to: 'open' },
+    ] as Command[]) {
+      const expected = snapshot(midRun);
+      step(midRun, command);
+      assertSameState(midRun, expected, `step mutated its input resolving ${command.kind}`);
     }
   });
 
   it('never writes through a reference inherited from an earlier state', () => {
-    // The aliasing case. Every intermediate state stays frozen for the rest of the run, so a
-    // mutation of turn 12's data on turn 40 throws instead of retroactively rewriting history.
-    let state: GameState = deepFreeze(createInitialState('aliasing'));
+    // The aliasing case, and the reason this run descends: `arriveOnFloor` builds a new world from
+    // a new `Floor`, and collecting a cache rewrites a tile *inside* the grid the state is holding.
+    // Both are places where an in-place write is the obvious implementation.
+    let state: GameState = deepFreeze(createInitialState('purity'));
     const history: GameState[] = [state];
 
     for (const command of LONG_RUN) {
@@ -124,11 +148,15 @@ describe('step does not mutate its input', () => {
       history.push(state);
     }
 
-    expect(state.turn).toBe(LONG_RUN.length);
+    expect(state.commandsResolved).toBeGreaterThan(0);
+    // The salted-in descents really are refused, so the sweep above covers both paths rather than
+    // only the resolving one. A log whose every command resolved would make the comment a lie.
+    const refused = history.filter((current, i) => i > 0 && current === history[i - 1]).length;
+    expect(refused).toBeGreaterThan(5);
     // And the record of history is intact: replaying the same prefix reproduces each state that
     // was captured. A retroactive mutation that somehow avoided the freeze shows up here.
     for (let i = 0; i < history.length; i += 1) {
-      const rerun = runCommands('aliasing', LONG_RUN.slice(0, i));
+      const rerun = runCommands('purity', LONG_RUN.slice(0, i));
       const divergence = findFieldDivergence(rerun, history[i]);
       if (divergence) {
         throw new Error(`state ${i} changed after the fact: ${formatFieldDivergence(divergence)}`);
@@ -136,12 +164,22 @@ describe('step does not mutate its input', () => {
     }
   });
 
-  it('produces a fresh state object every call', () => {
-    // Catches a `step` that returns its input for commands it treats as no-ops. Every command
-    // resolves a turn, so a shared identity would mean a shared `turn`.
+  it('produces a fresh state object for every command it resolves', () => {
+    // Catches a `step` that returns its input for commands it treats as no-ops. A *resolved*
+    // command always changes something — at minimum `commandsResolved` — so a shared identity means
+    // a shared counter. (A *refused* command returns its input on purpose; that is contract 6 and
+    // is asserted in `step.test.ts`.)
     const before = createInitialState('identity');
+    for (const command of [
+      { kind: 'wait' },
+      { kind: 'move', dir: 'north' },
+      { kind: 'setShutter', to: 'shuttered' },
+    ] as Command[]) {
+      const after = step(before, command);
+      if (after === before) continue; // refused by this particular floor's geometry; not this test's case
+      expect(after.commandsResolved).toBe(before.commandsResolved + 1);
+    }
     expect(step(before, { kind: 'wait' })).not.toBe(before);
-    expect(step(before, { kind: 'roll', sides: 6 })).not.toBe(before);
   });
 });
 
@@ -164,7 +202,7 @@ describe('replay does not mutate its input record', () => {
     // would silently rewrite a run that had already been recorded.
     const commands: Command[] = [{ kind: 'wait' }];
     const record = recordRun('copy', commands);
-    commands.push({ kind: 'roll', sides: 6 });
+    commands.push({ kind: 'descend' });
     expect(record.commands).toHaveLength(1);
   });
 

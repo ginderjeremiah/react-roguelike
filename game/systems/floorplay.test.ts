@@ -167,9 +167,12 @@ describe('playing whole floors', () => {
           expect(actor.hp).toBeGreaterThanOrEqual(0);
         }
 
-        // §2: a free action costs no turn; anything else costs exactly one.
+        // §2: a free action costs no turn; anything else costs exactly one — **unless the player
+        // died on it**, in which case §13 stops the turn where it happens and the clock is left
+        // standing at the frame of the killing blow. Three cases, and each one is a rule.
+        const died = !isAlive(playerOf(world));
         const expectedNow =
-          scripted.action.kind === 'free'
+          scripted.action.kind === 'free' || died
             ? before.schedule.now
             : before.schedule.now + ACTION_COST;
         expect(world.schedule.now).toBe(expectedNow);

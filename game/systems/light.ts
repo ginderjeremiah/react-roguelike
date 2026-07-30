@@ -29,11 +29,11 @@
  * expensive, and it must never consume a random number.
  * ═══════════════════════════════════════════════════════════════════════════════════════════════
  *
- * ## The free action: which of the six phases a shutter toggle runs
+ * ## The free action: which of the six phases a shutter command runs
  *
- * §2: "Toggling the shutter is a free action — it does not consume a turn." `turn.ts` settled one
- * phase and explicitly left two to #17. All four answers below are read off the GDD rather than
- * chosen, because each one is worth fuel or tempo to the player.
+ * §2: "Toggling the shutter is a free action — it does not consume a turn", now settled as the list
+ * "a free action runs 1, 2, 3 and 5 and skips 4 and 6". All four answers below are read off the GDD
+ * rather than chosen, because each one is worth fuel or tempo to the player.
  *
  *   - **Phase 4, actors: SKIPPED.** `turn.ts` and `actors.ts` both explain this at length — a free
  *     command that merely declines to charge itself still gets charged by phase 4 and hands every
@@ -70,6 +70,7 @@ import { CACHE_FUEL } from '../content';
 import { assertNever } from '../core/assert';
 import {
   createActorWorld,
+  PLAYER_ID,
   playerOf,
   type ActorWorld,
   type Perception as LightQuery,
@@ -92,9 +93,10 @@ import {
   type Grid,
   type Position,
 } from '../map';
-import { actorPhase, wakeInLight, type TurnCost } from './actors';
-import { resolveDeaths } from './combat';
-import { burn, createLantern, refuel, toggleShutter, type Lantern } from './lantern';
+import { actorPhase, isRunOver, wakeInLight, type TurnCost } from './actors';
+import { bump, resolveDeaths } from './combat';
+import { burn, createLantern, refuel, setLanternShutter, type Lantern } from './lantern';
+import { chargeActor } from './schedule';
 import { resolveTurn, type TurnPhase, type TurnPhases } from './turn';
 
 /**
@@ -112,8 +114,13 @@ export type LanternWorld = {
 /**
  * A floor at the moment the player arrives on it: everything dormant, nothing seen, a full lantern.
  *
- * `shutter` has no default — §4 never says which way the shutter starts a run, and `createVision`
- * and `createLantern` both refuse to guess for the same reason. `fuel` does, because §4 does say.
+ * `shutter` has no default — §4 says a *run* starts open (`game/systems/run.ts` owns that), but a
+ * floor is arrived on seven more times after that and the answer there is "whatever you were
+ * carrying". `fuel` does have one, because §4 gives it.
+ *
+ * **This is not the whole of arriving.** §13's carries — fuel, shutter, sense radius, HP + 2 — and
+ * §4's "the entrance room is already perceived" both live in `run.ts`. This is the empty floor
+ * underneath them.
  */
 export function createLanternWorld(
   floor: Floor,
@@ -313,13 +320,13 @@ export function darkAdaptationPhase(state: LanternWorld): LanternWorld {
 /**
  * The five phases this directory owns, plus the caller's command phase, in GDD §2 order.
  *
- * `cost` is explicit and has no default, exactly as `actorPhase`'s is: #18 cannot wire a command
+ * `cost` is explicit and has no default, exactly as `actorPhase`'s is: no command can be wired
  * without saying whether it costs a turn, and getting it wrong is a failing test rather than a
  * player who silently loses a turn every time they touch the shutter.
  *
- * The command phase belongs to the caller because the `Command` union does (`game/core/`, #18). Its
- * only obligation is the one `actors.ts` states: **a command that costs a turn must charge the
- * player**, or phase 4 throws.
+ * The command phase is a parameter because the `Command` union lives in `game/core/`. Its only
+ * obligation is the one `actors.ts` states: **a command that costs a turn must charge the player**,
+ * or phase 4 throws. Every phase this file ships already does.
  */
 export function lanternPhases(
   cost: TurnCost,
@@ -337,8 +344,8 @@ export function lanternPhases(
     // every command, and making it conditional would be a rule change disguised as symmetry with
     // the phases above. Documented here alongside the other two equivalents so a later mutation
     // run does not spend time re-deriving it.
-    deaths: deathsAndCollectionPhase,
-    darkAdaptation: perTurn(cost, darkAdaptationPhase),
+    deaths: unlessTheRunEnded(deathsAndCollectionPhase),
+    darkAdaptation: unlessTheRunEnded(perTurn(cost, darkAdaptationPhase)),
   };
 }
 
@@ -355,6 +362,24 @@ function perTurn(cost: TurnCost, phase: TurnPhase<LanternWorld>): TurnPhase<Lant
 }
 
 /**
+ * GDD §13: "A terminal state stops the turn where it happens. If the player dies in phase 4, the
+ * actor sweep stops there and **phases 5 and 6 do not run** — the final state is the frame of the
+ * killing blow."
+ *
+ * `actorPhase` stops the sweep; this stops what would come after it. Applied to phases 5 and 6 and
+ * to nothing before phase 4, because the player cannot die in phases 1-3: the only thing in the
+ * game that damages the player is a creature resolving a declared attack, which is phase 4.
+ *
+ * The visible consequence, and the reason this is not tidiness: without it, the Cinder that killed
+ * you drops the ember of a creature *you* killed earlier in the same turn, that ember is collected
+ * off the corpse's tile if you happen to be standing on it, and the run's final fuel figure counts
+ * income earned after the run was over.
+ */
+function unlessTheRunEnded(phase: TurnPhase<LanternWorld>): TurnPhase<LanternWorld> {
+  return (state) => (isRunOver(state.world) ? state : phase(state));
+}
+
+/**
  * Phase 4, lifted to a `LanternWorld`.
  *
  * The light query is built **inside** the phase rather than passed in, so creatures declare against
@@ -366,23 +391,90 @@ function actorsPhase(cost: TurnCost): TurnPhase<LanternWorld> {
   return (state) => withWorld(state, actorPhase(cost, lightOf(state))(state.world));
 }
 
+// --- phase 1: the player's commands --------------------------------------------------------------
+//
+// The `Command` union lives in `game/core/`, but what each command *does* is a rule and lives here.
+// `game/core/step.ts` chooses among these and supplies nothing of its own.
+
 /**
- * The player's half of a shutter toggle: flip it, charge nobody, take no turn.
+ * Charge the player for the turn they are about to take.
  *
- * Refused when dry (§4), and a refusal is still a legal, free, no-op turn — the player pressed the
- * button and the lantern had nothing to give.
+ * Charged **before** the action resolves, exactly as `runActorPhase` charges a creature before its
+ * action resolves, so a kill made by this command leaves the queue and stays out of it.
+ *
+ * Every command that costs a turn goes through here. Forgetting it leaves the player due in phase
+ * 4, where `actOnce` throws "the player was due" — a loud failure standing in for the quiet one it
+ * would otherwise be (the player acting twice, or a free action costing a turn).
  */
-export function toggleShutterCommand(state: LanternWorld): LanternWorld {
-  return withLantern(state, toggleShutter(state.lantern));
+export function chargePlayer(state: LanternWorld): LanternWorld {
+  return withWorld(state, {
+    ...state.world,
+    schedule: chargeActor(state.world.schedule, PLAYER_ID),
+  });
 }
 
 /**
- * The whole shutter toggle, as one resolved turn.
+ * §9: "Tap your own tile to wait." The whole command: pay the turn, do nothing with it.
+ *
+ * Not a no-op — §9 calls out *waiting on the stairs* as a real move, and every other phase still
+ * runs, so a wait burns fuel, hands the floor its turn, and ticks adaptation.
+ */
+export function waitCommand(state: LanternWorld): LanternWorld {
+  return chargePlayer(state);
+}
+
+/**
+ * §3/§9's one directional command: move, or attack whatever is standing there.
+ *
+ * `bump` decides which from what is on the tile *at this moment*, which is why there is no separate
+ * attack command to get out of step with it. `to` must be an orthogonal neighbour and must be
+ * bumpable (`canBump`) — a tap on a wall is refused by `step()` before any of this runs, and
+ * reaching here with one is a bug rather than a blocked move.
+ *
+ * The light query is built from the state as it stands at phase 1 — the lighting the player's
+ * strike happens under, before phase 3 recomputes it. (It is used for one thing: §3's "if the target
+ * survives, it wakes", and a creature that wakes mid-strike declares against the light as it was
+ * when it was hit.)
+ *
+ * Building it from `charged` rather than from `state` is a **provably equivalent mutant** and a
+ * mutation run will not kill it: the two differ only in the schedule, which `lanternLight` does not
+ * read. Noted here alongside the other documented equivalents in this file so a later run does not
+ * spend time re-deriving it. It is written this way because "the lighting the command started
+ * under" is the sentence, and charging the player is not part of the command's effect on the world.
+ */
+export function moveCommand(to: Position): TurnPhase<LanternWorld> {
+  return (state) => {
+    const charged = chargePlayer(state);
+    return withWorld(charged, bump(charged.world, PLAYER_ID, to, lightOf(state)));
+  };
+}
+
+/**
+ * The player's half of a shutter command: set it, charge nobody, take no turn.
+ *
+ * **`setShutter(to)` rather than a toggle**, and that is a determinism decision as much as a design
+ * one: a toggle's meaning depends on prior state, so a command log with one command dropped or
+ * duplicated silently inverts the shutter for the rest of the run rather than failing. At 0 fuel a
+ * toggle is additionally the *identity*, so a refusal is invisible in the log.
+ *
+ * Opening is refused when dry (§4) and the refusal is still a legal, resolved, free command — the
+ * player pressed the control and the lantern had nothing to give. That is **not** the same thing as
+ * §2's *refused action*, which runs no phases at all: this one burns its fuel and lights whatever
+ * the shutter is set to. Asking for the setting the shutter already holds is the refusal; see
+ * `step()`.
+ */
+export function setShutterCommand(to: ShutterState): TurnPhase<LanternWorld> {
+  return (state) => withLantern(state, setLanternShutter(state.lantern, to));
+}
+
+/**
+ * The whole shutter command, as one resolved free action.
  *
  * Shipped as a function rather than as instructions, because "free" is a property of *this command*
- * and not of the call site: there is no parameter here for #18 to get wrong. The wrong wiring costs
- * the player a turn **and** hands every creature on the floor a free one (`turn.test.ts`).
+ * and not of the call site: there is no `TurnCost` parameter here for a caller to get wrong. The
+ * wrong wiring costs the player a turn **and** hands every creature on the floor a free one
+ * (`turn.test.ts`).
  */
-export function toggleShutterTurn(state: LanternWorld): LanternWorld {
-  return resolveTurn(state, lanternPhases('free', toggleShutterCommand));
+export function setShutterTurn(state: LanternWorld, to: ShutterState): LanternWorld {
+  return resolveTurn(state, lanternPhases('free', setShutterCommand(to)));
 }

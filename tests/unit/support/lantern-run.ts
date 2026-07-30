@@ -100,7 +100,7 @@ import {
   lanternPhases,
   lightOf,
   resolveTurn,
-  toggleShutterTurn,
+  setShutterTurn,
   type LanternWorld,
 } from '@/game/systems';
 
@@ -361,7 +361,9 @@ type Action =
 
 /** Resolve one command through the real pipeline — `lanternPhases`, in GDD §2 order. */
 function apply(state: LanternWorld, action: Action): LanternWorld {
-  if (action.kind === 'toggle') return toggleShutterTurn(state);
+  if (action.kind === 'toggle') {
+    return setShutterTurn(state, state.lantern.vision.shutter === 'open' ? 'shuttered' : 'open');
+  }
 
   return resolveTurn(
     state,

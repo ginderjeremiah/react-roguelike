@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { drawTileSet, origin, parseScene } from '@/tests/unit/support/ascii-grid';
-import { scenario, awaken } from '@/tests/unit/support/scenario';
+import { allDueNow, awaken, scenario } from '@/tests/unit/support/scenario';
 import { CACHE_FUEL, CINDER, FUEL_BURN_LIT, FUEL_BURN_SHUTTERED } from '../content';
 import { findFieldDivergence, formatFieldDivergence } from '../core';
 import {
@@ -10,6 +10,7 @@ import {
   isDormant,
   PLAYER_ID,
   playerOf,
+  withActor,
   type ActorWorld,
   type Mind,
 } from '../entities';
@@ -17,7 +18,6 @@ import {
   ADAPTATION_FLOOR,
   computeLitField,
   computeTouchField,
-  EMBER_SENSE_RADIUS,
   hasTile,
   tileSetsEqual,
   type ShutterState,
@@ -39,8 +39,8 @@ import {
   lanternLight,
   lanternPhases,
   lightingAndWakingPhase,
-  toggleShutterCommand,
-  toggleShutterTurn,
+  setShutterCommand,
+  setShutterTurn,
   type LanternWorld,
 } from './light';
 import { ACTION_COST, chargeActor } from './schedule';
@@ -88,6 +88,17 @@ const ROOM = [
 
 function lanternOn(grid: Grid, shutter: ShutterState, fuel = 80): Lantern {
   return createLantern(grid, shutter, fuel);
+}
+
+/**
+ * §9's thumb control, as one free command: whichever way the shutter is, ask for the other.
+ *
+ * The *command* is `setShutter(to)` — absolute, so a dropped or duplicated command in a stored log
+ * cannot silently invert the rest of a run (`game/core/command.ts`). The control is still a toggle,
+ * and these tests are about the control, so the toggle is reconstructed here rather than in `game/`.
+ */
+function flip(state: LanternWorld): LanternWorld {
+  return setShutterTurn(state, state.lantern.vision.shutter === 'open' ? 'shuttered' : 'open');
 }
 
 describe('the light query handed to game/entities/', () => {
@@ -497,7 +508,7 @@ describe('the shutter toggle is a free action', () => {
     const awake = awaken(start.world, SLEEPER_ID, { kind: 'move', to: { x: 4, y: 1 } });
     const before: LanternWorld = { world: awake, lantern: start.lantern };
 
-    const after = toggleShutterTurn(before);
+    const after = flip(before);
     expect(after.world.schedule.now).toBe(before.world.schedule.now);
     expect(after.world.schedule.entries).toEqual(before.world.schedule.entries);
     // The creature still holds the action it declared: it has not resolved it.
@@ -514,7 +525,7 @@ describe('the shutter toggle is a free action', () => {
     // `toggleShutterCommand` charges nobody, so declaring it as costing a turn leaves the player due
     // in phase 4, and `actOnce` refuses. That is the belt to `TurnCost`'s braces.
     const start = lit(WITH_SLEEPER, 'shuttered');
-    expect(() => resolveTurn(start, lanternPhases('costsATurn', toggleShutterCommand))).toThrow(
+    expect(() => resolveTurn(start, lanternPhases('costsATurn', setShutterCommand('open')))).toThrow(
       /the player was due in phase 4/,
     );
   });
@@ -524,11 +535,11 @@ describe('the shutter toggle is a free action', () => {
     // three times cheaper in fuel" than feeling the room out at 1 a turn. A free flash would make
     // light infinitely cheaper than touch and delete that comparison.
     const start = lit(WITH_SLEEPER, 'shuttered', 50);
-    const opened = toggleShutterTurn(start);
+    const opened = flip(start);
     expect(opened.lantern.vision.shutter).toBe('open');
     expect(opened.lantern.fuel).toBe(50 - FUEL_BURN_LIT);
 
-    const closed = toggleShutterTurn(opened);
+    const closed = flip(opened);
     expect(closed.lantern.vision.shutter).toBe('shuttered');
     expect(closed.lantern.fuel).toBe(50 - FUEL_BURN_LIT - FUEL_BURN_SHUTTERED);
   });
@@ -538,11 +549,11 @@ describe('the shutter toggle is a free action', () => {
     // `shutter -> toggle -> toggle` would buy sense radius without spending turns, and the four
     // blind turns §4 calls the tensest state in the game would be optional.
     const start = lit(WITH_SLEEPER, 'open', 50);
-    const shut = toggleShutterTurn(start);
+    const shut = flip(start);
     expect(shut.lantern.vision.senseRadius).toBe(ADAPTATION_FLOOR);
 
-    const reopened = toggleShutterTurn(shut);
-    const shutAgain = toggleShutterTurn(reopened);
+    const reopened = flip(shut);
+    const shutAgain = flip(reopened);
     expect(shutAgain.lantern.vision.senseRadius).toBe(ADAPTATION_FLOOR);
 
     // ...whereas a real turn does advance it, which is what makes the assertion above mean something.
@@ -555,7 +566,7 @@ describe('the shutter toggle is a free action', () => {
     const start = lit(WITH_SLEEPER, 'shuttered');
     expect(creatureMinds(start.world)).toEqual(['dormant']);
 
-    const flashed = toggleShutterTurn(start);
+    const flashed = flip(start);
     expect(creatureMinds(flashed.world)).toEqual(['awake']);
     expect(flashed.world.schedule.now).toBe(start.world.schedule.now);
     // Woken creatures join the queue for *next* turn, never for this one (§2 phase 3).
@@ -566,7 +577,7 @@ describe('the shutter toggle is a free action', () => {
     // §4: at 0 fuel "the shutter can no longer be opened". The player still has the control under
     // their thumb; pressing it is ordinary, and the lantern simply has nothing to give.
     const dry = lit(WITH_SLEEPER, 'shuttered', 0);
-    const after = toggleShutterTurn(dry);
+    const after = flip(dry);
     expect(after.lantern.vision.shutter).toBe('shuttered');
     expect(after.lantern.fuel).toBe(0);
     expect(after.world.schedule.now).toBe(dry.world.schedule.now);
@@ -607,7 +618,7 @@ describe('a turn that costs a turn', () => {
     const play = (): LanternWorld => {
       let state = createLanternWorld(generateFloor(createRng('replay'), 3).value, 'shuttered');
       for (let step = 0; step < 20; step += 1) {
-        state = step % 7 === 0 ? toggleShutterTurn(state) : turn(state);
+        state = step % 7 === 0 ? flip(state) : turn(state);
       }
       return state;
     };
@@ -628,7 +639,7 @@ describe('a turn that costs a turn', () => {
     const floor = generateFloor(createRng('frozen'), 2).value;
     const start = deepFreeze(createLanternWorld(floor, 'open'));
     expect(() => turn(start)).not.toThrow();
-    expect(() => toggleShutterTurn(start)).not.toThrow();
+    expect(() => flip(start)).not.toThrow();
     expect(start.lantern.fuel).toBe(80);
     expect(start.world.schedule.now).toBe(0);
   });
@@ -637,7 +648,8 @@ describe('a turn that costs a turn', () => {
     const floor = generateFloor(createRng('arrival'), 1).value;
     const start = createLanternWorld(floor, 'shuttered');
     expect(start.lantern.fuel).toBe(80);
-    expect(start.lantern.vision.senseRadius).toBe(EMBER_SENSE_RADIUS);
+    // §4: full adaptation is earned, so a fresh lantern's eyes reach one tile, not five.
+    expect(start.lantern.vision.senseRadius).toBe(ADAPTATION_FLOOR);
     expect(countTiles(start.lantern.vision.remembered.flags)).toBe(0);
     expect(start.world.actors.filter(isAwake)).toEqual([]);
     expect(createActorWorld(floor).actors).toHaveLength(start.world.actors.length);
@@ -653,3 +665,60 @@ function deepFreeze<T>(value: T): T {
   for (const key of Object.keys(value as Mutable).sort()) deepFreeze((value as Mutable)[key]);
   return value;
 }
+
+describe('a terminal state stops the turn where it happens (§13)', () => {
+  it('does not run phases 5 and 6 on the turn the player dies', () => {
+    // §13: "If the player dies in phase 4, the actor sweep stops there and **phases 5 and 6 do not
+    // run** — the final state is the frame of the killing blow."
+    //
+    // Arranged so that both skipped phases have something visible to do. The player kills the west
+    // Cinder in phase 1, so phase 5 has a body to clear and an ember to drop; the ramp is mid-climb,
+    // so phase 6 has a radius to raise. The east Cinder's declared attack finishes the player in
+    // phase 4, and neither happens.
+    const built = scenario(['#####', '#c@c#', '#####']);
+    let world = awaken(built.world, creatureIdAt(1), { kind: 'attack', at: { x: 2, y: 1 } });
+    world = allDueNow(withActor(world, { ...playerOf(world), hp: CINDER.attack, attack: 99 }));
+
+    const before: LanternWorld = {
+      world,
+      lantern: {
+        fuel: 20,
+        vision: { ...createLantern(world.floor.grid, 'shuttered', 20).vision, senseRadius: 2 },
+      },
+    };
+    const after = turn(before, { x: 1, y: 1 });
+
+    expect(playerOf(after.world).hp).toBe(0);
+    // Phase 5 did not run: the body the player felled in phase 1 is still in the world at 0 HP and
+    // its ember has not dropped.
+    const felled = after.world.actors.find((actor) => actor.id === creatureIdAt(0));
+    expect(felled?.hp).toBe(0);
+    expect(after.world.embers).toEqual([]);
+    // Phase 6 did not run: the adaptation ramp did not tick on the turn the run ended.
+    expect(after.lantern.vision.senseRadius).toBe(2);
+    // Phase 2 *did* run — the turn was resolved up to the blow, not abandoned wholesale.
+    expect(after.lantern.fuel).toBe(20 - FUEL_BURN_SHUTTERED);
+  });
+
+  it('runs both phases when the player survives, which is what makes the skip mean something', () => {
+    // The contrast, differing in one number: one more point of HP and the same turn clears the
+    // body, drops and does not collect the ember, and ticks the ramp.
+    const built = scenario(['#####', '#c@c#', '#####']);
+    let world = awaken(built.world, creatureIdAt(1), { kind: 'attack', at: { x: 2, y: 1 } });
+    world = allDueNow(withActor(world, { ...playerOf(world), hp: CINDER.attack + 1, attack: 99 }));
+
+    const before: LanternWorld = {
+      world,
+      lantern: {
+        fuel: 20,
+        vision: { ...createLantern(world.floor.grid, 'shuttered', 20).vision, senseRadius: 2 },
+      },
+    };
+    const after = turn(before, { x: 1, y: 1 });
+
+    expect(playerOf(after.world).hp).toBe(1);
+    expect(after.world.actors.find((actor) => actor.id === creatureIdAt(0))).toBeUndefined();
+    expect(after.world.embers).toEqual([{ at: { x: 1, y: 1 }, amount: CINDER.emberDrop }]);
+    expect(after.lantern.vision.senseRadius).toBe(3);
+  });
+});

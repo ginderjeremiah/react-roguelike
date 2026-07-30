@@ -77,15 +77,25 @@ export type Vision = {
 };
 
 /**
- * The vision a run starts with.
+ * The vision a run starts with: **at the adaptation floor, never at the ceiling.**
  *
- * Starts fully dark-adapted whichever way the shutter is set, because the ramp is triggered by the
- * *act* of shuttering (§4: "on shuttering") and no shuttering has happened yet. §4 does not say
- * which way the shutter starts, so the caller has to; that decision belongs with whoever owns the
- * start of a run, not with FOV.
+ * §4: "*Full adaptation is always earned.* Ember-sense reaches 5 only after four turns spent
+ * shuttered, so a run's sense radius starts at the floor, 1, not at the ceiling." This function
+ * used to hand out `EMBER_SENSE_RADIUS`, on the reasoning that the ramp is triggered by the *act*
+ * of shuttering and no shuttering has happened yet. That reasoning is not wrong so much as
+ * irrelevant: it makes `createVision(grid, 'shuttered')` a free radius-5 wall-piercing sense on
+ * turn 1, which is the most generous available reading of a rule §4 states as a cost.
+ *
+ * It is unobservable in play at M1 — shuttering resets to the floor regardless — but §9 puts the
+ * number on the HUD, and a HUD reading 5 before the player has ever been dark is a lie they will
+ * act on. Stating it here rather than at the start-of-run call site is what stops the next
+ * start-state (a descent, a debug mode) reintroducing the gift.
+ *
+ * §4 does not say which way the shutter starts, so the caller has to; that decision belongs with
+ * whoever owns the start of a run, not with FOV. (`game/systems/run.ts` answers it: open.)
  */
 export function createVision(grid: Grid, shutter: ShutterState): Vision {
-  return { shutter, senseRadius: EMBER_SENSE_RADIUS, remembered: emptyTileSet(grid) };
+  return { shutter, senseRadius: ADAPTATION_FLOOR, remembered: emptyTileSet(grid) };
 }
 
 /**

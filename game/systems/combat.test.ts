@@ -14,6 +14,7 @@ import {
 import { hasActor } from './schedule';
 import {
   bump,
+  canBump,
   canMove,
   damageFrom,
   DORMANT_STRIKE_MULTIPLIER,
@@ -193,6 +194,64 @@ describe('movement', () => {
     expect(() => resolveMove(world, PLAYER_ID, { x: 3, y: 1 })).toThrow(/4-directional/);
     expect(() => resolveMove(world, PLAYER_ID, { x: 2, y: 2 })).toThrow(/4-directional/);
     expect(canMove(world, PLAYER_ID, { x: 2, y: 2 })).toBe(false);
+  });
+});
+
+describe('canBump — the predicate GDD §2s refusal rule is stated in', () => {
+  it('says yes to an occupied tile, where canMove says no', () => {
+    // **The whole reason the two functions exist separately.** §2 refuses "a move into a wall, a
+    // pillar, or off the grid" and nothing else; an occupied tile is an *attack* (§3). Wiring the
+    // command layer to `canMove` would silently turn walking into a Cinder into a free no-op —
+    // a refusal that costs nothing, deleting bump-to-attack while every other test still passed.
+    const { world, at } = scenario(['#####', '#@c.#', '#####']);
+    expect(canMove(world, PLAYER_ID, at('c'))).toBe(false);
+    expect(canBump(world, PLAYER_ID, at('c'))).toBe(true);
+  });
+
+  it('says no to a wall, a pillar and a tile off the grid — §2s three cases', () => {
+    // Three separately reachable branches: the tile kind for the first two, bounds for the third.
+    const walled = scenario(['#####', '#@o.#', '#####']);
+    expect(canBump(walled.world, PLAYER_ID, { x: 1, y: 0 })).toBe(false); // wall
+    expect(canBump(walled.world, PLAYER_ID, { x: 2, y: 1 })).toBe(false); // pillar
+    expect(canBump(walled.world, PLAYER_ID, { x: 1, y: 2 })).toBe(false); // wall below
+
+    // No wall on the west side: the tile beyond the player is off the grid entirely, which
+    // `tileAt` would throw on rather than report as impassable.
+    const edge = scenario(['@..', '...', '...']);
+    expect(() => canBump(edge.world, PLAYER_ID, { x: -1, y: 0 })).not.toThrow();
+    expect(canBump(edge.world, PLAYER_ID, { x: -1, y: 0 })).toBe(false);
+    expect(canBump(edge.world, PLAYER_ID, { x: 0, y: -1 })).toBe(false);
+  });
+
+  it('says no to anything that is not one orthogonal step', () => {
+    const { world } = scenario(['#####', '#@..#', '#####']);
+    expect(canBump(world, PLAYER_ID, { x: 3, y: 1 })).toBe(false);
+    expect(canBump(world, PLAYER_ID, { x: 2, y: 2 })).toBe(false);
+    expect(canBump(world, PLAYER_ID, { x: 1, y: 1 })).toBe(false); // its own tile
+  });
+
+  it('agrees with bump: exactly the tiles it accepts are the ones bump does something with', () => {
+    // The predicate and the resolution must not drift. Asserted over every tile of a small scene,
+    // in both directions, because a predicate that is merely *nearly* right produces either a
+    // refused legal move or a `bump` that throws in the middle of a turn.
+    const { world, at } = scenario(['#####', '#@c.#', '#.o.#', '#####']);
+    const from = at('@');
+    for (const to of [
+      { x: from.x, y: from.y - 1 },
+      { x: from.x + 1, y: from.y },
+      { x: from.x, y: from.y + 1 },
+      { x: from.x - 1, y: from.y },
+    ]) {
+      const allowed = canBump(world, PLAYER_ID, to);
+      const acted = (() => {
+        try {
+          return bump(world, PLAYER_ID, to, SHUTTERED) !== world;
+        } catch {
+          return false;
+        }
+      })();
+      expect(acted, `(${to.x}, ${to.y})`).toBe(allowed);
+    }
   });
 });
 

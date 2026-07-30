@@ -209,6 +209,274 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-08-03 — The real `GameState`, the real `Command`, and a run you can win (#18)
+
+**Did:** Joined every finished subsystem into the real `step()`. The M0 scaffolding — the
+`wait | roll` union, `lastOutcome`, `NO_OUTCOME` — is **deleted**, not left alongside. `GameState`
+is now `game/systems/`' `LanternWorld` (the floor, everyone on it, the lantern) plus four run-level
+fields: `status`, two counters, and the generator. `RULES_VERSION` → 2, fixtures re-recorded. 793
+tests, 44 files.
+
+`game/core/` got **thinner**, which was the design constraint. Every rule the reducer needs is a
+call into `game/systems/`: `moveCommand`/`waitCommand`/`setShutterCommand` and a new
+`game/systems/run.ts` for what spans floors (`beginRun`, `arriveOnFloor`, `isOnStairs`,
+`descendTurn`). `step()` validates, refuses, picks a `TurnCost`, and folds
+`lanternPhases(cost, phase)`. The only thing it owns that nothing else does is the generator and
+the ending.
+
+**Four variants, and two of them are subtractions.** `move | wait | setShutter | descend`. There is
+no `attack`: §3 settled bump-to-attack, so a separate command reintroduces the mode §3 removed and
+buys nothing, because player attacks resolve against what is there *now*. And it is
+`setShutter(to)` rather than `toggleShutter` — **a determinism argument, not a taste one**: a
+toggle's meaning depends on prior state, so a stored log with one command dropped silently inverts
+the shutter for the rest of the run instead of failing, and at 0 fuel a toggle is the identity, so
+a refused open is invisible in the log.
+
+**The counters had to be split, and that is the amendment to the step contract.** Point 5 said
+"turn increases by one on every call, without exception" and is now false three ways — free
+actions, refusals, and commands after the run ends. It is two fields:
+
+- `commandsResolved` increments on every call that is not a refusal, free actions included. It is
+  the replay's cross-check on its own position.
+- `turnsElapsed` increments per resolved command that costs a turn. It is what a player retells and
+  what #21's summary screen shows.
+
+**A refusal returns the input state itself** — the same reference, not a copy. Byte-identity is the
+property and reference identity is the only implementation of it that cannot rot. The consequence
+that makes the replay suite work: *a state identical to its predecessor means the command was
+refused*, so `commandsResolved` can be cross-checked against a structural walk of the run. That
+holds only because `commandsResolved` also increments on the one resolved command that otherwise
+changes nothing — `setShutter('open')` on a dry lantern, which §4 says is a legal no-op. Without
+that counter, a resolved free action would be byte-identical to a refusal and the cross-check would
+be false.
+
+**The draw-count contract is now floor-shaped.** `descend` is the only command that draws, and
+`createInitialState` draws before the first command (it generates floor 1). So a log's budget is
+`expectedDrawCount(1)` plus `expectedDrawCount(n + 1)` for each descent resolved on floor `n` — it
+is a function of *the floors the run visited*, not of the command list, and `replay.test.ts` walks
+the run to compute it. That is not circular: the computation never touches `rng`, so a stray draw
+anywhere shows up as a mismatch.
+
+**The property generator had to be steered, and that is the interesting test problem.** A log of
+random commands never descends — the stairs are one tile in 165 — so the `descend` arm would always
+be a refusal and the draw-budget property would be asserting that nothing ever drew. The generator
+therefore *plays*: half chaos (which produces the refusals and the wasted flashes), half a step
+along a route to the stairs. Measured over 120 cases: 3,544 commands, 72 descents reaching floor 3,
+598 refusals, 362 free actions, 3 deaths. Those numbers are asserted, because a generator that
+quietly stopped descending would leave the whole file green. (Two of them were *not* asserted when
+this was first written, and the review caught it — see the addendum.)
+
+**§13's stop-on-death was not already there, contrary to the design note's guess.** `runActorPhase`
+swept to completion regardless, so a player killed by the first of three due Cinders watched the
+other two take their turns and then phases 5 and 6 tidied up around the corpse. It needed a `halt`
+predicate on `runActorPhase` (required, not defaulted — "keep going" is a rules answer and that file
+has no rules in it) and an `unlessTheRunEnded` guard on phases 5 and 6. The observable is the clock:
+on the turn the player dies, `schedule.now` does not advance.
+
+**`createVision` now starts at `ADAPTATION_FLOOR`, not `EMBER_SENSE_RADIUS`.** §4's "full adaptation
+is always earned". Changing the constructor rather than overriding it at the start-of-run call site
+is what closes the door on the next start-state reintroducing the gift. It moved five existing tests
+and, notably, nothing in the economy suite: the stalker now spends four turns adapting before its
+first flash on each floor, which is what §4 says it should always have been doing.
+
+**A measured contradiction in the GDD, reported not coded around.** §4 and §13 both claim the
+opening flash is safe *by construction* — "§5 step 7 puts no creature in the entrance room, so
+phase 3 lights a room that is guaranteed empty". The premise is true and the conclusion does not
+follow: §5's exclusion is about *rooms*, and the lit field is Chebyshev 4 **with line of sight**,
+which runs through a doorway. **Measured over 480 generated floors: 97 of them (20%) wake at least
+one creature on arrival.** §4's vision table is not negotiable and a first-turn exemption would be a
+fifth vision state invented by an implementation, so the code does the table and
+`game/systems/run.test.ts` asserts the honest property (everything awake is something the light
+actually reached). The GDD sentence is what needed correcting, and a `game-designer` pass did it in
+this PR rather than leaving it for later.
+
+**The ruling survived its broken justification, and the named false step is worth keeping.** The
+designer had read a **room** exclusion as a **light** exclusion: §5 step 7 constrains where a
+creature may *stand* and says nothing about what is *visible*, and the two facts sat three sections
+apart. Start-open stands on its other two reasons — and reason 2 is *strengthened*, because now that
+the lit opening is known to cost something one time in five, the shuttered opening is the only
+guaranteed-safe one on offer, which makes the four-turn wait-and-adapt ritual more attractive rather
+than less. The 20% case was kept deliberately: a guaranteed-safe arrival makes the stairs a reset
+button and the descent a formality, and it is what gives the shutter-carries-across-the-stairs
+ruling a mechanism instead of a tidiness argument. §4 gained the clause it had always been missing —
+containment ("everything a flash can wake, you can already feel") holds only on a floor you have
+already felt, and **arrival is a third exception alongside the adaptation ramp and an open
+shutter**. What replaces it on arrival is spatial: *you never arrive on top of something; you
+sometimes arrive in sight of something.*
+
+**Mutation testing: 54 mutants, 53 killed, 1 documented equivalent.** The killed set includes every
+rule this PR is about — refusals resolving, a refusal copying state after a draw, a free action
+counting a turn, `commandsResolved` frozen, floor 9 being generated, `canMove` used where `canBump`
+belongs (which would make walking into a Cinder a free no-op and delete bump-to-attack), a
+re-asserted shutter resolving, descend legal anywhere, a finished run still accepting commands,
+death never recorded, the map crossing the stairs, the ramp resetting on descent, the arriving
+player not charged, the sweep never halting, and phases 5 and 6 running after the run ended.
+
+Three survived the first pass and two were real gaps: `DIRECTIONS`/`SHUTTER_STATES` had `.sort()`
+with no test behind it (`COMMAND_KINDS` had one, and that is exactly how the asymmetry arose), and
+`worldOf` could have spread the whole state — which compiles, passes every behavioural test because
+the extra fields are dropped on the way back, and quietly makes `game/systems/` able to read `rng`.
+Both now have tests. The third — building `moveCommand`'s light query from the charged state rather
+than the pre-charge one — is provably equivalent (`lanternLight` does not read the schedule) and is
+written down at the site alongside this file's other documented equivalents.
+
+**Benchmarks:** `descend` — the only command that generates a floor *and* runs six phases — costs
+0.45ms against ARCHITECTURE's 2ms; an ordinary lit turn 0.015ms; a refusal 0.0001ms. That last one
+is a real assertion and not vanity: a refused descent that generated a floor before throwing it away
+would be ~0.3ms *and* a replay-breaking draw, and this is the cheapest place to notice it.
+
+**The descent benchmark then failed on CI at 1.72ms and had to be rewritten, which the file's own
+header asks be written down here rather than fixed with a bigger number.** The runner is ~4x slower
+than this machine; nothing regressed. Raising the threshold until CI passed would have set it by
+whichever machine happened to be slowest, and against a 2ms budget there was no headroom to raise it
+into. So the descent is now measured **as a ratio to a bare `generateFloor` taken in the same
+process** — which divides the machine out and means the same thing on a laptop, a runner and a
+phone. It measures **1.06-1.09x**: generating the floor is ~92% of a descent and the six phases are
+noise. The limit is 1.6x, and it was verified by planting a second `generateFloor` in `step` — 2.07x,
+red. The absolute milliseconds are still printed on every run, so a genuine slowdown shows up in the
+CI log even when nothing fails.
+
+Worth knowing for later: **on CI-class hardware a descent takes 1.72ms of ARCHITECTURE's 2ms
+per-turn budget**, essentially all of it, and a phone is not obviously faster than a GitHub runner.
+The cost is level generation, not the turn. Filed as #34 — it is a real number to watch when M4 does
+the native pass, not a problem today.
+
+**Learned:** a mutant killed by the test runner *timing out* is a survivor wearing a red X. The
+"descend regenerates the same floor number" mutant made `diveToTheBottom`'s outer loop descend
+forever; the harness recorded a non-zero exit and called it dead. The fix is in the harness script
+under test — the dive is now bounded on floors as well as on turns within a floor, and throws with
+a message naming the rule. Any scripted-play helper wants both bounds for the same reason.
+
+**Next:** #21 (the run loop and summary screen) and the `render/`-layer work now have a real
+`GameState` to read. Two things they should know: `floorNumberOf(state)` is derived from the floor
+rather than stored, and the terminal state is a *snapshot of the moment the run ended*, not a tidied
+world — so a summary's counters must be accumulated as they happen rather than derived from it
+afterwards (§13 says so explicitly).
+
+**Watch:**
+- **The §13/§4 "arriving is safe" claim is false 20% of the time.** Not a bug, and not a balance
+  problem — arriving lit into a room whose doorway shows a Cinder is legible and, arguably, the
+  system working. But the GDD asserts it as a guarantee and two sections lean on it.
+- `standUntilDead('grave')` is the death fixture, and most seeds do **not** die: the lantern runs
+  dry after 20 lit turns, everything goes dark, and the Cinders re-dormant after eight turns of no
+  contact. The helper throws if its seed stops dying, which is the signal you want, but it means the
+  death path rests on one seed's geometry.
+- A refusal returns its input **by reference**. `purity.test.ts`'s "produces a fresh state object
+  every call" had to become "for every command it resolves", and anything that assumes `step`
+  always allocates will be wrong.
+- `game/fov/` and `game/entities/` still both export a type called `Perception`, meaning different
+  things. Untouched here; still an improvement waiting to be made.
+
+**Review addendum:** the reviewer found the sixth check-that-enforces-nothing in six PRs, and this
+time it was in the test whose entire stated job is to prove the other tests are not vacuous — **the
+corpus tallies were accumulated and never asserted.** `deaths` and `wins` fed nothing but a
+`console.log` the default reporter does not print, so `deaths = 0; wins = 0;` inserted before that
+log left all 24 tests green. Worse than the gap: **this entry and the PR description both claimed
+those counts were asserted.** The claim is what made the thin 3-in-120 death margin acceptable —
+the reviewer's ruling on the single-seed death fixture was "accept, *because* the corpus is the
+other leg of it" — so an unasserted tally was quietly holding up a decision made on its strength.
+Fixed, and three robust combat tallies added beside it with 40-75% margins (runs that woke a
+creature 89/120, runs where the player took a hit 57/120, runs that dropped an ember 47/120), so
+the loud alarm is not the same number as the thin one.
+
+Deliberately *not* fixed by steering the generator toward deaths: a death needs the **floor** to
+have spawned a creature within reach of the entrance, which is a property of generation rather than
+of the command log, so no amount of command steering makes it reliable without curating seeds — and
+curating seeds would stop the corpus being arbitrary and silently narrow every property in the file.
+`standUntilDead` throws "did not produce a death" on 26 of 30 arbitrary seeds, which is the
+measurement behind that call.
+
+**Second blocking finding, and it is the same shape: a test named for the bug it could not catch.**
+`'leaves the map behind: a fresh, empty, correctly sized memory'` stayed green when
+`arriveOnFloor` was mutated to carry `remembered` across the stairs. Two independent reasons, both
+worth remembering because they will recur: every generated grid is 11×15, so a *sizing* assertion
+cannot fail while all floors are the same shape; and the freshness assertion was `arrived <= before`
+against a fixture that arrives from a **shuttered** dive, where the new floor's 9-tile touch field
+is already a subset of the carried mask, so the union never grows. It now asserts equality against
+the new floor's own field, spelled out from §4's table for both arrival states, and a new
+`run.test.ts` case gives the sizing claim a floor that is genuinely not 11×15 so it can fail
+somewhere.
+
+**The version-2 fixture pinned half the simulation.** Probed across all 18 states: no creature ever
+woke, `embers` was empty throughout, the player never lost HP. So `RULES_VERSION` — whose entire
+purpose is to notice that the rules changed — was pinning generation, movement, fuel, the shutter,
+descent and a cache, and nothing at all about waking, declaration, damage, the dormant strike,
+ember drops, re-dormancy or death. A second fixture now walks that whole loop (wake → shutter →
+retreat → re-dormancy at `turnsSinceContact` 8 → dormant strike → ember → collection → reopen →
+six landed attacks → death with the clock frozen), and the digest widened from a creature *count*
+to the creature list — position, HP, and the whole `Mind`. The decisive measurement: reversing spawn
+order in `createActorWorld` is caught by the new fixtures, and **survives** if the digest is
+narrowed back to the old count. Widening it bought real coverage rather than more bytes.
+
+**The benchmark went absolute → ratio → interleaved, and each step was forced by a measurement.**
+The absolute threshold failed on CI at 1.72ms (a ~4x slower box). The ratio against a bare
+generation fixed that and then produced `0.69x` on CI — a descent measuring *cheaper* than the
+generation it contains, which is not physically possible and meant the yardstick had been
+mismeasured by ~4.5x, because it ran second and inherited the descent loop's garbage. **That run
+passed**, which is the part worth internalising: a benchmark can go green because its instrument
+failed. Now the batches interleave and swap order every round, an impossible reading fails loudly
+instead of flatteringly, and each threshold was calibrated by planting the regression it exists to
+catch. The last absolute assertion in the file — the refusal, at 0.01ms — then flaked at ~9% under
+the full suite while measuring a 160x margin in isolation, which is the same lesson a third time:
+**in-isolation headroom says nothing about a 44-file parallel run.**
+
+And measuring *that* properly showed the two ratios were flaking too — 4 failures in 30 full-suite
+runs, none in 30 single-file runs. The bias is not random and does not cancel across interleaved
+batches: in each pair the subject has the larger working set, so a neighbouring worker evicting the
+cache costs it more than the yardstick. Neither limit was raised. The estimator was fixed instead,
+in measured steps: median-of-series (4 failures) → minimum-of-series (0 failures, but it reports
+*physically impossible* 0.82x descents, because the two minima come from different rounds) →
+**median of per-round ratios, keeping only rounds where neither batch ran more than 1.25x above the
+cheapest batch of its own series.** That filter never looks at the ratio, so it cannot prefer a
+round for agreeing with the threshold, and interference only ever adds time — so "near its own
+minimum" is an independent test of cleanliness. 30 full-suite runs, 0 failures, 0 discards. The
+refusal batch was also 500 calls ≈ 0.035ms of wall time against millisecond-scale steals, so one
+steal was a ~500x per-call error; it is 2.1ms now, like every other batch.
+
+The file now carries the standing instruction in its header: **calibrate against `npm test`, never
+against this file alone.** Three thresholds in its short history were set from isolated figures and
+all three flaked.
+
+The reviewer then attacked the estimator and found the *justification* wrong while the behaviour was
+right, which is worth recording because the correct argument is more useful than the one it
+replaced. "The filter never looks at the ratio, so it cannot prefer a round for agreeing with the
+threshold" does not follow: keeping only rounds within 1.25x of each series' own minimum confines
+every kept ratio to ±25% of `min(s)/min(y)` — which is estimator #2, the one this file rejects three
+paragraphs earlier as biased. Form-blindness is not independence. What actually holds is **scale
+invariance**: both predicates are homogeneous of degree 1 in their own series, so scaling every
+subject batch by a constant leaves the kept set identical and scales every kept ratio by exactly
+that constant. A regression here *is* such a scaling, because each subject is N identical calls of a
+pure function on a frozen `(state, command)` and per-call cost cannot vary between batches. So the
+filter provably cannot mask one. The precondition is the part worth carrying forward: that argument
+fails for a subject whose per-call cost genuinely varies — a future benchmark that steps a
+*sequence* of commands rather than repeating one.
+
+The same round made a degraded reading retry rather than pass quietly, **and the retry immediately
+found two defects in the harness that nothing else had noticed**: it fired on 21 of 30 whole-suite
+runs, always on the descent. The floor batch was 5 calls (~2.1ms), small enough that a minor GC
+landing in one half of a pair was a large fraction of it — and one-sidedly, since the subject
+allocates more, which pushed readings as low as 0.845x against a 0.8x containment floor. And warmup
+was 3 rounds, so the descent comparison began on a heap full of `atTheStairs`' seven-floor dive.
+12 calls and 8 rounds: retries 21/30 → 3/30, degraded readings surviving all attempts 0/30, and the
+lit turn's margin *improved* without any threshold moving. A retry that fires constantly is
+diagnostic output, not a nuisance.
+
+Also from the review, all applied: the GDD's §2 refusal table was written as exhaustive at three
+rows while the implementation refuses a fourth (`setShutter` to the setting already held) — the rule
+lived only in a reducer comment, which is the shape this PR spent its whole effort avoiding, so it
+is now a table row, a justification paragraph and a change-log row. `arriveOnFloor` passed
+`previous.lantern.fuel` into `createLanternWorld` and then discarded the lantern it built; the
+argument is now load-bearing rather than decorative. A comment claiming `turnsElapsed` and
+`schedule.now` must agree was false in three ways and would eventually have been enforced as an
+invariant. And two `divergence.test.ts` pins that had loosened to `/^(lantern|rng|world)\b/` and
+`\w+` — each of which matches most of what it could be asked about — are tight again.
+
+Filed rather than widened into this PR: **#34** (a descent is 1.7ms of the 2ms turn budget on
+CI-class hardware, and the cost is the generator, not the turn), **#35** (nothing catches `litQuery`
+recomputing the lit field per call — the mutation measures 4.75x against a 5x limit and passes,
+because the benchmark's floor has too few creatures for it to be expensive), and **#32**
+(auto-travel's command shape, which is a determinism question rather than a UI one).
+
 ## 2026-08-02 — Fuel, the shutter, and the light economy (#17)
 
 **Did:** Built the fuel half of GDD §4 — `game/systems/lantern.ts` (fuel, the shutter transitions,

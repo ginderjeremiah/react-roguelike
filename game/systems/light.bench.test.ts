@@ -3,7 +3,7 @@ import { generateFloor } from '../map';
 import { createRng } from '../rng';
 import { PLAYER_ID } from '../entities';
 import { wakeInLight } from './actors';
-import { createLanternWorld, lanternPhases, toggleShutterTurn, type LanternWorld } from './light';
+import { createLanternWorld, lanternPhases, setShutterTurn, type LanternWorld } from './light';
 import { chargeActor } from './schedule';
 import { resolveTurn } from './turn';
 
@@ -93,7 +93,7 @@ describe('the light economy inside a turn', () => {
     // The free action still runs three of the six phases, including the lighting recompute that
     // wakes the room, so it is not automatically cheap just because it costs no turn.
     const state = busyLitFloor();
-    const cost = medianCost(state, toggleShutterTurn);
+    const cost = medianCost(state, (current) => setShutterTurn(current, 'shuttered'));
     console.log(`shutter toggle: ${cost.toFixed(4)}ms (budget ${BUDGET_MS}ms)`);
     expect(cost).toBeLessThan(BUDGET_MS);
   });

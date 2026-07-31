@@ -24,7 +24,10 @@ import {
  *   - **It imports `@/session` and `@/render`. Nothing else.** No `@/game`, static or dynamic, and
  *     no test-support helper — `tests/unit/support/run-script.ts` imports `@/game/core`, so reaching
  *     for it would quietly reintroduce the very dependency the spike exists to prove is unnecessary.
- *   - It never names a `GameState`, a `Command`, an `Actor`, a `Tile` or an id, because it cannot.
+ *   - It never names a `GameState`, a `Command`, an `Actor`, a `Tile` or an id. For `Command` that
+ *     is *because it cannot*; for the rest it is a discipline, since `@/render`'s barrel does hand
+ *     the types out (see the residual test at the bottom of this file). Naming a type is not
+ *     obtaining a value of it, which is the distinction the whole seam turns on.
  *   - Every question it asks is answered by the presentation model.
  *
  * If this file ever needs an import from `@/game` to do something a UI plainly has to do, that is a
@@ -212,7 +215,7 @@ describe('a consumer that may not import `@/game`', () => {
 
   it('reaches the state only through an explicit cast, which is the residual', () => {
     // What is NOT closed, said plainly so nobody has to discover it: the state is a real property of
-    // a real object, so `as any` plus reflection reaches it, and no type system prevents a cast.
+    // a real object, so a double cast plus reflection reaches it, and no type system stops a cast.
     //
     // That is accepted, and the reason is about *review* rather than about types. The path that had
     // to be closed was the one that looked like ordinary code — the block above passes a reading
@@ -222,9 +225,11 @@ describe('a consumer that may not import `@/game`', () => {
     // directions — one `as` will not compile. That is the whole of why the residual is tolerable.
     //
     // An earlier version of this comment gave a second reason and it was false: it said this file
-    // "cannot say `GameState`, because naming the type needs an import it does not have". It has
-    // one — line 2 imports `@/render`, and `Parameters<typeof presentScene>[0]` is the real
-    // `GameState` with autocomplete. That route is pre-existing from #19/#42, tracked as its own
+    // "cannot say `GameState`, because naming the type needs an import it does not have". It may
+    // legally have one — `@/render` is imported above, and adding `presentScene` to that import
+    // would make `Parameters<typeof presentScene>[0]` the real `GameState` with autocomplete. (The
+    // named import is deliberately not there, so the expression does not compile as this file
+    // stands.) That route is pre-existing from #19/#42, tracked as its own
     // issue, and is exactly the fact that decided ADR-0010 (`render/`'s API necessarily names
     // `GameState`, so the run could not live there). It does not rescue the smuggler: naming the
     // type is not obtaining a value of it, and nothing `@/render` exports returns a `GameState`.

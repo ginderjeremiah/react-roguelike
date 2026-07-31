@@ -141,11 +141,13 @@ Any future "this is private because you cannot write its name" argument in this 
 tested against those four before it is believed.
 
 **The residual, stated rather than discovered:** an explicit
-`(run as any)[Object.getOwnPropertySymbols(run)[0]]` still reaches the state. The state really is a
+`(run as unknown as Record<symbol, ...>)[Object.getOwnPropertySymbols(run)[0]]` still reaches the
+state. The state really is a
 property of a real object, and no type system prevents a cast. This is accepted deliberately, and
 the argument is about review rather than about types: the path that had to be closed was the one
 that *looked like ordinary code*, because that is the path that gets taken by accident and survives
-a reading eye. An `as any` beside `getOwnPropertySymbols` in a component is loud, greppable, and the
+a reading eye. A double cast beside `getOwnPropertySymbols` in a component is loud, greppable, and
+the
 kind of line review stops on. Closing even that would need a `WeakMap` or a `#private` class field,
 both rejected below.
 

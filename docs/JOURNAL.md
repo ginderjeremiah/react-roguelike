@@ -41,7 +41,7 @@ and is the only place above `game/` where a `Command` value exists. Seven functi
 `beginRun(seed)`, `move`/`wait`/`setShutter`/`descend`, `sceneOf`, `cuesOf` — and one opaque type.
 [ADR-0010](decisions/0010-session-layer-owns-the-run.md) is the record. Both contract gates moved
 together, and the determinism rules that had been scoped to `game/` alone now cover all three pure
-layers. 951 tests, up from 917.
+layers. 956 tests, up from 917.
 
 **Why:** #19 shipped `presentScene(state)` and nothing in the repository could legally call it.
 `components/` and `app/` are banned from importing `game/` — twice, deliberately, and both gates are

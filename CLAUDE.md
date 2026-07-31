@@ -57,7 +57,7 @@ Note that `npm run lint` runs `eslint .`, **not** `expo lint`. The latter silent
 ```
 game/       pure TypeScript simulation. no React, no I/O, no platform APIs. deterministic.
 render/     translates game state -> presentation model. pure, still no React Native.
-session/    owns a run: seed -> Run -> intents -> Scene. pure. the only caller of step().
+session/    owns a run: seed -> Run -> intents -> Scene. pure. only caller of step() above game/.
 components/ React Native components. dumb. props in, pixels out.
 app/        expo-router screens. wiring only — may wire session/, render/, components/. never game/.
 platform/   the only place allowed to touch storage, time, or device APIs. behind interfaces.
@@ -126,7 +126,7 @@ npm run verify       # typecheck + lint + test. run before every push.
 
 - Expo's `dist/` is a static export; Playwright tests run against `npx serve dist`, not the dev
   server. The dev server has different timing and is not what CI tests.
-- `react-native-reanimated` animations do not run in Vitest. Keep animation out of `game/` and
-  `render/` entirely.
+- `react-native-reanimated` animations do not run in Vitest. Keep animation out of `game/`,
+  `render/` and `session/` entirely — all three pure layers, all three unit-tested without a DOM.
 - The `@/` path alias maps to the repo root, not `src/`.
 - This repo has no `src/` directory and no Jest. Don't add either — see `docs/decisions/`.

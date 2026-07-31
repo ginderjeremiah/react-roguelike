@@ -44,7 +44,7 @@ built yet** — its lint rules are already written and will bite the moment the 
 
 Five layers is a lot, and each boundary is meant to be load-bearing rather than tidy: `game/` is
 determinism, `render/` is ADR-0003's renderer swap, `session/` is the type-level seam that stops
-`GameState` being nameable, `components/` is where React is allowed to exist, `app/` is routing. A
+`GameState` being obtainable, `components/` is where React is allowed to exist, `app/` is routing. A
 proposal for a sixth has to clear that bar — see ADR-0010's *Consequences*, which is deliberately
 honest about the cost.
 
@@ -158,7 +158,8 @@ Two properties, both structural rather than documented, because a guarantee noth
   `GameState` with no cast and full autocomplete. The generalisable lesson is in ADR-0010 §1 and is
   worth reading before relying on any "private because unspellable" argument: **unspellable is not
   unreachable** — `keyof`, indexed access, implicit index signatures and `infer` all construct
-  references to things no source file can write. The residual is a deliberate `as any`, which is
+  references to things no source file can write. The residual is a deliberate double cast
+  (`as unknown as`), which is
   loud and reviewable; each mechanism is asserted separately, and the exploit is kept verbatim as a
   regression test.
 - **`Command` never crosses the seam.** Four intent functions rather than `apply(run, command)`, so

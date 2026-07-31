@@ -5,8 +5,12 @@
  * `Run` IS OPAQUE BY CONSTRUCTION, NOT BY RULE
  * ═══════════════════════════════════════════════════════════════════════════════════════════════
  *
- * The whole reason this layer exists is to be the place `GameState` stops being *nameable*. A lint
- * rule that forbids `components/` from importing `game/` is a good rule and this repo has two
+ * The whole reason this layer exists is to be the place a `GameState` stops being *obtainable*. Not
+ * *nameable* — an earlier draft said that, and the counter-example is twenty lines below in this
+ * same header, which is exactly the kind of self-refuting document nobody notices they are reading.
+ * `render/`'s API names `GameState`, and `components/` may import `render/`.
+ *
+ * A lint rule forbidding `components/` from importing `game/` is a good rule and this repo has two
  * independent copies of it, but both are gates on the import graph — they say what a file may
  * mention, not what a value may contain. Hand a component a `{ state: GameState }` and the gates
  * stay green while `run.state.world.actors[0].hp` compiles, because structural typing does not need
@@ -58,11 +62,12 @@
  * is kept verbatim in the consumer file — a regression test for a hole belongs at the position the
  * hole was reachable from.
  *
- * **The residual, stated rather than discovered:** `(run as any)[Object.getOwnPropertySymbols(run)[0]]`
+ * **The residual, stated rather than discovered:**
+ * `(run as unknown as Record<symbol, ...>)[Object.getOwnPropertySymbols(run)[0]]`
  * still reaches the state, because the state really is a property of a real object and no type
  * system prevents a cast. This is accepted, and the argument is about review rather than about
  * types: the path that had to be closed was the one that *looked like ordinary code*, because that
- * is the one that gets written by accident and survives a reading eye. An `as any` next to
+ * is the one that gets written by accident and survives a reading eye. A double cast next to
  * `getOwnPropertySymbols` in a component is loud, greppable, and the kind of line review stops on.
  * Both test files pin the residual so it stays a known quantity.
  *
@@ -238,9 +243,9 @@ type RunInternals = {
  * detected.
  *
  * **What this does not close** is the honest residual, and it is stated here rather than in a place
- * nobody reads: an explicit `(run as any)[Object.getOwnPropertySymbols(run)[0]]` still reaches the
+ * nobody reads: an explicit `(run as unknown as Record<symbol, ...>)[...]` still reaches the
  * state, because the value really is on the object and no type system prevents a cast. That is
- * accepted deliberately. An `as any` is a *loud, greppable, reviewable* act that a reader cannot
+ * accepted deliberately. A double cast is a *loud, greppable, reviewable* act that a reader cannot
  * mistake for ordinary code — which is exactly what the no-cast path was not. The bar this property
  * has to clear is "nothing above the seam inspects a `GameState` **by accident, or while looking
  * innocent**", and a cast clears it. See ADR-0010 §1.

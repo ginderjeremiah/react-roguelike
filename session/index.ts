@@ -52,7 +52,8 @@
  *    `interface` (no implicit index signature) whose property type is `never` (nothing to project
  *    through `Run[keyof Run]`). All three are load-bearing — the second and third were added after
  *    review of PR #51 found a component-legal exploit that used exactly those two gaps, with no cast
- *    and full autocomplete on `GameState`. The residual is a deliberate `as any`, which is loud and
+ *    and full autocomplete on `GameState`. The residual is a deliberate double cast, which is loud
+ *    and
  *    reviewable; the closed path is the one that looked like ordinary code. `run.test.ts` and
  *    `tests/unit/session-consumer.test.ts` assert each mechanism separately.
  * 2. **`Command` never crosses the seam.** There are four intent functions instead of one

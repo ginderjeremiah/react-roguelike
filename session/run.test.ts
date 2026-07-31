@@ -199,7 +199,7 @@ describe('`Run` is opaque — the property this layer exists for', () => {
   it('is reachable only through a cast, which is the residual and is deliberate', () => {
     // The honest limit, asserted rather than promised. The state IS on the object — that is the
     // point of not using a `WeakMap` — so an explicit cast reaches it and no type system can stop
-    // that. What changed is the *cost*: this now requires `as any` (or `as never` and a second
+    // that. What changed is the *cost*: this now requires a double cast (`as unknown as`, since one
     // cast), which is loud, greppable and impossible to mistake for ordinary code in review. The
     // path that had to be closed was the one that looked innocent, and it is closed.
     //

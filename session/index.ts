@@ -43,8 +43,11 @@
  * whose guarantees are documented rather than enforced is a layer that is one hurried PR from not
  * having them.
  *
- * 1. **`Run` is opaque:** nothing above this layer can name a `GameState` or read a simulation field
- *    **without an explicit, visible cast**. The state sits behind a module-private `unique symbol`
+ * 1. **`Run` is opaque:** nothing above this layer can reach a `GameState` **through a `Run`**
+ *    without an explicit, visible cast. (The `GameState` *type* is still nameable up here via
+ *    `@/render`'s barrel — `Parameters<typeof presentScene>[0]` — which is pre-existing from
+ *    #19/#42 and tracked separately. It buys a shape and never a value; the live state of the run
+ *    in hand is what this guards.) The state sits behind a module-private `unique symbol`
  *    that is not exported from `run.ts` and therefore not exported from here; `Run` is declared as an
  *    `interface` (no implicit index signature) whose property type is `never` (nothing to project
  *    through `Run[keyof Run]`). All three are load-bearing — the second and third were added after

@@ -57,13 +57,19 @@ Note that `npm run lint` runs `eslint .`, **not** `expo lint`. The latter silent
 ```
 game/       pure TypeScript simulation. no React, no I/O, no platform APIs. deterministic.
 render/     translates game state -> presentation model. pure, still no React Native.
+session/    owns a run: seed -> Run -> intents -> Scene. pure. the only caller of step().
 components/ React Native components. dumb. props in, pixels out.
-app/        expo-router screens. wiring only.
+app/        expo-router screens. wiring only — may wire session/, render/, components/. never game/.
 platform/   the only place allowed to touch storage, time, or device APIs. behind interfaces.
 ```
 
-Dependencies point strictly downward: `app` -> `components` -> `render` -> `game`. Nothing in
-`game/` knows anything above it exists. A lint rule enforces this.
+Dependencies point strictly downward: `app` -> `components` -> `session` -> `render` -> `game`.
+Nothing in `game/` knows anything above it exists. A lint rule enforces this.
+
+**`session/` is the layer the UI goes through, and it is easy to miss because it is new.** Nothing
+above it may import `game/`, so it is the only place a run can be started or advanced: `beginRun`,
+`move`/`wait`/`setShutter`/`descend`, `sceneOf`, `cuesOf`. It hands out an opaque `Run` rather than a
+`GameState`. If you are building UI and reaching for `step()`, you want `session/` — see ADR-0010.
 
 ## Working agreement
 

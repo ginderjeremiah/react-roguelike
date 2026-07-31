@@ -15,15 +15,34 @@
  *
  * ## The property that actually holds
  *
- * > **Nothing above this layer can name a `GameState` or read a simulation field without an
- * > explicit, visible cast.**
+ * > **Nothing above this layer can reach a `GameState` *through a `Run`* without an explicit,
+ * > visible cast.**
  *
- * That sentence is weaker than the one this file shipped with, and the weaker sentence is the true
- * one. The first version claimed `Run` had "no publicly reachable member at all" on the strength of
- * the key being unspellable. Review of PR #51 produced a working counter-example — see the
- * `Run` declaration below for the two mechanisms and the exact fix — and the lesson is worth more
- * than the patch: **a key being unwritable is not the same as a type being unreachable.** `keyof`
- * computes keys nobody can spell, and a `type` alias hands out an index signature nobody declared.
+ * Every qualifier in that sentence was paid for, and it took three drafts. The first claimed `Run`
+ * had "no publicly reachable member at all", on the strength of the key being unspellable; review of
+ * PR #51 broke it with two mechanisms (see the `Run` declaration below). The second claimed nothing
+ * above the layer could *name* a `GameState`; re-review broke that too, and the counter-example is
+ * worth knowing because it is not a bug in this file:
+ *
+ * ```ts
+ * import { presentScene } from '@/render';   // legal from components/ — ADR-0003's seam, working
+ * type GameState = Parameters<typeof presentScene>[0];   // the real type, with autocomplete
+ * ```
+ *
+ * `render/`'s public API necessarily names `GameState` — which is *the argument for this layer
+ * existing* (ADR-0010's *Alternatives*: one module cannot both expose and hide the same type), so
+ * the second draft overreached past a limit its own ADR states correctly. That route is pre-existing
+ * from #19/#42, tracked as its own issue, and deliberately not fixed here.
+ *
+ * **It does not weaken what a `Run` is for.** A *type* you cannot obtain a *value* of buys nothing:
+ * nothing in `render/`'s surface returns a `GameState`, so a component gets the shape and never the
+ * state. The live state of the run in hand is the thing that could actually be inspected, and that
+ * is what `Run` guards.
+ *
+ * Two lessons, and the second is the one that keeps costing: **a key being unwritable is not the same
+ * as a type being unreachable** (`keyof` computes keys nobody can spell; a `type` alias hands out an
+ * index signature nobody declared). And **check the scope of a correction as hard as the claim it
+ * corrects** — both failures here were sentences that ran one clause past what was tested.
  *
  * Three things carry the property now, and all three are structural:
  *
@@ -61,9 +80,14 @@
  * module-scoped, and `insideOf` would read `undefined` either way. Writing it down as an advantage
  * of the symbol would be a false claim in a file whose subject is a false claim, so: the honest
  * asymmetry is **recoverability**. With the symbol the data is still physically on the object, so
- * the state is in principle retrievable; with a `WeakMap` it is genuinely gone. `Symbol.for` would
- * remove the hazard outright and is not used, because a global-registry key is a worse trade than a
- * dev-time reload for a value React would usually reset anyway.
+ * the state is in principle retrievable; with a `WeakMap` it is genuinely gone.
+ *
+ * **`Symbol.for` fixes the hazard and must not be used.** A registered symbol is spellable by any
+ * consumer — it takes a plain string, and that string is sitting a few lines below this comment — so
+ * a component could reconstruct the genuine key and index the object with it. That is mechanism 1
+ * restored: `unique symbol` is chosen precisely because the key *cannot* be reconstructed, and
+ * `Symbol.for` is the API for reconstructing it. This is the thing someone annoyed by an orphaned
+ * `Run` will reach for; it trades the property away for a dev-time convenience.
  *
  * ═══════════════════════════════════════════════════════════════════════════════════════════════
  * `Command` NEVER CROSSES THE SEAM, WHICH IS WHY THERE ARE FOUR INTENTS AND NOT ONE `apply`

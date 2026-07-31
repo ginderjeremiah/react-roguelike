@@ -72,11 +72,41 @@ guarantees are written down rather than enforced is one hurried PR away from not
 
 ### 1. `Run` is opaque by construction
 
-The property, stated exactly, because the first version of this ADR stated a stronger one that was
-false:
+The property, stated exactly. This is the **third** attempt at the sentence: the first was false, and
+the second — written to correct the first — overreached in a different direction. Both failures are
+recorded below, because a document whose subject is "we asserted a property we had not tested" earns
+no credit for hiding its own.
 
-> **Nothing above `session/` can name a `GameState` or read a simulation field without an explicit,
-> visible cast.**
+> **Nothing above `session/` can reach a `GameState` *through a `Run`* without an explicit, visible
+> cast.**
+
+**The `GameState` *type* remains nameable above the seam, and that is not what this property is
+about.** `@/render` is legal from `components/` — that is ADR-0003's seam working as designed — and
+its public API necessarily names `GameState`, so a component can write:
+
+```ts
+import { presentScene } from '@/render';          // no @/game import, no cast, no @ts-expect-error
+type GameState = Parameters<typeof presentScene>[0];
+```
+
+and get the real type, with autocomplete, and the identical `Property 'turn' does not exist on type
+'GameState'` message this ADR quotes as the exploit it closed. The same route runs through `cuesFor`,
+`perceivedCreatures`, and `glyphForCreature` (which yields a `CreatureActor`).
+
+**That is the same fact that decided this ADR in the first place**, and the irony is worth stating
+rather than blushing at: *`render/`'s public API necessarily names `GameState`* is precisely the
+argument in *Alternatives* for why the run could not live in `render/`, and `render/index.ts` already
+says so. The second draft of this section overreached past a limit this very document states
+correctly two screens down. It is a pre-existing consequence of #19/#42, it is **being tracked as its
+own issue**, and it is deliberately not fixed here.
+
+**Why the narrower property is still worth having.** A *type* you cannot obtain a *value* of buys
+nothing: `Parameters<typeof presentScene>[0]` gives a component the shape of a `GameState` and no
+`GameState`. Nothing in `render/`'s surface *returns* one. The thing a component could actually
+inspect — the live state of the run it is holding — is exactly what a `Run` guards, and that is what
+"nothing above the seam inspects a `GameState`" was always about in practice. Closing the type route
+too would mean `render/` stopped naming `GameState` in its signatures, which is a different and much
+larger change.
 
 Three mechanisms carry it, and all three are load-bearing:
 
@@ -128,7 +158,10 @@ in both directions (an unused directive is an error), and mechanism 1 additional
 *positive* type assertion, because `Run[keyof Run]['state']` does not error when the property is
 `never` — it silently resolves to `never`, so a `@ts-expect-error` there would be reported as unused
 and fail for the wrong reason while a real regression passed. The review's exploit is kept verbatim
-in `tests/unit/session-consumer.test.ts`, the one file bound by a component's import rules.
+in `tests/unit/session-consumer.test.ts`, the one file bound by a component's import rules —
+enforced, not asserted: `tests/unit/infrastructure.test.ts`'s "components/ and app/ do not reach into
+game/" scans that exact path, because ESLint switches `no-restricted-imports` off for `tests/**` and
+the sentence was otherwise decorative.
 
 The test that used to stand here is worth naming as a failure mode: its comment claimed "nothing the
 compiler accepts can get there" while its body asserted only that one expression errors. It could
@@ -188,8 +221,10 @@ What settles it is sharper and, once seen, decisive:
 > `render/` must export `presentScene(state: GameState)`, so **its public API necessarily names
 > `GameState`.** Anything importing `render/` has that type in scope.
 
-The session layer's entire job is to be the place `GameState` stops being nameable. **One module
-cannot both expose and hide the same type.** A `render/` that exported both `presentScene` and an
+The session layer's entire job is to be the place a `GameState` stops being **obtainable**. **One
+module cannot both hand out the type and hide the value.** (This is stated as *obtainable* rather
+than *nameable* on purpose — §1 records why: `render/` does still hand the type out, and the property
+that survives is about getting a value, not saying a name.) A `render/` that exported both `presentScene` and an
 opaque `Run` would be handing `components/` the key and the lock in the same import, and the very
 next reasonable-looking PR — a component that wants "just the HUD for this state" — walks through it
 without breaking a single gate.
@@ -258,9 +293,18 @@ orphans old runs exactly as a fresh `WeakMap` does, since both identities are mo
 private accessor reads `undefined` either way. A `#private` field is marginally worse again — it
 throws a brand-check `TypeError` rather than returning `undefined`. The honest asymmetry is
 *recoverability*: with the symbol the data is still physically on the object, so it is retrievable in
-principle; with a `WeakMap` it is genuinely gone. `Symbol.for` would remove the hazard outright and
-is not used, because a global-registry key is a worse trade than a dev-time reload of a value React
-would usually reset anyway.
+principle; with a `WeakMap` it is genuinely gone.
+
+**`Symbol.for` would remove the Fast Refresh hazard outright, and is rejected for a reason that is
+not a trade-off at all.** A registered symbol is *spellable by any consumer* — `Symbol.for` takes a
+plain string, and that string is sitting in `run.ts` where anyone can read it. So a component could
+write `Symbol.for('session/run: the private state of a run')`, obtain the genuine key, and index the
+object with it. That is **mechanism 1 restored**: the whole point of `unique symbol` is that the key
+is nominal and cannot be reconstructed, and `Symbol.for` is precisely the API for reconstructing it.
+Adopting it to fix a dev-time reload would delete the property this layer exists for. Recorded at
+this length because "just use `Symbol.for`" is what someone annoyed by an orphaned `Run` will reach
+for, and the earlier draft of this paragraph — which argued only that a global-registry key is an
+untidy trade — reads like a close call to exactly that person. It is not close.
 
 ## Consequences
 

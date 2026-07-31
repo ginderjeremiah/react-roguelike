@@ -88,19 +88,41 @@ the hole was reachable from. Mechanism 1 needs a *positive* `IsNever` assertion 
 `never` — it silently resolves to `never`, so the directive would be flagged unused and the test
 would fail for the wrong reason while a real regression passed.
 
-**The residual, stated rather than discovered:** `(run as any)[getOwnPropertySymbols(run)[0]]` still
-reaches the state, because it really is a property of a real object. Accepted — the argument is about
-review, not types. The path that had to be closed was the one that *looked like ordinary code*; an
-`as any` beside `getOwnPropertySymbols` in a component is loud, greppable and the kind of line review
-stops on. Both test files pin it so it stays a known quantity.
+**The residual, stated rather than discovered:** `(run as unknown as ...)[getOwnPropertySymbols(run)[0]]`
+still reaches the state, because it really is a property of a real object. Accepted — the argument is
+about review, not types. The path that had to be closed was the one that *looked like ordinary code*;
+a double cast beside `getOwnPropertySymbols` in a component is loud, greppable and the kind of line
+review stops on. Both test files pin it so it stays a known quantity.
+
+**Then the correction was itself sent back, and this is the more useful half of the story.** The
+replacement claim — "nothing above `session/` can name a `GameState`" — was *also* too strong by one
+clause. `@/render` is legal from `components/`, and its API necessarily names `GameState`, so
+`Parameters<typeof presentScene>[0]` hands a component the real type with autocomplete and the
+identical `Property 'turn' does not exist on type 'GameState'` message we had been quoting as the
+exploit we closed. Same route via `cuesFor`, `perceivedCreatures`, and `glyphForCreature` (which
+yields a `CreatureActor`, falsifying `render/index.ts`'s "nothing in here hands out a `Tile`, an
+`Actor`, or an id you could ask a question of").
+
+That is **the same fact that decided this ADR** — `render/`'s API naming `GameState` is exactly why
+the run could not live in `render/` — so the correction overreached past a limit the document states
+correctly two sections later. The property is now scoped to what was actually tested: *nothing above
+this layer can reach a `GameState` **through a `Run`** without an explicit, visible cast.* The type
+route is pre-existing from #19/#42 and is filed separately. It does not weaken `Run`: a type you
+cannot obtain a *value* of buys nothing, nothing in `render/`'s surface returns a `GameState`, and
+the live state of the run in hand is what `Run` guards.
+
+**Three drafts of one sentence, and the lesson is the sentence-level one:** check the scope of a
+correction as hard as the claim it corrects. Both failures were a clause wider than the evidence.
 
 **`render/` was the runner-up and the issue's stated objection to it was wrong**, which is worth more
 than the conclusion. The objection was that a run controller "costs `render/` a stateful surface in a
 layer that is currently a pure function". It does not — a `Run` written as a value-reducer is
 perfectly pure, and that is exactly what `session/` implements. Purity does not settle it. What does:
 **`render/` must export `presentScene(state: GameState)`, so its public API necessarily names
-`GameState`.** The session layer's whole job is to be the place `GameState` stops being nameable.
-One module cannot both expose and hide the same type. An `app/` exemption lost on the proxy argument
+`GameState`.** The session layer's whole job is to be the place a `GameState` stops being
+*obtainable* — one module cannot both hand out the type and hide the value. (Note the consequence,
+which is the finding above: because `render/` still names the type, the seam bounds what you can
+*get*, not what you can *say*.) An `app/` exemption lost on the proxy argument
 above, plus this repo's own history — a contract rule with a hole in it is a rule that quietly stops
 being enforced, because the hole is where the next person puts the thing that did not fit.
 

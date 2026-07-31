@@ -172,7 +172,10 @@ describe('a consumer that may not import `@/game`', () => {
     // `components/`-legal file: no cast, no `any`, no `@ts-expect-error`, no `game/` import, all
     // three gates green, and full autocomplete on `GameState`. It is reproduced here **unchanged**,
     // in the one file in the repo that is bound by a component's import rules, because a regression
-    // test for a hole belongs at the position the hole was reachable from.
+    // test for a hole belongs at the position the hole was reachable from. (That binding is real:
+    // `tests/unit/infrastructure.test.ts`'s "components/ and app/ do not reach into game/" scans
+    // this exact path. It did not until re-review pointed out that the sentence was decorative —
+    // ESLint switches `no-restricted-imports` off for `tests/**`.)
     //
     // Two independent mechanisms, each of which is sufficient on its own, so each gets its own
     // directive. A single `@ts-expect-error` over the whole block would go on passing if one of the
@@ -213,16 +216,19 @@ describe('a consumer that may not import `@/game`', () => {
     //
     // That is accepted, and the reason is about *review* rather than about types. The path that had
     // to be closed was the one that looked like ordinary code — the block above passes a reading
-    // eye, passes ESLint, passes the scanner, and passes `tsc`. This one does not: `as any` in a
-    // component, next to `getOwnPropertySymbols`, is loud, greppable and the kind of line a reviewer
-    // stops on. The property that now holds is "nothing above the seam inspects a `GameState`
-    // **without an explicit, visible cast**", which is weaker than the sentence the first version of
-    // this layer claimed and is the one that is actually true.
-    // Note what this file still cannot do even here: it cannot say `GameState`, because naming the
-    // type needs an import it does not have. The shape below is hand-written and structural, so the
-    // smuggler gets no field names, no autocomplete and no compiler help — which is a meaningfully
-    // worse position than the exploit above enjoyed, and is the rest of why this residual is
-    // tolerable.
+    // eye, passes ESLint, passes the scanner, and passes `tsc`. This one does not: the `as unknown
+    // as` below, next to `getOwnPropertySymbols`, is loud, greppable and the kind of line a reviewer
+    // stops on. **Two** casts, in fact, because `Run` and any record type are unrelated in both
+    // directions — one `as` will not compile. That is the whole of why the residual is tolerable.
+    //
+    // An earlier version of this comment gave a second reason and it was false: it said this file
+    // "cannot say `GameState`, because naming the type needs an import it does not have". It has
+    // one — line 2 imports `@/render`, and `Parameters<typeof presentScene>[0]` is the real
+    // `GameState` with autocomplete. That route is pre-existing from #19/#42, tracked as its own
+    // issue, and is exactly the fact that decided ADR-0010 (`render/`'s API necessarily names
+    // `GameState`, so the run could not live there). It does not rescue the smuggler: naming the
+    // type is not obtaining a value of it, and nothing `@/render` exports returns a `GameState`.
+    // The property is about reaching the state **through a `Run`**, and it needs the casts below.
     const run = open('residual');
     const smuggled = (
       run as unknown as Record<symbol, { readonly state: { readonly world: { actors: unknown[] } } }>

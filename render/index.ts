@@ -28,9 +28,17 @@
  * receives `sceneOf(run)` and `cuesOf(run)` having never seen either.
  *
  * That division is not tidiness. This module's public API necessarily **names** `GameState`, so it
- * cannot also be the place `GameState` stops being nameable; one module cannot both expose and hide
- * the same type. Keep it that way — an opaque run handle exported from here would hand `components/`
- * the key and the lock in a single import.
+ * cannot also be the place a `GameState` stops being obtainable; one module cannot both hand out the
+ * type and hide the value. Keep it that way — an opaque run handle exported from here would hand
+ * `components/` the key and the lock in a single import.
+ *
+ * A live consequence of that, worth knowing before relying on this seam: because these signatures
+ * name `GameState`, a `components/`-legal file can recover the type with
+ * `Parameters<typeof presentScene>[0]` — and a `CreatureActor` from `glyphForCreature` — with no
+ * `@/game` import and no cast. It yields types, never values, so it does not reach the run's state
+ * (that is `session/`'s `Run`, ADR-0010 §1). It does mean the claim a few lines above about handing
+ * out no `Actor` is narrower than it reads. Pre-existing from #19/#42 and **tracked as its own
+ * issue**; do not fix it here.
  *
  * ## The two functions, and why they are two
  *

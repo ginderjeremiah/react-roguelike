@@ -375,8 +375,29 @@ describe('layer contract', () => {
   it('components/ and app/ do not reach into game/', () => {
     // ESLint covers the static-import case; this also catches `await import('@/game/step')`,
     // which no-restricted-imports does not inspect at all.
-    const violations = [...sourceFiles('components'), ...sourceFiles('app')].flatMap(
-      ({ abs, label }) => scanLayering(fs.readFileSync(abs, 'utf8'), label, ['game'], false),
+    //
+    // ── The third path is a test file, deliberately, and it is the only one in this suite. ──────
+    // `tests/unit/session-consumer.test.ts` is ADR-0010's proof that obeying a component's import
+    // rules is *sufficient* to build a UI — it gets from `beginRun()` to a rendered `Scene` using
+    // only `@/session` and `@/render`. Its own header calls it "the one file in the repo bound by a
+    // component's import rules", and until this line that sentence was false: `eslint.config.js`
+    // switches `no-restricted-imports` off for `tests/**`, and the scan above walks only
+    // `components/` and `app/`. So a future agent could add `import { step } from '@/game/core'` to
+    // make a type resolve, all three gates would stay green, and the repo's only
+    // proof-of-reachability-from-outside would quietly stop being from outside — while still
+    // *reading* as proof, which is the exact failure mode PR #51 was sent back for.
+    //
+    // `sourceFiles` excludes `*.test.*` by design, so this is named explicitly rather than by
+    // widening that helper: it is one file with a specific job, not a new category of scanned file.
+    const violations = [
+      ...sourceFiles('components'),
+      ...sourceFiles('app'),
+      {
+        abs: path.join(ROOT, 'tests', 'unit', 'session-consumer.test.ts'),
+        label: 'tests/unit/session-consumer.test.ts',
+      },
+    ].flatMap(({ abs, label }) =>
+      scanLayering(fs.readFileSync(abs, 'utf8'), label, ['game'], false),
     );
     expect(violations.map((v) => `${v.file}: ${v.detail}`)).toEqual([]);
   });

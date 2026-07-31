@@ -34,6 +34,125 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-07-30 — `render/` exists: the presentation model, and the two rulings it was asked to settle (#19)
+
+**Did:** Built `render/` — seven modules, ~120 tests. `presentScene(state, previous?)` produces a
+board (one flat `Cell` per tile: state, glyph, fg/bg tokens, opacity, tint, telegraph) plus the HUD;
+`cuesFor(before, after)` produces animation cues as data. No React, no `.tsx`, no palette. Also
+settles the two things the issue said this PR had to settle rather than inherit.
+
+**Why**, decision by decision, because five of these were forks with a wrong branch that compiles:
+
+**The four §10 cell states are carried by two non-colour fields, and the state name changed.**
+`opacity` takes four pairwise-distinct values (1 / 0.85 / 0.4 / 0), so **one** luminance channel
+separates all four; glyph presence is the second (`unknown` is the only blank, `sensed` is always
+`*`). `accessibility.test.ts` asserts the strong form over ~11k real cells: **delete both colour
+fields and the state is still a function of what is left.** §10's `lit` is named `visible` here —
+with the shutter shut you perceive nine tiles by touch and no light is involved, so `lit` would be a
+lie in the vision state the whole game is about. §10 could use the one-word amendment.
+
+**`sensed` was widened past §10's parenthetical, deliberately.** §10 glosses it as "a `*` on a tile
+whose terrain you have never seen". Read literally, a contact felt on a *remembered* tile falls into
+`remembered` and gets drawn at memory opacity — a living creature as dim as the stone it stands on.
+So `sensed` is a felt contact on any tile not perceived this turn. A contact on a tile you *are*
+perceiving (adjacent, in the dark) stays `visible` carrying a `*`: you know the tile, not the thing.
+
+**Falloff is emitted, and is provably incapable of lying.** §10 asks for it; §4's lit field is
+*binary* and its hard square edge is load-bearing (Chebyshev was chosen so "the player can see where
+the light ended"). So: `tint` is a pure function of Chebyshev distance from the player — both ends on
+screen, so it can leak nothing — it is discrete by construction (distance is an integer, five
+values), every lit cell is ≥ `LAMP_TINT_EDGE` while every other cell is exactly 0, and **the step off
+the edge of the light is larger than every step inside it**. That last one is the assertion that
+stops the gradient reading as "partly visible".
+
+**`TurnPerception.creatures` gets its consumer — `render/` is the caller that passes the real list**,
+after three journal entries as a Watch note. `game/systems/light.ts` keeps passing `[]`; nothing in
+`game/` changed. §4's "position only" stays a *type*: identity is looked up only where the sense says
+`seen`, and `scene.test.ts` proves it by building two boards differing only in the felt creature's
+HP, dormancy and declared intent and asserting the cells are equal.
+
+**ADR-0009's counted list is this list**, and `scene.test.ts` asserts `perceivedCreatureCount(state)`
+equals the number of marks drawn, over every state of two runs — the ADR said "assert, do not
+assume". The shared definition cannot live in `game/` yet (no `game/`-side consumer means an
+unkillable export, which is the thing `light.ts` deleted), so `perception.ts` carries the note:
+**whoever builds `travel` moves `livingCreaturePositions` into `game/entities/world.ts` and imports
+it from there.**
+
+**Cues are seven facts and no timing.** `refused | descended | shutterChanged | playerMoved |
+damaged | died | fuelGained`, each recovered by diffing two states — which is what caps the
+vocabulary, since nothing in `game/` emits an event. Reduced motion is `components/` ignoring the
+list. `refused` is free and exact: §2 requires feedback for a refused tap, and a refusal *is*
+`after === before` by reference.
+
+**Cells are referentially stable**, so #20 gets `React.memo` with the default comparator: an
+unchanged cell is the *same object* as last turn, and if no cell changed the whole `grid` object
+comes back. `scene.test.ts` asserts the exact property (`sameCell(a, b) ⇒ a === b`) rather than a
+percentage that would flake with the seed.
+
+**Learned:** The mutation pass paid for itself four times, and three of the four were **checks that
+enforced nothing**, which is the failure this repo keeps finding.
+
+- `Math.round(tint * 100) / 100` was written to keep float noise out of the DOM. At `LIT_RADIUS` 4
+  and edge 0.6 the five values are already exact, so it was unkillable — *and the test written for
+  it could not fail.* Both deleted; the ramp's five values are pinned instead.
+- Two guards that read as defence-in-depth were **masking each other into unkillability**: a
+  `contact !== 'seen'` check and an `if (!lamplit) return` in the telegraph pass were both dead,
+  because `faceOf` returns on a felt contact before either is reached and `identified` is empty in
+  the dark anyway. Deleted — that part stands.
+- Both HP-threshold branches and `Math.floor` on turns-of-fuel survived: the corpus tests recomputed
+  the level with the *same operator*, and 12 HP / 4 fuel-per-turn make every corpus value land
+  exactly on a boundary or exactly on a multiple. Fixed with pinned threshold cases.
+
+**Review addendum — the count above was wrong, and so was one of the "equivalents".** This entry
+originally closed at *49/51 killed, two documented equivalents*, and recorded `contacts.get(i) ===
+'seen'` vs `.has(i)` as an equivalent survivor "because it states the rule where the rule applies".
+**It is not equivalent.** That argument reasoned about `faceOf` — one of the map's *two* consumers.
+The other, `gatherTelegraphs`, has no such guard, so under `.has(i)` a **shuttered player adjacent
+to an awake Cinder is shown an attack telegraph on their own tile**: §4's vision table says intent
+is hidden in the dark, and that is the reason light costs 4 fuel a turn. The mutant survived all 917
+tests, and the guard named for the rule could not catch it — its creature sat at Chebyshev 2 with
+sense radius 1, so nothing was ever in `contacts` and the mutant had nothing to do. It passed for a
+reason unrelated to its own name.
+
+Now killed by a test with the creature *adjacent*, so it is felt **and** inside the touch radius.
+The annotation in `scene.ts` is corrected in place, because **a false "provably equivalent" note is
+worse than no note**: it instructs the next mutation run not to re-derive exactly the thing it is
+hiding. The same round found the `damaged` cue's entire payload unasserted — `at`, `who` and
+`amount` all replaceable by constants with nothing failing, which lands at #21 where a floating
+damage number is drawn at `cue.at` reading `cue.amount`.
+
+**Restated honestly: 10/11 killed over the re-derived set, one verified equivalent** (`isRunning`
+in the death cue, which holds because `deathCues` has one consumer where `contacts` has two — the
+asymmetry that broke the other note). The full 51 is *not* restated, because quoting a number
+nobody re-ran is what produced this correction. **The lesson generalises past this PR: an
+"equivalent mutant" annotation is a claim about every consumer of the mutated expression, and it
+should name them.**
+
+The other lesson is about `game/` rather than about this layer: **the simulation's terrain memory
+already contradicts §4's "items are invisible while shuttered".** `perceive`'s touch field returns a
+`cache` tile like any other and phase 3 folds it into `remembered`, so a cache felt in the dark is
+permanently mapped as a cache. `render/` draws what the player is recorded as knowing and does *not*
+suppress it — suppressing it here would put a §4 rule in the renderer while `vision.remembered` went
+on saying the opposite, which is the two-sources-of-truth failure this codebase keeps refusing. Filed
+as its own issue; it is a `game/fov/` question.
+
+**Next:** #20 — the React Native grid and the input model. It consumes `presentScene`/`cuesFor` and
+must never import `game/`. Two constraints it inherits: ADR-0009's "leave a tap on a distant tile
+unbound", and the memo shape above (pass the whole `Cell` as one prop, or the referential stability
+buys nothing).
+
+**Watch:** Three things this PR leaves for #20 or its reviewer. **The token→colour table does not
+exist** — `render/` emits semantic `ColorToken`s and M4 owns the palette, so #20 must ship a
+provisional theme and the first honest look at a screenshot will move it. **Nothing yet supplies
+which of the four neighbours is a legal tap target** (§9: "an impassable neighbour is not a tap
+target"); that is a game rule and belongs in `render/`, not in a component — it was left out because
+it is input-model shaped and #20 owns the input model, but it must not end up as a `blocksMovement`
+call in a `.tsx`. And **the lit/remembered pair is separated by opacity alone** among the non-colour
+channels (their glyphs are identical by definition); if the playtester says the board does not read,
+the fix is M4 typography — weight or size — and not a second colour.
+
+---
+
 ## 2026-08-05 — Auto-travel: `travel(to)`, terrain never interrupts, and the build moves to M2 (#32)
 
 **Did:** Docs only, no code. Settled auto-travel's command shape as **one `travel(to)` command**

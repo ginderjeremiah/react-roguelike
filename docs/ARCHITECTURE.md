@@ -36,9 +36,9 @@ own work without a human playing the game.
 Dependencies point **strictly downward**. `game/` imports nothing from any other layer. An ESLint
 `no-restricted-imports` rule enforces this; it is not a convention, it is a build failure.
 
-**What exists today:** `game/`, `app/`, `components/`. **`render/` and `platform/` are not built
-yet** — the lint rules for both are already written and will bite the moment the directories appear
-(`render/` is issue #19). This section describes where code goes, not what is on disk.
+**What exists today:** `game/`, `render/`, `app/`, `components/`. **`platform/` is not built yet** —
+its lint rules are already written and will bite the moment the directory appears. `components/` and
+`app/` still hold only the Expo starter; the real UI is issue #20.
 
 ### `game/` — the simulation
 
@@ -90,10 +90,28 @@ Two known limits of the mechanical enforcement, so you are not surprised by them
   bypassed lint rule, not to replace one. Never treat a green scanner as evidence that lint would
   have passed.
 
-### `render/` — the translation layer *(not built yet — #19)*
+### `render/` — the translation layer
 
 Turns a `GameState` into a flat, dumb description of what should be on screen: cells with glyphs,
 colors, and opacity; HUD values; queued animation cues. Still pure TypeScript, still unit-tested.
+
+Two functions, at two arities, and the split is not cosmetic: a board is a function of **one** state
+(`presentScene(state, previous?)`) and a cue is a function of **two** (`cuesFor(before, after)`).
+Fusing them would make the opening board — which has no predecessor — unpresentable.
+
+Three properties of the model worth knowing before consuming it, each argued at length in the module
+that owns it:
+
+- **Colour is emitted as semantic tokens, never as values.** `'wall'`, not `#c8c8c8`. A hex cannot
+  be dark-mode aware and a token can, and §11 requires both themes. The palette is M4's and lives in
+  `components/`.
+- **Every distinction a player must read survives greyscale.** §10's four cell states are carried by
+  opacity and glyph presence; §2's telegraph is carried by a frame shape and a background alpha.
+  `render/accessibility.test.ts` asserts this as a property over real runs rather than as a promise —
+  if it goes red, no palette can fix it.
+- **Cells are referentially stable across turns.** An unchanged cell is the same object, so
+  `React.memo` with the default comparator is sufficient in `components/` — which is what makes
+  ADR-0003's ~1000-`View` risk tractable without a renderer swap.
 
 This layer exists specifically so the renderer can be swapped. `components/` consumes the
 presentation model, never `GameState` directly. When we eventually want a Skia canvas or sprite
@@ -191,7 +209,7 @@ Three tiers, each catching what the tier below cannot:
 
 | Tier | Tool | Covers |
 | --- | --- | --- |
-| Unit / property | Vitest | `game/` (and `render/` once it exists). The bulk of the tests — 797 across 44 files today. Fast, no DOM. |
+| Unit / property | Vitest | `game/` and `render/`. The bulk of the tests — 917 across 51 files today. Fast, no DOM. |
 | Replay | Vitest | Recorded runs reproduce byte-identically. The determinism tripwire. |
 | End-to-end | Playwright | The real built web app in a real browser. Input, rendering, persistence. |
 

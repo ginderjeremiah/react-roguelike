@@ -32,15 +32,19 @@ is worth the file.
 **Be honest about failure.** A record of what did not work is worth more than a record of what
 did — it is the only thing stopping a future session from repeating it.
 
-> **Read the dates as decoration, not as evidence, until #50 lands.** `git log` says every commit in
-> this repository landed on **2026-07-30**; entries below are dated as far forward as `2026-08-07`
-> because past sessions copied and incremented the heading above rather than reading a clock. **File
-> order is authoritative — newest first, always.** Concretely: the top two entries (#45, #19) are
-> the two most recent merges, and both are dated a week *earlier* than the entries directly beneath
-> them (#32, #36). Trust the position, not the heading.
-> Do not date an entry by copying the one above it, and prefer citing a PR number over a date: `#42`
-> resolves, `2026-08-06` does not. #50 decides the policy and reconciles the back catalogue; this
-> note is not that fix.
+> **Headings dated 2026-07-31 or later are fabricated. Until #50 lands, read position, not date.**
+> All 20 commits in this repository landed on **2026-07-29 (12)** and **2026-07-30 (7)**, plus the
+> Expo template's `Initial commit` on 2025-10-25. So headings reading 2026-07-29 or 2026-07-30 match
+> real history and are fine; the nine entries from **2026-07-31 to 2026-08-05** are invented, as are
+> ADR-0008's and ADR-0009's dates. Past sessions copied the heading above and incremented it rather
+> than reading a clock.
+>
+> **File order is authoritative — newest first.** The entries for **#45 and #19** are the two most
+> recent merges despite carrying dates a week *earlier* than **#32 and #36** directly beneath them.
+> (One exception #50 also inherits: the pre-M0-close tail at the bottom is in *session* order, not
+> merge order.) Do not date an entry by copying the one above it, and prefer citing a PR number over
+> a date — `#42` resolves, `2026-08-05` does not. #50 decides the policy and reconciles the back
+> catalogue; this note is not that fix.
 
 ---
 
@@ -52,9 +56,9 @@ No code. Six issues filed during the #45 session were triaged into milestones, a
 
 **Why the roadmap was the whole job.** It claimed `render/` did not exist — seven modules and 124
 tests after #19/#42 — and had never heard of `session/`. It said "#19 → #20 → #21, only #19 is
-unblocked today" when #19 and #45 are both merged and **#20 is unblocked and is the only issue
-between M1 and its exit criteria**. A session starting cold reads `ROADMAP.md` second (CLAUDE.md
-says so) and would have gone looking for work that was already done.
+unblocked today" when #19 and #45 are both merged and **#20 is the only *unblocked* issue, with
+#20 → #21 left before the exit**. A session starting cold reads `ROADMAP.md` second (CLAUDE.md says
+so) and would have gone looking for work that was already done.
 
 **The number was worse than stale, it was mislabelled — and it went in *as a fix*.** The section
 asserted "`game/` is 44 test files and 797 tests". `git log -S` puts that string in `03d76ec` (#36),
@@ -102,15 +106,44 @@ easy to say and each of these had an argument for jumping the queue:**
   them in M2 makes them visible at the cost of muddying a tuning milestone; the block carries the
   instruction to split them into their own milestone if the list grows.
 
-**#50 deliberately not fixed here.** Journal and ADR dates from 2026-07-31 onward are fabricated —
-every commit landed 2026-07-30. Reconciling a dozen headings, plus the cross-references that cite
-them, plus deciding the policy, is not mechanical and deserves its own review. What *was* safe is a
-note at the top of the Format section: file order is authoritative, the top two entries are the two
-newest despite being dated a week earlier than the entries below them, and cite PR numbers rather
-than dates. **Correcting with a new note rather than editing the entries is the rule here, and it
-also happens to be the cheap fix.**
+**#50 deliberately not fixed here — but its evidence was wrong and that *is* fixed.** #50 as filed
+claimed entries run "up to 2026-08-07" and that "every commit landed on 2026-07-30". Re-derived:
+the maximum heading date is **2026-08-05**, and the 20 commits split **12 on 2026-07-29, 7 on
+2026-07-30**, plus the Expo template's `Initial commit` on 2025-10-25. So the fabricated range is
+**2026-07-31 to 2026-08-05** — nine entries — and the eleven entries dated 07-29 or 07-30 are
+**accurate and must not be swept up**. The #45 entry below and #50's body both carried the wrong
+version; both are corrected. Reconciling nine headings, the cross-references that cite them, and the
+policy is still not mechanical, so the fix stays #50's. What was safe here is the note at the top of
+the Format section. **Correcting with a new note rather than editing the entries is the rule in this
+file, and it is also the cheap fix** — but a note that is itself wrong is worse than no note, so it
+now states the ranges rather than a summary of them.
 
-**Learned:** `M1`'s GitHub milestone *description* had drifted from the roadmap's exit criteria —
+**Learned — and this is the finding about the session, not about any one doc. The same failure
+happened three times in one work session, twice inside this PR, and each instance was caught only by
+the *next* reader:**
+
+1. **`game/` is 44 files and 797 tests** — a whole-suite total attached to a directory. Landed in
+   #36 in a commit that said "stale counts", survived three PRs.
+2. **"#20 is unblocked and is the only issue between M1 and its exit criteria"** — true of the first
+   clause, false of the second, since #21 is open, `blocked`, in M1, and its body *is* the exit
+   criterion. Written in the #45 entry's `Next:` line, then promoted by me into `ROADMAP.md`'s
+   headline. **I copied a sentence instead of re-deriving it, in the same PR whose whole thesis is
+   that copying a number instead of re-deriving it is how docs rot.** Caught by review of this PR.
+3. **"every commit landed on 2026-07-30" and "entries run to 2026-08-07"** — the first generalised
+   from `git log -3` (three of twenty; the real split is 12 on 07-29, 7 on 07-30), the second read
+   off an ADR date the author had written himself minutes earlier. Both were in the #45 entry's
+   `Learned:` section *and* in #50's body, i.e. in the two places a future session would go to fix
+   the dates. Corrected in the entry, in #50, and in the note above.
+
+The common shape is not carelessness — every one of these was written by someone actively trying to
+be accurate. It is that **a figure specific enough to look derived gets read as derived.** "44 test
+files", "the only issue", "every commit" all carry the texture of something counted. Re-reading them
+feels like checking them, and it is not. **The only defence that worked here was a second reader
+running the command** — which is why counts in these docs now name the directory they cover, and why
+this entry names the commands (`git log -S`, `git log --format=%ad | uniq -c`) rather than just
+their results.
+
+Separately: **`M1`'s GitHub milestone *description* had drifted** from the roadmap's exit criteria —
 it still said "complete a run and report that moving and fighting feel good", missing the
 two-endings amendment (#18, GDD §13) and the flash-and-crawl clause. **Milestone descriptions are a
 doc nobody thinks of as a doc.** Updated, and worth adding to the next archivist pass's checklist:
@@ -121,9 +154,10 @@ was the design ruling, and the build has no issue. A cold session would have ope
 and drawn the wrong conclusion. The bullet now says the build issue gets filed when the M1 playtest
 opens the gate, and not before.
 
-**Next:** #20. It is unblocked, it is the only thing between M1 and its exit, and the four
-constraints it inherits are listed in `ROADMAP.md`'s "Where M1 actually stands" rather than spread
-across three journal entries.
+**Next:** #20, then #21. #20 is the only M1 issue that can be *started* today; #21 is still
+`blocked` on it and still carries the exit criterion in its own body. The four constraints #20
+inherits are listed in `ROADMAP.md`'s "Where M1 actually stands" rather than spread across three
+journal entries.
 
 **Watch:** M1 has now absorbed two things its bullet list was not written for — M2's simulation work
 (#16, #17) and the whole layer stack above `game/` (#19, #45). Both absorptions were right and both
@@ -257,15 +291,32 @@ agents reporting "E2E green" having never run it. Same shape as the `expo lint` 
 with the diagnosis and a fix sketch; verified that `eslint.config.js`'s superficially-similar ignore
 is *not* affected, so nobody fixes it by analogy.
 
-**The journal's dates are fabricated from 2026-07-31 onward.** Entries run to 2026-08-07 and ADR-0009
-and ADR-0010 were dated the same way; `git log` says every commit in this repository landed on
-**2026-07-30**, and so does the system clock. Past sessions invented forward dates, and the #19 entry
-is misdated such that it sits above entries dated a week later — in a file whose entire contract is
-"newest first". ADR-0010's date is corrected here to the real one and this entry uses it. The rest is
-left alone deliberately: rewriting a dozen historical dates is an archivist job with its own review,
-not a rider on this PR. **Do not date an entry by copying the entry above it.**
+**The journal's dates are fabricated from 2026-07-31 onward.** *(Corrected in place by the archivist
+pass that followed — the two figures this paragraph originally quoted were both wrong, and the
+correction is at the end.)* Headings run to **2026-08-05**, and ADR-0008, ADR-0009 and ADR-0010 were
+dated the same way. `git log` says the 20 commits in this repository landed on **2026-07-29 (12)**
+and **2026-07-30 (7)**, plus the Expo template's `Initial commit` on 2025-10-25 — so entries dated
+07-29 and 07-30 are **accurate**, and it is the nine entries from 07-31 to 08-05 that are invented.
+The #19 entry is misdated such that it sits above entries dated a week later, in a file whose entire
+contract is "newest first". ADR-0010's date is corrected here to the real one and this entry uses it.
+The rest is left alone deliberately: rewriting nine historical headings is an archivist job with its
+own review, not a rider on this PR. **Do not date an entry by copying the entry above it.**
 
-**Next:** #20 is unblocked and is the only thing standing between M1 and its exit criteria. It gets
+**What this paragraph originally claimed, and why it was wrong** — kept because it is the same
+failure the paragraph is *about*. It said entries "run to 2026-08-07" and that "every commit in this
+repository landed on **2026-07-30**". The first came from reading ADR-0010's then-current date as if
+it were an entry date; it was a date I had written myself minutes earlier, which is not evidence
+about anything. The second was generalised from `git log -3` — three commits are not a sample of
+twenty, and the real distribution has more commits on 07-29 than on 07-30. The consequence ran the
+wrong way: it told readers to discard eleven *correct* headings as decoration. **An unverified
+figure that looks specific enough to trust is exactly what this entry was filed to complain about.**
+
+**Next:** #20 is unblocked. *(This line originally read "and is the only thing standing between M1
+and its exit criteria" — also corrected in place, and it was the more expensive of the two errors,
+because it got promoted verbatim into `ROADMAP.md`'s headline before anyone re-derived it. **#21 is
+open, `blocked`, in M1, and its body carries the exit criterion**: the summary screen, both endings,
+and an E2E path over a full run. #20 is the only issue that can be *started* today; #20 → #21 is
+what remains.)* It gets
 `beginRun` in a `useState` and three function calls; `const [run, setRun] = useState(() =>
 beginRun(seed))`, `setRun(move(run, 'north'))`. Two constraints it still inherits from #19 — the
 provisional colour table does not exist, and no layer yet says which of the four neighbours is a

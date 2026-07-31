@@ -6,8 +6,9 @@ half-built system waiting on the next milestone to mean anything.
 Kept in sync with GitHub milestones. Issues live there; this file explains the intent behind them.
 
 **Current milestone: M1 — Playable core.** The simulation and both pure layers above it — `render/`
-and `session/` — are finished. What is left is a screen: **#20 is unblocked and is the only issue
-between M1 and its exit criteria.** See "Where M1 actually stands" below before picking up work.
+and `session/` — are finished. What is left is the screen: **#20 → #21 is what remains before the
+exit, and #20 is the only *unblocked* one.** See "Where M1 actually stands" below before picking up
+work.
 
 ---
 
@@ -101,8 +102,10 @@ importing `game/` by both contract gates, so there was no legal home for `create
 `descend`, `sceneOf`, `cuesOf` — and that is the entire surface it may touch. #21 still follows #20,
 because a run summary needs a screen to draw on.
 
-**#20 is the only issue between M1 and its exit criteria.** #12, #47 and #49 are all real M1 work
-and none of them gate the playtest.
+**Two issues stand between M1 and its exit: #20, then #21.** #21 is still `blocked` and still
+carries the exit criterion in its own body — the summary screen, both endings, and an E2E path over
+a full run. #20 is the only one that can be *started* today. The other three M1 issues — #12, #47
+and #49 — are real work that does not gate the playtest.
 
 Four constraints #20 inherits. None blocks it; all four are cheap now and expensive later:
 
@@ -191,8 +194,8 @@ is tense, having already been judged not-dead.
 - [ ] Sound/haptic feedback for moving blind
 - [ ] Does a creature on a marked tile take the hit? — #28, a design ruling §6 is missing
 - [ ] Touch perceives ember caches, which §4 says are invisible while shuttered — #41
-- [ ] GDD §10's cell-state names vs the ones `render/` shipped — #46. **The GDD is wrong until this
-      lands**; §10 carries a pointer so a playtester reading it is not misled
+- [ ] GDD §10's cell-state names vs the ones `render/` shipped — #46. Until this is ruled on, §10
+      and the code disagree; §10 carries a pointer so a playtester reading it is not misled
 - [ ] `litQuery`'s once-per-turn invariant has no test behind it — #35
 - [ ] Auto-travel: implement `travel(to)` per [ADR-0009](decisions/0009-auto-travel-command-shape.md).
       **Gated on the M1 playtest**, not automatic — and **there is no issue for it**: #32 was the

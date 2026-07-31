@@ -38,9 +38,9 @@ own work without a human playing the game.
 Dependencies point **strictly downward**. `game/` imports nothing from any other layer. An ESLint
 `no-restricted-imports` rule enforces this; it is not a convention, it is a build failure.
 
-**What exists today:** `game/`, `render/`, `session/`, `app/`, `components/`. **`platform/` is not
-built yet** — its lint rules are already written and will bite the moment the directory appears.
-`components/` and `app/` still hold only the Expo starter; the real UI is issue #20.
+**What exists today:** `game/`, `render/`, `session/`, `app/`, `components/`, and the game screen
+inside them (#20). **`platform/` is not built yet** — its lint rules are already written and will
+bite the moment the directory appears.
 
 Five layers is a lot, and each boundary is meant to be load-bearing rather than tidy: `game/` is
 determinism, `render/` is ADR-0003's renderer swap, `session/` is the type-level seam that stops
@@ -181,6 +181,24 @@ React Native. Deliberately dumb: take a presentation model, render it, emit user
 `session/` calls. No game rules here. If you find yourself writing `if (enemy.hp <= 0)` in a
 component, that logic belongs in `game/`.
 
+```
+components/play/   the game screen's parts: board, board-cell, hud-bar, controls, status-line,
+                   and four pure modules — hit-test, cell-style, messages, theme
+app/index.tsx      one screen: beginRun(SEED) in useState, sceneOf/cuesOf down, intents up
+```
+
+**It is `components/play/`, not `components/game/`,** and the name was chosen by the linter: the
+layer rule matches import specifiers by path segment, so `@/components/game/board` is reported as a
+component reaching into the simulation. #57 decides whether to narrow the rule or document it; this
+paragraph exists so the next person does not spend the attempt.
+
+**The four pure modules are tested from `tests/unit/play-*.test.ts`, not colocated**, and the React
+is tested by Playwright — ADR-0005 says there is no component test runner. `hit-test.ts` is the one
+that matters: **every tap in the game goes through it**, because `nativeEvent.locationX` is typed
+`number` and is `undefined` on react-native-web (#58), and because `onLayout` on web is a
+`ResizeObserver` that never reports a *move*. Both were shipped bugs in #20. Geometry read off a
+`nativeEvent`, and any cached origin, are guilty until proven otherwise here.
+
 **`app/` is wiring only, and what it may wire is `session/`, `render/` and `components/` — never
 `game/`.** Concretely: begin a run, hold the `Run` in state, hand `sceneOf(run)` and `cuesOf(run)`
 to components, and turn a callback into an intent. Anything that needs a `GameState` to express is
@@ -305,7 +323,7 @@ regressed, and against a 2ms budget there was no headroom to raise it into. Ever
 process, which divides the machine out. Two corollaries, both paid for:
 
 - **Calibrate against `npm test`, never against the benchmark file alone.** Three thresholds were
-  set from in-isolation figures and all three flaked under the 44-file parallel run.
+  set from in-isolation figures and all three flaked under the full parallel run.
 - **Verify a threshold by planting the regression it exists to catch** and watching it go red. A
   benchmark can also go green because its *instrument* failed — #18 produced a physically impossible
   0.69x reading that passed.

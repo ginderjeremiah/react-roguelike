@@ -427,15 +427,26 @@ rejected.
 3. A floor played well nets **slightly positive** fuel, so competence is rewarded and greed is the
    thing that kills you.
 
-**Awake-creature behaviour** (M2, but specified here because §6 depends on it): an awake creature
-knows the player's tile while the shutter is open **or** while adjacent. Shuttered and not adjacent,
-it moves to your last known tile and then searches. After 8 turns (tuning) with no light and no
-adjacency it returns to **dormant** — and becomes a legal dormant-strike target again. Darkness is
-therefore restorative: a botched flash is recoverable by skilled dark play, within one floor.
+**Awake-creature behaviour** — **implemented in M1 by #16**, not M2; specified here because §6
+depends on it. An awake creature knows the player's tile while the shutter is open **or** while
+adjacent. Shuttered and not adjacent, it moves to your last known tile and then searches. After 8
+turns (tuning) with no light and no adjacency it returns to **dormant** — and becomes a legal
+dormant-strike target again. Darkness is therefore restorative: a botched flash is recoverable by
+skilled dark play, within one floor.
+
+> **This paragraph said "(M2, ...)" until 2026-07-31 and it cost a playtest verdict.** The first
+> `playtester` run read the marker, concluded re-dormancy was unbuilt, and recommended not re-tuning
+> the wager on the grounds that it was being measured with a counterweight missing (#31). It is not
+> missing: `nextMind` in `game/entities/behaviour.ts` sleeps a creature at `TURNS_TO_REDORMANCY = 8`,
+> `behaviour.test.ts` pins both halves of "on the eighth turn and not before", and
+> `replay.test.ts`'s fixture walks it end to end. **#63 is the re-ruling.** The general lesson is
+> cheap to state and was expensive here: *a milestone marker left on an implemented rule reads as
+> "not built", and a playtester has no way to tell the difference.*
 
 *Watch:* re-dormancy is the mechanic most likely to degenerate. If the playtester reports retreating
 to a cleared room and pressing wait, it is broken. The fix is a distance requirement, not a fuel
-tax.
+tax. **The first playtest did not report this** — but it also believed the mechanic was absent, so
+it is not evidence either way and the watch stays open.
 
 *Open:* adjustable lit radius, thrown/placed light sources (parked as a candidate M3 item, §12),
 whether floors ever have ambient light. **The metric is no longer open** — it is Chebyshev for
@@ -584,10 +595,13 @@ Touch-first (Pillar 3):
   are exactly four targets and they are large.
 - Tap your own tile to wait.
 - **Auto-travel — *Settled (design) — deferred to M2 (build)*.** Tap a distant **remembered** tile
-  to path toward it. **Not implemented**, and it is not in M1: the friction it exists to remove has
-  never been felt, because nothing above `game/` exists yet. [ADR-0009](decisions/0009-auto-travel-command-shape.md)
-  settles its rules so that #20 can be built against a decision without the decision being built,
-  and `ROADMAP.md` carries the signal that says implement it. The rules, in full:
+  to path toward it. **Still not implemented**, and still not in M1.
+  [ADR-0009](decisions/0009-auto-travel-command-shape.md) settles its rules so that #20 could be
+  built against a decision without the decision being built. **The playtest gate that `ROADMAP.md`
+  held it behind has now been answered and the recommendation is build it** (#32) — the friction is
+  real but it is not where the gate assumed: it is forward travel across rooms a single flash has
+  already revealed, not backtracking. Nothing below changes; a tap on a distant tile is currently
+  `unbound` in `render/taps.ts` and travel becomes one more `TapAction` kind. The rules, in full:
   - **It is one command, `travel(to)`**, resolving many turns inside `step()` — never a loop above
     the simulation. **A travel must be indistinguishable from the sequence of `move` commands it
     stands for** — identical in every field but `commandsResolved`, which is 1 against N because
@@ -638,8 +652,12 @@ invisible otherwise).
 Glyph grid, colour-forward (ADR-0003). Light falloff expressed as cell tint and opacity. The
 aesthetic goal is "a beautiful terminal," not "a cheap tileset."
 
-Glyph set for M1: `@` player · `#` wall · `·` floor · `o` pillar · `>` stairs down · `♦` ember
-cache · `c`/`C` Cinder dormant/awake · `*` ember-sense contact.
+Glyph set for M1, as shipped in `render/glyphs.ts`: `@` player · `#` wall · `·` floor · `o` pillar ·
+`+` doorway · `<` entrance · `>` stairs down · `♦` ember cache **and an ember drop** · `c`/`C` Cinder
+dormant/awake · `*` ember-sense contact · ` ` unknown. (`+` and `<` were missing from this list until
+2026-07-31 — §5 has had doorways and an entrance since #13, and the list simply never grew. No
+decision changed; a `+` in the dark is the kind of thing a playtester reads a glyph table to
+identify.)
 
 Four cell states must be distinguishable at a glance without colour: **lit**, **remembered**,
 **unknown**, **sensed-but-unseen** (a `*` on a tile whose terrain you have never seen).
@@ -680,6 +698,13 @@ checkpoint up to **M1's exit** when the simulation finished a milestone early, s
 now spent — if it is spent — one milestone sooner than this section assumed.) Its lesson has been
 stolen regardless: combat should be positionally tight, and §2's commit-one-turn-ahead is that
 lesson.
+
+> **The first playtest has run, and the fallback is NOT spent.** Six runs, seed `emberdepth`,
+> reported on #31: the wager does not currently land *as* a wager — dark strictly dominates on floor
+> 1 (+26 fuel / 0 HP against −27 / −4) — but the playtester classified it **tuning, not mechanic**
+> and recommended keeping fuel. Its stated reason was wrong (it believed §4's re-dormancy was
+> unimplemented; it is not), so **#63 re-rules it**. Until #63 closes, this paragraph's trigger has
+> fired and its conclusion has not: do not strip fuel, and do not treat the fallback as dead either.
 
 **Light as a ward — things hunt you in the dark, light repels them.** Rejected: it makes darkness a
 pure cost saving, which is precisely the flaw that nearly killed the original seed. A "pay money
@@ -785,6 +810,11 @@ accumulated as they happen rather than derived from it afterwards.
 Design changes get a line here with the reason. Not a substitute for git history — a reason,
 recorded at the moment we made it, is the part git cannot give us.
 
+> **Rows are in append order, and the order is authoritative — the dates are not.** Some rows in the
+> middle of this table carry invented dates (same defect as `docs/JOURNAL.md`'s headings; #50 owns
+> the fix), so the last rows read as *earlier* than the ones above them. They are not: they were
+> written on 2026-07-31, by reading a clock. Cite a PR or an issue number, never a date.
+
 | Date | Change | Why |
 | --- | --- | --- |
 | 2026-07-29 | Document created as a skeleton | Groundwork; M0 design review fills it in |
@@ -827,3 +857,7 @@ recorded at the moment we made it, is the part git cannot give us.
 | 2026-08-04 | **Correction, measured: the arriving flash does *not* wake nothing. §4 and §13 both claimed it did; 20% of arrivals wake something** | **The ruling ("a run starts open", 2026-08-03) survives; one of its three reasons does not.** The bad step was reading a **room** exclusion as a **light** exclusion: §5 step 7 constrains where a creature may *stand* (not the entrance room, not its merged partner, not within 2 tiles), and I concluded the entrance was therefore safe to light. But the lit field is Chebyshev 4 **with line of sight**, and line of sight runs through a doorway into the next room — which is exactly where §5 is happy to put creatures. #18's implementation measured it over 480 generated floors: **97 (20%) wake at least one creature on arrival.** Reasons 2 and 3 carry the ruling alone, and reason 2 is *strengthened* — a shuttered opening is now the only guaranteed-safe one, so the four-turn wait-and-adapt ritual it invites is more attractive, not less, and Pillar 1 wants it gone more than before. Three edits follow. §4's containment guarantee gains the clause it was always missing — it holds only on a floor you have **already felt**, so **arrival is the third case where it does not apply** (with the adaptation ramp and an open shutter); you cannot have sensed a floor you were not standing on. The promise becomes spatial rather than sensory: **you never arrive on top of something; you sometimes arrive in sight of something** — at least three tiles off, through a doorway, lit, telegraphed, and woken into a *declaration* rather than an action (§2 phase 3), with §4's re-dormancy rule already in the player's hand as the answer. And §13 keeps the behaviour deliberately rather than patching it: a guaranteed-safe arrival makes the stairs a reset button and the descent a formality, where one-in-five makes "which way do I go down" a real question — and it is what gives the *shutter carries across the stairs* ruling a mechanism instead of a tidiness argument. A first-turn exemption was never on the table: it would be a fifth vision state invented to protect a sentence |
 | 2026-08-04 | **§2: a fourth refusal — `setShutter(to)` where the shutter already reads `to` runs no phases** | The refusal block was written as exhaustive ("three well-formed commands"), so a fourth rule had nowhere to live but a comment inside the reducer — which is where a rule gets tidied away by someone who cannot see why it is there. **The block was not wrong; it predated the command.** It was written when the shutter command was a *toggle*, and a toggle cannot be re-asserted. `setShutter(to)` can, and the command shape changed for a determinism reason: a toggle's meaning depends on the state before it, so one dropped or duplicated command silently inverts the rest of a stored run, and a run is a stored artifact (Pillar 4). The rule itself reads off §2 rather than being chosen — what §2 makes free is *changing* the shutter, and free of **tempo**, not of **fuel**; a flash costs its 4. Resolving a re-assertion would therefore charge 4 fuel for a double-tap on a control already reading *open*, which is precisely the fat-fingered tap §2 refuses everywhere else (Pillar 3). Not exploitable in the other direction either: the command it refuses was free of tempo anyway, so refusing it skips no turn and gives nobody an extra one. §9 now carries the control/command distinction once — the thumb control is still a toggle; what it emits is a setting |
 | 2026-08-05 | **§9: auto-travel is one `travel(to)` command; its interrupt rule narrows to creatures only — terrain never interrupts; and the build is deferred to M2** | ADR-0009, from #32. §9 had marked auto-travel settled as a *feature* without ever saying how it is commanded, and that turned out to be a determinism question: the interrupt rule is computed from the lit field, the sensed set and the wake set, so a loop above `game/` would put resolution in the presentation layer — which `command.ts`'s "a command carries intent, not resolution" already forbids, and which lets a backgrounded app leave a run half-travelled with nothing in `game/` knowing. **The interrupt narrowing is the substantive change.** §9's "anything new becomes visible or sensed" never says what *new* is measured against, and the two available readings disagree: **stone is remembered, ember is not** — terrain would have to be judged new against permanent memory, the living against the previous step. Under the memory reading a shuttered travel across mapped space is well behaved; under the previous-step reading, touch radius 1 makes nearly every step perceive a tile it did not perceive last turn, and travel never travels. The lit direction has no good reading at all: "anything new becomes visible" at radius 4 through a doorway has no edge a player can state (Pillar 2). Terrain is cut rather than qualified because **the route runs over remembered tiles only**, so a travel cannot enter unmapped space, and because the only mode travel is economically sensible in is dark — where items are invisible, terrain reaches one tile, and nothing wakes. That is not a balance opinion: **lit travel is self-punishing by arithmetic**, 4 fuel a turn and a woken room per crossing, so a rule written to make it comfortable would be a rule protecting a move the economy already rejects. What is left is one sentence a player can hold: *you walk until something living appears, or something touches you.* **The stop is keyed to the *count* of perceived creatures and not to identity**, which is not a detail: ember-sense gives position only (§4), so a rule that knew one mark from another would stop for a reason the player could not see — and, because the stop is itself observable, would hand back one bit of identity §4 promises does not exist. Travel may not key on anything the player cannot see. §4's promise is therefore untouched by this ruling, which is the whole reason the key is the count. **Deferred because the friction has never been felt** — nothing above `game/` exists, so tuning the stop rule now is tuning it against imagination. #20 needed a ruling, not a feature |
+| 2026-07-31 | **Correction: §4's awake-creature/re-dormancy block was labelled "(M2)" long after #16 shipped it in M1** | Not a design change — a status marker that had gone stale, and it cost a real verdict. The first `playtester` run read it, concluded re-dormancy was unbuilt, and recommended against re-tuning the wager on the grounds that light was being measured with one of its two counterweights missing (#31). It is built: `nextMind` sleeps a creature at `TURNS_TO_REDORMANCY = 8` turns without light or adjacency, `behaviour.test.ts` pins "on the eighth turn and not before", and `replay.test.ts`'s fixture walks it end to end and calls itself the only fixture in the repo that pins it. #63 re-rules the recommendation. The transferable lesson: **a milestone marker left on an implemented rule reads as "not built", and nobody consuming the GDD can tell the difference from the outside** |
+| 2026-07-31 | **§10's M1 glyph list gains `+` doorway, `<` entrance and the blank unknown cell, and says the ember glyph covers a drop as well** | Documentation catching up to `render/glyphs.ts`; no decision changed. §5 has had doorways and an entrance since #13 and the list never grew, so a playtester briefing themselves off §10 would meet two glyphs the document does not name — in a game whose central mechanic is not being able to see |
+| 2026-07-31 | **§9's auto-travel bullet: the playtest gate is answered and the recommendation is build it** | The build stays in M2 and every rule below the bullet is unchanged. Recorded because the *reason* §9 gave for deferring ("the friction has never been felt, nothing above `game/` exists") expired the day #20 shipped. The friction was felt, but not where the gate looked: it is forward travel across rooms one flash has already revealed, not backtracking — the roadmap's disambiguating probe for backtracking returned no, not once, in six runs. Full evidence on #32, split arms preserved in `ROADMAP.md` |
+| 2026-07-31 | **§12 records that the first playtest has run and that the fallback is not spent** | §12's trigger is "if the **first** playtest says the light wager is not tense". It ran and the wager is not tense today, so the trigger has fired while the conclusion has not — the playtester recommended keeping fuel, and the recommendation needs re-ruling (#63) because the reason it gave was false. Written into §12 rather than left in the roadmap because a future session reaching for the fallback will reach for this section |

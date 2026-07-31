@@ -109,6 +109,18 @@ describe('the summary fits a 390pt phone', () => {
       const seed = monoWidth(`seed  ${summary.seed}`, 11, 0.4);
       expect(seed + monoWidth(RUN_OVER_MESSAGE, 11), `${ending} seed row`).toBeLessThanOrEqual(band);
     }
+
+    // The fixtures above use short test seeds, so on their own this budget describes strings the
+    // app never shows. The shipped seed is `emberdepth`; more importantly #47 will replace it with
+    // something chosen elsewhere, and a seed is meant to be human-typable and shareable (Pillar 4),
+    // so the length that matters is the longest one we would let a player enter — not the longest
+    // one a fixture happens to use. Same trap the E2E press budgets now document: a number that
+    // stops being an observation the moment the thing it measured is replaced.
+    const longestPlausibleSeed = 'a'.repeat(24);
+    const widest = monoWidth(`seed  ${longestPlausibleSeed}`, 11, 0.4);
+    expect(widest + monoWidth(RUN_OVER_MESSAGE, 11), 'longest plausible seed').toBeLessThanOrEqual(
+      band,
+    );
   });
 
   it('keeps the verdict on one line beside its marker', () => {

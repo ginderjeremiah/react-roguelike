@@ -208,7 +208,14 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
     justifyContent: 'space-between',
     gap: 8,
-    // Reserved, so an acknowledgement appearing cannot move the board above it. See `note`.
+    // What actually keeps the board still when an acknowledgement appears is the **row**: the note
+    // shares this line with the seed, which is always rendered at the same size, so the panel's
+    // height does not change. Verified by mutation — moving the note to its own line shifts the
+    // board 6.5pt on desktop and 15pt on phone, and the E2E catches it.
+    //
+    // `minHeight` is belt-and-braces for font scaling and for whoever next edits this row; it is
+    // not currently load-bearing (removing it leaves the death spec green). Kept, but do not
+    // mistake it for the guarantee.
     minHeight: 15,
   },
   seed: {

@@ -117,6 +117,27 @@ describe('§13 has exactly two endings, and one of them is a win', () => {
     expect(won.marker).toBe(VICTORY_MARKER);
   });
 
+  it('never names a number in an ending headline', () => {
+    // GDD §13's constraint on ending copy, made structural rather than remembered. `LAST_FLOOR` is
+    // 8 **(tuning)** and fuel is tuning too, so a headline saying "eight floors down" becomes a lie
+    // the first time either moves — in a string that cannot read state and so cannot be corrected
+    // by the simulation. The panel already prints `FLOORS 8/8` from the run itself.
+    //
+    // Scoped to the headline deliberately: the verdict and the stat labels are not prose, and the
+    // stat *values* are numbers by definition.
+    // **Digits are not the risk; words are.** The first version of this test matched `/\d/` only,
+    // and `Eight floors down.` sailed through it — which is precisely the sentence §13 is warning
+    // about, and the one a person is far more likely to write than `8 floors down.` Verified both
+    // ways: the numeral form fails on `/\d/` alone, the spelled form needed this list.
+    const spelledNumber =
+      /\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth)\b/i;
+
+    for (const summary of [endedSummaryOf(DIED), endedSummaryOf(WON)]) {
+      expect(summary.headline, `${summary.outcome} headline, digits`).not.toMatch(/\d/);
+      expect(summary.headline, `${summary.outcome} headline, spelled`).not.toMatch(spelledNumber);
+    }
+  });
+
   it('calls reaching the bottom a win and dying not one', () => {
     // §13: "the eighth descent *is* the ending". If this inverts, the game congratulates corpses.
     expect(endedSummaryOf(WON).won).toBe(true);

@@ -61,8 +61,9 @@ did — it is the only thing stopping a future session from repeating it.
 
 **Did:** The run loop closes. `GameState` gained `kills`, `fuelBurned` and `seed`; `render/` gained
 `summary.ts`; `components/play/run-summary.tsx` draws both endings over the frozen board, and
-`RUN AGAIN` restarts without a reload. 1082 tests, up from 1047; 32 E2E runs, up from 24. **M1's last
-build item.**
+`RUN AGAIN` restarts without a reload. 1084 unit tests, up from 1047; 31 E2E runs passing and 1
+skipped, up from 24 — the skip is the win spec, which is phone-only on purpose (see Watch). **M1's
+last build item.**
 
 **Why the tally is in `game/` and not `session/`.** `session/` sees every intent and `cuesFor` already
 emits `died` and `fuelGained`, so a run tally could have been accumulated above the seam with `game/`
@@ -77,7 +78,7 @@ built in `render/` cannot see a seed held in `session/`. It also makes **#47's s
 seed a run started with is recoverable" — fall out free.** That is not #47: M1 still ships a constant
 and `platform/` still does not exist.
 
-**Learned:** Three, and the first is the most reusable thing in this entry.
+**Learned:** Four, and the first is the most reusable thing in this entry.
 
 **A determinism fixture pinned less than it appeared to, and only an experiment showed it.** The
 replay suite's stored records compare a hand-written `Digest` projection of `GameState`. New fields

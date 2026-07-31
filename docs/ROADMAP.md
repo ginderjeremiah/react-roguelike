@@ -63,8 +63,9 @@ is layered on top.
 - [ ] Determinism rules applied to `game/**/*.test.ts` — #12
 - [ ] A tap on a non-adjacent tile is silent — #60. Found by the first playtest; §2 requires feedback
       for a refusal and this is the first interaction a new player will attempt
-- [ ] The HUD's ember-sense readout lies while the lantern is open — #61. Found by the first
-      playtest; it misreports the consequence of the game's central decision at the moment it is made
+- [x] The HUD's ember-sense readout lies while the lantern is open — #61. Found by the first
+      playtest; it misreported the consequence of the game's central decision at the moment it is
+      made. Fixed before the exit playtest for exactly that reason
 - [x] `npm run build:web` and `npm run test:e2e` work inside a git worktree — #49. Not gameplay, and
       here anyway: every agent is told to work in a worktree, and CI runs on a clean checkout so it
       stayed green while two of the five pre-push checks silently did not run. Fixed ahead of #20

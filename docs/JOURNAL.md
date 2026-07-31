@@ -135,8 +135,8 @@ flipped. Anchored to this entry's position instead, the suspect set is closed an
 
 What was safe here is the note at the top of the Format section. **Correcting with a new note rather
 than editing the entries is the rule in this file, and it is also the cheap fix** — but a note that
-is itself wrong is worse than no note, so it names **no dates and no counts at all** beyond the two
-ADRs, and points at this entry instead.
+is itself wrong is worse than no note, so it makes **no date-keyed claim about which entries are
+suspect** and quotes no counts, and points at this entry instead.
 
 **Learned — and this is the finding about the session, not about any one doc. The same failure
 happened three times in one work session, twice inside this PR, and each instance was caught only by

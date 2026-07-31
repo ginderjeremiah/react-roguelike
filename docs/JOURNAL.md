@@ -32,13 +32,15 @@ is worth the file.
 **Be honest about failure.** A record of what did not work is worth more than a record of what
 did — it is the only thing stopping a future session from repeating it.
 
-> **Headings dated 2026-07-31 or later are fabricated. Until #50 lands, read position, not date.**
-> Every commit in this repository landed on either **2026-07-29** or **2026-07-30**, plus the Expo
-> template's `Initial commit` on 2025-10-25 — check with
+> **Headings dated 2026-07-31 through 2026-08-05 are fabricated. Until #50 lands, read position, not
+> date.** As of PR #54, every commit in this repository had landed on **2026-07-29** or
+> **2026-07-30**, plus the Expo template's `Initial commit` on 2025-10-25 — check with
 > `git log --format='%ad' --date=short | sort | uniq -c` rather than trusting a count written here,
 > since any count would be stale by the commit that wrote it. So headings reading 2026-07-29 or
-> 2026-07-30 match real history and are fine; the entries dated **2026-07-31 through 2026-08-05** are
-> invented, as are ADR-0008's and ADR-0009's dates. Past sessions copied the heading above and
+> 2026-07-30 match real history and are fine, **and so does any date after 2026-08-05** — the
+> fabricated set is closed and will not grow, because entries written from #54 onward read a clock.
+> Inside it, the entries dated 2026-07-31 through 2026-08-05 are invented, as are ADR-0008's and
+> ADR-0009's dates. Past sessions copied the heading above and
 > incremented it rather than reading a clock.
 >
 > **File order is authoritative — newest first.** The entries for **#45 and #19** sit *above*
@@ -115,8 +117,8 @@ plus the Expo template's `Initial commit` on 2025-10-25. So the fabricated range
 **2026-07-31 to 2026-08-05** — nine entries — and every entry dated 07-29 or 07-30 is **accurate and
 must not be swept up**. (No per-day totals here on purpose: a count is stale by the commit that
 writes it, which is how this went wrong twice already. Run
-`git log --format='%ad' --date=short | sort | uniq -c`.) The #45 entry below and #50's body both carried the wrong
-version; both are corrected. Reconciling nine headings, the cross-references that cite them, and the
+`git log --format='%ad' --date=short | sort | uniq -c`.) The #45 entry below and #50's body both
+carried the wrong version; both are corrected. Reconciling nine headings, the cross-references that cite them, and the
 policy is still not mechanical, so the fix stays #50's. What was safe here is the note at the top of
 the Format section. **Correcting with a new note rather than editing the entries is the rule in this
 file, and it is also the cheap fix** — but a note that is itself wrong is worse than no note, so it
@@ -311,9 +313,9 @@ own review, not a rider on this PR. **Do not date an entry by copying the entry 
 failure the paragraph is *about*. It said entries "run to 2026-08-07" and that "every commit in this
 repository landed on **2026-07-30**". The first came from reading ADR-0010's then-current date as if
 it were an entry date; it was a date I had written myself minutes earlier, which is not evidence
-about anything. The second was generalised from `git log -3` — three commits are not a sample of
-twenty, and the real distribution has more commits on 07-29 than on 07-30. The consequence ran the
-wrong way: it told readers to discard eleven *correct* headings as decoration. **An unverified
+about anything. The second was generalised from `git log -3` — three commits are not a sample of the
+whole history, and the days it skipped held more commits than the day it saw. The consequence ran
+the wrong way: it told readers to discard eleven *correct* headings as decoration. **An unverified
 figure that looks specific enough to trust is exactly what this entry was filed to complain about.**
 
 **Next:** #20 is unblocked. *(This line originally read "and is the only thing standing between M1

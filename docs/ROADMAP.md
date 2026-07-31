@@ -124,7 +124,8 @@ Four constraints #20 inherits. None blocks it; all four are cheap now and expens
 
 Flagged rather than corrected, because the absorption was right and the roadmap was wrong. #17
 (fuel, the shutter, the light economy) and #16 (dormant-in-darkness behaviour) landed under M1 and
-between them deliver three of M2's five bullets outright and most of a fourth — the fuel economy is
+between them deliver three of M2's five *original* bullets outright and most of a fourth (the list
+below has grown since, so counting it today gives a different denominator) — the fuel economy is
 implemented and calibrated once, but its tuning is still open below. That was not scope creep by
 inattention: the light wager *is* the turn loop, and a "playable core" that resolves turns without
 fuel or waking would have been a different game with a second implementation to throw away.

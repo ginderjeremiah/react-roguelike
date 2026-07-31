@@ -142,6 +142,23 @@ export function Board({ grid, taps, cellSize, theme, onTapTile }: BoardProps) {
       // reader say about 165 tiles?) rather than a prop, and it is not among GDD §11's five
       // requirements. Better than a focusable element that announces nothing at all.
       accessibilityLabel={`The floor, ${grid.width} by ${grid.height}. Tap a tile beside you to move or attack, or your own tile to wait.`}
+      // ═══════════════════════════════════════════════════════════════════════════════════════
+      // THE PRESS SURFACE IS THE GRID AND NOTHING OUTSIDE IT — a decision, not an accident
+      // ═══════════════════════════════════════════════════════════════════════════════════════
+      //
+      // Sized to the grid exactly, so a press outside it never reaches `onBoardPress` at all. #60
+      // gave a distant *tile* tap §2's acknowledgement; a press **below** the board — the ~44pt
+      // strip between the grid and the thumb controls, where the status line sits — stays silent.
+      //
+      // The alternative is to make the padded parent the press surface. Rejected: that strip's
+      // other neighbour is the shutter control, so a thumb that *missed the shutter* would be told
+      // "Too far to step." — a sentence about the board, in answer to a press aimed at a button.
+      // §2 asks that a refused **tap on a tile** be acknowledged; it does not ask the game to
+      // narrate every square point of the screen, and answering a missed control with the wrong
+      // rule is worse than answering it with nothing.
+      //
+      // Written down because #60's review measured that strip and found it silent. A gap that is
+      // measured but unexplained gets "fixed" by the next person who measures it.
       style={{ width: cellSize * grid.width, height: cellSize * grid.height }}
       onPress={onBoardPress}
     >

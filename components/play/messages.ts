@@ -30,15 +30,36 @@ export const BLOCKED_MESSAGE = 'The way is blocked.';
 /**
  * §13: the run has ended, so the board accepts nothing — and §2 still wants the tap acknowledged.
  *
- * **This is the only refusal in the game with nothing else to speak for it.** A blocked neighbour at
- * least produces `BLOCKED_MESSAGE`; every refusal that reaches `step` produces a `refused` cue. A tap
- * on a finished board produces neither: `render/taps.ts` empties the tap list at the ending, so
+ * **Three refusals never reach `step`, so none of them has a cue to speak for it** — a blocked
+ * neighbour, a tap further away than a neighbour, and this one. Each has exactly one string standing
+ * between it and silence, and two of the three shipped without theirs. A tap on a finished board is
+ * the starkest case: `render/taps.ts` empties the tap list at the ending, so
  * `tapAt` answers `unbound` and no command is ever built. Without this line the press is genuinely
  * indistinguishable from a press that was never received — which is §2's "a UI failure wearing the
  * costume of a rule", and which is also why the E2E could not tell a working refusal from a dead
  * handler until this existed.
  */
 export const RUN_OVER_MESSAGE = 'The run is over.';
+
+/**
+ * §9: a tap acts on your own tile or one of the four beside it. This one was further away.
+ *
+ * **The wording may not promise auto-travel**, and that is the whole constraint on it. ADR-0009
+ * settles `travel(to)`'s rules and defers the build to M2 (#65), so anything reading as "you cannot
+ * path *there*" or "not from here" advertises a feature that does not exist — and a player who
+ * hears "not *yet*" taps distant tiles again, which is worse than silence. So this states the rule
+ * (adjacency) and the verb a tap actually performs (a step), and promises nothing.
+ *
+ * Found by the first playtest, which called a silent distant tap "the first thing a new mobile
+ * player will do" — every touch roguelike is tap-to-path, so the tap arrives before the player has
+ * learned the game does not do that, and total silence reads as a missed touch rather than a rule
+ * (§2, #60).
+ *
+ * **This line disappears when travel lands.** `unbound` stops being a refusal and becomes a command
+ * — which is exactly why #20 kept `blocked` and `unbound` as distinct `TapAction` kinds instead of
+ * collapsing them, and why every variant carries `at`. Do not "simplify" the two together.
+ */
+export const TOO_FAR_MESSAGE = 'Too far to step.';
 
 /**
  * What the descend control promises. **There is no floor 9.**

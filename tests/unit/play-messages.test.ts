@@ -7,6 +7,7 @@ import {
   describeTurn,
   descendHint,
   RUN_OVER_MESSAGE,
+  TOO_FAR_MESSAGE,
 } from '@/components/play/messages';
 
 /**
@@ -51,6 +52,40 @@ describe('every cue has copy', () => {
     // match both "nothing has been refused yet" and "the refusal was acknowledged".
     expect(RUN_OVER_MESSAGE).toBeTruthy();
     expect(RUN_OVER_MESSAGE).not.toBe(BLOCKED_MESSAGE);
+    // §9's third cueless refusal: a tap further away than a neighbour. Same argument as the
+    // run-over case, and found the same way — by someone doing it, not by the suite (#60).
+    expect(TOO_FAR_MESSAGE).toBeTruthy();
+  });
+
+  it('gives each cueless refusal its own words', () => {
+    // Three refusals never reach `step`, so none produces a cue and each has exactly one string
+    // standing between it and silence. **They must differ from each other**, not merely be
+    // non-empty: a player who taps a wall and then a distant tile and reads the same sentence
+    // twice learns that the game says something when a tap fails, and nothing about which rule
+    // they hit.
+    //
+    // It is also what keeps the E2E assertions sharp. The blocked spec matches /blocked/i and the
+    // distant spec matches TOO_FAR_MESSAGE exactly; on shared copy one of those would start
+    // passing for the wrong path, so the specs would stop distinguishing them exactly when the
+    // code did.
+    const refusals = [BLOCKED_MESSAGE, RUN_OVER_MESSAGE, TOO_FAR_MESSAGE];
+    expect(new Set(refusals).size, 'every cueless refusal needs its own sentence').toBe(
+      refusals.length,
+    );
+  });
+
+  it('promises nothing about auto-travel', () => {
+    // The one hard constraint on `TOO_FAR_MESSAGE`. ADR-0009 settles `travel(to)` and defers the
+    // build to M2 (#65), so copy implying pathing advertises a feature that does not exist — and a
+    // player who reads "not *yet*" taps distant tiles again, which is worse than the silence this
+    // replaced.
+    //
+    // Word-level rather than a vibe check, so it can actually fail: it rejects both phrasings #60
+    // itself proposed as bad, and the time-promises that carry the same implication without the
+    // word "yet" (`Coming soon.`, `Try again later.`, `Not for now.`).
+    expect(TOO_FAR_MESSAGE).not.toMatch(
+      /travel|path|route|walk|way there|get there|yet|soon|later|for now/i,
+    );
   });
 
   it('stays silent about a move, which the board says better', () => {

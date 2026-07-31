@@ -35,6 +35,14 @@ import type { GameTheme } from './theme';
  * — "waiting on the stairs is a real move", and the stairs are where §3's macro decision gets made.
  * Its appearing is also the confirmation that you are standing on them, which is worth something in
  * the dark.
+ *
+ * ## This row is mounted only while the run is running
+ *
+ * #20 had it grey itself out on a finished run, because there was nowhere else for the end of a run
+ * to go. #21 gives it somewhere: `run-summary.tsx` replaces this whole band the moment
+ * `scene.summary` stops being `null` (`app/index.tsx`), so a `!running` branch here is a state that
+ * cannot be rendered. It is gone rather than kept "for safety" — an unreachable branch is a branch
+ * nothing tests, and this file's own argument is that a control must never lie about what it does.
  */
 export type ControlsProps = {
   readonly hud: Hud;
@@ -45,32 +53,25 @@ export type ControlsProps = {
 };
 
 export function Controls({ hud, onSetShutter, onDescend, theme }: ControlsProps) {
-  const running = hud.outcome.kind === 'running';
   const open = hud.shutter.state === 'open';
   // The setting the toggle is toggling **to**, read off this turn's state.
   const target: ShutterState = open ? 'shuttered' : 'open';
-  // Closing is always possible; opening needs fuel (§4). A finished run refuses everything (§13).
-  const shutterDead = !running || (!open && !hud.shutter.canOpen);
+  // Closing is always possible; opening needs fuel (§4).
+  const shutterDead = !open && !hud.shutter.canOpen;
 
   return (
     <View style={[styles.row, { borderTopColor: theme.border }]}>
       <ControlButton
         testID="control-shutter"
         label={open ? 'CLOSE SHUTTER' : hud.shutter.canOpen ? 'OPEN SHUTTER' : 'SHUTTER STUCK'}
-        hint={
-          shutterDead
-            ? running
-              ? 'no fuel to light it'
-              : 'the run is over'
-            : `then burning ${open ? 1 : 4} per turn`
-        }
+        hint={shutterDead ? 'no fuel to light it' : `then burning ${open ? 1 : 4} per turn`}
         disabled={shutterDead}
         onPress={() => onSetShutter(target)}
         theme={theme}
       />
 
       {/* §9: present **only** while standing on the stairs. Not disabled — absent. */}
-      {running && hud.onStairs ? (
+      {hud.onStairs ? (
         <ControlButton
           testID="control-descend"
           label="DESCEND"

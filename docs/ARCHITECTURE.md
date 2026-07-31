@@ -65,9 +65,10 @@ game/
 
 **`core/` is deliberately thin, and `systems/` is where the rules live.** This is the opposite of
 what the directory names suggest, so it is worth stating: `GameState` is `systems/`' `LanternWorld`
-— the floor, everyone on it, and the lantern — plus four run-level fields (`status`, `turnsElapsed`,
-`commandsResolved`, `rng`). `core/` owns the command vocabulary, the generator, and the endings, and
-delegates every actual rule downward. Nothing in `core/` knows what a shutter does.
+— the floor, everyone on it, and the lantern — plus the run-level fields (`status`, `turnsElapsed`,
+`commandsResolved`, `kills`, `fuelBurned`, `seed`, `rng`). `core/` owns the command vocabulary, the
+generator, and the endings, and delegates every actual rule downward. Nothing in `core/` knows what a
+shutter does.
 
 `systems/run.ts` is the newest member and the easiest to miss: it owns the two moments that belong
 to neither a floor nor a turn — where a run begins, and what crosses the stairs (GDD §13).
@@ -102,7 +103,9 @@ Two known limits of the mechanical enforcement, so you are not surprised by them
 ### `render/` — the translation layer
 
 Turns a `GameState` into a flat, dumb description of what should be on screen: cells with glyphs,
-colors, and opacity; HUD values; queued animation cues. Still pure TypeScript, still unit-tested.
+colors, and opacity; HUD values; queued animation cues; and — once a run is over — GDD §13's
+summary, headline copy and all, so that `components/` never decides which of the two endings is the
+win.
 
 Two functions, at two arities, and the split is not cosmetic: a board is a function of **one** state
 (`presentScene(state, previous?)`) and a cue is a function of **two** (`cuesFor(before, after)`).
@@ -183,8 +186,11 @@ component, that logic belongs in `game/`.
 
 ```
 components/play/   the game screen's parts: board, board-cell, hud-bar, controls, status-line,
-                   use-game-theme, and four pure modules — hit-test, cell-style, messages, theme
-app/index.tsx      one screen: beginRun(SEED) in useState, sceneOf/cuesOf down, intents up
+                   run-summary, use-game-theme, and five pure modules — hit-test, cell-style,
+                   messages, summary-style, theme
+app/index.tsx      one screen: beginRun(SEED) in useState, sceneOf/cuesOf down, intents up, and the
+                   one branch that is not wiring a control — `scene.summary` swaps the bottom band
+                   for §13's end-of-run panel, whose RUN AGAIN is `setRun(beginRun(SEED))`
 hooks/             the Expo starter's survivors. use-color-scheme is real: use-game-theme reads it,
 constants/theme.ts so the game screen depends on this directory. Not dead code, not yet mapped
                    anywhere else, and easy to delete by mistake for exactly that reason
@@ -195,7 +201,7 @@ layer rule matches import specifiers by path segment, so `@/components/game/boar
 component reaching into the simulation. #57 decides whether to narrow the rule or document it; this
 paragraph exists so the next person does not spend the attempt.
 
-**The four pure modules are tested from `tests/unit/play-*.test.ts`, not colocated**, and the React
+**The five pure modules are tested from `tests/unit/play-*.test.ts`, not colocated**, and the React
 is tested by Playwright — ADR-0005 says there is no component test runner. `hit-test.ts` is the one
 that matters: **every tap on the board goes through it** — the shutter and descend controls are
 plain `Pressable`s and do not — because `nativeEvent.locationX` is typed
@@ -249,9 +255,12 @@ the authority. Three of them surprise people, so they are named here:
   and changes nothing. Code that assumes `step` always allocates is wrong.
 - **Malformed commands throw; illegal actions do not.** An unknown `kind` is corrupt data and fails
   loudly. A tap that lands a frame after the killing blow is ordinary phone behaviour and is refused.
-- **Neither counter counts `step` calls.** `commandsResolved` counts non-refusals; `turnsElapsed`
+- **No counter counts `step` calls.** `commandsResolved` counts non-refusals; `turnsElapsed`
   counts resolved commands that cost a turn. `turnsElapsed` is *not* in correspondence with
   `schedule.now` and must never be asserted against it — a descent restarts the floor's clock.
+  §13's two summary counters are pinned to their own moments: `fuelBurned` is what GDD §2 phase 2
+  took (gross — phase 5's embers and caches are income, not a discount), and `kills` is read across
+  the whole turn, because on the turn the player dies phase 5 never runs to sweep the body.
 
 Replaying that record must reproduce the exact final state. There is a property test asserting
 this (`game/core/replay.test.ts`), and it is the single most important test in the repo — if it

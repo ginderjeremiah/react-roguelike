@@ -5,6 +5,7 @@ import { Board } from '@/components/play/board';
 import { Controls } from '@/components/play/controls';
 import { HudBar } from '@/components/play/hud-bar';
 import { BLOCKED_MESSAGE, describeTurn } from '@/components/play/messages';
+import { RunSummaryPanel } from '@/components/play/run-summary';
 import { StatusLine } from '@/components/play/status-line';
 import { useGameTheme } from '@/components/play/use-game-theme';
 import { Fonts } from '@/constants/theme';
@@ -36,6 +37,9 @@ import {
  *   - Turn a tap into an intent — and **which** intent is `tapAt`'s answer, not this file's. §9's
  *     rule about impassable neighbours lives in `render/taps.ts` because it is a game rule, and a
  *     `blocksMovement` call in a `.tsx` is exactly the shape of mistake the seam exists to prevent.
+ *   - Swap the bottom band when the run ends, on `scene.summary` — one field, computed in
+ *     `render/summary.ts`, so "is this run over" is never a comparison written here.
+ *   - Start another run: `setRun(beginRun(SEED))`. §13's loop, closed, with no reload.
  *
  * The one decision that is genuinely local is what a tap that resolves to nothing looks like: §2
  * insists a dead tap be acknowledged, so a `blocked` tap writes a line rather than doing nothing at
@@ -132,6 +136,22 @@ export default function GameScreen() {
   );
   const onDescend = useCallback(() => advance(descend(run)), [advance, run]);
 
+  /**
+   * §13's run loop, closed. A new run, in place, with no reload.
+   *
+   * `beginRun` is pure and total (`session/run.ts`), so there is nothing to fail, nothing to await
+   * and nothing to tear down — the old `Run` is a value and dropping the reference is the whole of
+   * disposing of it. **Not `advance`**: `advance` describes a *turn*, and a fresh run has had none,
+   * so the line under the board is cleared rather than left carrying the last run's death.
+   *
+   * The seed is the same constant (#47), so the new run is the same floor 1. That is the deliberate
+   * state of the project and it is what the note at the bottom of the screen says.
+   */
+  const onRestart = useCallback(() => {
+    setRun(beginRun(SEED));
+    setMessage(null);
+  }, []);
+
   const onBoardSpace = useCallback((event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
     setSpace({ width, height });
@@ -165,12 +185,32 @@ export default function GameScreen() {
           ) : null}
         </View>
 
-        <StatusLine message={message} outcome={scene.hud.outcome} theme={theme} />
-        <Controls hud={scene.hud} onSetShutter={onSetShutter} onDescend={onDescend} theme={theme} />
+        {/* §13's two endings take the bottom band over entirely. One field decides it, and it is
+            the field `render/` computes for exactly this branch — a run in progress has no summary
+            and a finished run has no live control, so there is never a moment both belong on
+            screen. The board above stays drawn: §13 keeps the final frame at the killing blow. */}
+        {scene.summary === null ? (
+          <>
+            <StatusLine message={message} theme={theme} />
+            <Controls
+              hud={scene.hud}
+              onSetShutter={onSetShutter}
+              onDescend={onDescend}
+              theme={theme}
+            />
+          </>
+        ) : (
+          <RunSummaryPanel summary={scene.summary} onRestart={onRestart} theme={theme} />
+        )}
 
-        <Text testID="seed-note" style={[styles.seed, { color: theme.textDim }]}>
-          {`seed "${SEED}" · turn ${scene.hud.turnsElapsed} · fixed until #47`}
-        </Text>
+        {/* The build note, and it belongs to a run in progress. Once the summary is up it would be a
+            second, dimmer copy of the seed and the turn count sitting four lines under the first —
+            and the summary's copy is the one that is selectable and the one Pillar 4 is about. */}
+        {scene.summary === null ? (
+          <Text testID="seed-note" style={[styles.seed, { color: theme.textDim }]}>
+            {`seed "${SEED}" · turn ${scene.hud.turnsElapsed} · fixed until #47`}
+          </Text>
+        ) : null}
       </View>
     </View>
   );

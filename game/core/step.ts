@@ -42,6 +42,19 @@
  *    A refusal increments neither, because it changes no field at all — see point 6. So
  *    `commandsResolved <= commands.length`, with equality exactly when nothing was refused.
  *
+ *    **The other two counters are §13's summary, and each is pinned to a different moment.**
+ *    `fuelBurned` is what GDD §2 **phase 2** took, measured inside the turn by `meteredPhases`
+ *    below, because by the time `step` sees a resolved world phase 5 may already have refuelled it
+ *    and the net is not the burn. `kills` is measured across the turn *as a whole*, by
+ *    `killsBetween`, because a kill's blow and its corpse are three phases apart and §13 skips the
+ *    later one on the turn the player dies. `fuelBurned` moves on a free action — a flash costs its
+ *    4 fuel (§4) — while `kills` cannot, because a free action skips phase 4 and its phase 1 strikes
+ *    nothing. Neither moves on a refusal or on the winning descent, which run no phases at all.
+ *
+ *    All four are **accumulated as they happen and never re-derived from the final state**, which
+ *    §13 requires in as many words: the terminal state is the frame of the killing blow, not a
+ *    tidied-up world, so the dead creature you killed on that turn is still standing in it.
+ *
  * 6. **Refused actions run no phases and cost nothing.** GDD §2 lists three, and the list is
  *    exhaustive for this build: a move into a wall, a pillar, or off the grid; `descend` while not
  *    on the stairs; and any command at all once the run has ended (§13). A fourth falls out of the
@@ -87,12 +100,14 @@ import {
   type LanternWorld,
   type TurnCost,
   type TurnPhase,
+  type TurnPhases,
 } from '../systems';
 import { assertNever } from './assert';
 import { neighbourOf, COMMAND_KINDS, DIRECTIONS, SHUTTER_STATES, type Command } from './command';
 import {
   floorNumberOf,
   isRunning,
+  killsBetween,
   statusAfterTurn,
   withWorld,
   worldOf,
@@ -122,12 +137,21 @@ export function step(state: GameState, command: Command): GameState {
   }
 
   const plan = planFor(state, command);
-  const resolved = resolveTurn(worldOf(state), lanternPhases(plan.cost, plan.phase));
+  const metered = resolveTurn(
+    { lanternWorld: worldOf(state), fuelBurned: state.fuelBurned },
+    meteredPhases(lanternPhases(plan.cost, plan.phase)),
+  );
+  const resolved = metered.lanternWorld;
 
   return {
     ...withWorld(state, resolved),
     status: statusAfterTurn(state, resolved),
     rng: plan.rng,
+    // §13's summary numbers. `fuelBurned` comes back from inside the turn because only phase 2 knows
+    // what the lantern took; `kills` is read off the turn as a whole because a kill spans phases and
+    // outlives the one that would have swept the body. See `killsBetween` and `meteredPhases`.
+    kills: state.kills + killsBetween(state.world, resolved.world),
+    fuelBurned: metered.fuelBurned,
     // §2: a free action "does not consume a turn". So it does not increment the count of turns —
     // the free action is free in the sense that matters, which is that `actorPhase('free')` is the
     // identity and no creature gets a move; charging it a turn on the HUD would report a cost the
@@ -146,6 +170,86 @@ export function step(state: GameState, command: Command): GameState {
     // `schedule.now` orders actors within one floor; `turnsElapsed` is what a player retells.
     turnsElapsed: state.turnsElapsed + (plan.cost === 'costsATurn' ? 1 : 0),
     commandsResolved: state.commandsResolved + 1,
+  };
+}
+
+/**
+ * A `LanternWorld` mid-turn, carrying the one run counter that can only be read from inside one.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
+ * WHY THE BURN IS METERED HERE AND NOT COMPUTED AFTERWARDS
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * `resolveTurn` hands `step` the world after all six phases, and by then the burn is unrecoverable:
+ * GDD §2 phase 5 collects embers and caches, so `before.fuel - after.fuel` is the *net*, and on the
+ * turn a 20-fuel ember is picked up it is negative. Netting income against the lantern's cost would
+ * make a lit, well-looted run report as cheaper than a shuttered one that found nothing — the exact
+ * inversion of the arithmetic §4 asks the player to do.
+ *
+ * The three alternatives were all worse:
+ *
+ *   - **Re-derive it from the burn rate.** `min(fuel, burnRate(shutter))` is the right formula, but
+ *     the lantern it must be evaluated against is the one *after phase 1* — and phase 1 is where
+ *     `setShutter` changes the rate, including the dry `open` that §4 refuses. That puts a copy of
+ *     `lantern.ts`'s rules in `game/core/`, positioned to drift.
+ *   - **Run phase 1 twice**, once to measure and once for real. Pure, so it is correct, and it
+ *     rebuilds a whole `Floor` on every descent to learn a number phase 2 already knew.
+ *   - **Put the counter in `LanternWorld`.** That type is documented as the pair and nothing else,
+ *     by construction, so that a systems phase cannot reach the run's counters. It stays that way.
+ *
+ * So `game/core/` widens the state instead. `resolveTurn<S>` and `TurnPhases<S>` are generic
+ * precisely so the threaded state is the caller's business — `game/systems/` supplies six
+ * `LanternWorld` phases and never learns that anything is counting them.
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
+ */
+type Metered = {
+  readonly lanternWorld: LanternWorld;
+  /** The run's `fuelBurned` so far, plus whatever phase 2 has taken this turn. */
+  readonly fuelBurned: number;
+};
+
+/** A phase that has nothing to say about fuel: run it, carry the count across. */
+function unmetered(phase: TurnPhase<LanternWorld>): TurnPhase<Metered> {
+  return (metered) => ({
+    lanternWorld: phase(metered.lanternWorld),
+    fuelBurned: metered.fuelBurned,
+  });
+}
+
+/**
+ * Phase 2, watched: whatever the lantern lost, the run burned.
+ *
+ * A *difference* rather than `burnRate(shutter)`, so the clamp comes out right for free — `burn`
+ * stops at 0, so the turn that runs the lantern dry adds the 2 that were there rather than the 4 the
+ * rate would have charged, and the run's total stays fuel that actually existed.
+ */
+function meteringTheBurn(phase: TurnPhase<LanternWorld>): TurnPhase<Metered> {
+  return (metered) => {
+    const lanternWorld = phase(metered.lanternWorld);
+    const burned = metered.lanternWorld.lantern.fuel - lanternWorld.lantern.fuel;
+    return { lanternWorld, fuelBurned: metered.fuelBurned + burned };
+  };
+}
+
+/**
+ * The six phases, lifted to `Metered`, with **only** phase 2 counting.
+ *
+ * Written out rather than mapped over `RESOLUTION_PHASES`, because `TurnPhases` is a `Record` over
+ * the phase union: a phase that stopped being lifted here would not compile, and the one line that
+ * differs from the other five is the whole specification of where the burn is measured. A `fuelBurn`
+ * wired to `unmetered` and, say, `deaths` wired to `meteringTheBurn` would still type-check, and
+ * would report a run that burned nothing at all until it stood on an ember and then burned a
+ * *negative* amount — which is why the tests pin this boundary from several directions rather than
+ * asserting one number.
+ */
+function meteredPhases(phases: TurnPhases<LanternWorld>): TurnPhases<Metered> {
+  return {
+    command: unmetered(phases.command),
+    fuelBurn: meteringTheBurn(phases.fuelBurn),
+    lightingAndWaking: unmetered(phases.lightingAndWaking),
+    actors: unmetered(phases.actors),
+    deaths: unmetered(phases.deaths),
+    darkAdaptation: unmetered(phases.darkAdaptation),
   };
 }
 

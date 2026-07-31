@@ -87,6 +87,7 @@ import {
 import { GLYPHS, glyphForCreature, glyphForTile } from './glyphs';
 import { presentHud, type Hud } from './hud';
 import { livingCreaturePositions } from './perception';
+import { presentSummary, type RunSummary } from './summary';
 import { presentTaps, type TapAction } from './taps';
 
 /** The board: dimensions, and one cell per tile, row-major. Mirrors `Grid`'s layout exactly. */
@@ -107,6 +108,20 @@ export type Scene = {
    * scene rather than being a question `session/` answers or a component decides.
    */
   readonly taps: readonly TapAction[];
+  /**
+   * GDD §13's end-of-run screen, or `null` while the run is still going.
+   *
+   * **The whole layout branches on this one field**, which is why it is nullable rather than a
+   * `RunSummary` with a `running` variant: there is no summary of an unfinished run. It rides on the
+   * `Scene` rather than becoming a sixth `session/` accessor for the same reason `taps` does — a
+   * `Scene` is "everything to draw for this state", and a lazily computed summary would allocate a
+   * fresh object on every render and cost the memo above the panel (`session/run.ts`).
+   *
+   * The board is deliberately **still presented** underneath it: §13 puts the final frame at the
+   * killing blow — "the last thing on screen is the thing that killed you, not three Cinders
+   * shuffling around a corpse" — and a summary that erased the board would throw that away.
+   */
+  readonly summary: RunSummary | null;
 };
 
 /**
@@ -139,10 +154,14 @@ export function presentScene(state: GameState, previous?: Scene | null): Scene {
   // Gathered once and shared: the taps need the perceived creature list the board already computed,
   // and `perceive` is not a function to run twice per turn (see `taps.ts`'s `TapInputs`).
   const overlays = gatherOverlays(state);
+  // Computed once and shared with the summary, so §13's ending — and the copy for it — is stated in
+  // exactly one place. See `summary.ts`'s header for why that is not merely tidiness.
+  const hud = presentHud(state);
 
   return {
     grid: presentGrid(state, overlays, previous?.grid ?? null),
-    hud: presentHud(state),
+    hud,
+    summary: presentSummary(state, hud.outcome),
     taps: presentTaps({
       grid: state.world.floor.grid,
       playerAt: overlays.playerAt,

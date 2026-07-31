@@ -16,8 +16,9 @@
  *
  * ## The liberty this takes, stated once
  *
- * A state built here has **`turnsElapsed: 0`, `commandsResolved: 0` and a fresh generator**, so it is
- * not a state any command log could produce. That is fine for what these tests ask — *given this
+ * A state built here has **every run counter at 0 and a fresh generator**, so it is not a state any
+ * command log could produce — a board with a wounded player and no turns elapsed is the obvious
+ * example. That is fine for what these tests ask — *given this
  * board and this lantern, what is on screen* — and it is deliberately not fine for anything else:
  * every property about how the model behaves **across** a turn is tested against real states from
  * `runStates`, because a scripted run is the only thing that produces a genuine before/after pair.
@@ -62,6 +63,9 @@ export function stateFrom(world: ActorWorld, options: StateOptions): GameState {
     status: RUNNING,
     turnsElapsed: 0,
     commandsResolved: 0,
+    kills: 0,
+    fuelBurned: 0,
+    seed: options.seed ?? 'render',
     rng: createRng(options.seed ?? 'render'),
   };
   return options.perceive === false ? state : perceiveNow(state);

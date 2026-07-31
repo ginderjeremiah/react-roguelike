@@ -195,7 +195,13 @@ describe('findRunDivergence', () => {
     // Read from the LEFT run, which spent a turn on command 2 where the right run spent a free
     // action — so from here on the two are at different points in the game, not merely in the log.
     expect(found?.turnsElapsed).toBe(3);
-    expect(found?.field.path).toMatch(/^lantern\b/);
+    // The sorted-iteration rule again, and it is *why* this expectation moved when #21 added
+    // `fuelBurned` to `GameState`. Command 2 is a `wait` on the left (4 fuel, the shutter is open)
+    // against a free shutter on the right (1 fuel, at the rate it has just been set to), so both
+    // `fuelBurned` and `lantern.fuel` differ — and the reported field must be the alphabetically
+    // first of the two, not whichever the object literal happens to list first.
+    expect(found?.field.path).toBe('fuelBurned');
+    expect(found?.field.left).not.toBe(found?.field.right);
   });
 
   it('reports index -1 when the seeds already disagree', () => {

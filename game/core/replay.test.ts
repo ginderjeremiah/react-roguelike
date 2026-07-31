@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { diveToTheBottom, headingTo, standUntilDead, stepTowardOnGrid } from '@/tests/unit/support/run-script';
-import { CINDER, LAST_FLOOR, PLAYER_MAX_HP } from '../content';
+import { CACHE_FUEL, CINDER, FUEL_BURN_LIT, LAST_FLOOR, PLAYER_MAX_HP, STARTING_FUEL } from '../content';
 import { isAlive, playerOf } from '../entities';
 import { expectedDrawCount, samePosition } from '../map';
 import { createRng, int, next, pick, type Draw, type Rng } from '../rng';
@@ -194,6 +194,25 @@ function advance(rng: Rng, count: number): Rng {
   let current = rng;
   for (let i = 0; i < count; i += 1) current = next(current).rng;
   return current;
+}
+
+/**
+ * Creatures that stopped living between two states, counted **by id**.
+ *
+ * The independent statement of what `GameState.kills` must equal. `killsBetween` in `state.ts`
+ * subtracts living-creature *populations*, which is only equal to the number that died because
+ * nothing spawns mid-floor, nothing resurrects, and nothing leaves a floor alive. This makes no such
+ * assumption, so the two agreeing is evidence for those assumptions rather than a restatement.
+ */
+function killsByIdentity(before: GameState, after: GameState): number {
+  if (floorNumberOf(before) !== floorNumberOf(after)) return 0;
+  let count = 0;
+  for (const actor of before.world.actors) {
+    if (actor.kind !== 'creature' || !isAlive(actor)) continue;
+    const survivor = after.world.actors.find((other) => other.id === actor.id);
+    if (survivor === undefined || !isAlive(survivor)) count += 1;
+  }
+  return count;
 }
 
 /** Commands whose resolution changed the state. A refusal returns its input, by contract. */
@@ -461,6 +480,128 @@ describe('replay determinism', () => {
     });
   });
 
+  it('carries the seed it was started from, unchanged, for every seed a text field can produce', () => {
+    // §13's summary shows the seed and Pillar 4 wants it shareable, so the one thing that must not
+    // happen is a seed that comes back *nearly* right. The corpus includes the empty string and
+    // non-ASCII seeds (asserted above), which is exactly what a trim, a lowercase, a `?? 'default'`
+    // or a normalize would mangle — and every one of those would leave a run perfectly reproducible
+    // while making the number printed on the screen unable to reproduce it.
+    forEachRecord('seed', (record, index) => {
+      const states = runStates(record.seed, record.commands);
+      for (const state of states) {
+        expect(state.seed, describeCase(record, index)).toBe(record.seed);
+      }
+      expect(replay(record).seed).toBe(record.seed);
+    });
+  });
+
+  it('accumulates a tally that only ever grows, and never faster than a turn allows', () => {
+    // §13's two summary numbers, as invariants rather than as values. Each bound is one a plausible
+    // wrong implementation violates:
+    //
+    //   - **monotonic**: a `fuelBurned` computed as the turn's *net* fuel change goes backwards the
+    //     turn an ember is collected, and a `kills` that diffed the creature list across a descent
+    //     goes backwards on any floor that spawns more creatures than the one above.
+    //   - **at most one burn per resolved command**: a burn metered on the wrong phase, or metered
+    //     twice, exceeds this. `FUEL_BURN_LIT` is the maximum rate, and a refusal burns nothing.
+    //   - **kills never exceed the creatures that have existed**: a `kills` that counted the sweep
+    //     *and* the blow would double, and one that counted a descent's population change would run
+    //     away entirely.
+    forEachRecord('tally', (record, index) => {
+      const states = runStates(record.seed, record.commands);
+      const where = describeCase(record, index);
+
+      expect(states[0].kills, where).toBe(0);
+      expect(states[0].fuelBurned, where).toBe(0);
+
+      let spawned = states[0].world.floor.creatures.length;
+      for (let i = 1; i < states.length; i += 1) {
+        const before = states[i - 1];
+        const after = states[i];
+        if (floorNumberOf(after) !== floorNumberOf(before)) {
+          spawned += after.world.floor.creatures.length;
+        }
+        expect(after.kills - before.kills, `${where} at command ${i - 1}`).toBeGreaterThanOrEqual(0);
+        expect(after.fuelBurned - before.fuelBurned, `${where} at command ${i - 1}`)
+          .toBeGreaterThanOrEqual(0);
+        expect(after.fuelBurned - before.fuelBurned, `${where} at command ${i - 1}`)
+          .toBeLessThanOrEqual(FUEL_BURN_LIT);
+        expect(after.kills, `${where} at command ${i - 1}`).toBeLessThanOrEqual(spawned);
+      }
+
+      const final = states[states.length - 1];
+      expect(final.fuelBurned, where).toBeLessThanOrEqual(final.commandsResolved * FUEL_BURN_LIT);
+    });
+  });
+
+  it('books fuel as burned, never as net of what was gathered', () => {
+    // §4 gives fuel exactly two verbs — `burn` in phase 2, `refuel` in phase 5 — and a descent
+    // carries the reserve across untouched. So for every state of every run:
+    //
+    //     lantern.fuel === STARTING_FUEL - fuelBurned + gathered,     gathered >= 0
+    //
+    // which makes `gathered` derivable (`state.ts` uses that to argue against storing it) and makes
+    // this the sharpest available statement of what `fuelBurned` means. **The `>= 0` is the
+    // assertion**: an implementation that netted the ember off the burn would produce a negative
+    // `gathered` on exactly the turns a pickup happened, which is the failure this is aimed at.
+    //
+    // It is paired with a positive control, because on a run that never finds fuel the identity is
+    // satisfied by `gathered === 0` everywhere and could not distinguish gross from net.
+    let everGathered = 0;
+    let biggestGather = 0;
+    forEachRecord('gross-burn', (record, index) => {
+      const states = runStates(record.seed, record.commands);
+      let previous = 0;
+      for (let i = 0; i < states.length; i += 1) {
+        const where = `${describeCase(record, index)} at state ${i}`;
+        const gathered = states[i].fuelBurned + states[i].lantern.fuel - STARTING_FUEL;
+        expect(gathered, where).toBeGreaterThanOrEqual(0);
+        // Income is never given back, either — nothing in the game removes fuel except the burn.
+        expect(gathered, where).toBeGreaterThanOrEqual(previous);
+        if (gathered > previous) {
+          everGathered += 1;
+          // ...and income arrives only when something was picked up off the floor. This is the
+          // assertion that catches a meter reading `burnRate(shutter)` instead of what the lantern
+          // actually lost: `burn` clamps at 0, so on the turn a run goes dry the rate over-states
+          // the burn by whatever was not there — which shows up here as fuel appearing from nowhere
+          // on a turn when no ember and no cache left the world.
+          const took =
+            states[i].world.embers.length < states[i - 1].world.embers.length ||
+            states[i].world.floor.caches.length < states[i - 1].world.floor.caches.length;
+          expect(took, `${where}: fuel appeared without anything being collected`).toBe(true);
+        }
+        biggestGather = Math.max(biggestGather, gathered - previous);
+        previous = gathered;
+      }
+    });
+
+    // The positive control. Without it, `gathered >= 0` above holds vacuously on a corpus in which
+    // nothing was ever picked up — and a net-of-gathered implementation would pass the whole test.
+    expect(everGathered, 'no run in the corpus ever collected any fuel').toBeGreaterThan(CASES / 5);
+    // And what was collected arrived in ember- or cache-sized lumps rather than in dribbles, which
+    // is what a meter that had confused income with the burn would produce. Stated as a floor, not
+    // an equality: one turn can legally take several embers and a cache off the same tile.
+    expect(biggestGather).toBeGreaterThanOrEqual(Math.min(CINDER.emberDrop, CACHE_FUEL));
+  });
+
+  it('counts the same kills whether you count populations or identities', () => {
+    // A second, independent implementation of the same question. `killsBetween` subtracts *living
+    // creature counts* and is correct only because nothing spawns, resurrects, or leaves a floor
+    // alive; this counts *ids that stopped living*, which does not depend on any of that. The two
+    // agree over the whole corpus, or one of those assumptions is false.
+    //
+    // The floor guard is shared and therefore not independently tested here — a descent is covered
+    // by its own boundary test in `step.test.ts`.
+    forEachRecord('kill-recount', (record, index) => {
+      const states = runStates(record.seed, record.commands);
+      let recounted = 0;
+      for (let i = 1; i < states.length; i += 1) {
+        recounted += killsByIdentity(states[i - 1], states[i]);
+        expect(states[i].kills, `${describeCase(record, index)} at command ${i - 1}`).toBe(recounted);
+      }
+    });
+  });
+
   it('is composable: replaying a prefix then continuing equals replaying the whole', () => {
     // Catches state that is not self-contained. If any part of a run lived outside `GameState` —
     // a module-level cache, a lazily-initialized table, the `Floor` — resuming from a stored
@@ -692,7 +833,7 @@ describe('RunRecord', () => {
 // --- Pinned run ---------------------------------------------------------------------------------
 
 /**
- * A stored replay fixture, pinned at `RULES_VERSION` 2.
+ * A stored replay fixture, pinned at `RULES_VERSION` 3.
  *
  * Everything above proves the simulation reproduces *itself*. Nothing above notices if what it
  * reproduces silently changes — a different fuel burn, a reordered phase, a different seed
@@ -711,12 +852,30 @@ describe('RunRecord', () => {
  * cannot prove the rules are *right*, only that they have not *changed*. If one of these fails, the
  * question is "did I mean to change the rules", not "how do I update the constants". If the answer
  * is yes: re-pin, bump `RULES_VERSION`, add a `RULES_VERSION_LOG` line, and say so in the journal.
+ *
+ * ## This projection is the one comparison in the file that does NOT widen by itself
+ *
+ * Every other property here goes through `findFieldDivergence`, which walks the **sorted union of
+ * both sides' keys** — so a field added to `GameState` is compared from the moment it exists, with
+ * no test edit. This digest is a hand-written subset and is therefore the exact shape the brief
+ * warns about: a new run counter would be reproduced by the identity properties and pinned by
+ * nothing, and `RULES_VERSION` would stop meaning what it says for that field.
+ *
+ * So **a new field on `GameState` belongs in this type**, and #21's two go in below with the
+ * arithmetic that produces them written out beside them.
+ *
+ * `seed` deliberately does *not*: it would be `record.seed` copied into the expectation, which is a
+ * constant restating its own input. It is pinned instead by `carries the seed it was started from`
+ * over the 120-seed corpus, which is a stronger statement and a cheaper line.
  */
 type Digest = {
   readonly status: string;
   readonly floorNumber: number;
   readonly turnsElapsed: number;
   readonly commandsResolved: number;
+  /** §13's summary numbers, and the reason the header paragraph above exists. */
+  readonly kills: number;
+  readonly fuelBurned: number;
   readonly now: number;
   readonly fuel: number;
   readonly shutter: string;
@@ -739,6 +898,8 @@ function digest(state: GameState): Digest {
     floorNumber: floorNumberOf(state),
     turnsElapsed: state.turnsElapsed,
     commandsResolved: state.commandsResolved,
+    kills: state.kills,
+    fuelBurned: state.fuelBurned,
     now: state.world.schedule.now,
     fuel: state.lantern.fuel,
     shutter: state.lantern.vision.shutter,
@@ -770,7 +931,7 @@ function expectPinned(record: RunRecord, pinned: Digest): void {
 
 describe('pinned run — a descent in the dark', () => {
   const PINNED_RECORD: RunRecord = {
-    version: 2,
+    version: 3,
     seed: 'emberdepth',
     // A dark crawl across floor 1 to its stairs, a descent, and three commands on the floor below —
     // one of which (the move north) is refused by the new floor's geometry, which is why the two
@@ -804,6 +965,11 @@ describe('pinned run — a descent in the dark', () => {
     floorNumber: 2,
     turnsElapsed: 14,
     commandsResolved: 16,
+    // Nothing was ever fought on this log, so the whole 19 came out of the reserve and none of it
+    // went back in: 80 - 19 == the 61 below, which is §4's conservation identity with `gathered`
+    // at 0. 16 resolved commands, 15 of them shuttered at 1 fuel and the last one lit at 4.
+    kills: 0,
+    fuelBurned: 19,
     now: 200,
     fuel: 61,
     shutter: 'open',
@@ -835,6 +1001,12 @@ describe('pinned run — a descent in the dark', () => {
     expect(PINNED_DIGEST.commandsResolved).toBeLessThan(PINNED_RECORD.commands.length);
     expect(PINNED_DIGEST.floorNumber).toBeGreaterThan(1); // it descended, so it drew
     expect(PINNED_DIGEST.remembered).toBeGreaterThan(20);
+    // §4's conservation identity with nothing gathered — this log never touched an ember or a
+    // cache, so the burn accounts for the whole reserve. A `fuelBurned` pinned at the wrong number
+    // fails here as well as against the digest, which is what stops this pair being re-pinned
+    // together to whatever the implementation happens to say.
+    expect(PINNED_DIGEST.fuelBurned).toBe(STARTING_FUEL - PINNED_DIGEST.fuel);
+    expect(PINNED_DIGEST.kills).toBe(0);
   });
 });
 
@@ -877,7 +1049,7 @@ describe('pinned run — the whole combat loop, ending in a death', () => {
    * time changes silently whenever the script does, which is the one thing a fixture must not do.
    */
   const PINNED_RECORD: RunRecord = {
-    version: 2,
+    version: 3,
     seed: 'ember-z',
     commands: [
       { kind: 'setShutter', to: 'shuttered' },
@@ -915,10 +1087,19 @@ describe('pinned run — the whole combat loop, ending in a death', () => {
     // 26 commands, 2 of them free (§2), so 24 turns...
     turnsElapsed: 24,
     commandsResolved: 26,
+    // The Cinder felled in its sleep on command 13. **One, not zero**, and the difference is the
+    // whole reason `kills` is not counted at phase 5: that kill's body *was* swept here (the player
+    // survived that turn), but a losing run's last kill often is not, and the two must count alike.
+    kills: 1,
+    // 26 resolved commands, so 26 burns: 14 shuttered at 1 and 12 lit at 4 == 62. It is the *gross*
+    // burn — the 20 collected off the corpse on command 14 does not come off it, which is what makes
+    // 80 - 62 + 20 == the 38 below rather than 80 - 42. That identity is what pins this as fuel
+    // *spent* rather than fuel *lost*.
+    fuelBurned: 62,
     // ...and 23 actions on the clock, not 24: the killing blow stopped the turn before phase 4
     // advanced it (§13). The gap between these two numbers *is* the assertion.
     now: 2300,
-    // 80 to start, minus 10 shuttered turns and 14 lit ones, plus the 20 off the corpse.
+    // 80 to start, minus the 62 above, plus the 20 off the corpse.
     fuel: 38,
     shutter: 'open',
     senseRadius: 5,
@@ -1013,5 +1194,17 @@ describe('pinned run — the whole combat loop, ending in a death', () => {
     expect(hitsTaken).toBe(PLAYER_MAX_HP / CINDER.attack);
     expect(final.status).toEqual({ kind: 'died' });
     expect(playerOf(final.world).hp).toBe(0);
+
+    // §13's summary numbers, cross-checked against the trajectory rather than against the stored
+    // digest — two independent counts of the same events. `kills` is accumulated one turn at a time
+    // inside `step`; `alive(start) - alive(final)` is read off the two ends of the run, and
+    // `felledInOneBlowWhileAsleep` is counted by watching creatures leave `world.actors`. All three
+    // must agree, and a `kills` wired to the wrong phase agrees with none of them.
+    expect(final.kills).toBe(alive(start) - alive(final));
+    expect(final.kills).toBe(felledInOneBlowWhileAsleep);
+    // The gross-burn identity, with a gather in it this time: the 20 off the corpse is *income*, and
+    // it is what makes this run's `fuelBurned` exceed `STARTING_FUEL - fuel` by exactly one ember.
+    expect(final.fuelBurned).toBe(STARTING_FUEL - final.lantern.fuel + CINDER.emberDrop);
+    expect(final.fuelBurned).toBeGreaterThan(STARTING_FUEL - final.lantern.fuel);
   });
 });

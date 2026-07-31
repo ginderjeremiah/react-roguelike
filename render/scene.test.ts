@@ -9,6 +9,7 @@ import { diveToTheBottom, standUntilDead } from '@/tests/unit/support/run-script
 import { ATTACK_TELEGRAPH, CELL_OPACITY, MOVE_TELEGRAPH, lampTint, sameCell, type Cell } from './cell';
 import { GLYPHS } from './glyphs';
 import { perceivedCreatureCount } from './perception';
+import { presentSummary } from './summary';
 import { cellAt, presentScene, type Scene } from './scene';
 
 /**
@@ -78,6 +79,27 @@ describe('the board mirrors the floor', () => {
     ]) {
       expect(() => cellAt(grid, x, y)).toThrow(/outside/);
     }
+  });
+});
+
+describe('the scene carries §13’s summary, and only once the run is over', () => {
+  it('is the summary built from the HUD outcome it also carries', () => {
+    // The whole screen's layout branches on this one field (`app/index.tsx`), so a `presentScene`
+    // that computed a perfect summary and forgot to attach it would be a run that never ends on
+    // screen — and `summary.ts`'s own suite would stay green throughout, because it calls
+    // `presentSummary` directly. Asserted against the scene's own `hud.outcome` rather than against
+    // `state.status`, because those two agreeing is the property that makes the copy single-sourced.
+    for (const state of [...litDeath(), ...darkDive('scene-summary', 2)]) {
+      const scene = presentScene(state);
+      expect(scene.summary).toEqual(presentSummary(state, scene.hud.outcome));
+      expect(scene.summary === null).toBe(scene.hud.outcome.kind === 'running');
+    }
+  });
+
+  it('reaches a state where it is not null, so the check above is not vacuous', () => {
+    const ended = litDeath().filter((state) => presentScene(state).summary !== null);
+    expect(ended.length).toBeGreaterThan(0);
+    expect(presentScene(ended[0]).summary?.outcome).toBe('died');
   });
 });
 

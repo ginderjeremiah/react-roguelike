@@ -4,10 +4,10 @@
  * ## What is here, and where it comes from
  *
  * Almost nothing is defined in this file. `GameState` is `game/systems/`' `LanternWorld` — the
- * floor, everyone on it, and the lantern lighting it — plus the four things that belong to the
- * *run* rather than to the floor: the generator, the two counters, and whether the run is over.
- * Every rule that reads or writes any of it lives in `game/systems/`. This layer knows about
- * commands, generators and endings; it does not know what a shutter does.
+ * floor, everyone on it, and the lantern lighting it — plus the things that belong to the *run*
+ * rather than to the floor: the generator and the seed it came from, the four counters, and whether
+ * the run is over. Every rule that reads or writes any of it lives in `game/systems/`. This layer
+ * knows about commands, generators and endings; it does not know what a shutter does.
  *
  * ## Shape rules this type is held to
  *
@@ -24,6 +24,9 @@
  * - **One source of truth.** In particular there is **no `floorNumber` field**: the floor already
  *   carries its own number (`state.world.floor.floorNumber`), and a second copy is a field that can
  *   disagree with the map the player is standing on. `floorNumberOf` reads the one that exists.
+ *   The same rule is why there is no `fuelGathered` beside `fuelBurned`: it is *exactly*
+ *   `fuelBurned + lantern.fuel - STARTING_FUEL`, because §4 gives fuel only two verbs (`burn` and
+ *   `refuel`) and a descent carries the reserve untouched. See `fuelBurned`.
  * - **`readonly` everywhere.** It does not make the object immutable at runtime — the tests
  *   deep-freeze for that — but it makes an accidental in-place update a type error at the point it
  *   is written rather than a replay divergence a fortnight later.
@@ -104,6 +107,67 @@ export type GameState = {
   readonly commandsResolved: number;
 
   /**
+   * **Creatures the player killed**, over the whole run. §13's summary number.
+   *
+   * *Creatures*, and the word is exact: **nothing else in this game can die.** `combat.ts`'s
+   * `isHostile` is `attacker.kind !== target.kind`, so a creature that ends up standing on a tile
+   * another creature marked takes no damage at all; and the player reaching 0 HP ends the run (§13)
+   * rather than adding to a count of corpses. So every death is a creature, and every creature's
+   * death was dealt by the player. The day §6 gives creatures a reason to hurt each other, this
+   * field's name becomes a lie and it has to become two fields — which is why the name says *kills*
+   * rather than *deaths*.
+   *
+   * **Counted at the instant HP reaches 0, not when the body is swept.** GDD §2 puts the sweep in
+   * phase 5, and §13 skips phases 5 and 6 entirely on the turn the player dies — so a kill made in
+   * phase 1 of the turn that kills you leaves a corpse that is never removed and an ember that is
+   * never dropped. It was still a kill, and the last thing a player did before dying is the last
+   * thing they want the summary to forget. `killsBetween` is what makes that the counted moment.
+   *
+   * **A descent is not a massacre.** Phase 1 of `descend` replaces the floor and everyone on it, so
+   * the creature *population* changes with nobody dying; `killsBetween` guards on the floor number
+   * for exactly that. §13's "you forfeit the floor's remaining kills" is a forfeit, not a tally.
+   */
+  readonly kills: number;
+
+  /**
+   * **Fuel the lantern has burned**, over the whole run. §13's "fuel spent".
+   *
+   * Gross, not net: this is what GDD §2 phase 2 took, and it is never reduced by the ember off a
+   * corpse or by a cache. Those are §4's *income*, and a summary that quietly netted them off would
+   * report a lit run that looted well as cheaper than a shuttered run that looted nothing — the
+   * exact opposite of the arithmetic §4 asks the player to do.
+   *
+   * **There is deliberately no `fuelGathered` beside it.** Fuel has exactly two verbs (`burn` in
+   * phase 2, `refuel` in phase 5) and a descent carries the reserve across untouched, so
+   *
+   *     lantern.fuel === STARTING_FUEL - fuelBurned + gathered
+   *
+   * holds for every state of every run, and `gathered` is therefore *derived*:
+   * `fuelBurned + lantern.fuel - STARTING_FUEL`. A stored copy would be a second source of truth for
+   * a number already implied by two fields, which is the rule three paragraphs up. `replay.test.ts`
+   * asserts the identity, so the derivation is pinned rather than asserted in a comment.
+   *
+   * **Clamped, so it is fuel that existed.** `burn` stops at 0, so the turn that runs the lantern
+   * dry adds the 2 that were left rather than the 4 the rate would have charged.
+   */
+  readonly fuelBurned: number;
+
+  /**
+   * The seed this run was started from. §13's summary shows it; Pillar 4 wants it shareable.
+   *
+   * Kept rather than dropped by `createInitialState` because `render/presentHud` takes a `GameState`
+   * and nothing else — a seed held in `session/` would be invisible to the screen that has to print
+   * it. It costs one string and it makes `RunRecord.seed` recoverable from any state, which is the
+   * half of #47 that does not need a `platform/` to exist.
+   *
+   * **Nothing in the simulation reads it, and nothing may.** It is carried, never consulted: the
+   * generator in `rng` is the run's entropy and re-deriving from `seed` mid-run would be a second
+   * source of truth for the stream position. Any rule that branched on this string would make the
+   * seed a *gameplay input* rather than a label, which is a design change and not a refactor.
+   */
+  readonly seed: string;
+
+  /**
    * The generator. Lives in state, per ADR-0004, so that a run is a pure function of its seed and
    * its command log — a generator held outside state is a hidden input, and hidden inputs are
    * exactly what makes replays diverge.
@@ -135,6 +199,9 @@ export function createInitialState(seed: string): GameState {
     status: RUNNING,
     turnsElapsed: 0,
     commandsResolved: 0,
+    kills: 0,
+    fuelBurned: 0,
+    seed,
     rng: floor.rng,
   };
 }
@@ -185,4 +252,47 @@ export function isRunning(state: GameState): boolean {
 export function statusAfterTurn(state: GameState, resolved: LanternWorld): RunStatus {
   if (!isAlive(playerOf(resolved.world))) return { kind: 'died' };
   return state.status;
+}
+
+/** Living creatures standing on this floor. Counting, so the loop's order cannot matter. */
+function livingCreatures(world: ActorWorld): number {
+  let count = 0;
+  for (const actor of world.actors) {
+    if (actor.kind === 'creature' && isAlive(actor)) count += 1;
+  }
+  return count;
+}
+
+/**
+ * How many creatures died between two worlds — the increment behind `GameState.kills`.
+ *
+ * ## Why the whole turn, and not a phase
+ *
+ * A kill is not a phase-local event. The blow lands in phase 1 (`bump`), the body leaves the world
+ * in phase 5 (`resolveDeaths`), and on the turn the player dies phase 5 **never runs at all**
+ * (§13). Counting the sweep would therefore silently drop the last kill of a losing run, which is
+ * the one a player is most likely to be looking for on the summary. Counting *living creatures*
+ * before and after the turn as a whole is indifferent to when the body is cleared: a corpse still
+ * sitting in `world.actors` at 0 HP has already stopped being alive and has already been counted.
+ *
+ * It is a subtraction rather than an id-by-id comparison because the arithmetic is exact here:
+ * within one floor nothing spawns, nothing is removed while alive (`withoutActor` is phase 5's, for
+ * the dead only), and nothing heals — `restoreOnDescent` is the only function in the game that
+ * raises HP and it raises the *player's*. So the population of living creatures is monotonically
+ * non-increasing and its decrease is the number that died. A count is also order-free by
+ * construction, which an id set walked in the wrong order would not be.
+ *
+ * ## The one guard, and why it is not a special case
+ *
+ * **A descent is not a massacre.** `descendCommand` replaces the floor and everyone on it in phase
+ * 1, so the two worlds hold different populations of different creatures that merely reuse the same
+ * ids (`createActorWorld` numbers from the spawn array). Nothing died; you left. §13 is explicit
+ * that the forfeit is the *price* of the stairs — "you forfeit the floor's remaining kills" — so
+ * counting them would credit the player for the thing they gave up.
+ *
+ * @param before the world the turn started on; `after` the world it ended on.
+ */
+export function killsBetween(before: ActorWorld, after: ActorWorld): number {
+  if (before.floor.floorNumber !== after.floor.floorNumber) return 0;
+  return livingCreatures(before) - livingCreatures(after);
 }

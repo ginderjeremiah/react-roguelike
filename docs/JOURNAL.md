@@ -57,6 +57,115 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-07-31 — Archivist: a stale milestone marker in the GDD cost a playtest verdict
+
+**Did:** Reconciled `ROADMAP.md`, `GDD.md` and `ARCHITECTURE.md` against `main` at `6e20978` (#20
+merged), after #49, #20 and the first `playtester` run. No code. Filed #62, #63, #64 and #65;
+commented the corrections onto #31 and #50. The roadmap's stand-and-counts section was re-derived from the
+tree rather than adjusted, and the auto-travel gate and the wager verdict were both written into it.
+
+**Why the headline is one line of documentation.** GDD §4 opened its awake-creature block with
+"**(M2, but specified here because §6 depends on it)**". Re-dormancy shipped in **#16, under M1**,
+and the marker never moved. The first playtest read it, concluded a woken creature stays awake for
+the whole floor, and built a recommendation on that: *do not spend §12's fallback, because we are
+judging the wager with one of its two counterweights missing — re-dormancy first, then re-tune, then
+re-measure.*
+
+None of which is true. `nextMind` in `game/entities/behaviour.ts` returns `DORMANT` at
+`turnsSinceContact >= TURNS_TO_REDORMANCY` (8) for any creature with neither light nor adjacency;
+`behaviour.test.ts` pins "on the eighth turn and not before"; and `replay.test.ts`'s stored fixture
+walks the whole thing — ten commands backing into the dark, asleep by command 10, dormant-struck on
+command 13 — under a header calling itself the only fixture in the repo that pins re-dormancy. The
+playtester could not have known: it does not read `game/` and it was reading the document we tell it
+to read.
+
+**The lesson is not "the playtester was wrong".** It is that **a milestone marker left on an
+implemented rule is indistinguishable, from outside the code, from the rule not existing** — and the
+GDD is exactly the document consumed by the agents that cannot check. The marker survived #16, #17,
+#18 and two archivist passes because nobody reads a parenthetical as a claim. §4 now carries the
+correction inline; `ROADMAP.md`'s M2 list carries a checked `Re-dormancy — landed early, #16` bullet
+that exists only so the mistake cannot be made a second time from the roadmap; #63 is the re-ruling
+of the recommendation it corrupted.
+
+**The recommendation may still be right, and this pass deliberately did not decide that.** "Tuning,
+not mechanic" does not depend on the false premise, and the two measured causes — a flash costs 5
+fuel and *zero turns*, and ember-sense at 5/5 turns the containment guarantee into a permission check
+rather than a gamble — are prices, not mechanics. But an archivist re-ruling a design verdict would
+be a worse failure than the one being fixed. #63 asks the `game-designer`, with that recommendation
+attached, and until it closes both the roadmap and §12 say **unconfirmed**, not settled.
+
+**Learned:** Four things, and two of them are about numbers.
+
+**The auto-travel gate answered *yes* and *no*, and the roadmap now says so.** This roadmap wrote its
+own disambiguating probe — *did you want to go back and decide not to?* — precisely because the
+"do not build" arm is confounded by the tap cost it is measuring. The probe returned **no, not once,
+in six runs**, which is literally the do-not-build arm firing. The recommendation is still **build
+it**, because the friction turned out not to be backtracking at all: it is forward travel across a
+room a single flash has already fully revealed, and the Pillar 1 count goes from 9-of-37 (1 in 4) to
+~9-of-17 (53%) on identical play if locomotion collapses. Both arms are recorded, with the resolution
+that **the gate was aimed at the wrong behaviour**. Flattening this to "the playtest said yes" would
+have thrown away the only part a future session needs: the probe was well designed and still asked
+about the wrong thing, which is a failure mode worth being able to recognise again. The build issue
+is **#65**, filed because the roadmap's own instruction was "file it when the gate opens, not
+before" — and an instruction conditional on an event nobody re-reads is an instruction that expires.
+
+**Re-counted at `6e20978`, and the journal's own numbers do not reconcile.** `game/` 45 modules / 42
+test files / 774 tests · `render/` 8 + barrel / 8 / 138 · `session/` 1 + barrel / 1 / 26 ·
+`components/play/` 10 modules, 0 colocated tests · `tests/unit/` 8 files / 109 · **59 files, 1047
+tests**, plus **24 E2E runs** (12 declarations × the `phone` and `desktop` projects). The #20 entry
+below says "1040 tests, up from 1005" and "22 E2E specs, up from 4"; the #49 entry says "986, up from
+956". 1047 ≠ 1040, 24 ≠ 22, and 1005 ≠ 986. **All three are left as written** — correcting an old
+entry destroys the record of what we believed — and the reconciled numbers are here instead. The
+likely cause is a count taken before review added tests, which is the ordinary way this goes wrong
+and is an argument for taking the count *last*. That covers the E2E figure too: 22 is 11 × 2, a count
+taken before review added the twelfth declaration. *(Inference — #20 is squashed into `6e20978`, so
+the intermediate count is not recoverable. What is demonstrable is only that neither 12 nor 24 is 22.)*
+
+A first draft of this paragraph blamed the E2E number on unit confusion instead — 12 declarations
+across two Playwright projects, so "specs" and "runs" differ by a factor of two. **Arithmetic rules
+that out**: neither unit yields 22, so under either one the old entry is simply wrong, and a reader
+reconciling "22 specs" through that explanation would infer 22 declarations and 44 runs — wrong twice.
+It is kept here because it is the day's mistake in miniature: an explanation that fits the shape of
+the problem, is not checked against the numbers, and would have sent the next reader somewhere false.
+The advice it carried is still good on its own account — **state the unit as well as the number**, since
+12 and 24 are both honest answers to "how many E2E tests" — it just is not the cause of anything here.
+
+**`platform/` still does not exist, and `components/game/` still does not either.** #20's directory
+is `components/play/` because the layer lint matches import specifiers by path segment, so
+`@/components/game/board` reads as a component reaching into the simulation (#57). That is now in
+`ARCHITECTURE.md` next to the module map, where someone about to try it will meet it — the decision
+about whether to *narrow* the rule stays with #57.
+
+**"Every agent is told to work in a worktree" is written down nowhere** (#62). It is the premise of
+#49, of that PR's promotion into M1 ahead of #20, and of two documents' worth of prose. Grepping
+`CLAUDE.md`, `docs/**`, `.claude/agents/*.md` and `.claude/skills/work-item/SKILL.md` finds the
+convention only in the places that *assert* it; `work-item`'s step 2 says `git switch -c` in the main
+checkout. The practice is real — nine worktrees are on this machine — so the instruction lives in a
+launch prompt outside version control. Filed with the other half of the same problem: #49's `Watch`
+note that `rm -rf` under MSYS follows the `node_modules` junction into the **main** checkout was
+never tracked anywhere either, and it is a live foot-gun.
+
+**Next:** #21 — death, winning, and the run summary. It is the only M1 issue that gates the exit and
+it is unblocked. #12, #47, #60 and #61 are the rest of M1 and none of them stand in the way. Note for
+whoever runs the exit playtest: **it is the second playtest, not the first** — the concept checkpoint
+was spent early against #20's branch, so what this one must add is the part that one could not reach,
+both endings and a full run start to finish.
+
+**Watch:** Three.
+
+- **#50's positional date boundary still parses, and it is now the only thing that works.** The two
+  entries above the PR #54 anchor are genuinely dated 2026-07-31, and two fabricated entries *below*
+  it (#25, #13) carry the same date — so the histogram corroboration in #50's body no longer
+  separates real from invented, exactly as its own third comment predicted. Commented there; did not
+  touch its work. `GDD.md`'s change log has the same defect and now carries the same positional note.
+- **The contract-and-tooling list parked in M2 has grown from five to eight** (#57, #58, #62 joined) and
+  M2 has not started. That list's own instruction — split it into its own milestone rather than carry
+  it — has therefore triggered, and the next session to open M2 should act on it.
+- **The layer-seam tail stands at five of the six that ADR-0010's scope note calls a design problem**:
+  #47, #48, #52, #53 and now #57. **#58 is not one of them** and must not be counted — a
+  react-native-web typing bug is not a statement about our layers, and counting it would fire a
+  tripwire that is measuring something else.
+
 ## 2026-07-31 — There is a game on the screen, and you can tap it (#20)
 
 **Did:** The playable screen. A glyph grid built from `Scene.grid`, a five-readout HUD, bump-to-attack

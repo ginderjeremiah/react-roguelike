@@ -239,6 +239,20 @@ test('shuttering hides the room and the ember-sense radius starts climbing', asy
   const remembered = page.getByTestId(far!.id);
   await expect(remembered).toHaveText(far!.glyph);
   await expect(remembered).toHaveCSS('opacity', '0.4');
+
+  // #61's actual repro, and the state "a player sits in for most of a lit stretch": ramp to full,
+  // then re-open. The unit tier covers this, but the browser tier is where the bug was *found*, so
+  // it is covered here too. The reach must go back to sealed rather than reporting the 5 the run
+  // just earned — `Vision.senseRadius` still holds 5 (that is where the ramp keeps its state), and
+  // reporting it raw is what told the player they would keep it.
+  for (let i = 0; i < 3; i += 1) await pressTile(page, page.getByTestId(`tap-wait-${at.x}-${at.y}`));
+  await expect(page.getByTestId('hud-sense')).toHaveText('5/5');
+  await expect(page.getByTestId('hud-sense-note')).toHaveCount(0);
+
+  await press(page, page.getByTestId('control-shutter'));
+  await expect(page.getByTestId('hud-shutter')).toHaveText('OPEN');
+  await expect(page.getByTestId('hud-sense')).toHaveText('—/5');
+  await expect(page.getByTestId('hud-sense-note')).toHaveText('sealed while lit');
 });
 
 test('a press at the edge of a tile hits that tile, after the HUD has changed height', async ({
@@ -305,6 +319,19 @@ test('a press at the edge of a tile hits that tile, after the HUD has changed he
       { moved: after!.y !== before!.y, resized: after!.height !== before!.height },
       'the board must move without resizing, or this test proves nothing',
     ).toEqual({ moved: true, resized: false });
+
+    // **Direction, and far enough to cross a tile edge.** `moved: true` alone passes just as well
+    // if a future trigger moves the board *down*, at which point the top-edge press below stays
+    // inside the same cell and the mutant survives silently — which is exactly what happened once
+    // already in this issue, mirrored. Measured today: HUD 109 -> 97pt, board y 142 -> 136 (half
+    // the HUD delta, because the board is centred in what is left), cell 37pt, and `pressWithin`
+    // clamps its inset to 3pt. So the press clears the boundary by 3pt and no more. Asserting the
+    // margin pins that too: shrink the note's font enough and this would otherwise go quietly
+    // green and useless.
+    expect(
+      before!.y - after!.y,
+      'the board must move UP, by more than the press inset, or the press cannot cross a tile edge',
+    ).toBeGreaterThan(3);
   }
 
   // The identical press must still be the identical tile. With the stale cache this resolved one row

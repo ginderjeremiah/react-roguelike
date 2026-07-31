@@ -65,7 +65,7 @@ playtest. 1085 tests, up from 1084.
 
 **Why:** `Vision.senseRadius` survives `openShutter` — the ramp is triggered by the *act* of
 shuttering, so the number has to persist somewhere — but `perceive` never calls `senseCreatures` on
-the `open` branch, and `shutterLantern` resets to `ADAPTATION_FLOOR`. So the surviving number was
+the `open` branch, and `closeShutter` resets to `ADAPTATION_FLOOR`. So the surviving number was
 **both inoperative and about to be discarded**, and the HUD reported it raw. A player standing with
 the lantern open, deciding whether to go dark, read `EMBER-SENSE 5/5` as "I will still feel
 everything within 5". They would feel one tile, for four turns.

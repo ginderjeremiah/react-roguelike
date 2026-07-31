@@ -6,9 +6,10 @@ half-built system waiting on the next milestone to mean anything.
 Kept in sync with GitHub milestones. Issues live there; this file explains the intent behind them.
 
 **Current milestone: M1 — Playable core.** The simulation, both pure layers above it, and the screen
-are all built. **#21 is the only issue that gates the exit** — death, winning, and the run summary —
-and it is no longer `blocked`. Four M1 issues do not gate it: #12, #47, #60, #61. See "Where M1
-actually stands" below before picking up work.
+are all built, and #21 closed the run loop. **Nothing is left to build: what gates the exit is the
+second `playtester` run** — both endings, on a phone. The open M1 issues (#12, #47, #60, #69, #70)
+are real work that does not stand between the milestone and that playtest. See "Where M1 actually
+stands" below before picking up work.
 
 ---
 
@@ -133,10 +134,12 @@ while it was still open:
   against `COLOR_TOKENS` and for contrast. M4 still owns the values.
 - **The seed is the constant `emberdepth`**, and the playtest brief did say so.
 
-**What is left in M1 is #21 and four issues that do not gate it.** #21 carries the exit criterion in
-its own body — the summary screen, both endings, and an E2E path over a full run — and it lost its
-`blocked` label when #20 merged. #12, #47, #60 and #61 are real work that does not stand between the
-milestone and its exit.
+**What is left in M1 is a playtest, not a feature.** #21 merged with the summary screen, both
+endings, and an E2E path over a full run — so the exit criterion is now a thing to *check* rather
+than a thing to build. #12, #47, #60, #69 and #70 are real work that does not stand between the
+milestone and that check; **#60 is the one worth clearing first**, because a silent tap on a distant
+tile is the first interaction a new player will try and it reads as a broken touch, which would cost
+the playtest a finding about the game rather than about the input.
 
 **The concept checkpoint was spent early, at #20 rather than at #21.** The exit criteria below say
 the first `playtester` run is M1's exit; in fact it ran against #20's branch, six runs on the fixed

@@ -95,7 +95,7 @@ export type ShutterHud = {
  *
  * `Vision.senseRadius` keeps its value across `openShutter` — the ramp is triggered by the *act* of
  * shuttering, so the number has to survive somewhere. But `perceive` never calls `senseCreatures`
- * on the `open` branch: **while lit you feel nothing through stone.** And `shutterLantern` resets to
+ * on the `open` branch: **while lit you feel nothing through stone.** And `closeShutter` resets to
  * `ADAPTATION_FLOOR`, so the surviving number is not merely inoperative, it is about to be thrown
  * away.
  *

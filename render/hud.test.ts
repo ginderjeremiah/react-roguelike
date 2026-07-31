@@ -195,7 +195,7 @@ describe('ember-sense (§4: the adaptation ramp is invisible without this)', () 
     //
     // `Vision.senseRadius` survives `openShutter` — the ramp is triggered by the *act* of
     // shuttering, so the number has to persist somewhere. But `perceive` never calls
-    // `senseCreatures` on the open branch, and `shutterLantern` resets to ADAPTATION_FLOOR. So the
+    // `senseCreatures` on the open branch, and `closeShutter` resets to ADAPTATION_FLOOR. So the
     // surviving number is inoperative AND about to be discarded, and reporting it raw told the
     // player "go dark and you will still feel everything within 5" when the truth is one tile for
     // four turns.

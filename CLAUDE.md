@@ -57,7 +57,8 @@ Note that `npm run lint` runs `eslint .`, **not** `expo lint`. The latter silent
 ```
 game/       pure TypeScript simulation. no React, no I/O, no platform APIs. deterministic.
 render/     translates game state -> presentation model. pure, still no React Native.
-session/    owns a run: seed -> Run -> intents -> Scene. pure. only caller of step() above game/.
+session/    owns a run: seed -> Run -> intents -> Scene. pure. in shipping code, the only caller
+            of step() above game/ — tests and fixtures call it directly and that is fine.
 components/ React Native components. dumb. props in, pixels out.
 app/        expo-router screens. wiring only — may wire session/, render/, components/. never game/.
 platform/   the only place allowed to touch storage, time, or device APIs. behind interfaces.

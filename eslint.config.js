@@ -323,7 +323,10 @@ module.exports = defineConfig([
 
   // --- session/ owns the run: pure TypeScript, may depend on render/ and game/ -----------------
   //
-  // The layer exists so that GameState stops being nameable above it (ADR-0010), which only works
+  // The layer exists so that GameState stops being *obtainable* above it (ADR-0010) — obtainable,
+  // not nameable, and the distinction is the whole finding of PR #51: render/'s barrel is legal
+  // from components/ and its API necessarily names GameState, so the TYPE is still reachable via
+  // `Parameters<typeof presentScene>[0]`. What session/ guards is the VALUE. This only works
   // if session/ itself stays testable in Vitest with no DOM — the moment a `react-native` import
   // lands here, the layer that is supposed to be the last pure one stops being pure and the run
   // can only be exercised through a component.

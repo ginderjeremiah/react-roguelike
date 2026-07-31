@@ -159,9 +159,8 @@ Two properties, both structural rather than documented, because a guarantee noth
   worth reading before relying on any "private because unspellable" argument: **unspellable is not
   unreachable** — `keyof`, indexed access, implicit index signatures and `infer` all construct
   references to things no source file can write. The residual is a deliberate double cast
-  (`as unknown as`), which is
-  loud and reviewable; each mechanism is asserted separately, and the exploit is kept verbatim as a
-  regression test.
+  (`as unknown as`), which is loud and reviewable; each mechanism is asserted separately, and the
+  exploit is kept verbatim as a regression test.
 - **`Command` never crosses the seam.** Four intent functions rather than `apply(run, command)`, so
   `components/` never needs `game/core/command.ts` to build one. What crosses is a verb plus plain
   data — a `Direction`, a `ShutterState` — and those two are re-exported so a component can name what

@@ -26,6 +26,8 @@ own work without a human playing the game.
 │ app/         expo-router screens, wiring     │
 │ components/  React Native views              │  React lives here and only here
 ├─────────────────────────────────────────────┤
+│ session/     owns a run: seed -> Run -> Scene│  pure TS, no React
+├─────────────────────────────────────────────┤
 │ render/      GameState -> presentation model │  pure TS, no React
 ├─────────────────────────────────────────────┤
 │ game/        the simulation                  │  pure TS, deterministic
@@ -36,9 +38,15 @@ own work without a human playing the game.
 Dependencies point **strictly downward**. `game/` imports nothing from any other layer. An ESLint
 `no-restricted-imports` rule enforces this; it is not a convention, it is a build failure.
 
-**What exists today:** `game/`, `render/`, `app/`, `components/`. **`platform/` is not built yet** —
-its lint rules are already written and will bite the moment the directory appears. `components/` and
-`app/` still hold only the Expo starter; the real UI is issue #20.
+**What exists today:** `game/`, `render/`, `session/`, `app/`, `components/`. **`platform/` is not
+built yet** — its lint rules are already written and will bite the moment the directory appears.
+`components/` and `app/` still hold only the Expo starter; the real UI is issue #20.
+
+Five layers is a lot, and each boundary is meant to be load-bearing rather than tidy: `game/` is
+determinism, `render/` is ADR-0003's renderer swap, `session/` is the type-level seam that stops
+`GameState` being obtainable, `components/` is where React is allowed to exist, `app/` is routing. A
+proposal for a sixth has to clear that bar — see ADR-0010's *Consequences*, which is deliberately
+honest about the cost.
 
 ### `game/` — the simulation
 
@@ -71,7 +79,8 @@ harder to wave away):
 - No `Math.random()`. Randomness comes from the `Rng` **value** threaded through state — it is
   four immutable words, not an object with methods, and every draw returns the next one.
 - No `Date.now()`, `new Date()`, `performance.now()`. The simulation has no clock; it has turns.
-- No imports from `react`, `react-native`, `expo-*`, `app/`, `components/`, `render/`, `platform/`.
+- No imports from `react`, `react-native`, `expo-*`, `app/`, `components/`, `session/`, `render/`,
+  `platform/`.
 - No `async`, no promises, no I/O.
 - **No iteration-order dependence.** Iterating a `Set`, `Map`, or object's keys and letting that
   order affect the simulation is a determinism bug that lint cannot catch. Sort by a stable key
@@ -117,11 +126,66 @@ This layer exists specifically so the renderer can be swapped. `components/` con
 presentation model, never `GameState` directly. When we eventually want a Skia canvas or sprite
 tiles, only `components/` changes — that is the whole point of ADR-0003.
 
+**Its caller is `session/`.** Both functions take a `GameState`, so nothing that cannot legally hold
+one can call them — which is not a limitation of this layer but the reason the one above it exists.
+
+### `session/` — who owns the run
+
+Pure TypeScript, still no React, still Vitest-tested. It holds a run and advances it, so that nothing
+above it needs a `GameState` to do either. **ADR-0010** is the decision and `session/run.ts`'s header
+is the argument; the short version is that `render/` could not be the home, because its public API
+necessarily names `GameState` and one module cannot both expose and hide the same type.
+
+```ts
+beginRun(seed) -> Run      move(run, dir) / wait(run) / setShutter(run, to) / descend(run) -> Run
+sceneOf(run) -> Scene      cuesOf(run) -> readonly Cue[]
+```
+
+Two properties, both structural rather than documented, because a guarantee nothing checks decays:
+
+- **`Run` is opaque:** nothing above the layer can reach a `GameState` **through a `Run`** without an
+  explicit, visible cast. The `GameState` *type* is still nameable above the seam through `render/`'s
+  barrel (`Parameters<typeof presentScene>[0]`), which is pre-existing from #19/#42, tracked
+  separately, and is the same fact that decided ADR-0010 — `render/`'s API necessarily names
+  `GameState`, which is why the run could not live there. It hands out a shape and never a value;
+  the live state is what `Run` guards. Three mechanisms, all structural — the state sits behind a
+  module-private `unique symbol` that is never exported; `Run` is declared as an `interface`, which
+  has no implicit index signature; and its property type is `never`, so `Run[keyof Run]` projects
+  nothing. The import ban above the seam is a *proxy* for "nothing up there inspects a `GameState`";
+  this makes the property itself true and demotes the lint rule and the scanner to a second line of
+  defence. **The last two mechanisms were added after review of PR #51 found a component-legal
+  exploit** that used `Run[keyof Run]['state']` and a type alias's implicit index signature to reach
+  `GameState` with no cast and full autocomplete. The generalisable lesson is in ADR-0010 §1 and is
+  worth reading before relying on any "private because unspellable" argument: **unspellable is not
+  unreachable** — `keyof`, indexed access, implicit index signatures and `infer` all construct
+  references to things no source file can write. The residual is a deliberate double cast
+  (`as unknown as`), which is loud and reviewable; each mechanism is asserted separately, and the
+  exploit is kept verbatim as a regression test.
+- **`Command` never crosses the seam.** Four intent functions rather than `apply(run, command)`, so
+  `components/` never needs `game/core/command.ts` to build one. What crosses is a verb plus plain
+  data — a `Direction`, a `ShutterState` — and those two are re-exported so a component can name what
+  it passes. It is also what makes ADR-0009 cheap: `travel(run, to)` in M2 is one more function.
+
+`session/` is where the previous scene lives, which is what keeps `render/`'s cell reuse — and
+therefore `React.memo` — actually working. A refused intent returns a **new** `Run` (§2 requires
+feedback for an illegal tap) whose `Scene` is the **previous object by reference** (so the board does
+not repaint). Both halves are tested; each is one token away from being wrong.
+
+Deliberately absent: a command log (M4, with save/resume), a stored predecessor `GameState` (nothing
+reads it once cues are computed), and any opinion about where a seed comes from (a clock question,
+therefore `platform/`'s).
+
 ### `components/` and `app/`
 
 React Native. Deliberately dumb: take a presentation model, render it, emit user intents upward as
-commands. No game rules here. If you find yourself writing `if (enemy.hp <= 0)` in a component,
-that logic belongs in `game/`.
+`session/` calls. No game rules here. If you find yourself writing `if (enemy.hp <= 0)` in a
+component, that logic belongs in `game/`.
+
+**`app/` is wiring only, and what it may wire is `session/`, `render/` and `components/` — never
+`game/`.** Concretely: begin a run, hold the `Run` in state, hand `sceneOf(run)` and `cuesOf(run)`
+to components, and turn a callback into an intent. Anything that needs a `GameState` to express is
+not wiring, and the answer is a function in `session/` or a field in `render/`'s model, not an
+exemption here. ADR-0010 rejected such an exemption explicitly, and says why at length.
 
 Animation (Reanimated) lives here and only here. Animations are cosmetic; the simulation never
 waits on them.
@@ -209,7 +273,7 @@ Three tiers, each catching what the tier below cannot:
 
 | Tier | Tool | Covers |
 | --- | --- | --- |
-| Unit / property | Vitest | `game/` and `render/`. The bulk of the tests — 917 across 51 files today. Fast, no DOM. |
+| Unit / property | Vitest | `game/`, `render/` and `session/` — every pure layer. The bulk of the tests. Fast, no DOM. |
 | Replay | Vitest | Recorded runs reproduce byte-identically. The determinism tripwire. |
 | End-to-end | Playwright | The real built web app in a real browser. Input, rendering, persistence. |
 

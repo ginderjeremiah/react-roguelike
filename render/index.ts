@@ -4,7 +4,7 @@
  * ```ts
  * import { cuesFor, presentScene, type Scene } from '@/render';
  *
- * // in a hook, holding the previous state and the previous scene:
+ * // in `session/`, which holds the previous state and the previous scene:
  * const scene = presentScene(next, previousScene);   // board + HUD, cells reused where unchanged
  * const cues = cuesFor(previous, next);              // what happened, as data
  * ```
@@ -20,12 +20,32 @@
  * `render/` is pure TypeScript. No React, no React Native, no Expo, no `.tsx`, no animation library.
  * The same rules apply upward that `game/`'s apply downward, and the same two gates enforce them.
  *
+ * ## Who calls this, and who does not
+ *
+ * **`session/` does** (ADR-0010). Both functions below take a `GameState`, so the caller has to be
+ * able to hold one — and nothing above `session/` can, which was the hole #45 was filed about. The
+ * previous state and the previous scene are held *there*, in an opaque `Run`, and `components/`
+ * receives `sceneOf(run)` and `cuesOf(run)` having never seen either.
+ *
+ * That division is not tidiness. This module's public API necessarily **names** `GameState`, so it
+ * cannot also be the place a `GameState` stops being obtainable; one module cannot both hand out the
+ * type and hide the value. Keep it that way — an opaque run handle exported from here would hand
+ * `components/` the key and the lock in a single import.
+ *
+ * A live consequence of that, worth knowing before relying on this seam: because these signatures
+ * name `GameState`, a `components/`-legal file can recover the type with
+ * `Parameters<typeof presentScene>[0]` — and a `CreatureActor` from `glyphForCreature` — with no
+ * `@/game` import and no cast. It yields types, never values, so it does not reach the run's state
+ * (that is `session/`'s `Run`, ADR-0010 §1). It does mean the claim a few lines above about handing
+ * out no `Actor` is narrower than it reads. Pre-existing from #19/#42 and **tracked as its own
+ * issue**; do not fix it here.
+ *
  * ## The two functions, and why they are two
  *
  * A `Scene` is a function of **one** state; a `Cue` is a function of **two**. Fusing them would mean
  * a single call that cannot answer either question on its own — you could not present the opening
  * board, which has no predecessor, without inventing a null state to diff against. So they are
- * separate, `app/` holds the one extra reference, and each is testable at its own arity.
+ * separate, `session/` holds the one extra reference, and each is testable at its own arity.
  *
  * ## What is decided here, so that nothing above has to decide it
  *

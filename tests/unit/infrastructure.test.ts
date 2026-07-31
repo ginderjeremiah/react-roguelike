@@ -101,6 +101,25 @@ const FRAMEWORK_PACKAGES = [
   /^@expo\//,
 ];
 
+/**
+ * What each pure layer sits underneath. Dependencies point strictly downward:
+ *
+ *   app/ -> components/ -> session/ -> render/ -> game/
+ *
+ * Named rather than inlined at each call site because the fixture test below has to be handed the
+ * *same* list as the contract test it stands in for. Two hand-copied arrays is how you get a
+ * scanner proven against `['app', 'components', 'render', 'platform']` while the real check runs
+ * against a shorter list nobody noticed was short.
+ *
+ * `session` is on the first two lists and not the third: it owns the run, so it calls into `game/`
+ * and `render/` and neither may call back (ADR-0010). `platform/` is deliberately absent from the
+ * upper two — it is a sibling of the pure layers, not a layer above them, and the same is true here
+ * as it has always been for `render/`.
+ */
+const ABOVE_GAME = ['app', 'components', 'render', 'platform', 'session'];
+const ABOVE_RENDER = ['app', 'components', 'session'];
+const ABOVE_SESSION = ['app', 'components'];
+
 type Violation = { file: string; detail: string };
 
 function scanDeterminism(source: string, label: string): Violation[] {
@@ -209,9 +228,7 @@ describe('contract scanner', () => {
 
   it('detects upward imports at any nesting depth, including relative paths', () => {
     const source = fs.readFileSync(path.join(FIXTURES, 'upward-imports.ts.fixture'), 'utf8');
-    const found = scanLayering(source, 'fixture', ['app', 'components', 'render', 'platform']).map(
-      (v) => v.detail,
-    );
+    const found = scanLayering(source, 'fixture', ABOVE_GAME).map((v) => v.detail);
 
     // The relative-depth cases are the point: a scanner that only handles `../x` misses these.
     expect(found).toEqual(
@@ -220,6 +237,7 @@ describe('contract scanner', () => {
         "imports render/ via '../../../render/model'",
         "imports platform/ via '../platform/save'",
         "imports app/ via '@/app/index'",
+        "imports session/ via '@/session'", // bare directory behind the alias — no subpath
         "imports framework package 'react-native'",
         "imports framework package 'react'",
         "imports framework package 'expo-haptics'",
@@ -229,7 +247,12 @@ describe('contract scanner', () => {
     );
     // Exact count, not just arrayContaining: a scanner regression that OVER-reports would
     // otherwise pass this test unnoticed.
-    expect(found).toHaveLength(9);
+    //
+    // It is also the reason adding `session` to ABOVE_GAME had to come with a new line in the
+    // fixture. Widening the forbidden list without widening the fixture leaves this number where it
+    // was, which reads as "nothing broke" and actually means "the new layer is never exercised".
+    // Was 9 before ADR-0010.
+    expect(found).toHaveLength(10);
   });
 
   it('does not flag legitimate imports', () => {
@@ -242,7 +265,18 @@ describe('contract scanner', () => {
     ].join('\n');
 
     expect(scanDeterminism(clean, 'clean')).toEqual([]);
-    expect(scanLayering(clean, 'clean', ['app', 'components', 'render', 'platform'])).toEqual([]);
+    expect(scanLayering(clean, 'clean', ABOVE_GAME)).toEqual([]);
+
+    // The other direction, and the one a too-eager list would break: session/ is *supposed* to
+    // import the two layers under it. If these ever start reporting, the new rule has been written
+    // as "session/ imports nothing" and the layer is unimplementable.
+    const downward = [
+      "import { presentScene } from '../render';",
+      "import { step } from '../game/core';",
+      "import type { Cue } from '@/render';",
+    ].join('\n');
+
+    expect(scanLayering(downward, 'downward', ABOVE_SESSION)).toEqual([]);
   });
 
   it('ignores comments and string literals', () => {
@@ -256,14 +290,16 @@ describe('contract scanner', () => {
       ' */',
       "const HINT = 'do not call Date.now() or performance.now()';",
       '// new Date() is banned in game/',
+      // Now that the determinism scan covers session/ too, this exact sentence is one somebody is
+      // going to write there — ADR-0010 explains at length that beginRun takes a seed because
+      // choosing one reads a clock. The doc that explains the rule must not trip the rule.
+      '// The seed cannot come from Date.now(): choosing one is platform/ work. See ADR-0010.',
       'export const seedFrom = (s: string) => s.length;',
       'export { HINT };',
     ].join('\n');
 
     expect(scanDeterminism(documented, 'documented')).toEqual([]);
-    expect(scanLayering(documented, 'documented', ['app', 'components', 'render', 'platform'])).toEqual(
-      [],
-    );
+    expect(scanLayering(documented, 'documented', ABOVE_GAME)).toEqual([]);
   });
 
   it('still flags real violations that sit next to prose', () => {
@@ -276,18 +312,37 @@ describe('contract scanner', () => {
 // --- The contracts themselves -------------------------------------------------------------------
 
 describe('determinism contract', () => {
-  it('game/ contains no source of nondeterminism', () => {
-    const violations = sourceFiles('game').flatMap(({ abs, label }) =>
-      scanDeterminism(fs.readFileSync(abs, 'utf8'), label),
-    );
-    expect(violations.map((v) => `${v.file}: ${v.detail}`)).toEqual([]);
-  });
+  // All three pure layers, not just game/. The contract is that a run is a pure function of
+  // (seed, inputs), and every layer below components/ is part of one:
+  //
+  //   - session/ decides what a run begins from. `beginRun(String(Date.now()))` is the most natural
+  //     line anyone will ever write in this repo and it makes every run unreproducible, while game/
+  //     stays provably pure and the layer gates stay green. This scan is what catches it.
+  //   - render/ turns a state into a Scene. A clock read there makes what is on screen depend on
+  //     *when* it was asked for, which no seed can reproduce and no replay test can pin.
+  //
+  // A separate `it` per layer rather than one flat-mapped scan, so the failure names the layer
+  // instead of making you read a path out of an array diff.
+  for (const dir of ['game', 'render', 'session'] as const) {
+    it(`${dir}/ contains no source of nondeterminism`, () => {
+      const files = sourceFiles(dir);
+      // A vacuous pass is the failure mode this whole file exists to prevent: if the directory is
+      // gone or renamed, sourceFiles() returns [] and the assertion below is [] === [].
+      expect(files.length, `no source files found under ${dir}/ — did the directory move?`)
+        .toBeGreaterThan(0);
+
+      const violations = files.flatMap(({ abs, label }) =>
+        scanDeterminism(fs.readFileSync(abs, 'utf8'), label),
+      );
+      expect(violations.map((v) => `${v.file}: ${v.detail}`)).toEqual([]);
+    });
+  }
 });
 
 describe('layer contract', () => {
   it('game/ does not import from the layers above it', () => {
     const violations = sourceFiles('game').flatMap(({ abs, label }) =>
-      scanLayering(fs.readFileSync(abs, 'utf8'), label, ['app', 'components', 'render', 'platform']),
+      scanLayering(fs.readFileSync(abs, 'utf8'), label, ABOVE_GAME),
     );
     expect(violations.map((v) => `${v.file}: ${v.detail}`)).toEqual([]);
   });
@@ -297,7 +352,22 @@ describe('layer contract', () => {
     // unscanned here. It is pure TypeScript too, and the seam it forms is what makes the
     // renderer swappable (ADR-0003).
     const violations = sourceFiles('render').flatMap(({ abs, label }) =>
-      scanLayering(fs.readFileSync(abs, 'utf8'), label, ['app', 'components']),
+      scanLayering(fs.readFileSync(abs, 'utf8'), label, ABOVE_RENDER),
+    );
+    expect(violations.map((v) => `${v.file}: ${v.detail}`)).toEqual([]);
+  });
+
+  it('session/ does not import from the layers above it', () => {
+    // session/ is the layer that makes the ban on `components/ -> game/` survivable (ADR-0010): it
+    // holds the GameState so nothing above it has to. That only works while session/ is itself
+    // pure — a `react-native` import here, or a reach back down into components/ for a theme
+    // constant, and the last layer that can be exercised without a browser stops being one.
+    //
+    // Not a duplicate of the ESLint block: this also sees `await import('@/components/x')` and
+    // `require('react-native')`, which `no-restricted-imports` does not inspect at all, and it
+    // keeps working if someone adds an inline eslint-disable.
+    const violations = sourceFiles('session').flatMap(({ abs, label }) =>
+      scanLayering(fs.readFileSync(abs, 'utf8'), label, ABOVE_SESSION),
     );
     expect(violations.map((v) => `${v.file}: ${v.detail}`)).toEqual([]);
   });
@@ -305,8 +375,29 @@ describe('layer contract', () => {
   it('components/ and app/ do not reach into game/', () => {
     // ESLint covers the static-import case; this also catches `await import('@/game/step')`,
     // which no-restricted-imports does not inspect at all.
-    const violations = [...sourceFiles('components'), ...sourceFiles('app')].flatMap(
-      ({ abs, label }) => scanLayering(fs.readFileSync(abs, 'utf8'), label, ['game'], false),
+    //
+    // ── The third path is a test file, deliberately, and it is the only one in this suite. ──────
+    // `tests/unit/session-consumer.test.ts` is ADR-0010's proof that obeying a component's import
+    // rules is *sufficient* to build a UI — it gets from `beginRun()` to a rendered `Scene` using
+    // only `@/session` and `@/render`. Its own header calls it "the one file in the repo bound by a
+    // component's import rules", and until this line that sentence was false: `eslint.config.js`
+    // switches `no-restricted-imports` off for `tests/**`, and the scan above walks only
+    // `components/` and `app/`. So a future agent could add `import { step } from '@/game/core'` to
+    // make a type resolve, all three gates would stay green, and the repo's only
+    // proof-of-reachability-from-outside would quietly stop being from outside — while still
+    // *reading* as proof, which is the exact failure mode PR #51 was sent back for.
+    //
+    // `sourceFiles` excludes `*.test.*` by design, so this is named explicitly rather than by
+    // widening that helper: it is one file with a specific job, not a new category of scanned file.
+    const violations = [
+      ...sourceFiles('components'),
+      ...sourceFiles('app'),
+      {
+        abs: path.join(ROOT, 'tests', 'unit', 'session-consumer.test.ts'),
+        label: 'tests/unit/session-consumer.test.ts',
+      },
+    ].flatMap(({ abs, label }) =>
+      scanLayering(fs.readFileSync(abs, 'utf8'), label, ['game'], false),
     );
     expect(violations.map((v) => `${v.file}: ${v.detail}`)).toEqual([]);
   });
@@ -377,10 +468,15 @@ describe('layer contract', () => {
   });
 
   it('the pure layers contain only .ts files', () => {
-    // A .tsx or .js under game/ or render/ is itself a violation — those layers have no JSX and
-    // no untyped code. Asserting this directly is stronger than widening every rule's glob to
-    // cover extensions that should never appear.
-    const stray = [...sourceFiles('game'), ...sourceFiles('render')]
+    // A .tsx or .js under game/, render/ or session/ is itself a violation — those layers have no
+    // JSX and no untyped code. Asserting this directly is stronger than widening every rule's glob
+    // to cover extensions that should never appear.
+    //
+    // For session/ the .tsx case is the live temptation, not a hypothetical: the layer's whole job
+    // is to be called from React, so the shortest path from `beginRun` to a screen is a
+    // `useRun.tsx` hook parked next to `run.ts`. That file would be a React component in the last
+    // pure layer, and every rule above is scoped by directory, so nothing else would object.
+    const stray = [...sourceFiles('game'), ...sourceFiles('render'), ...sourceFiles('session')]
       .filter(({ label }) => !label.endsWith('.ts'))
       .map(({ label }) => label);
 

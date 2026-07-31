@@ -16,9 +16,15 @@ aspirations.
 ## The boundary you protect
 
 ```
-game/  ──>  render/  ──>  components/  ──>  app/
-       GameState    presentation model
+game/  ──>  render/  ──>  session/  ──>  components/  ──>  app/
+       GameState    presentation model   opaque Run
 ```
+
+**You cannot import `game/`, so you cannot call `step()` — go through `session/`.** It is the only
+place a run can be started or advanced: `beginRun(seed)`, `move`/`wait`/`setShutter`/`descend`,
+`sceneOf`, `cuesOf`. What it hands you is an opaque `Run` with no readable member, plus a `Scene`
+and a list of `Cue`s. If you find yourself wanting a field off the simulation, the answer is missing
+from `render/` and belongs there — not in a component. See ADR-0010.
 
 `render/` converts `GameState` into a flat, dumb presentation model — cells with glyphs, colors,
 opacity; HUD values; animation cues. Pure TypeScript, no React, fully unit-tested.

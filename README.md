@@ -53,6 +53,7 @@ reads each diff, the project has to verify itself:
 ```
 game/       pure deterministic simulation — no React, no I/O, no clock
 render/     GameState -> presentation model — pure, still no React Native
+session/    owns a run — hands out an opaque `Run`, never a `GameState` (ADR-0010)
 components/ React Native views — dumb, props in, pixels out
 app/        expo-router screens — wiring only
 platform/   storage and device APIs, behind interfaces

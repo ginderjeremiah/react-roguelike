@@ -27,7 +27,7 @@ Closes #
 
 - [ ] `game/` is still pure and deterministic — no `Math.random()`, no clock, no upward imports
 - [ ] No iteration over `Set`/`Map`/object keys where order affects the simulation
-- [ ] Layer boundaries respected (`game/` → `render/` → `components/` → `app/`)
+- [ ] Layer boundaries respected (`game/` → `render/` → `session/` → `components/` → `app/`)
 - [ ] `docs/JOURNAL.md` updated in this PR
 - [ ] Docs updated if behavior, architecture, or design changed
 

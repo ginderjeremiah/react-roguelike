@@ -34,6 +34,155 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-07-30 — `session/` owns the run, and `Run` hides `GameState` from the type system up (#45)
+
+**Did:** Added a fifth layer. `session/` sits above `render/` and below `components/`, owns a run,
+and is the only place above `game/` where a `Command` value exists. Seven functions —
+`beginRun(seed)`, `move`/`wait`/`setShutter`/`descend`, `sceneOf`, `cuesOf` — and one opaque type.
+[ADR-0010](decisions/0010-session-layer-owns-the-run.md) is the record. Both contract gates moved
+together, and the determinism rules that had been scoped to `game/` alone now cover all three pure
+layers. 956 tests, up from 917.
+
+**Why:** #19 shipped `presentScene(state)` and nothing in the repository could legally call it.
+`components/` and `app/` are banned from importing `game/` — twice, deliberately, and both gates are
+right — so there was no legal home for `createInitialState()` or `step()`. #20 had nowhere to stand.
+
+**The decision that mattered was not *where*, it was that the import ban is a proxy.** The property
+anyone actually wants is *nothing above the seam inspects a `GameState`*. An import rule approximates
+that mechanically and, like every proxy, can be satisfied while the property is violated: hand a
+component `{ state: GameState }` and both gates stay green while `run.state.world.actors[0].hp`
+compiles, because structural typing does not need the import to reach the field. So the answer had to
+make the *property* structural.
+
+It does, but **the first attempt did not, and the correction is the most useful thing in this
+entry.** The shape that shipped for review was
+`export type Run = { readonly [RUN_STATE]: RunInternals }`, justified on the grounds that the key was
+a module-private `unique symbol` nobody could write. The `code-reviewer` requested changes with a
+working exploit: a `components/`-legal file that named `GameState` and read simulation fields with
+**no cast, no `any`, no `@ts-expect-error` and no `game/` import**, all three gates green, with full
+autocomplete — `tsc` would report `Property 'turn' does not exist on type 'GameState'` from inside
+`components/`. Two independent mechanisms, either sufficient alone:
+
+1. **A key you cannot write can still be computed.** `keyof Run` *is* the symbol, so
+   `Run[keyof Run]['state']` resolved to `GameState`, by name.
+2. **A `type` alias gets an implicit index signature.** `const record: Record<symbol, T> = run` was a
+   plain assignment; the symbol reflected off the object then indexed it.
+
+The fix is two words: `Run` is now an **`interface`** (no implicit index signature) whose property
+type is **`never`** (nothing to project through `Run[keyof Run]`), with the real internals reached
+through one private cast pair. Verified by mutating each word back and watching a *named* test go
+red — `interface`→`type` reports the index-signature directive unused; `never`→`RunInternals` fails
+the `IsNever` assertion and two more directives.
+
+**The generalisable lesson: unspellable is not unreachable.** `keyof`, indexed access, implicit index
+signatures and `infer` all construct references to things no source file can spell. Any future
+"private because you cannot name it" argument in this repo should be tested against those four first.
+
+**And the test that was there was worse than no test.** Its comment claimed "nothing the compiler
+accepts can get there" while its body asserted only that one expression errors — so it could not fail
+when the property it named was violated, and it read as proof, which is what stops the next person
+looking. Each mechanism is now asserted separately, and the exploit is kept verbatim in
+`tests/unit/session-consumer.test.ts` because a regression test for a hole belongs at the position
+the hole was reachable from. Mechanism 1 needs a *positive* `IsNever` assertion rather than a
+`@ts-expect-error`, because `Run[keyof Run]['state']` does **not** error when the property is
+`never` — it silently resolves to `never`, so the directive would be flagged unused and the test
+would fail for the wrong reason while a real regression passed.
+
+**The residual, stated rather than discovered:** `(run as unknown as ...)[getOwnPropertySymbols(run)[0]]`
+still reaches the state, because it really is a property of a real object. Accepted — the argument is
+about review, not types. The path that had to be closed was the one that *looked like ordinary code*;
+a double cast beside `getOwnPropertySymbols` in a component is loud, greppable and the kind of line
+review stops on. Both test files pin it so it stays a known quantity.
+
+**Then the correction was itself sent back, and this is the more useful half of the story.** The
+replacement claim — "nothing above `session/` can name a `GameState`" — was *also* too strong by one
+clause. `@/render` is legal from `components/`, and its API necessarily names `GameState`, so
+`Parameters<typeof presentScene>[0]` hands a component the real type with autocomplete and the
+identical `Property 'turn' does not exist on type 'GameState'` message we had been quoting as the
+exploit we closed. Same route via `cuesFor`, `perceivedCreatures`, and `glyphForCreature` (which
+yields a `CreatureActor`, falsifying `render/index.ts`'s "nothing in here hands out a `Tile`, an
+`Actor`, or an id you could ask a question of").
+
+That is **the same fact that decided this ADR** — `render/`'s API naming `GameState` is exactly why
+the run could not live in `render/` — so the correction overreached past a limit the document states
+correctly two sections later. The property is now scoped to what was actually tested: *nothing above
+this layer can reach a `GameState` **through a `Run`** without an explicit, visible cast.* The type
+route is pre-existing from #19/#42 and is filed separately. It does not weaken `Run`: a type you
+cannot obtain a *value* of buys nothing, nothing in `render/`'s surface returns a `GameState`, and
+the live state of the run in hand is what `Run` guards.
+
+**Three drafts of one sentence, and the lesson is the sentence-level one:** check the scope of a
+correction as hard as the claim it corrects. Both failures were a clause wider than the evidence.
+
+**`render/` was the runner-up and the issue's stated objection to it was wrong**, which is worth more
+than the conclusion. The objection was that a run controller "costs `render/` a stateful surface in a
+layer that is currently a pure function". It does not — a `Run` written as a value-reducer is
+perfectly pure, and that is exactly what `session/` implements. Purity does not settle it. What does:
+**`render/` must export `presentScene(state: GameState)`, so its public API necessarily names
+`GameState`.** The session layer's whole job is to be the place a `GameState` stops being
+*obtainable* — one module cannot both hand out the type and hide the value. (Note the consequence,
+which is the finding above: because `render/` still names the type, the seam bounds what you can
+*get*, not what you can *say*.) An `app/` exemption lost on the proxy argument
+above, plus this repo's own history — a contract rule with a hole in it is a rule that quietly stops
+being enforced, because the hole is where the next person puts the thing that did not fit.
+
+**`Command` never crosses the seam, and that is why there are four intents and not one `apply`.**
+`apply(run, command)` is one function instead of four and needs no edit when a fifth command lands —
+and it forces `components/` to *build* a `Command`, which lives in `game/core/command.ts`. Either the
+component imports `game/` or `session/` re-exports the type and the seam is decorative. What crosses
+instead is a verb plus plain data. ADR-0009's constraint then falls out free: adding
+`travel(run, to)` in M2 is one more function here, not a restructuring.
+
+**Learned:** Three things, and the second is the one that generalises.
+
+**The determinism rules were scoped to `game/` only, and `session/` is the worst possible layer for
+that hole.** A `Date.now()` seed in `session/` breaks run-level reproducibility while `game/` stays
+provably pure — the prime directive violated with every gate green. Found by the `test-engineer`
+while updating the gates, and taken in this PR rather than deferred: an issue about not leaving holes
+in layer enforcement should not ship a new layer with a hole in it. Now `game/`, `render/` and
+`session/` share one `DETERMINISM_RULES` set, verified by 15 planted probes — three layers × five
+sources × both gates. The async/promise/IO bans deliberately did **not** come along: `game/` is a
+synchronous reducer, but `platform/`'s `SaveStore` returns promises by design, so banning them in
+`session/` would be a rule we repeal the moment save/resume lands — and a repealed rule teaches
+people rules are negotiable. That reasoning is now in `eslint.config.js` rather than in this file
+alone, because the next agent to see `session/` allowing promises will otherwise "fix" it.
+
+**`npm run build:web` and `npm run test:e2e` do not work inside a git worktree — which is where every
+agent is told to work.** `metro.config.js` blocks `.claude/worktrees/` by absolute path, so a build
+run *from inside* a worktree blocklists its own `app/` routes and dies with `No routes found`;
+Playwright's tsconfig resolver does not walk up to the main checkout's `node_modules` the way node,
+tsc and Vitest all do, so it fails before running a test. Both confirmed by experiment — removing the
+one blockList line produced 3 routes and a successful export, and a `node_modules` junction made all
+4 specs pass. **`npm run verify` works fine, which is exactly what makes this dangerous:** CI runs on
+a clean checkout, so it is green and stays green, and the realistic failure is not a red build but
+agents reporting "E2E green" having never run it. Same shape as the `expo lint` episode. Filed as #49
+with the diagnosis and a fix sketch; verified that `eslint.config.js`'s superficially-similar ignore
+is *not* affected, so nobody fixes it by analogy.
+
+**The journal's dates are fabricated from 2026-07-31 onward.** Entries run to 2026-08-07 and ADR-0009
+and ADR-0010 were dated the same way; `git log` says every commit in this repository landed on
+**2026-07-30**, and so does the system clock. Past sessions invented forward dates, and the #19 entry
+is misdated such that it sits above entries dated a week later — in a file whose entire contract is
+"newest first". ADR-0010's date is corrected here to the real one and this entry uses it. The rest is
+left alone deliberately: rewriting a dozen historical dates is an archivist job with its own review,
+not a rider on this PR. **Do not date an entry by copying the entry above it.**
+
+**Next:** #20 is unblocked and is the only thing standing between M1 and its exit criteria. It gets
+`beginRun` in a `useState` and three function calls; `const [run, setRun] = useState(() =>
+beginRun(seed))`, `setRun(move(run, 'north'))`. Two constraints it still inherits from #19 — the
+provisional colour table does not exist, and no layer yet says which of the four neighbours is a
+*legal* tap target (§9), which is a game rule and must not end up as a `blocksMovement` call in a
+`.tsx`.
+
+**Watch:** Four. **The seed is a constant** until #47 gives `platform/` a clock — every run is the
+same run, which will confuse the first playtest if nobody remembers it was deliberate. **`Run`'s
+opacity rests on `tsc` alone**; neither gate would notice if `index.ts` started re-exporting the key,
+so `npm run verify` is load-bearing in a way the two contract gates are not. **Naming a source file
+`*.test.ts` bypasses both gates entirely** in every layer (#48) — the exemption is right, the
+filename key is wrong. And **the unit suite now runs at 5.00s against a stated 5s target** with the
+cost almost entirely in `transform`; the next agent to add a test file will push it over and should
+not conclude their test is the offender.
+
 ## 2026-07-30 — `render/` exists: the presentation model, and the two rulings it was asked to settle (#19)
 
 **Did:** Built `render/` — seven modules, ~120 tests. `presentScene(state, previous?)` produces a

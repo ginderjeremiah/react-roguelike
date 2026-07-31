@@ -34,12 +34,19 @@ Concretely, inside `game/`:
 
 - Never call `Math.random()`. Use the injected RNG. Ever.
 - Never call `Date.now()` or `new Date()`.
-- Never import from `react`, `react-native`, `expo-*`, or anything in `app/` or `components/`.
+- Never import from `react`, `react-native`, `expo-*`, or anything in `app/`, `components/`,
+  `session/`, `render/`, or `platform/`.
 - Never iterate a `Set`/`Map`/object for anything that affects simulation order — sort explicitly.
 
-CI enforces the first three two ways: ESLint rules scoped to `game/`, and a unit test that scans
-`game/` sources directly. The fourth — iteration order — cannot be caught mechanically and is on
-you and the `code-reviewer`.
+**The first three apply to every pure layer, not only `game/`.** `render/` and `session/` are held to
+the same no-clock, no-randomness, no-framework rules — they are `.ts`-only, unit-tested in Vitest,
+and each may import only downward (`render/` from `game/`; `session/` from `game/` and `render/`).
+What `game/` carries *alone* is the fourth rule: iteration order is a determinism concern for the
+simulation specifically, because that is what a replay reproduces.
+
+CI enforces the first three two ways, across all three pure layers: ESLint rules scoped to `game/`,
+`render/` and `session/`, and a unit test that scans those sources directly. The fourth — iteration
+order — cannot be caught mechanically and is on you and the `code-reviewer`.
 
 Note that `npm run lint` runs `eslint .`, **not** `expo lint`. The latter silently lints only
 `app/` and `components/`, which meant the determinism rules were dead code for a while. Don't
@@ -50,13 +57,20 @@ Note that `npm run lint` runs `eslint .`, **not** `expo lint`. The latter silent
 ```
 game/       pure TypeScript simulation. no React, no I/O, no platform APIs. deterministic.
 render/     translates game state -> presentation model. pure, still no React Native.
+session/    owns a run: seed -> Run -> intents -> Scene. pure. in shipping code, the only caller
+            of step() above game/ — tests and fixtures call it directly and that is fine.
 components/ React Native components. dumb. props in, pixels out.
-app/        expo-router screens. wiring only.
+app/        expo-router screens. wiring only — may wire session/, render/, components/. never game/.
 platform/   the only place allowed to touch storage, time, or device APIs. behind interfaces.
 ```
 
-Dependencies point strictly downward: `app` -> `components` -> `render` -> `game`. Nothing in
-`game/` knows anything above it exists. A lint rule enforces this.
+Dependencies point strictly downward: `app` -> `components` -> `session` -> `render` -> `game`.
+Nothing in `game/` knows anything above it exists. A lint rule enforces this.
+
+**`session/` is the layer the UI goes through, and it is easy to miss because it is new.** Nothing
+above it may import `game/`, so it is the only place a run can be started or advanced: `beginRun`,
+`move`/`wait`/`setShutter`/`descend`, `sceneOf`, `cuesOf`. It hands out an opaque `Run` rather than a
+`GameState`. If you are building UI and reaching for `step()`, you want `session/` — see ADR-0010.
 
 ## Working agreement
 
@@ -113,7 +127,7 @@ npm run verify       # typecheck + lint + test. run before every push.
 
 - Expo's `dist/` is a static export; Playwright tests run against `npx serve dist`, not the dev
   server. The dev server has different timing and is not what CI tests.
-- `react-native-reanimated` animations do not run in Vitest. Keep animation out of `game/` and
-  `render/` entirely.
+- `react-native-reanimated` animations do not run in Vitest. Keep animation out of `game/`,
+  `render/` and `session/` entirely — all three pure layers, all three unit-tested without a DOM.
 - The `@/` path alias maps to the repo root, not `src/`.
 - This repo has no `src/` directory and no Jest. Don't add either — see `docs/decisions/`.

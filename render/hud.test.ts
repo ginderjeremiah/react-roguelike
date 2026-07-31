@@ -46,8 +46,12 @@ describe('§9 requires five readouts, and the fifth is the one that goes missing
     expect(hud.floor.last).toBe(LAST_FLOOR);
     expect(hud.shutter.state).toBe('open');
     // §4: "a run's sense radius **starts at the floor, 1, not at the ceiling** ... a HUD that reads
-    // 5 before the player has ever been dark is a lie the player will act on."
-    expect(hud.sense.radius).toBe(ADAPTATION_FLOOR);
+    // 5 before the player has ever been dark is a lie the player will act on." A run starts with
+    // the lantern OPEN, so the honest reach is 0 rather than even the floor — `perceive` never
+    // calls `senseCreatures` on the open branch, so nothing is felt through stone at all. `sealed`
+    // carries the reason rather than leaving the component to read it off a zero (#61).
+    expect(hud.sense.radius).toBe(0);
+    expect(hud.sense.sealed).toBe(true);
     expect(hud.sense.max).toBe(EMBER_SENSE_RADIUS);
   });
 
@@ -58,7 +62,11 @@ describe('§9 requires five readouts, and the fifth is the one that goes missing
       expect(hud.fuel.fuel).toBe(state.lantern.fuel);
       expect(hud.floor.number).toBe(floorNumberOf(state));
       expect(hud.shutter.state).toBe(state.lantern.vision.shutter);
-      expect(hud.sense.radius).toBe(state.lantern.vision.senseRadius);
+      // The operative reach, which is the stored radius only while shuttered — see #61.
+      expect(hud.sense.radius).toBe(
+        state.lantern.vision.shutter === 'open' ? 0 : state.lantern.vision.senseRadius,
+      );
+      expect(hud.sense.sealed).toBe(state.lantern.vision.shutter === 'open');
       expect(hud.turnsElapsed).toBe(state.turnsElapsed);
     }
   });
@@ -181,6 +189,40 @@ describe('ember-sense (§4: the adaptation ramp is invisible without this)', () 
     expect(presentHud(state).sense.radius).toBe(EMBER_SENSE_RADIUS);
   });
 
+  it('does not keep reporting the radius you had, once you open the shutter again', () => {
+    // #61, from the first playtest, and the reason it was worth fixing before the exit playtest:
+    // this readout is consulted at the exact moment the game's central decision is made.
+    //
+    // `Vision.senseRadius` survives `openShutter` — the ramp is triggered by the *act* of
+    // shuttering, so the number has to persist somewhere. But `perceive` never calls
+    // `senseCreatures` on the open branch, and `closeShutter` resets to ADAPTATION_FLOOR. So the
+    // surviving number is inoperative AND about to be discarded, and reporting it raw told the
+    // player "go dark and you will still feel everything within 5" when the truth is one tile for
+    // four turns.
+    //
+    // The sequence is the issue's own repro: shutter, ramp to full, re-open.
+    let state = createInitialState('adapt');
+    state = stepShut(state);
+    for (let turn = 0; turn < TURNS_TO_FULL_ADAPTATION; turn += 1) state = stepWait(state);
+
+    expect(presentHud(state).sense.radius, 'ramped to full while dark').toBe(EMBER_SENSE_RADIUS);
+    expect(presentHud(state).sense.sealed).toBe(false);
+
+    const relit = stepOpen(state);
+    // The stored radius is still 5 — that is not a bug, it is where the ramp keeps its state.
+    expect(relit.lantern.vision.senseRadius, 'the raw value is untouched').toBe(
+      EMBER_SENSE_RADIUS,
+    );
+    // What the player is told is what they actually have.
+    expect(presentHud(relit).sense.radius, 'the reported reach is 0 while lit').toBe(0);
+    expect(presentHud(relit).sense.sealed).toBe(true);
+    expect(presentHud(relit).sense.adapting).toBe(false);
+
+    // And shuttering again drops to the floor, which is what the readout was implying you would
+    // keep. Asserted here so the two halves of the lie are pinned in one test.
+    expect(presentHud(stepShut(relit)).sense.radius).toBe(ADAPTATION_FLOOR);
+  });
+
   it('never flags adaptation while the shutter is open', () => {
     // §4: eyes do not dark-adapt with the lantern open, and the number is unobservable there. A HUD
     // that pulsed "adapting" with the light on would be describing a rule that does not exist.
@@ -250,4 +292,9 @@ function stepShut(state: GameState): GameState {
 
 function stepWait(state: GameState): GameState {
   return step(state, { kind: 'wait' });
+}
+
+/** Re-open a shuttered lantern. Used by #61's regression, which is about what survives the toggle. */
+function stepOpen(state: GameState): GameState {
+  return step(state, { kind: 'setShutter', to: 'open' });
 }

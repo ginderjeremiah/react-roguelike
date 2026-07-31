@@ -84,10 +84,16 @@ export function Board({ grid, taps, cellSize, theme, onTapTile }: BoardProps) {
    * It observes **size, and never position.** At a phone viewport the board is *width*-bound —
    * eleven columns against 390pt — so anything above it that grows taller moves the board while
    * leaving `cellSize`, and therefore the board's own box, exactly as it was. No resize, no
-   * callback, no re-measure. The trigger is not exotic: shutting the shutter makes `hud.sense`
-   * report `adapting`, the HUD gains a line, the board slides ~6pt down, and every press for the
-   * rest of the run lands ~16% of a cell low — one tile too far south at the bottom edge of every
-   * tile. That is a move the player did not aim at, which is the thing the line above forbids.
+   * callback, no re-measure. Every press for the rest of the run then lands ~16% of a cell out —
+   * a move the player did not aim at, which is the thing the line above forbids.
+   *
+   * **Do not look for one canonical trigger; any layout change above the board is one.** The
+   * original was the shutter press: `hud.sense` gained an `adapting` note where it had none, the
+   * HUD grew a line, and the board slid ~6pt *down*. #61 then gave that stat a note in **both**
+   * shutter states, and shuttering now changes the HUD's height by zero — so that description was
+   * false within two issues of being written, and this paragraph is the second attempt at it. The
+   * trigger the E2E uses today is the *end* of §4's adaptation ramp, where the note clears and the
+   * board moves ~6pt *up*. It will not be the last one.
    *
    * It is also invisible from two directions at once, which is why it survived review: at a
    * *desktop* viewport the board is **height**-bound, so the same HUD growth changes `cellSize`,

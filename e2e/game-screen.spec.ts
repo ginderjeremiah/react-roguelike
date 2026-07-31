@@ -190,7 +190,13 @@ test('shuttering hides the room and the ember-sense radius starts climbing', asy
   // §4's dark column: terrain drops to the eight tiles you can touch, and what you saw before is
   // **remembered rather than gone** — "permanent once seen, dimmed". Both halves are asserted, since
   // the comment used to promise the first and check only the second.
-  await expect(page.getByTestId('hud-sense')).toHaveText('1/5');
+  //
+  // A run starts with the lantern OPEN, and ember-sense does not operate there at all — `perceive`
+  // never calls `senseCreatures` on the open branch. This line used to assert `1/5` here, which is
+  // the very lie #61 was filed about: a number that is inoperative now and discarded to the floor
+  // the moment you shutter. The readout is sealed until the light goes out.
+  await expect(page.getByTestId('hud-sense')).toHaveText('—/5');
+  await expect(page.getByTestId('hud-sense-note')).toHaveText('sealed while lit');
 
   // A tile the player can see from across the room right now: lit, drawn, and far enough away that
   // touch will not reach it once the shutter is shut. Found by asking the board rather than by
@@ -233,6 +239,20 @@ test('shuttering hides the room and the ember-sense radius starts climbing', asy
   const remembered = page.getByTestId(far!.id);
   await expect(remembered).toHaveText(far!.glyph);
   await expect(remembered).toHaveCSS('opacity', '0.4');
+
+  // #61's actual repro, and the state "a player sits in for most of a lit stretch": ramp to full,
+  // then re-open. The unit tier covers this, but the browser tier is where the bug was *found*, so
+  // it is covered here too. The reach must go back to sealed rather than reporting the 5 the run
+  // just earned — `Vision.senseRadius` still holds 5 (that is where the ramp keeps its state), and
+  // reporting it raw is what told the player they would keep it.
+  for (let i = 0; i < 3; i += 1) await pressTile(page, page.getByTestId(`tap-wait-${at.x}-${at.y}`));
+  await expect(page.getByTestId('hud-sense')).toHaveText('5/5');
+  await expect(page.getByTestId('hud-sense-note')).toHaveCount(0);
+
+  await press(page, page.getByTestId('control-shutter'));
+  await expect(page.getByTestId('hud-shutter')).toHaveText('OPEN');
+  await expect(page.getByTestId('hud-sense')).toHaveText('—/5');
+  await expect(page.getByTestId('hud-sense-note')).toHaveText('sealed while lit');
 });
 
 test('a press at the edge of a tile hits that tile, after the HUD has changed height', async ({
@@ -253,20 +273,42 @@ test('a press at the edge of a tile hits that tile, after the HUD has changed he
   //
   // Two independent blind spots kept it hidden, and this test is aimed at both. Every other spec
   // presses tile **centres**, where ±18pt of half-cell swallows the error — so this presses 3pt
-  // inside the bottom edge. And the **desktop** board is height-bound, so the same HUD growth does
-  // resize it and the cache stays correct there — so the trigger is asserted below, and only where
-  // it exists, rather than assumed.
+  // inside an edge. And the **desktop** board is height-bound, so the same HUD growth does resize
+  // it and the cache stays correct there — so the trigger is asserted below, and only where it
+  // exists, rather than assumed.
+  //
+  // **WHICH edge is load-bearing, and it follows the direction the board moves.** A stale origin
+  // shifts the resolved point by the same delta the board moved, so the press must start close
+  // enough to a boundary *in that direction* to cross it. This test used the **bottom** edge while
+  // the trigger pushed the board **down**; #61 changed the trigger to one that moves the board
+  // **up**, and the bottom-edge press then stayed inside the same 37pt cell — the mutant passed and
+  // the test proved nothing. Hence the **top** edge now. Verified by mutation both times: re-cache
+  // the origin and this test must go red. If you change the trigger again, check the direction.
   // ═══════════════════════════════════════════════════════════════════════════════════════════════
   const before = await page.getByTestId('board').boundingBox();
-  await pressWithin(page, self, 0.5, 1);
+  await pressWithin(page, self, 0.5, 0);
   expect(await turn(page)).toBe(1);
   expect(await playerTile(page), 'the baseline edge press').toEqual(at);
 
-  // Shut the shutter: `hud.sense` starts reporting `adapting` (§4's four-turn window), the HUD gains
-  // a line, and the board is pushed down the screen. Any layout change above the board does this;
-  // this one is simply the one a player makes on turn one of most runs.
+  // Now change the HUD's height. **The trigger used to be the shutter press itself** — `hud.sense`
+  // gained an `adapting` note where it had none, the HUD grew a line, and the board was pushed
+  // down. #61 removed that trigger without touching this test: the sense stat now carries a note in
+  // *both* shutter states (`sealed while lit` / `adapting`), so shuttering no longer changes the
+  // HUD's height at all. The `moved: true` assertion below went red and said exactly that, which is
+  // the whole reason it asserts the trigger instead of assuming it.
+  //
+  // The surviving trigger is the **end** of §4's ramp: at full adaptation `adapting` clears, the
+  // note disappears, and the HUD loses the line it had. Same shape, opposite direction — the board
+  // moves *up* without resizing, which exercises the stale cache identically.
   await press(page, page.getByTestId('control-shutter'));
   await expect(page.getByTestId('hud-shutter')).toHaveText('SHUT');
+  await expect(page.getByTestId('hud-sense-note')).toHaveText('adapting');
+
+  // Wait out the ramp. Each press is a real turn, so the turn count below accounts for them.
+  const rampTurns = 4;
+  for (let i = 0; i < rampTurns; i += 1) await pressTile(page, self);
+  await expect(page.getByTestId('hud-sense-note')).toHaveCount(0);
+
   const after = await page.getByTestId('board').boundingBox();
 
   if (touch()) {
@@ -277,13 +319,26 @@ test('a press at the edge of a tile hits that tile, after the HUD has changed he
       { moved: after!.y !== before!.y, resized: after!.height !== before!.height },
       'the board must move without resizing, or this test proves nothing',
     ).toEqual({ moved: true, resized: false });
+
+    // **Direction, and far enough to cross a tile edge.** `moved: true` alone passes just as well
+    // if a future trigger moves the board *down*, at which point the top-edge press below stays
+    // inside the same cell and the mutant survives silently — which is exactly what happened once
+    // already in this issue, mirrored. Measured today: HUD 109 -> 97pt, board y 142 -> 136 (half
+    // the HUD delta, because the board is centred in what is left), cell 37pt, and `pressWithin`
+    // clamps its inset to 3pt. So the press clears the boundary by 3pt and no more. Asserting the
+    // margin pins that too: shrink the note's font enough and this would otherwise go quietly
+    // green and useless.
+    expect(
+      before!.y - after!.y,
+      'the board must move UP, by more than the press inset, or the press cannot cross a tile edge',
+    ).toBeGreaterThan(3);
   }
 
   // The identical press must still be the identical tile. With the stale cache this resolved one row
   // south — a wall on this seed, so a false refusal; one tile of different terrain and it is a step
   // the player did not aim at, with a turn spent on it.
-  await pressWithin(page, self, 0.5, 1);
-  expect(await turn(page)).toBe(2);
+  await pressWithin(page, self, 0.5, 0);
+  expect(await turn(page)).toBe(2 + rampTurns);
   expect(await playerTile(page), 'the edge press after the layout moved').toEqual(at);
   await expect(page.getByTestId('status-line')).not.toHaveText(/blocked/i);
 });

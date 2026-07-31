@@ -58,10 +58,14 @@ export function HudBar({ hud, theme }: HudBarProps) {
         <Stat
           testID="hud-sense"
           label="EMBER-SENSE"
-          value={`${sense.radius}/${sense.max}`}
+          // A dash, not `0/5`, while the lantern is open. Zero reach is true but reads as a meter
+          // that has run down — something you have spent — when the truth is that the sense is not
+          // in play at all and returns the moment you shutter. The dash says "not this, right now"
+          // (#61); the note says why, so the state does not depend on noticing a punctuation mark.
+          value={sense.sealed ? `—/${sense.max}` : `${sense.radius}/${sense.max}`}
           // §4's four-turn window. Named on screen because the containment guarantee is off while
           // it is climbing, and the player is entitled to know that without counting turns.
-          note={sense.adapting ? 'adapting' : undefined}
+          note={sense.sealed ? 'sealed while lit' : sense.adapting ? 'adapting' : undefined}
           theme={theme}
         />
       </View>
@@ -119,7 +123,11 @@ function Stat({
         {level === 'critical' ? `! ${value}` : value}
       </Text>
       {note === undefined ? null : (
-        <Text style={[styles.note, { color: theme.textDim }]}>{note}</Text>
+        // The note is a §11 non-colour channel — `adapting`, `sealed while lit`, `dry` — so it is
+        // load-bearing and, until #61, was unaddressable from E2E: only the value carried a testID.
+        <Text testID={`${testID}-note`} style={[styles.note, { color: theme.textDim }]}>
+          {note}
+        </Text>
       )}
     </View>
   );

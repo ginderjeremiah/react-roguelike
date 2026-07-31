@@ -90,12 +90,38 @@ export type ShutterHud = {
  * `adapting` is the four-turn window §4 calls the tensest state in the game — shuttered and not yet
  * back to full. It is derived rather than left to `components/` to compare two numbers, because the
  * comparison is a rule (§4's ramp) and not a display decision.
+ *
+ * ## `radius` is what ember-sense reaches **now**, which is `0` while the lantern is open
+ *
+ * `Vision.senseRadius` keeps its value across `openShutter` — the ramp is triggered by the *act* of
+ * shuttering, so the number has to survive somewhere. But `perceive` never calls `senseCreatures`
+ * on the `open` branch: **while lit you feel nothing through stone.** And `closeShutter` resets to
+ * `ADAPTATION_FLOOR`, so the surviving number is not merely inoperative, it is about to be thrown
+ * away.
+ *
+ * Reporting it raw made the HUD read `EMBER-SENSE 5/5` beside `LANTERN OPEN` — telling the player,
+ * at the exact moment they are deciding whether to go dark, that they would still feel everything
+ * within 5. They would feel one tile, for four turns (#61, found by the first playtest).
+ *
+ * §4 already anticipated the **mirror** of this — "a HUD that reads 5 before the player has ever
+ * been dark is a lie the player will act on" — and fixed it by starting a run at `ADAPTATION_FLOOR`.
+ * The same sentence applies here verbatim, so the same answer applies: **the readout reports the
+ * reach the player actually has.**
  */
 export type SenseHud = {
+  /** Chebyshev reach of ember-sense right now. `0` while the lantern is open — see the header. */
   readonly radius: number;
   readonly max: number;
   /** Shuttered and still climbing the ramp. The containment guarantee is suspended (§4). */
   readonly adapting: boolean;
+  /**
+   * The lantern is open, so ember-sense is not operating at all.
+   *
+   * Carried rather than left to `components/` to infer from `radius === 0`: zero reach and "the
+   * sense is sealed" are different facts that happen to coincide, and §11 wants the *reason* on
+   * screen, not a number the player has to interpret.
+   */
+  readonly sealed: boolean;
 };
 
 /** Where you are in the descent. §8/§13: eight floors, and there is no floor 9. */
@@ -197,10 +223,11 @@ export function presentHud(state: GameState): Hud {
     floor: { number: floorNumberOf(state), last: LAST_FLOOR },
     shutter: { state: lantern.vision.shutter, canOpen: canOpen(lantern) },
     sense: {
-      radius: lantern.vision.senseRadius,
+      radius: lantern.vision.shutter === 'open' ? 0 : lantern.vision.senseRadius,
       max: EMBER_SENSE_RADIUS,
       adapting:
         lantern.vision.shutter === 'shuttered' && lantern.vision.senseRadius < EMBER_SENSE_RADIUS,
+      sealed: lantern.vision.shutter === 'open',
     },
     turnsElapsed: state.turnsElapsed,
     onStairs: isOnStairs(worldOf(state)),

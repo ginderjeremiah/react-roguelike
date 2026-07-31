@@ -32,7 +32,105 @@ is worth the file.
 **Be honest about failure.** A record of what did not work is worth more than a record of what
 did — it is the only thing stopping a future session from repeating it.
 
+> **Read the dates as decoration, not as evidence, until #50 lands.** `git log` says every commit in
+> this repository landed on **2026-07-30**; entries below are dated as far forward as `2026-08-07`
+> because past sessions copied and incremented the heading above rather than reading a clock. **File
+> order is authoritative — newest first, always.** Concretely: the top two entries (#45, #19) are
+> the two most recent merges, and both are dated a week *earlier* than the entries directly beneath
+> them (#32, #36). Trust the position, not the heading.
+> Do not date an entry by copying the one above it, and prefer citing a PR number over a date: `#42`
+> resolves, `2026-08-06` does not. #50 decides the policy and reconciles the back catalogue; this
+> note is not that fix.
+
 ---
+
+## 2026-07-30 — Archivist: the roadmap was a milestone behind, and its headline count was never `game/`
+
+**Did:** Reconciled `ROADMAP.md`, `GDD.md` and this file against `main` at `2db3f39` (#45/#51).
+No code. Six issues filed during the #45 session were triaged into milestones, and #20 lost its
+`blocked` label.
+
+**Why the roadmap was the whole job.** It claimed `render/` did not exist — seven modules and 124
+tests after #19/#42 — and had never heard of `session/`. It said "#19 → #20 → #21, only #19 is
+unblocked today" when #19 and #45 are both merged and **#20 is unblocked and is the only issue
+between M1 and its exit criteria**. A session starting cold reads `ROADMAP.md` second (CLAUDE.md
+says so) and would have gone looking for work that was already done.
+
+**The number was worse than stale, it was mislabelled — and it went in *as a fix*.** The section
+asserted "`game/` is 44 test files and 797 tests". `git log -S` puts that string in `03d76ec` (#36),
+under a commit message reading "review follow-ups — ... stale counts". At that commit `game/` was 42
+test files and the *whole suite* was 44 — `game/` plus the two files then in `tests/unit/`. Someone
+re-ran the suite, read the summary line, and attached the total to the wrong noun. `game/` has been
+42 files the entire time. #40 then edited this very file without touching it, and #42 and #51 each
+made it staler without anyone looking.
+
+Counted now, per directory, with the table naming the directory each number covers: `game/` 42/774,
+`render/` 7/124, `session/` 1/26, `tests/` 3/32 — **53 files, 956 tests**. **Quote a count only with
+the scope it covers, and re-run it.** A scoped number is falsifiable in one command; an unscoped one
+is plausible forever, which is why this one outlived three PRs including the one that "fixed" it.
+
+**Two contradictions between documents, both resolved by pointing rather than by deciding:**
+
+- **GDD §10 names four cell states that `render/` does not use.** §10 says `lit` / `sensed-but-unseen`;
+  the code says `visible` / `sensed`, both deviations argued and accepted at review. #46 owns the
+  amendment and it is the `game-designer`'s to make, so §10 now carries a block saying the code is
+  the truth and this paragraph is the stale copy. **A doc that is wrong and says so is safe; a doc
+  that is wrong and confident is what the archivist exists to prevent** — and §10 is exactly what
+  someone would read to brief the M1 playtest.
+- **GDD §12 said the fallback is spent "if the M2 playtest says the wager is not tense".** The
+  roadmap moved that checkpoint to M1's exit when the simulation finished a milestone early, and
+  nobody told §12. Now says "the first playtest", with the reason. `ROADMAP.md` contradicted
+  *itself* on the same point — M2's opening paragraph still called itself the milestone that
+  determines whether the concept works, two screens below M1 saying the checkpoint had moved. M2's
+  paragraph now states what M2 is *for* instead.
+
+**Triage of the six issues from the #45 session, and the reasoning, because "be conservative" is
+easy to say and each of these had an argument for jumping the queue:**
+
+- **#49 → M1.** The only one promoted, and it is not gameplay. `npm run build:web` and
+  `npm run test:e2e` both fail inside a git worktree, which is where every agent is told to work,
+  while `npm run verify` passes and CI — running on a clean checkout — stays green. The failure mode
+  is not a red build; it is agents reporting "E2E green" having never run it. That is the `expo lint`
+  episode again, and it is corrosive to the one gate that is mandatory.
+- **#47 → stays M1, but the roadmap now says it does not gate the exit.** It was already milestoned
+  M1 and its own text says "not blocking #20 — pass a constant and move on". Left where it is;
+  labelled honestly instead of moved, because the M1 issue count is a signal people read.
+- **#48, #52, #53, #50, and the older #39 → M2**, under a new *Contract and tooling debt* block that
+  says outright it is lodged there rather than aimed at M2 and does not count toward its exit.
+  **Unmilestoned was the worse option**: CLAUDE.md sends every session to
+  `gh issue list --milestone "<current>"`, so an unmilestoned issue is an invisible issue. Parking
+  them in M2 makes them visible at the cost of muddying a tuning milestone; the block carries the
+  instruction to split them into their own milestone if the list grows.
+
+**#50 deliberately not fixed here.** Journal and ADR dates from 2026-07-31 onward are fabricated —
+every commit landed 2026-07-30. Reconciling a dozen headings, plus the cross-references that cite
+them, plus deciding the policy, is not mechanical and deserves its own review. What *was* safe is a
+note at the top of the Format section: file order is authoritative, the top two entries are the two
+newest despite being dated a week earlier than the entries below them, and cite PR numbers rather
+than dates. **Correcting with a new note rather than editing the entries is the rule here, and it
+also happens to be the cheap fix.**
+
+**Learned:** `M1`'s GitHub milestone *description* had drifted from the roadmap's exit criteria —
+it still said "complete a run and report that moving and fighting feel good", missing the
+two-endings amendment (#18, GDD §13) and the flash-and-crawl clause. **Milestone descriptions are a
+doc nobody thinks of as a doc.** Updated, and worth adding to the next archivist pass's checklist:
+`gh api repos/:owner/:repo/milestones` is one command and nothing else surfaces it.
+
+Also: `ROADMAP.md` listed "implement `travel(to)` — #32" as open M2 work, but **#32 is closed** — it
+was the design ruling, and the build has no issue. A cold session would have opened a closed issue
+and drawn the wrong conclusion. The bullet now says the build issue gets filed when the M1 playtest
+opens the gate, and not before.
+
+**Next:** #20. It is unblocked, it is the only thing between M1 and its exit, and the four
+constraints it inherits are listed in `ROADMAP.md`'s "Where M1 actually stands" rather than spread
+across three journal entries.
+
+**Watch:** M1 has now absorbed two things its bullet list was not written for — M2's simulation work
+(#16, #17) and the whole layer stack above `game/` (#19, #45). Both absorptions were right and both
+are argued in the roadmap's two scope notes. The tell to watch for: #47, #48, #52 and #53 all say
+some version of "the seam is not quite where we said it was". Four is normal settling after a new
+layer. **If that set reaches six, or a sixth layer gets proposed, the seam is wrong** — solve it
+once as a design problem rather than working through six issues.
 
 ## 2026-07-30 — `session/` owns the run, and `Run` hides `GameState` from the type system up (#45)
 

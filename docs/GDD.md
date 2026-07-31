@@ -644,6 +644,14 @@ cache · `c`/`C` Cinder dormant/awake · `*` ember-sense contact.
 Four cell states must be distinguishable at a glance without colour: **lit**, **remembered**,
 **unknown**, **sensed-but-unseen** (a `*` on a tile whose terrain you have never seen).
 
+> **These two sentences do not match what `render/` shipped in #19, and `render/` is probably
+> right.** `CellState` is `visible | sensed | remembered | unknown` — `lit` is named `visible`
+> because shuttered you perceive nine tiles by *touch* with no light involved, and `sensed` is
+> widened to "a contact on any tile not perceived this turn", because §10's literal wording draws a
+> living creature at remembered opacity. **#46 owns the amendment** and it is a `game-designer`
+> call. Until it lands, the code is the truth and this paragraph is the stale copy — anyone reading
+> §10 to brief a playtest or build a screen should use `render/cell.ts`'s names.
+
 Palette, typography, and animation specified in M4.
 
 ## 11. Accessibility — *Requirements settled*
@@ -665,10 +673,13 @@ Kept so we do not relitigate, and so we know what to fall back to.
 movement patterns; tension entirely from geometry). The genuine runner-up, and the strongest
 Pillar 1 and Pillar 3 fit of anything considered. It lost on Pillar 4 — a puzzle produces "I played
 well", not "the lantern died on floor six and I crawled to the stairs" — and because it makes the
-glyph grid's signature look (ADR-0003) irrelevant. **This is the designated fallback:** if the M2
-playtest says the light wager is not tense, the move is to strip fuel and keep the tactics, not to
-add a second resource. Its lesson has been stolen regardless: combat should be positionally tight,
-and §2's commit-one-turn-ahead is that lesson.
+glyph grid's signature look (ADR-0003) irrelevant. **This is the designated fallback:** if the
+**first** playtest says the light wager is not tense, the move is to strip fuel and keep the
+tactics, not to add a second resource. (This said "the M2 playtest". `ROADMAP.md` moved the concept
+checkpoint up to **M1's exit** when the simulation finished a milestone early, so the fallback is
+now spent — if it is spent — one milestone sooner than this section assumed.) Its lesson has been
+stolen regardless: combat should be positionally tight, and §2's commit-one-turn-ahead is that
+lesson.
 
 **Light as a ward — things hunt you in the dark, light repels them.** Rejected: it makes darkness a
 pure cost saving, which is precisely the flaw that nearly killed the original seed. A "pay money

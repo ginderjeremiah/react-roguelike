@@ -5,8 +5,9 @@ half-built system waiting on the next milestone to mean anything.
 
 Kept in sync with GitHub milestones. Issues live there; this file explains the intent behind them.
 
-**Current milestone: M1 — Playable core.** The simulation is finished; everything left is the UI
-layers above it. See "Where M1 actually stands" below before picking up work.
+**Current milestone: M1 — Playable core.** The simulation and both pure layers above it — `render/`
+and `session/` — are finished. What is left is a screen: **#20 is unblocked and is the only issue
+between M1 and its exit criteria.** See "Where M1 actually stands" below before picking up work.
 
 ---
 
@@ -49,10 +50,17 @@ is layered on top.
 - [x] Deterministic combat resolution — #16
 - [x] `GameState`, the four-command union, and the real `step()` — #18
 - [x] Descent, and the two ways a run ends — #18, GDD §13
-- [ ] Presentation model in `render/` — #19
+- [x] Presentation model in `render/` — #19
+- [x] `session/` owns the run, and `Run` hides `GameState` from the type system up — #45,
+      [ADR-0010](decisions/0010-session-layer-owns-the-run.md)
 - [ ] Player movement and touch input — #20
 - [ ] Death, winning, and a run-summary screen — #21
 - [ ] Determinism rules applied to `game/**/*.test.ts` — #12
+- [ ] `npm run build:web` and `npm run test:e2e` are broken inside a git worktree — #49. Not
+      gameplay, and here anyway: every agent is told to work in a worktree, and CI runs on a clean
+      checkout so it stays green while two of the five pre-push checks silently do not run
+- [ ] Where a run's seed comes from — #47. **Does not gate the exit** — M1 ships a constant seed —
+      but it is the one M1 issue that needs `platform/` to exist
 - [x] Auto-travel's command shape — settled by [ADR-0009](decisions/0009-auto-travel-command-shape.md);
       **the build moved to M2**, and #32 with it
 - [x] Rename the two colliding `Perception` types — #36; now `TurnPerception` (`game/fov/`) and
@@ -65,16 +73,49 @@ and the summary screen has to render both.
 
 ### Where M1 actually stands
 
-**The whole simulation is done.** `game/` is 44 test files and 797 tests: generation, FOV, light,
-fuel, the scheduler, combat, descent, and the endings. Nothing above `game/` exists yet — there is
-no `render/` directory and no `platform/` directory, only the Expo shell in `app/` and
-`components/`. So the three open build issues are strictly sequential:
+*Counted at `2db3f39` (#45 merged), per directory, because the number this section carried before —
+"`game/` is 44 test files and 797 tests" — was the **whole suite** at `03d76ec` (#36) mislabelled as
+`game/`. `game/` was 42 files then and is 42 files now. It went in as a "stale counts" fix and
+survived three PRs after that, which is the lesson: **quote a count only with the directory it
+covers, and re-run it** — a number with no stated scope cannot be checked, so nobody checks it.*
 
-**#19 → #20 → #21.** Only #19 is unblocked today. #20 needs the presentation model to consume and
-#21 needs a screen to draw the summary on. **#20 is no longer blocked by #32** — ADR-0009 settled
-auto-travel's shape and moved the build to M2, so all #20 inherits is one constraint: *a tap on a
-distant tile stays unbound, and the tap handler must be able to produce a `Position`, not only a
-`Direction`.*
+**The simulation is done and so are both pure layers above it. What is missing is a screen.**
+
+| Directory | Source modules | Test files | Tests |
+| --- | --- | --- | --- |
+| `game/` — generation, FOV, light, fuel, scheduler, combat, descent, endings | 45 | 42 | 774 |
+| `render/` — the presentation model (#19) | 7 + barrel | 7 | 124 |
+| `session/` — the run (#45) | 1 + barrel | 1 | 26 |
+| `tests/` — contract gates, the cross-layer consumer probe, shared helpers | — | 3 | 32 |
+| **Total** | | **53** | **956** |
+
+`app/` and `components/` are still the bare Expo shell: two files each, no game in them. **`platform/`
+does not exist** — that is #47's problem, not #20's.
+
+**#20 → #21, and #20 is unblocked today.** #45 is what unblocked it, and the reason is worth
+stating because it was not obvious when #19 was queued: `render/` shipped `presentScene(state)` and
+**nothing in the repository could legally call it.** `components/` and `app/` are banned from
+importing `game/` by both contract gates, so there was no legal home for `createInitialState()` or
+`step()` — #19 finished and #20 still had nowhere to stand. `session/` is that home. #20 now gets
+`beginRun(seed)` in a `useState` and the six functions beside it — `move`, `wait`, `setShutter`,
+`descend`, `sceneOf`, `cuesOf` — and that is the entire surface it may touch. #21 still follows #20,
+because a run summary needs a screen to draw on.
+
+**#20 is the only issue between M1 and its exit criteria.** #12, #47 and #49 are all real M1 work
+and none of them gate the playtest.
+
+Four constraints #20 inherits. None blocks it; all four are cheap now and expensive later:
+
+- **A tap on a distant tile stays unbound**, and the tap handler must be able to produce a
+  `Position`, not only a `Direction` (ADR-0009 — the auto-travel *build* moved to M2, so this is all
+  that is left of #32).
+- **There is no token→colour table.** `render/` emits semantic `ColorToken`s and M4 owns the
+  palette, so #20 ships a provisional theme and the first honest look at a screenshot will move it.
+- **Nothing yet says which of the four neighbours is a *legal* tap target** (GDD §9: "an impassable
+  neighbour is not a tap target"). That is a game rule and belongs in `render/` — it must not end up
+  as a `blocksMovement` call in a `.tsx`.
+- **The seed is a constant** until #47 gives `platform/` a clock, so every run is the same run. That
+  is deliberate; the playtest brief has to say so or the first report will be about repetition.
 
 ### Scope note: M1 absorbed most of M2's simulation work
 
@@ -94,6 +135,23 @@ simulation is already committed. The cheap discovery M2 was designed to buy has 
 Everything the wager needs is already implemented — fuel, waking, ember-sense, the dark crawl — so
 the question "is this actually the reason to play" is answerable the day there is a screen. If the
 answer is no, that is the moment to spend §12's fallback, not a milestone later.
+
+### Scope note 2: M1 also absorbed the architecture above `game/`
+
+Also flagged rather than corrected, and for the same reason. M1's bullet list was written as
+*features*; two of the items now on it are *layers*. `render/` (#19) was always planned. `session/`
+(#45) was not — it was discovered, mid-milestone, as the answer to "nothing in this repository can
+legally call the function #19 just shipped". The determinism rules widened from `game/` to all three
+pure layers in the same PR, because shipping a new layer with a known hole in the gates is how a
+gate stops being believed.
+
+Accept it: M1 is now "playable core **and** the layer stack it needs", which is bigger than the
+stated goal but is not padding — every part of it is on the shortest path to a screen. **What to
+watch is the tail it left**: #47, #48, #52 and #53 all say some version of "the seam is not quite
+where we said it was", and three of them are parked in M2, which is supposed to be a tuning
+milestone. Four is a normal amount of settling after a new layer. **If that set grows to six, or a
+sixth layer gets proposed, the seam is still wrong** — and that is a design problem to solve once,
+not four more issues to work through.
 
 **Exit criteria:** the `playtester` agent can complete a run start to finish on a phone-sized
 viewport — **both endings, death and the eighth descent** — and report that moving and fighting
@@ -118,9 +176,12 @@ light wager:
 
 *Goal: the core wager from `VISION.md` is real and it is the reason to play.*
 
-This is the milestone that determines whether the concept works. If light-vs-dark is not
-compelling here, we find out now and change direction, while it is still cheap. §12's designated
-fallback (strip fuel, keep the positional tactics) is what "change direction" means.
+This was written as the milestone that determines whether the concept works. **It is no longer that
+— the checkpoint moved up to M1's exit** (see M1's scope notes), because the simulation was finished
+a milestone early and the first playtest is the first honest judgement of it. §12's designated
+fallback (strip fuel, keep the positional tactics) is still what "change direction" means; it is
+just spent at M1's exit if it is spent at all. What M2 is *now* is where the wager is tuned until it
+is tense, having already been judged not-dead.
 
 - [x] Lantern fuel as the run clock — landed early, #17
 - [x] Dormant-in-darkness enemy behavior — landed early, #16
@@ -129,9 +190,27 @@ fallback (strip fuel, keep the positional tactics) is what "change direction" me
       part of that calibration** and must land before the numbers are trusted
 - [ ] Sound/haptic feedback for moving blind
 - [ ] Does a creature on a marked tile take the hit? — #28, a design ruling §6 is missing
+- [ ] Touch perceives ember caches, which §4 says are invisible while shuttered — #41
+- [ ] GDD §10's cell-state names vs the ones `render/` shipped — #46. **The GDD is wrong until this
+      lands**; §10 carries a pointer so a playtester reading it is not misled
 - [ ] `litQuery`'s once-per-turn invariant has no test behind it — #35
-- [ ] Auto-travel: implement `travel(to)` per [ADR-0009](decisions/0009-auto-travel-command-shape.md)
-      — #32, **gated on the M1 playtest**, not automatic
+- [ ] Auto-travel: implement `travel(to)` per [ADR-0009](decisions/0009-auto-travel-command-shape.md).
+      **Gated on the M1 playtest**, not automatic — and **there is no issue for it**: #32 was the
+      design ruling and is closed. File the build issue when the gate below opens, not before
+
+**Contract and tooling debt, parked here because it had nowhere else to go.** None of it is light-loop
+work and it should not be counted as M2 progress; it is here so that `gh issue list --milestone "M2:
+The light loop"` — the queue every session actually reads — does not hide it. If M2 starts and this
+list has grown, move it to its own milestone rather than carrying it further.
+
+- [ ] Both contract gates are bypassable by naming a source file `*.test.ts` — #48. Same family as
+      #12; whoever does #12 is already in both files
+- [ ] `render/` and `session/` may import `platform/`, one import from a clock — #52. **Must be
+      settled before or with the PR that creates `platform/` (#47)**, not after
+- [ ] `render/`'s barrel lets `components/` name `GameState` via `Parameters<>` — #53. Pre-existing
+      from #19; no value path, so it falsifies a documented claim rather than breaking anything
+- [ ] Journal and ADR dates from 2026-07-31 onward are fabricated — #50
+- [ ] No line-width enforcement anywhere in lint or CI — #39
 
 **Auto-travel is gated, and this is the gate.** Its rules are settled; whether it is built is not.
 Moved here from M1 because the friction it removes had never been felt — nothing above `game/`
@@ -156,7 +235,8 @@ invariant was calibrated against scripted one-step-at-a-time play (ADR-0009's Co
 
 **Exit criteria:** the playtester reports the light decision recurring naturally and being
 genuinely tense — and can point to specific turns where it mattered. Unchanged, and now the only
-thing M2 is really for.
+thing M2 is really for. The contract-and-tooling list above is lodged here, not aimed at this — it
+does not count toward the exit.
 
 ## M3 — Depth
 

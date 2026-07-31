@@ -137,9 +137,9 @@
  * as long as it takes to call `cuesFor(before, after)`, and then it is gone. Storing it was the
  * obvious shape and was rejected: with cues computed eagerly there is no reader for it, and this
  * repo's standing objection is to values with no consumer (`game/fov/light.ts`'s deleted export,
- * journal 2026-08-06). A retained predecessor state is also not free — it pins a whole `Floor`, its
- * grid, its actors and its `TileSet`s — and a field nothing reads is a field that can drift from the
- * one thing that does. If a future consumer genuinely needs a second state (a diff view, a
+ * journal entry for #19). A retained predecessor state is also not free — it pins a whole
+ * `Floor`, its grid, its actors and its `TileSet`s — and a field nothing reads is a field that can
+ * drift from the one thing that does. If a future consumer genuinely needs a second state (a diff view, a
  * bug-report dump), it goes back in with that consumer, not before it.
  *
  * **There is no command log.** `RunRecord` is the eventual save format and `game/core/replay.ts`

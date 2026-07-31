@@ -41,8 +41,8 @@ did — it is the only thing stopping a future session from repeating it.
 > invented, as are ADR-0008's and ADR-0009's dates. Past sessions copied the heading above and
 > incremented it rather than reading a clock.
 >
-> **File order is authoritative — newest first.** The entries for **#45 and #19** are the two most
-> recent merges despite carrying dates a week *earlier* than **#32 and #36** directly beneath them.
+> **File order is authoritative — newest first.** The entries for **#45 and #19** sit *above*
+> **#32 and #36** despite carrying dates a week *earlier* than them.
 > (One exception #50 also inherits: the pre-M0-close tail at the bottom is in *session* order, not
 > merge order.) Do not date an entry by copying the one above it, and prefer citing a PR number over
 > a date — `#42` resolves, `2026-08-05` does not. #50 decides the policy and reconciles the back
@@ -110,10 +110,12 @@ easy to say and each of these had an argument for jumping the queue:**
 
 **#50 deliberately not fixed here — but its evidence was wrong and that *is* fixed.** #50 as filed
 claimed entries run "up to 2026-08-07" and that "every commit landed on 2026-07-30". Re-derived:
-the maximum heading date is **2026-08-05**, and the 20 commits split **12 on 2026-07-29, 7 on
-2026-07-30**, plus the Expo template's `Initial commit` on 2025-10-25. So the fabricated range is
-**2026-07-31 to 2026-08-05** — nine entries — and the eleven entries dated 07-29 or 07-30 are
-**accurate and must not be swept up**. The #45 entry below and #50's body both carried the wrong
+the maximum heading date is **2026-08-05**, and every commit landed on **2026-07-29 or 2026-07-30**,
+plus the Expo template's `Initial commit` on 2025-10-25. So the fabricated range is
+**2026-07-31 to 2026-08-05** — nine entries — and every entry dated 07-29 or 07-30 is **accurate and
+must not be swept up**. (No per-day totals here on purpose: a count is stale by the commit that
+writes it, which is how this went wrong twice already. Run
+`git log --format='%ad' --date=short | sort | uniq -c`.) The #45 entry below and #50's body both carried the wrong
 version; both are corrected. Reconciling nine headings, the cross-references that cite them, and the
 policy is still not mechanical, so the fix stays #50's. What was safe here is the note at the top of
 the Format section. **Correcting with a new note rather than editing the entries is the rule in this
@@ -132,7 +134,8 @@ the *next* reader:**
    headline. **I copied a sentence instead of re-deriving it, in the same PR whose whole thesis is
    that copying a number instead of re-deriving it is how docs rot.** Caught by review of this PR.
 3. **"every commit landed on 2026-07-30" and "entries run to 2026-08-07"** — the first generalised
-   from `git log -3` (three of twenty; the real split is 12 on 07-29, 7 on 07-30), the second read
+   from `git log -3` (three commits of the whole history; every commit is on 07-29 or 07-30, so the
+   generalisation was not even close to safe), the second read
    off an ADR date the author had written himself minutes earlier. Both were in the #45 entry's
    `Learned:` section *and* in #50's body, i.e. in the two places a future session would go to fix
    the dates. Corrected in the entry, in #50, and in the note above.
@@ -296,9 +299,9 @@ is *not* affected, so nobody fixes it by analogy.
 **The journal's dates are fabricated from 2026-07-31 onward.** *(Corrected in place by the archivist
 pass that followed — the two figures this paragraph originally quoted were both wrong, and the
 correction is at the end.)* Headings run to **2026-08-05**, and ADR-0008, ADR-0009 and ADR-0010 were
-dated the same way. `git log` says the 20 commits in this repository landed on **2026-07-29 (12)**
-and **2026-07-30 (7)**, plus the Expo template's `Initial commit` on 2025-10-25 — so entries dated
-07-29 and 07-30 are **accurate**, and it is the nine entries from 07-31 to 08-05 that are invented.
+dated the same way. `git log` says every commit in this repository landed on **2026-07-29 or
+2026-07-30**, plus the Expo template's `Initial commit` on 2025-10-25 — so entries dated 07-29 and
+07-30 are **accurate**, and it is the nine entries from 07-31 to 08-05 that are invented.
 The #19 entry is misdated such that it sits above entries dated a week later, in a file whose entire
 contract is "newest first". ADR-0010's date is corrected here to the real one and this entry uses it.
 The rest is left alone deliberately: rewriting nine historical headings is an archivist job with its

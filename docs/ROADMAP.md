@@ -57,9 +57,10 @@ is layered on top.
 - [ ] Player movement and touch input — #20
 - [ ] Death, winning, and a run-summary screen — #21
 - [ ] Determinism rules applied to `game/**/*.test.ts` — #12
-- [ ] `npm run build:web` and `npm run test:e2e` are broken inside a git worktree — #49. Not
-      gameplay, and here anyway: every agent is told to work in a worktree, and CI runs on a clean
-      checkout so it stays green while two of the five pre-push checks silently do not run
+- [x] `npm run build:web` and `npm run test:e2e` work inside a git worktree — #49. Not gameplay, and
+      here anyway: every agent is told to work in a worktree, and CI runs on a clean checkout so it
+      stayed green while two of the five pre-push checks silently did not run. Fixed ahead of #20
+      because #20's acceptance evidence *is* those two commands
 - [ ] Where a run's seed comes from — #47. **Does not gate the exit** — M1 ships a constant seed —
       but it is the one M1 issue that needs `platform/` to exist
 - [x] Auto-travel's command shape — settled by [ADR-0009](decisions/0009-auto-travel-command-shape.md);

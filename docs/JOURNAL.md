@@ -57,6 +57,59 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-07-31 — The HUD was lying at the exact moment the game's central decision is made (#61)
+
+**Did:** `EMBER-SENSE` now reports the reach the player actually has: `—/5 · sealed while lit` while
+the lantern is open, rather than whatever the radius was when they last went dark. Found by the first
+playtest. 1085 tests, up from 1084.
+
+**Why:** `Vision.senseRadius` survives `openShutter` — the ramp is triggered by the *act* of
+shuttering, so the number has to persist somewhere — but `perceive` never calls `senseCreatures` on
+the `open` branch, and `shutterLantern` resets to `ADAPTATION_FLOOR`. So the surviving number was
+**both inoperative and about to be discarded**, and the HUD reported it raw. A player standing with
+the lantern open, deciding whether to go dark, read `EMBER-SENSE 5/5` as "I will still feel
+everything within 5". They would feel one tile, for four turns.
+
+§4 had already anticipated the **mirror** of this — "a HUD that reads 5 before the player has ever
+been dark is a lie the player will act on" — and fixed it by starting a run at the floor. The same
+sentence applied here verbatim and nobody had noticed, which is the argument for fixing it before
+the exit playtest rather than after: this readout is consulted at the exact moment M1's exit criterion
+is about.
+
+**Learned:** Two, and the second is the one worth carrying.
+
+**Two existing tests asserted the lie, and one of them was an E2E.** `render/hud.test.ts` pinned
+`sense.radius === ADAPTATION_FLOOR` at boot, and `game-screen.spec.ts` pinned `hud-sense` reading
+`1/5` — both taken with the lantern **open**. Neither was wrong when written; both encoded a number
+without asking what it meant. A test that pins an observed value rather than a stated property will
+happily preserve a bug through every future change.
+
+**Fixing this quietly defanged a regression test for a bug that had already shipped, and only a
+mutation run caught it.** #20's stale-origin test works by changing the HUD's height and then pressing
+3pt inside a tile edge. Its trigger *was* the shutter press: `hud.sense` gained an `adapting` note
+where it had none, so the HUD grew a line. This fix gives the sense stat a note in **both** shutter
+states, so shuttering no longer changes the HUD's height at all — the trigger vanished. The test said
+so immediately, because it asserts the trigger (`moved: true, resized: false`) rather than assuming
+it, and that assertion exists precisely so the test cannot go on passing while exercising nothing.
+
+**The subtler half is what happened next.** Re-pointing it at a surviving trigger — the *end* of §4's
+ramp, where `adapting` clears and the HUD loses a line — made it green again, and it was still
+worthless: **the board now moves up rather than down**, and a press near the *bottom* edge with a
+stale origin lands 6pt higher, comfortably inside the same 37pt cell. The mutant passed. A stale
+origin only crosses a tile boundary if the press starts near the edge *in the direction the board
+moved*, so the press is now at the top edge, and re-caching the origin turns it red again.
+
+Nothing about the green suite would have shown this. **Direction is a parameter of that test, and it
+is now written at the call site** — if the trigger changes again, the edge has to be re-derived.
+
+**Next:** #60 (a tap on a non-adjacent tile is silent — the last cheap playtest finding), then M1's
+exit playtest: both endings, on a phone.
+
+**Watch:** `Stat`'s note had no `testID` until now, so **every §11 non-colour note — `adapting`,
+`dry`, and now `sealed while lit` — was unassertable from E2E.** Only the value carried one. That is
+a whole legibility channel the browser tier could not see, on the layer §11 exists to protect. Fixed
+here because this issue needed it; worth remembering that it was invisible for two issues.
+
 ## 2026-07-31 — A run can be finished, and it tells you what it was (#21)
 
 **Did:** The run loop closes. `GameState` gained `kills`, `fuelBurned` and `seed`; `render/` gained

@@ -54,7 +54,8 @@ is layered on top.
 - [x] Presentation model in `render/` — #19
 - [x] `session/` owns the run, and `Run` hides `GameState` from the type system up — #45,
       [ADR-0010](decisions/0010-session-layer-owns-the-run.md)
-- [ ] Player movement and touch input — #20
+- [x] Player movement and touch input — #20. Tap legality is `Scene.taps` in `render/`, so `session/`
+      did not change and ADR-0009's `travel(to)` is one more `TapAction` case in M2
 - [ ] Death, winning, and a run-summary screen — #21
 - [ ] Determinism rules applied to `game/**/*.test.ts` — #12
 - [x] `npm run build:web` and `npm run test:e2e` work inside a git worktree — #49. Not gameplay, and

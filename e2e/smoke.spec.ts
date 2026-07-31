@@ -26,7 +26,13 @@ test('the app boots and renders', async ({ page }) => {
   // Assert on actual content, not just that something rendered. Without this the spec passes
   // identically whether the router serves the index route, the sitemap, or an error boundary —
   // so a routing regression would slip through both assertions above.
-  await expect(page.getByText('EMBERDEPTH')).toBeVisible();
+  //
+  // This was `getByText('EMBERDEPTH')`, the M0 placeholder's title, and #20 deleted that screen. It
+  // kept passing anyway: `getByText` is a case-insensitive substring match by default, and the game
+  // screen prints its fixed seed as `seed "emberdepth"`. A passing assertion for the wrong reason is
+  // worse than a failing one, so this now names the HUD — the frame around the board, present on
+  // every state of the game and on nothing else. What each readout *says* is `game-screen.spec.ts`'s.
+  await expect(page.getByTestId('hud')).toBeVisible();
 
   expect(consoleErrors, 'the app booted without console errors').toEqual([]);
 });

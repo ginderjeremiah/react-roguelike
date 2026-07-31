@@ -61,7 +61,7 @@
  * ═══════════════════════════════════════════════════════════════════════════════════════════════
  */
 
-import { assertNever, type GameState } from '../game/core';
+import { assertNever, isRunning, type GameState } from '../game/core';
 import { declaredIntent, playerOf, type CreatureActor, type Intent } from '../game/entities';
 import { hasTile, perceive, type CreatureSense, type TileSet } from '../game/fov';
 import {
@@ -87,6 +87,7 @@ import {
 import { GLYPHS, glyphForCreature, glyphForTile } from './glyphs';
 import { presentHud, type Hud } from './hud';
 import { livingCreaturePositions } from './perception';
+import { presentTaps, type TapAction } from './taps';
 
 /** The board: dimensions, and one cell per tile, row-major. Mirrors `Grid`'s layout exactly. */
 export type SceneGrid = {
@@ -96,10 +97,16 @@ export type SceneGrid = {
   readonly cells: readonly Cell[];
 };
 
-/** Everything on screen for one state: the board and the frame around it. */
+/** Everything on screen for one state: the board, the frame around it, and what a tap does. */
 export type Scene = {
   readonly grid: SceneGrid;
   readonly hud: Hud;
+  /**
+   * GDD §9's control scheme, as data: the tiles a tap means something on. Everything not in here is
+   * `unbound` — ask `tapAt`, never the array directly. See `taps.ts` for why this rides on the
+   * scene rather than being a question `session/` answers or a component decides.
+   */
+  readonly taps: readonly TapAction[];
 };
 
 /**
@@ -129,15 +136,26 @@ type Overlays = {
  *   header. Omitting it produces the same board.
  */
 export function presentScene(state: GameState, previous?: Scene | null): Scene {
+  // Gathered once and shared: the taps need the perceived creature list the board already computed,
+  // and `perceive` is not a function to run twice per turn (see `taps.ts`'s `TapInputs`).
+  const overlays = gatherOverlays(state);
+
   return {
-    grid: presentGrid(state, previous?.grid ?? null),
+    grid: presentGrid(state, overlays, previous?.grid ?? null),
     hud: presentHud(state),
+    taps: presentTaps({
+      grid: state.world.floor.grid,
+      playerAt: overlays.playerAt,
+      // The keys only, and only ever asked `has` — so the Map's iteration order reaches nothing
+      // (ADR-0004). It is a handful of entries; the copy is not worth avoiding.
+      occupied: new Set(overlays.contacts.keys()),
+      running: isRunning(state),
+    }),
   };
 }
 
-function presentGrid(state: GameState, previous: SceneGrid | null): SceneGrid {
+function presentGrid(state: GameState, overlays: Overlays, previous: SceneGrid | null): SceneGrid {
   const grid = state.world.floor.grid;
-  const overlays = gatherOverlays(state);
 
   // A previous grid of a different shape is a different floor; nothing in it can be reused.
   const reusable =

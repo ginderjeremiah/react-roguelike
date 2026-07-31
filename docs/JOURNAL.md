@@ -57,6 +57,76 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-07-31 — Two of the six commands in `CLAUDE.md` never worked where agents run them (#49)
+
+**Did:** `npm run build:web` and `npm run test:e2e` now work from inside a git worktree. Two
+independent fixes: `metro.config.js`'s worktree blockList is conditional on the project root not
+itself being a worktree, and a `pretest:e2e` hook links a worktree's missing `node_modules` to the
+main checkout's. 976 tests, up from 956.
+
+**Why:** Every agent is told to work in a worktree under `.claude/worktrees/`, and two of the six
+commands in `CLAUDE.md` failed there — `Error: No routes found` and `Failed to resolve "extends"
+path "expo/tsconfig.base"`. **CI never saw it and never could**: CI runs on a clean checkout where
+`.claude/worktrees/` does not exist, so the only mandatory gate is green on exactly the path that
+does not have the bug.
+
+The realistic damage was never a red build. It was agents reporting "E2E green" having never run
+it, or dropping the step as environment noise — the same shape as the `expo lint` episode, where a
+check quietly stopped covering what everyone believed it covered. This is why it was worth fixing
+before #20, whose definition of done is *E2E green, screenshot it, look at it*: that issue's
+acceptance evidence is precisely the two commands that did not run.
+
+The blockList bug is a nice miniature of the general one. The pattern
+`/[\\/]\.claude[\\/]worktrees[\\/].*/` matches **absolute** paths, so it does the right thing from
+the main checkout and blocks the worktree's *own* `app/` from inside one. Right rule, wrong frame
+of reference.
+
+**Learned:** Three things, and the first cost the most time.
+
+**A stale Metro cache survived the fix and impersonated a second root cause.** The first two
+`build:web` runs in the verification worktree still failed with `No routes found` *with* the fix
+applied — Metro's cache key does not change when the resolver's blockList does, so the poisoned
+entry from the reproduction run outlived the thing that poisoned it. `--clear` once, and every run
+since has passed. Nil consequence for the fix (a fresh worktree has no such cache) but anyone
+re-verifying #49 in a worktree that previously reproduced the bug will conclude the fix does not
+work unless they clear first.
+
+**The two failures are genuinely independent, which the first runs actively suggested otherwise.**
+`build:web` from a worktree needs only the `metro.config.js` change — it succeeds with **no
+`node_modules` present at all**, because Metro walks up. Only Playwright's tsconfig resolver is
+rooted at the config's own directory. Worth stating because the tempting single fix — "give the
+worktree a `node_modules` and both problems go away" — would have left the blockList bug in place
+under a workaround.
+
+**A test that loads `metro.config.js` in place cannot catch this, and would have read as if it
+could.** In the main checkout the real config can only ever be asked the main-checkout question,
+and CI is always the main checkout — so re-inlining the bug stays green. The test therefore copies
+the real config into a `mkdtemp` sandbox under a `.claude/worktrees/<name>/` path and requires the
+copy, so the actual shipped file can be asked the worktree question from anywhere. Confirmed by
+reverting the fix verbatim and watching that named test go red. Nine mutations were run in total,
+each mapped to the test that caught it; the one that matters is that mutation 4 — splitting paths
+on `/` only — is green on Linux CI and broken on Windows, which is the exact shape of bug this
+repo's dev/CI split will keep producing.
+
+**Next:** #20 — the game screen, grid rendering and touch input. It is the critical path: the last
+build item in M1, and the thing standing between the project and its first playtest, which is M1's
+exit criterion and the concept checkpoint the roadmap moved here. Pass a constant seed (#47 says so
+explicitly).
+
+**Watch:** Three residuals, all filed here rather than fixed.
+
+- **Only `npm run test:e2e` is hooked.** A bare `npx playwright test` in a fresh worktree still
+  fails the same way. Acceptable because `CLAUDE.md` documents the npm script, but it is a
+  documented-path-only fix.
+- **The junction is a junction.** `rm -rf` under MSYS follows it and would delete the *main*
+  checkout's `node_modules` contents. Remove it with `fs.rmdirSync`. This is a live foot-gun for
+  any agent cleaning up a worktree by hand.
+- **Drive-letter case.** The "is this the main checkout" guard compares resolved paths exactly. If
+  `git rev-parse` ever emitted a different drive-letter case than `process.cwd()`, it would try to
+  link `node_modules` onto itself. It fails loudly rather than silently when that happens, and a
+  platform-conditional compare was rejected for making the pure function behave differently on CI
+  than locally — but the error message would be unhelpful.
+
 ## 2026-07-30 — Archivist: the roadmap was a milestone behind, and its headline count was never `game/`
 
 **Did:** Reconciled `ROADMAP.md`, `GDD.md` and this file against `main` at `2db3f39` (#45/#51), in

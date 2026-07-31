@@ -77,6 +77,9 @@ function sceneState(
     status: RUNNING,
     turnsElapsed: 0,
     commandsResolved: 0,
+    kills: 0,
+    fuelBurned: 0,
+    seed: `scene/${lines.join('|')}`,
     rng: createRng(`scene/${lines.join('|')}`),
   };
 }
@@ -661,6 +664,164 @@ describe('the end of a run', () => {
     // §4: 0 fuel is not an ending. This run reaches the bottom on an empty lantern, which is the
     // situation §4 says is desperate rather than lost — and the assertion that says so.
     expect(final.lantern.fuel).toBe(0);
+  });
+});
+
+// --- the run tally ----------------------------------------------------------------------------------
+
+/**
+ * §13's summary numbers — `kills` and `fuelBurned` — and **where in the turn each one is counted**.
+ *
+ * Both are accumulated inside `step` rather than derived from the final state, because §13 forbids
+ * the derivation in as many words: "the terminal state is a snapshot of the moment the run ended,
+ * not a tidied-up world, so counters must be accumulated as they happen". That makes *which moment*
+ * the load-bearing decision, and the two moments are different:
+ *
+ *   - **`fuelBurned` is GDD §2 phase 2, and only phase 2.** Not the turn's net fuel change, because
+ *     phase 5 collects embers and caches; not the burn rate, because the rate is a rule that lives
+ *     in `lantern.ts` and the clamp at 0 is part of it.
+ *   - **`kills` is the turn as a whole.** Not phase 5, which is where the *body* goes — and which
+ *     §13 skips entirely on the turn the player dies.
+ *
+ * Every test below fails if the counting moves. The last one is the important one: it is the single
+ * state where phase 2 has run and phase 5 has not, so it pins both boundaries at once.
+ */
+describe('the run tally (§13’s summary numbers)', () => {
+  const ROOM = ['#######', '#@...c#', '#######'];
+
+  it('starts at zero and remembers the seed it was given', () => {
+    for (const seed of ['emberdepth', '', 'ø☃ -_.']) {
+      const start = createInitialState(seed);
+      expect(start.kills, seed).toBe(0);
+      expect(start.fuelBurned, seed).toBe(0);
+      // Verbatim. §13's summary prints it and Pillar 4 expects someone to type it back in, so a
+      // trim, a lowercase or a `?? 'default'` on the empty seed makes the printed run unshareable
+      // while leaving every determinism property green.
+      expect(start.seed, seed).toBe(seed);
+    }
+  });
+
+  it('counts the burn on a free action, which is where the flash costs its 4 (§4)', () => {
+    // The boundary against phase 6: `darkAdaptation` is wrapped in `perTurn`, so a meter attached to
+    // it would report 0 here while the lantern demonstrably paid. §4's whole exploration arithmetic
+    // is that a flash costs 4 fuel; a summary that did not count it would under-report exactly the
+    // spending the player is being asked to weigh.
+    const start = sceneState(ROOM, 'shuttered', 50);
+    const flashed = step(start, { kind: 'setShutter', to: 'open' });
+    expect(flashed.turnsElapsed).toBe(0); // free — no turn passed...
+    expect(flashed.fuelBurned).toBe(FUEL_BURN_LIT); // ...and it was still paid for
+    expect(flashed.lantern.fuel).toBe(50 - FUEL_BURN_LIT);
+  });
+
+  it('counts what the lantern actually had, not what the rate would have charged', () => {
+    // `burn` clamps at 0 (§4: running dry is a state, not an error), so the last lit turn takes the
+    // 2 that were there rather than the 4 the rate names. Metering the *difference* rather than
+    // `burnRate(shutter)` is what makes the run's total fuel that actually existed — and it is the
+    // one case where the two implementations disagree.
+    const nearlyDry = sceneState(ROOM, 'open', 2);
+    const after = step(nearlyDry, { kind: 'wait' });
+    expect(after.lantern.fuel).toBe(0);
+    expect(after.fuelBurned).toBe(2);
+    expect(after.fuelBurned).toBeLessThan(FUEL_BURN_LIT);
+  });
+
+  it('books the burn gross, so collecting fuel does not cancel it out', () => {
+    // Phase 5's income is not a discount on phase 2's cost. The turn below *gains* 24 net fuel, so a
+    // meter reading the turn's fuel difference would book a burn of -24 and a summary would show a
+    // number that goes backwards when the run goes well.
+    const built = scenario(['#####', '#@♦.#', '#####']);
+    const withCache: GameState = {
+      ...sceneState(['#####', '#@♦.#', '#####']),
+      world: { ...built.world, floor: { ...built.world.floor, caches: [{ x: 2, y: 1 }] } },
+    };
+    const after = step(withCache, { kind: 'move', dir: 'east' });
+    expect(after.lantern.fuel).toBeGreaterThan(withCache.lantern.fuel); // the reserve went up...
+    expect(after.fuelBurned).toBe(FUEL_BURN_SHUTTERED); // ...and the burn is still one turn's worth
+    // §4's conservation identity, which is why `fuelGathered` is not a field: what was gathered is
+    // exactly `fuelBurned + fuel - (what the run began with)`.
+    expect(after.fuelBurned + after.lantern.fuel - withCache.lantern.fuel).toBe(CACHE_FUEL);
+  });
+
+  it('does not move on a refusal, because a refusal runs no phases at all', () => {
+    const start = step(createInitialState(SEED), { kind: 'setShutter', to: 'shuttered' });
+    expect(start.fuelBurned).toBeGreaterThan(0); // the positive control: the meter does move
+    const refused = step(start, { kind: 'descend' });
+    expect(refused).toBe(start);
+    expect(refused.fuelBurned).toBe(start.fuelBurned);
+    expect(refused.kills).toBe(start.kills);
+  });
+
+  it('does not move on the winning descent, which resolves in phase 1 and runs nothing else', () => {
+    // §13: the eighth descent "ends in phase 1 and nothing else runs, because there is no floor
+    // below to burn fuel on". A meter that ran anyway would charge the player fuel for a floor that
+    // does not exist, on the last line of the summary they are about to read.
+    const start = sceneState(['#####', '#@>.#', '#####'], 'shuttered', 40, LAST_FLOOR);
+    const onStairs = step(start, { kind: 'move', dir: 'east' });
+    const won = step(onStairs, { kind: 'descend' });
+
+    expect(won.status).toEqual({ kind: 'reachedBottom' });
+    expect(won.turnsElapsed).toBe(onStairs.turnsElapsed + 1); // the turn counted...
+    expect(won.fuelBurned).toBe(onStairs.fuelBurned); // ...and no fuel did
+    expect(won.lantern.fuel).toBe(onStairs.lantern.fuel);
+    expect(won.kills).toBe(onStairs.kills);
+  });
+
+  it('credits a descent with no kills, however the floor below is populated', () => {
+    // Phase 1 of `descend` replaces the floor and everyone on it, so the *population* of living
+    // creatures changes with nobody dying — and `createActorWorld` reissues the same ids, so an
+    // identity-based count would be fooled too. §13 calls the floor's remaining creatures a forfeit;
+    // crediting them as kills would pay the player for walking away.
+    const start = atTheStairs(SEED);
+    const above = start.world.floor.creatures.length;
+    const after = step(start, { kind: 'descend' });
+    const below = after.world.floor.creatures.length;
+
+    expect(after.kills).toBe(start.kills);
+    // The positive control: the two floors must actually hold different numbers of creatures, or
+    // this passes on a subtraction that happens to come out at zero.
+    expect(above).not.toBe(below);
+    expect(after.world.actors.filter((actor) => actor.kind === 'creature')).toHaveLength(below);
+  });
+
+  it('counts a kill made in phase 1 of the turn the player dies in phase 4', () => {
+    // ═══ THE BOUNDARY TEST ═══
+    //
+    // §13: "If the player dies in phase 4, the actor sweep stops there and **phases 5 and 6 do not
+    // run**." So on this one turn, phase 2 has run and phase 5 has not — which makes it the single
+    // state that pins both counters to their own moment:
+    //
+    //   - a `kills` counted at phase 5 (the sweep, `resolveDeaths`) reads **0** here, and the last
+    //     thing the player did before dying vanishes off their summary;
+    //   - a `fuelBurned` metered at phase 5 or 6 reads **0** for this turn as well.
+    //
+    // The scene: the player, two Cinders adjacent, and 2 HP left. The flash wakes both (free, so
+    // they declare and do not act). The first strike puts the north Cinder to 2 HP; the second kills
+    // it in phase 1, and the west one lands the blow that ends the run in phase 4.
+    const scene = ['#####', '#.c.#', '#c@.#', '#####'];
+    const start = withPlayerHp(sceneState(scene, 'shuttered', 50), 2);
+    const flashed = step(start, { kind: 'setShutter', to: 'open' });
+    expect(
+      flashed.world.actors.filter((actor) => actor.kind === 'creature' && actor.mind.kind === 'awake'),
+    ).toHaveLength(2);
+
+    const wounded = step(flashed, { kind: 'move', dir: 'north' });
+    expect(wounded.status).toEqual({ kind: 'running' });
+    expect(wounded.kills).toBe(0); // struck, not killed — 5 HP less 3 is not 0
+
+    const fatal = step(wounded, { kind: 'move', dir: 'north' });
+    expect(fatal.status).toEqual({ kind: 'died' });
+    expect(playerOf(fatal.world).hp).toBe(0);
+
+    // The kill counted...
+    expect(fatal.kills).toBe(1);
+    // ...and phase 5 provably did not run, which is what makes the line above a boundary assertion
+    // rather than a restatement: the body is still standing in the world at 0 HP and its ember was
+    // never dropped. Both would be false if the sweep had happened.
+    const bodies = fatal.world.actors.filter((actor) => actor.kind === 'creature' && !isAlive(actor));
+    expect(bodies).toHaveLength(1);
+    expect(fatal.world.embers).toEqual([]);
+    // The other half: phase 2 *did* run on this turn, so the burn is counted.
+    expect(fatal.fuelBurned).toBe(wounded.fuelBurned + FUEL_BURN_LIT);
   });
 });
 

@@ -1,5 +1,15 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { GLYPHS } from '@/render';
+import {
+  boot,
+  playerTile,
+  press,
+  pressAt,
+  pressTile,
+  pressWithin,
+  touch,
+  turn,
+} from './support/drive';
 
 /**
  * The glyphs that belong to the *map* and survive the lantern closing.
@@ -25,6 +35,10 @@ const TERRAIN_GLYPHS: readonly string[] = [
  * can see whether the wiring works (ADR-0005) — `render/` and `session/` are unit-tested and cannot
  * tell you that a `Pressable` swallowed a press or that the board never mounted.
  *
+ * The presses themselves live in `support/drive.ts`, shared with every other spec here — "what a
+ * press is" is the one thing this suite must not have two answers to, given that #20's shipped bug
+ * was a press path that was dead on web while its spec passed.
+ *
  * ## Two things make this suite writable at all
  *
  * **The board is DOM.** ADR-0003 chose glyph cells over a Skia canvas explicitly so that "Playwright
@@ -41,86 +55,6 @@ const TERRAIN_GLYPHS: readonly string[] = [
  * §9's classification: `tap-move-3-4` means the model says a tap there is a move to (3,4). Asserting
  * on them is asserting that the rule reached the screen.
  */
-
-/**
- * A real press, in whichever way the running project can produce one.
- *
- * The **phone** project has touch emulation (`devices['Pixel 7']`) and is the design target, so it
- * gets a genuine `touchstart`/`touchend` pair — which is the input path `Pressable` actually takes on
- * a phone, and the one that would break if a handler were bound to a mouse event. The **desktop**
- * project has no touchscreen, and `locator.tap()` throws there rather than falling back. Running the
- * same spec both ways is the cheap version of "does this work on a laptop as well", and it is worth
- * more than skipping desktop outright.
- */
-async function press(page: Page, locator: Locator): Promise<void> {
-  if (touch()) await locator.tap();
-  else await locator.click();
-}
-
-/** The same, at a raw coordinate. */
-async function pressAt(page: Page, x: number, y: number): Promise<void> {
-  if (touch()) await page.touchscreen.tap(x, y);
-  else await page.mouse.click(x, y);
-}
-
-/**
- * Press the middle of a tile, at real screen coordinates.
- *
- * The board is **one** touch surface that resolves a point to a tile by arithmetic
- * (`components/play/hit-test.ts`), so aiming a real press at a real pixel is what a thumb does and
- * what the code has to survive. The `tap-*` markers are `pointerEvents: none` decorations; they are
- * used here only to locate the tile §9 classified, never as the thing that receives the press.
- */
-async function pressTile(page: Page, marker: Locator): Promise<void> {
-  await pressWithin(page, marker, 0.5, 0.5);
-}
-
-/**
- * Press a tile somewhere other than its middle.
- *
- * **This is the shape of press the suite could not see, and it hid a live bug for a whole review.**
- * A tile is ~37pt at the phone viewport, so a press at its centre has ±18pt of slack — an error of a
- * few points in the board's assumed origin is silently absorbed, and every spec here aimed at
- * centres. The bug that exploited that gap was a cached origin that went stale the moment the HUD
- * grew a line (see `components/play/board.tsx`), which put a ~6pt offset on every press: harmless in
- * the middle of a tile, and a *different tile* at its edge.
- *
- * `fx`/`fy` are fractions of the tile, `0` at its top-left corner and `1` at its bottom-right. They
- * are clamped 3pt inside the box, because a press exactly on a boundary is a different question
- * (`tests/unit/play-hit-test.test.ts` owns that one) and the browser rounds it.
- */
-async function pressWithin(page: Page, marker: Locator, fx: number, fy: number): Promise<void> {
-  const box = await marker.boundingBox();
-  expect(box, 'the tile marker has no box to aim at').not.toBeNull();
-  const inset = (span: number, fraction: number) =>
-    Math.min(span - 3, Math.max(3, span * fraction));
-  await pressAt(page, box!.x + inset(box!.width, fx), box!.y + inset(box!.height, fy));
-}
-
-function touch(): boolean {
-  return test.info().project.use.hasTouch === true;
-}
-
-/** The tile the player is standing on. The self-tap target sits on it and nowhere else (§9). */
-async function playerTile(page: Page): Promise<{ x: number; y: number }> {
-  const id = await page.locator('[data-testid^="tap-wait-"]').first().getAttribute('data-testid');
-  const [x, y] = (id ?? '').replace('tap-wait-', '').split('-').map(Number);
-  expect(Number.isInteger(x) && Number.isInteger(y), `no self-tap target: ${id}`).toBe(true);
-  return { x, y };
-}
-
-/** The turn counter, printed beside the fixed seed. `turnsElapsed` from the HUD (§13). */
-async function turn(page: Page): Promise<number> {
-  const note = (await page.getByTestId('seed-note').textContent()) ?? '';
-  return Number(/turn (\d+)/.exec(note)?.[1]);
-}
-
-async function boot(page: Page): Promise<void> {
-  await page.goto('/');
-  // The board is sized from a measured layout, so it appears on the second render. Waiting for a
-  // real target is more honest than a timeout and fails with a useful message.
-  await expect(page.locator('[data-testid^="tap-wait-"]')).toHaveCount(1);
-}
 
 test('the board draws the opening floor with the player on it', async ({ page }) => {
   await boot(page);
@@ -383,7 +317,12 @@ test('at 0 fuel the shutter control shows itself dead rather than doing nothing'
 
   // §4 is also explicit that a dry lantern is a desperate state and **not** a loss state. So the
   // board is still playable: the run has not ended and a step still costs a turn and resolves.
-  await expect(page.getByTestId('status-line')).not.toHaveText(/lantern goes out/i);
+  //
+  // This used to read the status line for a death headline, which stopped being able to fail the
+  // moment #21 moved the ending onto its own screen — `StatusLine` no longer receives an outcome and
+  // can never print one. The end of a run is now a *panel that exists or does not*, so that is what
+  // is asked. Same intent, and this version can go red.
+  await expect(page.getByTestId('run-summary')).toHaveCount(0);
   const spent = await turn(page);
   await pressTile(page, page.locator('[data-testid^="tap-move-"]').first());
   expect(await turn(page)).toBe(spent + 1);

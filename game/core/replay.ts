@@ -49,7 +49,7 @@ import { step } from './step';
 import { createInitialState, type GameState } from './state';
 
 /** The rules version this build of the simulation implements. See the header. */
-export const RULES_VERSION = 2;
+export const RULES_VERSION = 3;
 
 /**
  * Append-only. One line per bump, newest last, so that a fixture pinned at version N can be
@@ -61,6 +61,12 @@ export const RULES_VERSION_LOG: readonly string[] = [
     '`move | wait | setShutter | descend`; `GameState` gains the floor, the actors, the lantern ' +
     'and a run status, and `createInitialState` now generates floor 1 (so a run consumes draws ' +
     'before its first command). Every version-1 record is meaningless under these rules.',
+  '3 — §13\'s summary numbers (#21): `GameState` gains `kills`, `fuelBurned` and `seed`. ' +
+    'No rule changed and no draw moved — a version-2 record replays to the same floor, the same ' +
+    'actors, the same lantern and the same generator position, which the re-pinned digests below ' +
+    'show field for field. The bump is the policy above applied literally ("any new field in ' +
+    '`GameState`"): a version-2 record replayed under these rules produces a state with three ' +
+    'fields it did not have, so a stored *state* comparison against one would not hold.',
 ];
 
 /**

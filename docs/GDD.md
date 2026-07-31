@@ -803,6 +803,25 @@ fuel spent, turns taken, the seed (Pillar 4) — is the run-loop work. Note for 
 terminal state is a snapshot of the moment the run ended, not a tidied-up world, so counters must be
 accumulated as they happen rather than derived from it afterwards.
 
+**What the ending copy may say.** The summary states the fact and the shape of the world; it does
+not assert a reason for the descent, anything waiting at the bottom, or anything above it. There is
+no such fiction to be faithful to — VISION's non-goal is "the story is the run" — and copy that
+implies one is a design decision made in a string. The endings read `† DIED` / *The lantern goes
+out.* and `> REACHED THE BOTTOM` / *The dark goes no deeper.*: **the verdict names the player's fate,
+the headline is an image of the world**, and neither names a number, because floor count and fuel are
+both tuning. A headline must also hold in every legal state it can be shown in — a win with a dry
+lantern is legal (§4), which is why the win line cannot mirror the death line by claiming the lantern
+still burns.
+
+*Watch, and it is one string to change if it fires:* §4 says 0 fuel is **not** an ending and adds
+that this is "the first thing anyone assumes" — while VISION's Pillar 4 uses "the moment the lantern
+died" to mean running dry. So `The lantern goes out.` is the sentence a confused player would have
+written for the wrong rule. It is kept because the image is true without knowing any rule, the wrong
+rule un-teaches itself in play long before the summary, and the panel shows fuel *spent* rather than
+fuel remaining. **The signal to change it** is a playtester attributing a death to fuel when fuel was
+not the cause — a presentation failure with a one-string fix (drop the lantern noun), and explicitly
+not an argument about the fuel rule.
+
 ---
 
 ## Change log
@@ -861,3 +880,4 @@ recorded at the moment we made it, is the part git cannot give us.
 | 2026-07-31 | **§10's M1 glyph list gains `+` doorway, `<` entrance and the blank unknown cell, and says the ember glyph covers a drop as well** | Documentation catching up to `render/glyphs.ts`; no decision changed. §5 has had doorways and an entrance since #13 and the list never grew, so a playtester briefing themselves off §10 would meet two glyphs the document does not name — in a game whose central mechanic is not being able to see |
 | 2026-07-31 | **§9's auto-travel bullet: the playtest gate is answered and the recommendation is build it** | The build stays in M2 and every rule below the bullet is unchanged. Recorded because the *reason* §9 gave for deferring ("the friction has never been felt, nothing above `game/` exists") expired the day #20 shipped. The friction was felt, but not where the gate looked: it is forward travel across rooms one flash has already revealed, not backtracking — the roadmap's disambiguating probe for backtracking returned no, not once, in six runs. Full evidence on #32, split arms preserved in `ROADMAP.md` |
 | 2026-07-31 | **§12 records that the first playtest has run and that the fallback is not spent** | §12's trigger is "if the **first** playtest says the light wager is not tense". It ran and the wager is not tense today, so the trigger has fired while the conclusion has not — the playtester recommended keeping fuel, and the recommendation needs re-ruling (#63) because the reason it gave was false. Written into §12 rather than left in the roadmap because a future session reaching for the fallback will reach for this section |
+| 2026-07-31 | **New in §13: a constraint on what the ending copy may claim, and the win headline changes from *You reach the bottom.* to *The dark goes no deeper.*** | §13 disclaimed the summary screen ("what is drawn on top of it... is the run-loop work") and then said nothing about what that copy may assert — so the tone at the game's emotional peak became the property of whoever was holding the file, which is how this came up. **The rewrite is caused by #21, not inherited:** putting the verdict `> REACHED THE BOTTOM` above the old headline left two lines sharing a subject, reading as one thought said twice at the one moment a player has earned something. The death pair works because of a structure the win pair had lost — **the verdict names the player's fate, the headline is an image of the world** — so any fix keeping "you" as the subject would have been a reword rather than a second line. `The dark goes no deeper.` is §13's own settled fact ("there is no floor 9 and there is no boss; the eighth descent *is* the ending") stated as an image, and it answers the live question a player has on winning a roguelike with no boss: *is that it, or did I miss something?* Two constraints fall out and are now written down, because both were easy to trip: **it may name no number** (`LAST_FLOOR` is tuning, so "eight floors down" becomes a lie the first time it moves, in a string that cannot read state), and **it must hold in every legal state it can be shown in** — a win with a dry lantern is legal under §4, which kills the tempting mirror `The lantern still burns.` in exactly the most retellable runs. Meaning was never the open question: VISION's "the story is the run" plus Pillar 4 already settle that the bottom is where the run *stops*, not a destination with content in it — but it was settled distributively across three documents, which is why it read as unwritten. Rejected outright, recorded so they are not re-proposed: daylight, escape, climbing out, the ruin conquered, or something waiting at the bottom |

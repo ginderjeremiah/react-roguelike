@@ -28,6 +28,19 @@ import { type Cue, type FloorHud } from '@/render';
 export const BLOCKED_MESSAGE = 'The way is blocked.';
 
 /**
+ * §13: the run has ended, so the board accepts nothing — and §2 still wants the tap acknowledged.
+ *
+ * **This is the only refusal in the game with nothing else to speak for it.** A blocked neighbour at
+ * least produces `BLOCKED_MESSAGE`; every refusal that reaches `step` produces a `refused` cue. A tap
+ * on a finished board produces neither: `render/taps.ts` empties the tap list at the ending, so
+ * `tapAt` answers `unbound` and no command is ever built. Without this line the press is genuinely
+ * indistinguishable from a press that was never received — which is §2's "a UI failure wearing the
+ * costume of a rule", and which is also why the E2E could not tell a working refusal from a dead
+ * handler until this existed.
+ */
+export const RUN_OVER_MESSAGE = 'The run is over.';
+
+/**
  * What the descend control promises. **There is no floor 9.**
  *
  * §13, twice over: "There is no floor 9 and there is no boss ... The eighth descent *is* the

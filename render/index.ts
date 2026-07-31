@@ -58,6 +58,7 @@
  * | Is the descend control visible? Is the shutter pressable? | `hud.ts`, from `game/systems/` predicates |
  * | What does a tap on **this** tile do? | `taps.ts` — §9's rule, including which neighbours are not targets |
  * | What just happened? | `cues.ts` — facts, never durations |
+ * | How did the run end, and what did it come to? | `summary.ts` — §13's two endings, and one of them is a **win** |
  *
  * If a component finds itself asking any of those, the answer is missing from this layer and belongs
  * here, not there.
@@ -105,5 +106,17 @@ export {
 } from './perception';
 
 export { cellAt, presentScene, type Scene, type SceneGrid } from './scene';
+
+export {
+  DEATH_MARKER,
+  DEATH_VERDICT,
+  presentSummary,
+  SUMMARY_STAT_KEYS,
+  VICTORY_MARKER,
+  VICTORY_VERDICT,
+  type RunSummary,
+  type SummaryStat,
+  type SummaryStatKey,
+} from './summary';
 
 export { TAP_KINDS, tapAt, type TapAction } from './taps';

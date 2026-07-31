@@ -17,8 +17,9 @@
  * `RULES_VERSION` policy at the top of `replay.ts` before changing anything that does.
  *
  * **This layer is thin on purpose.** The rules live in `game/systems/`; `game/core/` owns the
- * command vocabulary, the generator, the run's two counters and its ending, and the replay
- * machinery around them. Anything here that looks like a game rule is in the wrong directory.
+ * command vocabulary, the generator and the seed it came from, the run's four counters and its
+ * ending, and the replay machinery around them. Anything here that looks like a game rule is in the
+ * wrong directory.
  */
 
 export { assertNever } from './assert';

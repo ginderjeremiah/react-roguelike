@@ -56,8 +56,10 @@ is layered on top.
       [ADR-0010](decisions/0010-session-layer-owns-the-run.md)
 - [x] Player movement and touch input — #20. Tap legality is `Scene.taps` in `render/`, so `session/`
       did not change and ADR-0009's `travel(to)` is one more `TapAction` case in M2
-- [ ] Death, winning, and a run-summary screen — #21. **The only issue that gates the exit**, and
-      unblocked since #20 merged
+- [x] Death, winning, and a run-summary screen — #21. The run tally (kills, fuel burned, seed) went
+      into `GameState` so a replay reproduces it; see the journal on why not `session/`. This was the
+      last issue gating the exit; **what remains before M1 closes is the second playtest, not more
+      building**
 - [ ] Determinism rules applied to `game/**/*.test.ts` — #12
 - [ ] A tap on a non-adjacent tile is silent — #60. Found by the first playtest; §2 requires feedback
       for a refusal and this is the first interaction a new player will attempt

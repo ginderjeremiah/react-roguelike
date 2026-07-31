@@ -7,9 +7,14 @@ import path from 'node:path';
 import {
   AGENT_WORKTREE_PATTERN,
   blockOtherAgentWorktrees,
+  cacheVersionForRoot,
   isInsideAgentWorktree,
 } from '@/scripts/agent-worktrees';
-import { planNodeModulesLink } from '@/scripts/ensure-worktree-node-modules.mjs';
+import {
+  ensureNodeModulesLink,
+  linkTypeFor,
+  planNodeModulesLink,
+} from '@/scripts/ensure-worktree-node-modules.mjs';
 
 /**
  * Guards the two pieces of build tooling that make a git worktree behave like the main checkout
@@ -179,6 +184,7 @@ describe('metro.config.js', () => {
   // carrying entries Metro already had) is asserted against the real thing in
   // `blockOtherAgentWorktrees` above.
   const DEFAULT_ENTRY = /[\\/]\.expo[\\/]types/;
+  const DEFAULT_CACHE_VERSION = '1.0'; // what expo/metro-config actually ships
 
   const cjs = createRequire(import.meta.url);
   // `Module._load` is the interception point for every require() in the process, and it is not in
@@ -188,20 +194,27 @@ describe('metro.config.js', () => {
     _load: (this: unknown, request: string, ...rest: unknown[]) => unknown;
   };
 
+  type MetroConfig = { resolver: { blockList: unknown }; cacheVersion?: string };
+
   /** Load a metro.config.js — the real one, or a copy planted at some other project root. */
-  function metroConfigIn(dir: string): { resolver: { blockList: unknown } } {
+  function metroConfigIn(dir: string): MetroConfig {
     const configPath = cjs.resolve(path.join(dir, 'metro.config.js'));
     const load = loader._load;
 
     loader._load = function (this: unknown, request: string, ...rest: unknown[]) {
       if (request === 'expo/metro-config') {
-        return { getDefaultConfig: () => ({ resolver: { blockList: [DEFAULT_ENTRY] } }) };
+        return {
+          getDefaultConfig: () => ({
+            resolver: { blockList: [DEFAULT_ENTRY] },
+            cacheVersion: DEFAULT_CACHE_VERSION,
+          }),
+        };
       }
       return load.call(this, request, ...rest);
     };
     try {
       delete cjs.cache[configPath];
-      return cjs(configPath) as { resolver: { blockList: unknown } };
+      return cjs(configPath) as MetroConfig;
     } finally {
       loader._load = load;
       delete cjs.cache[configPath];
@@ -249,13 +262,13 @@ describe('metro.config.js', () => {
     expect(blocks(metroConfigIn(ROOT).resolver.blockList, entry)).toBe(false);
   });
 
-  it('blocks other agents’ worktrees exactly when it is not itself inside one', () => {
-    const other = path.join(ROOT, '.claude', 'worktrees', 'some-agent', 'app', '_layout.tsx');
-
-    // Conditional on the environment because the correct answer genuinely differs between them.
-    // In CI and the main checkout this asserts `true` — delete the blockList entry and it is red.
-    expect(blocks(metroConfigIn(ROOT).resolver.blockList, other)).toBe(!isInsideAgentWorktree(ROOT));
-  });
+  // There is deliberately NO in-place assertion of the other direction ("`<ROOT>/.claude/
+  // worktrees/x` IS blocked"), because the correct answer depends on where this suite is running
+  // and there is no honest constant to assert. The version that used to live here read
+  // `expect(blocks(…)).toBe(!isInsideAgentWorktree(ROOT))` and computed its expectation from the
+  // function under test, so both sides moved together and it survived every predicate mutation —
+  // a test that cannot fail, dressed as the most important one in the file. Both directions are
+  // asserted against constants by the two sandbox tests below, which get to choose the root.
 
   it('does not block its own sources when loaded from a worktree root', () => {
     // #49 itself, reproduced against the real config file from wherever this suite happens to run.
@@ -279,6 +292,71 @@ describe('metro.config.js', () => {
     expect(blocks(blockList, path.join(main, '.claude', 'worktrees', 'agent-a1', 'app', 'index.tsx')))
       .toBe(true);
     expect(blocks(blockList, path.join(main, 'app', 'index.tsx'))).toBe(false);
+  });
+
+  it('gives every project root its own cache partition', () => {
+    // The second, independent cause of `Error: No routes found`, and the one that outlived the
+    // blockList fix: Metro's cache is one directory in the OS temp dir shared by every project on
+    // the machine, so an ordinary `npm run build:web` in the main checkout served its cached route
+    // context to worktrees created afterwards — which had never been built and whose evaluated
+    // config was provably correct.
+    //
+    // Two roots, two configs, two cache keys. Without this the values are equal and the poisoning
+    // is back, silently, with `--clear` as the only remedy and nothing to point at it.
+    const main = path.join(sandbox, 'cache-main');
+    const worktree = path.join(sandbox, 'cache-main', '.claude', 'worktrees', 'agent-a1');
+    plantConfigAt(main);
+    plantConfigAt(worktree);
+
+    expect(metroConfigIn(main).cacheVersion).not.toBe(metroConfigIn(worktree).cacheVersion);
+  });
+
+  it('keeps a project root’s cache key stable across loads', () => {
+    // The opposite failure, and it has no symptom other than "the build is always slow": a key
+    // derived from anything that varies per run (a timestamp, a counter, unsorted iteration)
+    // partitions the cache into one entry per invocation and disables caching altogether.
+    const main = path.join(sandbox, 'cache-stable');
+    plantConfigAt(main);
+
+    expect(metroConfigIn(main).cacheVersion).toBe(metroConfigIn(main).cacheVersion);
+    expect(metroConfigIn(main).cacheVersion).toBeTruthy();
+  });
+
+  it('extends Expo’s cache version rather than replacing it', () => {
+    // getDefaultConfig ships `cacheVersion: '1.0'`. Whatever invalidation that encodes is Expo's
+    // to change, and clobbering it would quietly opt this project out of it.
+    const main = path.join(sandbox, 'cache-extends');
+    plantConfigAt(main);
+
+    expect(metroConfigIn(main).cacheVersion).toMatch(new RegExp(`^${DEFAULT_CACHE_VERSION}\\b`));
+  });
+});
+
+// --- The cache key itself -------------------------------------------------------------------------
+
+describe('cacheVersionForRoot', () => {
+  it('differs between roots and is stable for one', () => {
+    const a = '/repo/react-roguelike';
+    const b = '/repo/react-roguelike/.claude/worktrees/agent-a1';
+
+    expect(cacheVersionForRoot('1.0', a)).not.toBe(cacheVersionForRoot('1.0', b));
+    expect(cacheVersionForRoot('1.0', a)).toBe(cacheVersionForRoot('1.0', a));
+  });
+
+  it('distinguishes roots that differ only in their last segment', () => {
+    // Two agents' worktrees are siblings with near-identical paths. A key that truncated or
+    // summarised the root would collide them and reintroduce the bug between worktrees, which is
+    // the hardest version to diagnose because both roots look equally correct.
+    const base = '/repo/.claude/worktrees';
+    expect(cacheVersionForRoot('1.0', `${base}/agent-a1`))
+      .not.toBe(cacheVersionForRoot('1.0', `${base}/agent-a2`));
+  });
+
+  it('carries the base version through, and does not stringify a missing one', () => {
+    expect(cacheVersionForRoot('1.0', '/repo')).toMatch(/^1\.0:/);
+    // `${undefined}` is the classic version of this mistake: a literal "undefined" in the key
+    // works, so nothing fails, and the bug is only visible to whoever reads the string.
+    expect(cacheVersionForRoot(undefined, '/repo')).not.toMatch(/undefined/);
   });
 });
 
@@ -357,6 +435,95 @@ describe('planNodeModulesLink', () => {
         hasNodeModules: () => false, // main checkout never had an install run
       }),
     ).toThrow(/main checkout/);
+  });
+});
+
+// --- The half of the linker that touches the world -------------------------------------------------
+
+describe('linkTypeFor', () => {
+  it('asks for a junction on Windows and a plain dir symlink elsewhere', () => {
+    // CI IS LINUX AND THIS LINE IS FOR WINDOWS. `fs.symlinkSync(…, 'dir')` needs Developer Mode or
+    // an elevated shell on Windows and throws EPERM without it, so flipping this to 'dir' breaks
+    // `npm run test:e2e` on every dev machine in the project while all three CI checks stay green.
+    // That is the same shape of blind spot as #49 itself.
+    expect(linkTypeFor('win32')).toBe('junction');
+    expect(linkTypeFor('linux')).toBe('dir');
+    expect(linkTypeFor('darwin')).toBe('dir');
+  });
+});
+
+describe('ensureNodeModulesLink', () => {
+  const MAIN = path.resolve('/repo/react-roguelike');
+  const WORKTREE = path.join(MAIN, '.claude', 'worktrees', 'agent-a1');
+
+  /** A fake world: records what the script did to it, and no filesystem is involved. */
+  function fakeIo(overrides: Partial<Parameters<typeof ensureNodeModulesLink>[0]> = {}) {
+    const symlinks: { target: string; link: string; type: string }[] = [];
+    const logs: string[] = [];
+    return {
+      symlinks,
+      logs,
+      io: {
+        cwd: () => WORKTREE,
+        platform: () => 'win32',
+        exists: (p: string) => p.startsWith(MAIN) && !p.startsWith(WORKTREE),
+        present: () => false,
+        gitCommonDir: () => path.join(MAIN, '.git') as string | null,
+        symlink: (target: string, link: string, type: string) =>
+          void symlinks.push({ target, link, type }),
+        log: (message: string) => void logs.push(message),
+        ...overrides,
+      },
+    };
+  }
+
+  it('creates the link with target and path in that order', () => {
+    // `fs.symlinkSync(target, path)` — swapping the two is the single most common mistake with
+    // this API, and it does not throw: it creates `<main>/node_modules/node_modules` pointing at
+    // a worktree, corrupting the SHARED tree every other checkout depends on. There is no CI job
+    // that would ever see it.
+    const { symlinks, logs, io } = fakeIo();
+    ensureNodeModulesLink(io);
+
+    expect(symlinks).toEqual([
+      {
+        target: path.join(MAIN, 'node_modules'),
+        link: path.join(WORKTREE, 'node_modules'),
+        type: 'junction',
+      },
+    ]);
+    expect(logs).toHaveLength(1);
+    expect(logs[0]).toContain(path.join(WORKTREE, 'node_modules'));
+  });
+
+  it('passes the platform’s link type through to the filesystem call', () => {
+    // linkTypeFor is tested above; this is the wiring. Hard-coding 'junction' at the call site
+    // would pass that test and throw EPERM… no, worse: it would silently create a Windows-flavoured
+    // request on Linux, where Node ignores the type. It breaks nothing on CI and everything is fine
+    // until someone reads it. Assert the value actually travels.
+    const { symlinks, io } = fakeIo({ platform: () => 'linux' });
+    ensureNodeModulesLink(io);
+    expect(symlinks[0].type).toBe('dir');
+  });
+
+  it('writes nothing and says nothing when node_modules already exists', () => {
+    // The CI path, end to end this time rather than at the planner. A pre-hook that logs on a
+    // clean checkout is noise in every CI run; one that writes is a broken CI run.
+    const { symlinks, logs, io } = fakeIo({ exists: () => true });
+    ensureNodeModulesLink(io);
+
+    expect(symlinks).toEqual([]);
+    expect(logs).toEqual([]);
+  });
+
+  it('refuses to overwrite a dangling link rather than guessing', () => {
+    // `exists` follows links and says no; `present` does not follow and says yes. That pair means
+    // a broken junction left by a deleted main checkout — someone else's mess, and silently
+    // replacing it is how you lose the thing they were about to fix.
+    const { symlinks, io } = fakeIo({ present: () => true });
+
+    expect(() => ensureNodeModulesLink(io)).toThrow(/does not resolve/);
+    expect(symlinks).toEqual([]);
   });
 });
 

@@ -90,35 +90,72 @@ function readGitCommonDir(cwd) {
   }
 }
 
-function main() {
-  const projectRoot = process.cwd();
-  const linkPath = path.join(projectRoot, 'node_modules');
+/**
+ * Which kind of link to create, given `process.platform`.
+ *
+ * A one-line function because the one line is load-bearing and CI cannot see it: CI is Linux, so
+ * changing `'junction'` to `'dir'` breaks every Windows dev machine — `fs.symlinkSync(…, 'dir')`
+ * needs Developer Mode or elevation, a junction does not — and stays green on every gate we have.
+ * That is the exact bug class this whole script exists to eliminate, so it does not get to live in
+ * the script's own blind spot.
+ *
+ * On POSIX the argument is ignored by Node and a plain symlink is created either way; 'dir' is the
+ * honest name for what it points at.
+ *
+ * @param {string} platform
+ * @returns {'junction' | 'dir'}
+ */
+export function linkTypeFor(platform) {
+  return platform === 'win32' ? 'junction' : 'dir';
+}
+
+/**
+ * Everything this script does to the world, in one record so the decisions above it can be
+ * exercised without a filesystem, a git repository, or a Windows machine.
+ *
+ * A default parameter rather than a mocking framework: production reads exactly as it did, and the
+ * test supplies a fake. The seam stops here — the members below are one-line adapters, and what
+ * they cannot cover (that Node's symlink really works from a worktree) is covered by actually
+ * running `npm run test:e2e` in one, which is the DoD.
+ */
+const REAL = {
+  cwd: () => process.cwd(),
+  platform: () => process.platform,
+  /** Follows links, so an already-linked worktree looks like an ordinary install. */
+  exists: (p) => fs.existsSync(p),
+  /** Does NOT follow links: true for a dangling one, where `exists` is false. */
+  present: (p) => fs.lstatSync(p, { throwIfNoEntry: false }) != null,
+  gitCommonDir: (cwd) => readGitCommonDir(cwd),
+  symlink: (target, link, type) => fs.symlinkSync(target, link, type),
+  log: (message) => console.log(message),
+};
+
+/** @param {typeof REAL} io */
+export function ensureNodeModulesLink(io = REAL) {
+  const projectRoot = io.cwd();
 
   const plan = planNodeModulesLink({
     projectRoot,
-    // existsSync follows links, so an already-linked worktree is a no-op too.
-    projectHasNodeModules: fs.existsSync(linkPath),
-    gitCommonDir: readGitCommonDir(projectRoot),
-    hasNodeModules: (dir) => fs.existsSync(path.join(dir, 'node_modules')),
+    projectHasNodeModules: io.exists(path.join(projectRoot, 'node_modules')),
+    gitCommonDir: io.gitCommonDir(projectRoot),
+    hasNodeModules: (dir) => io.exists(path.join(dir, 'node_modules')),
   });
 
   if (plan.action === 'noop') return; // Silence is the contract: nothing happened.
 
-  // Only reachable when existsSync said no, so anything here is a dangling link. Removing it
-  // silently would be guessing at what someone else meant.
-  if (fs.lstatSync(plan.link, { throwIfNoEntry: false })) {
+  // Only reachable when `exists` said no, so anything still present here is a dangling link.
+  // Removing it silently would be guessing at what someone else meant.
+  if (io.present(plan.link)) {
     throw new Error(`${plan.link} exists but does not resolve — remove it and try again.`);
   }
 
-  // 'junction' rather than 'dir': junctions need no elevation on Windows, symlinks do. On POSIX
-  // the type argument is ignored and a plain symlink is created.
-  fs.symlinkSync(plan.target, plan.link, process.platform === 'win32' ? 'junction' : 'dir');
-  console.log(`Linked ${plan.link} -> ${plan.target} (git worktree has no node_modules of its own)`);
+  io.symlink(plan.target, plan.link, linkTypeFor(io.platform()));
+  io.log(`Linked ${plan.link} -> ${plan.target} (git worktree has no node_modules of its own)`);
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   try {
-    main();
+    ensureNodeModulesLink();
   } catch (error) {
     console.error(`ensure-worktree-node-modules: ${error instanceof Error ? error.message : error}`);
     process.exit(1);

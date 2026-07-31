@@ -1,6 +1,9 @@
 // Learn more: https://docs.expo.dev/guides/customizing-metro
 const { getDefaultConfig } = require('expo/metro-config');
-const { blockOtherAgentWorktrees } = require('./scripts/agent-worktrees');
+const {
+  blockOtherAgentWorktrees,
+  partitionCacheByProjectRoot,
+} = require('./scripts/agent-worktrees');
 
 const config = getDefaultConfig(__dirname);
 
@@ -15,5 +18,17 @@ const config = getDefaultConfig(__dirname);
 // own, so there is nothing for it to block. See scripts/agent-worktrees.js — the condition lives
 // there, tested, rather than inline here where nothing could assert on it.
 blockOtherAgentWorktrees(config, __dirname);
+
+// Metro's cache is per-MACHINE, not per-project: one directory in the OS temp dir, shared by every
+// project root on the box. That was the second, independent cause of `Error: No routes found` in a
+// worktree, and the one that survived the blockList fix — an ordinary `npm run build:web` in the
+// main checkout poisons every worktree created after it, because expo-router's route-discovering
+// `require.context` lives in the main checkout's node_modules and resolves to the same absolute
+// file from every root. The worktree then serves the main checkout's cached answer while its own
+// evaluated config is provably correct, which is what made this look like a bad blockList.
+//
+// A hash of __dirname in a Metro config looks like superstition. It is the entire reason
+// `build:web` works from a fresh worktree without `--clear`. See scripts/agent-worktrees.js.
+partitionCacheByProjectRoot(config, __dirname);
 
 module.exports = config;

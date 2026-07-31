@@ -32,16 +32,18 @@ is worth the file.
 **Be honest about failure.** A record of what did not work is worth more than a record of what
 did — it is the only thing stopping a future session from repeating it.
 
-> **Headings dated 2026-07-31 through 2026-08-05 are fabricated. Until #50 lands, read position, not
-> date.** As of PR #54, every commit in this repository had landed on **2026-07-29** or
-> **2026-07-30**, plus the Expo template's `Initial commit` on 2025-10-25 — check with
-> `git log --format='%ad' --date=short | sort | uniq -c` rather than trusting a count written here,
-> since any count would be stale by the commit that wrote it. So headings reading 2026-07-29 or
-> 2026-07-30 match real history and are fine, **and so does any date after 2026-08-05** — the
-> fabricated set is closed and will not grow, because entries written from #54 onward read a clock.
-> Inside it, the entries dated 2026-07-31 through 2026-08-05 are invented, as are ADR-0008's and
-> ADR-0009's dates. Past sessions copied the heading above and
-> incremented it rather than reading a clock.
+> **Some headings below this note carry invented dates. Until #50 lands, read position, not date.**
+> Past sessions copied the heading above and incremented it rather than reading a clock, so a run of
+> entries — and ADR-0008's and ADR-0009's dates — advance past dates on which nothing was committed.
+> `git log --format='%ad' --date=short | sort | uniq -c` against
+> `grep -o '^## 20[0-9-]*' docs/JOURNAL.md | sort | uniq -c` shows the divergence; **run them rather
+> than trusting any figure written here**, because a count is stale by the commit that writes it and
+> that is the mistake this note exists to describe.
+>
+> **The boundary is positional, not a date range**, and that is deliberate — a range would sweep up
+> honest entries as real time walked into it. **Everything at or above the archivist entry for
+> #45/#51 (PR #54) was written by reading a clock and is real.** Only entries *below* it are
+> suspect, and that set is closed and cannot grow.
 >
 > **File order is authoritative — newest first.** The entries for **#45 and #19** sit *above*
 > **#32 and #36** despite carrying dates a week *earlier* than them.
@@ -54,8 +56,9 @@ did — it is the only thing stopping a future session from repeating it.
 
 ## 2026-07-30 — Archivist: the roadmap was a milestone behind, and its headline count was never `game/`
 
-**Did:** Reconciled `ROADMAP.md`, `GDD.md` and this file against `main` at `2db3f39` (#45/#51).
-No code. Six issues filed during the #45 session were triaged into milestones, and #20 lost its
+**Did:** Reconciled `ROADMAP.md`, `GDD.md` and this file against `main` at `2db3f39` (#45/#51), in
+**PR #54**. *(This entry is the anchor the date note at the top of the file points at: everything at
+or above it was dated by reading a clock.)* No code. Six issues filed during the #45 session were triaged into milestones, and #20 lost its
 `blocked` label.
 
 **Why the roadmap was the whole job.** It claimed `render/` did not exist — seven modules and 124
@@ -113,13 +116,19 @@ easy to say and each of these had an argument for jumping the queue:**
 **#50 deliberately not fixed here — but its evidence was wrong and that *is* fixed.** #50 as filed
 claimed entries run "up to 2026-08-07" and that "every commit landed on 2026-07-30". Re-derived:
 the maximum heading date is **2026-08-05**, and every commit landed on **2026-07-29 or 2026-07-30**,
-plus the Expo template's `Initial commit` on 2025-10-25. So the fabricated range is
-**2026-07-31 to 2026-08-05** — nine entries — and every entry dated 07-29 or 07-30 is **accurate and
-must not be swept up**. (No per-day totals here on purpose: a count is stale by the commit that
-writes it, which is how this went wrong twice already. Run
+plus the Expo template's `Initial commit` on 2025-10-25. So the invented headings ran
+**2026-07-31 to 2026-08-05**, and every entry dated 07-29 or 07-30 is **accurate and must not be
+swept up**. (No per-day totals here on purpose: a count is stale by the commit that writes it, which
+is how this went wrong twice already. Run
 `git log --format='%ad' --date=short | sort | uniq -c`.) The #45 entry below and #50's body both
-carried the wrong version; both are corrected. Reconciling nine headings, the cross-references that cite them, and the
-policy is still not mechanical, so the fix stays #50's. What was safe here is the note at the top of
+carried the wrong version; both are corrected. Reconciling the invented headings, the
+cross-references that cite them, and the policy is still not mechanical, so the fix stays #50's.
+
+**The note states that boundary *positionally*, and the reason is worth keeping.** A date range was
+the obvious phrasing and it is a trap: 2026-07-31 through 2026-08-05 is *the next six days of real
+time*, so an entry written honestly tomorrow lands inside the "fabricated" window and #50's
+implementer rewrites a correct heading — the exact failure this paragraph is about, with the sign
+flipped. Anchored to this entry's position instead, the suspect set is closed and cannot grow. What was safe here is the note at the top of
 the Format section. **Correcting with a new note rather than editing the entries is the rule in this
 file, and it is also the cheap fix** — but a note that is itself wrong is worse than no note, so it
 now states the ranges rather than a summary of them.
@@ -301,9 +310,11 @@ is *not* affected, so nobody fixes it by analogy.
 **The journal's dates are fabricated from 2026-07-31 onward.** *(Corrected in place by the archivist
 pass that followed — the two figures this paragraph originally quoted were both wrong, and the
 correction is at the end.)* Headings run to **2026-08-05**, and ADR-0008, ADR-0009 and ADR-0010 were
-dated the same way. `git log` says every commit in this repository landed on **2026-07-29 or
+dated the same way. `git log` says every commit up to this point landed on **2026-07-29 or
 2026-07-30**, plus the Expo template's `Initial commit` on 2025-10-25 — so entries dated 07-29 and
-07-30 are **accurate**, and it is the nine entries from 07-31 to 08-05 that are invented.
+07-30 are **accurate**, and the invented ones ran 07-31 to 08-05. (The note at the top of the file
+draws that boundary by *position* rather than by date range, because the range is the next six days
+of real time and would sweep up honestly-dated entries written into it.)
 The #19 entry is misdated such that it sits above entries dated a week later, in a file whose entire
 contract is "newest first". ADR-0010's date is corrected here to the real one and this entry uses it.
 The rest is left alone deliberately: rewriting nine historical headings is an archivist job with its
@@ -315,7 +326,7 @@ repository landed on **2026-07-30**". The first came from reading ADR-0010's the
 it were an entry date; it was a date I had written myself minutes earlier, which is not evidence
 about anything. The second was generalised from `git log -3` — three commits are not a sample of the
 whole history, and the days it skipped held more commits than the day it saw. The consequence ran
-the wrong way: it told readers to discard eleven *correct* headings as decoration. **An unverified
+the wrong way: it told readers to discard every heading that was already accurate as decoration. **An unverified
 figure that looks specific enough to trust is exactly what this entry was filed to complain about.**
 
 **Next:** #20 is unblocked. *(This line originally read "and is the only thing standing between M1

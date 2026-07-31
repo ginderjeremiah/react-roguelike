@@ -183,8 +183,11 @@ component, that logic belongs in `game/`.
 
 ```
 components/play/   the game screen's parts: board, board-cell, hud-bar, controls, status-line,
-                   and four pure modules — hit-test, cell-style, messages, theme
+                   use-game-theme, and four pure modules — hit-test, cell-style, messages, theme
 app/index.tsx      one screen: beginRun(SEED) in useState, sceneOf/cuesOf down, intents up
+hooks/             the Expo starter's survivors. use-color-scheme is real: use-game-theme reads it,
+constants/theme.ts so the game screen depends on this directory. Not dead code, not yet mapped
+                   anywhere else, and easy to delete by mistake for exactly that reason
 ```
 
 **It is `components/play/`, not `components/game/`,** and the name was chosen by the linter: the
@@ -194,7 +197,8 @@ paragraph exists so the next person does not spend the attempt.
 
 **The four pure modules are tested from `tests/unit/play-*.test.ts`, not colocated**, and the React
 is tested by Playwright — ADR-0005 says there is no component test runner. `hit-test.ts` is the one
-that matters: **every tap in the game goes through it**, because `nativeEvent.locationX` is typed
+that matters: **every tap on the board goes through it** — the shutter and descend controls are
+plain `Pressable`s and do not — because `nativeEvent.locationX` is typed
 `number` and is `undefined` on react-native-web (#58), and because `onLayout` on web is a
 `ResizeObserver` that never reports a *move*. Both were shipped bugs in #20. Geometry read off a
 `nativeEvent`, and any cached origin, are guilty until proven otherwise here.

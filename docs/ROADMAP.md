@@ -300,7 +300,7 @@ and no warning, so a fumbled double-tap costs 5 fuel.
 work and it should not be counted as M2 progress; it is here so that `gh issue list --milestone "M2:
 The light loop"` — the queue every session actually reads — does not hide it. If M2 starts and this
 list has grown, move it to its own milestone rather than carrying it further. **It has grown, from
-five to seven, and M2 has not started** — so the next session that opens M2 should split it out
+five to eight — #57, #58 and #62 joined — and M2 has not started** — so the next session that opens M2 should split it out
 rather than carry it, which is what the sentence above was written to trigger.
 
 - [ ] Both contract gates are bypassable by naming a source file `*.test.ts` — #48. Same family as

@@ -113,11 +113,13 @@ before" — and an instruction conditional on an event nobody re-reads is an ins
 test files / 774 tests · `render/` 8 + barrel / 8 / 138 · `session/` 1 + barrel / 1 / 26 ·
 `components/play/` 10 modules, 0 colocated tests · `tests/unit/` 8 files / 109 · **59 files, 1047
 tests**, plus **24 E2E runs** (12 declarations × the `phone` and `desktop` projects). The #20 entry
-below says "1040 tests, up from 1005" and the #49 entry says "986, up from 956". 1047 ≠ 1040, and
-1005 ≠ 986. **Both entries are left as written** — correcting an old entry destroys the record of
-what we believed — and the reconciled numbers are here instead. The likely cause is a count taken
-before review added tests, which is the ordinary way this goes wrong and is an argument for taking
-the count *last*.
+below says "1040 tests, up from 1005" and "22 E2E specs, up from 4"; the #49 entry says "986, up from
+956". 1047 ≠ 1040, 24 ≠ 22, and 1005 ≠ 986. **All three are left as written** — correcting an old
+entry destroys the record of what we believed — and the reconciled numbers are here instead. The
+likely cause is a count taken before review added tests, which is the ordinary way this goes wrong
+and is an argument for taking the count *last*. The E2E figure has a second cause worth naming: 12
+declarations run across two Playwright projects, so "specs" and "runs" differ by a factor of two and
+either is defensible until you say which you mean. **State the unit as well as the number.**
 
 **`platform/` still does not exist, and `components/game/` still does not either.** #20's directory
 is `components/play/` because the layer lint matches import specifiers by path segment, so
@@ -147,7 +149,7 @@ both endings and a full run start to finish.
   it (#25, #13) carry the same date — so the histogram corroboration in #50's body no longer
   separates real from invented, exactly as its own third comment predicted. Commented there; did not
   touch its work. `GDD.md`'s change log has the same defect and now carries the same positional note.
-- **The contract-and-tooling list parked in M2 has grown from five to seven** (#57, #58 joined) and
+- **The contract-and-tooling list parked in M2 has grown from five to eight** (#57, #58, #62 joined) and
   M2 has not started. That list's own instruction — split it into its own milestone rather than carry
   it — has therefore triggered, and the next session to open M2 should act on it.
 - **The layer-seam tail stands at five of the six that ADR-0010's scope note calls a design problem**:

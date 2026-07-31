@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { CUE_KINDS, type Cue } from '@/render';
-import { beginRun, cuesOf, setShutter } from '@/session';
-import { BLOCKED_MESSAGE, describeCue, describeTurn } from '@/components/play/messages';
+import { beginRun, cuesOf, sceneOf, setShutter } from '@/session';
+import {
+  BLOCKED_MESSAGE,
+  describeCue,
+  describeTurn,
+  descendHint,
+} from '@/components/play/messages';
 
 /**
  * The line under the board, which is GDD §2's feedback surface: "a refused tap must still produce
@@ -54,6 +59,31 @@ describe('every cue has copy', () => {
     expect(describeCue({ ...SAMPLES.damaged, who: 'creature' } as Cue)).not.toBe(
       describeCue(SAMPLES.damaged),
     );
+  });
+});
+
+describe('the descend control promises a floor that exists', () => {
+  it('names the floor below, on every floor that has one', () => {
+    expect(descendHint({ number: 1, last: 8 })).toBe('to floor 2');
+    expect(descendHint({ number: 7, last: 8 })).toBe('to floor 8');
+  });
+
+  it('does not offer a floor 9 on the last floor', () => {
+    // §13: "There is no floor 9 and there is no boss. The eighth descent *is* the ending." The
+    // obvious `to floor ${n + 1}` is correct seven times and wrong on the one press that wins the
+    // run — which is the worst possible place for the interface to describe the game incorrectly.
+    const hint = descendHint({ number: 8, last: 8 });
+    expect(hint).not.toContain('9');
+    expect(hint).toMatch(/bottom/);
+  });
+
+  it('reads the last floor off the HUD rather than a literal 8', () => {
+    // §5 calls the run length tuning, and `LAST_FLOOR` is where it lives. A hint that hard-coded 8
+    // would start lying the day the number moves, on the same press as above.
+    const floor = sceneOf(beginRun('descend')).hud.floor;
+    expect(descendHint({ number: floor.last, last: floor.last })).toMatch(/bottom/);
+    expect(descendHint({ number: 3, last: 4 })).toBe('to floor 4');
+    expect(descendHint({ number: 4, last: 4 })).toMatch(/bottom/);
   });
 });
 

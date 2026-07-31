@@ -22,10 +22,30 @@
  * visible as the `@` being somewhere else, and narrating it would push the useful line off screen.
  */
 
-import { type Cue } from '@/render';
+import { type Cue, type FloorHud } from '@/render';
 
 /** §9: the tap landed on an impassable neighbour, which is not a tap target. */
 export const BLOCKED_MESSAGE = 'The way is blocked.';
+
+/**
+ * What the descend control promises. **There is no floor 9.**
+ *
+ * §13, twice over: "There is no floor 9 and there is no boss ... The eighth descent *is* the
+ * ending", and the run's second ending is "**Reached the bottom** — the player takes the stairs on
+ * the last floor". So `to floor ${number + 1}` is right seven times and wrong at the climax, where
+ * it offers a floor the game does not have on the one press that finishes the run.
+ *
+ * `>=` rather than `===` so that a floor past the last — which nothing can produce — still does not
+ * promise a floor below it. The failure of a wrong comparison here is a lie at the ending; the cost
+ * of the looser one is nothing.
+ *
+ * The summary screen is #21's (§13 says so explicitly). This is only the label on the control.
+ */
+export function descendHint(floor: FloorHud): string {
+  return floor.number >= floor.last
+    ? 'the last stairs — this is the bottom'
+    : `to floor ${floor.number + 1}`;
+}
 
 /** The turn resolved and there was nothing worth saying about it. */
 export const NO_MESSAGE = null;

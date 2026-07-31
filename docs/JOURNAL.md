@@ -96,6 +96,34 @@ rebuilt around a single `Pressable` and a pure, unit-tested `tileAtPoint` with a
 fallback, so every tap in the game now goes through those three lines and any test that taps anything
 exercises them.
 
+**Then review found a second, live instance of the same bug in the same file, and the shape of *that*
+is the more useful lesson.** The board cached its origin and refreshed it `onLayout` — but **`onLayout`
+on react-native-web is a `ResizeObserver`**, which observes size and never position. At a phone
+viewport the board is *width*-bound, so shuttering the lantern grows the HUD by a line, moves the
+board 6pt, and changes neither its width nor its height: no callback, no re-measure, and a stale
+origin on the path of **every press in the shipped build**. A 16% band at the bottom of every tile
+resolved to the tile below, for as long as the shutter was shut — which is most of the game this
+design is about. The comment above the code asserted the exact property that was false.
+
+**No test could see it, and the reason generalises.** The *desktop* board is height-bound, so there
+the same HUD growth does resize it, `onLayout` fires, and the origin is correct — desktop can never
+reproduce it. And every phone spec pressed tile *centres*, where a 6pt error vanishes into the ±17pt
+half-cell. The bug needed a phone viewport **and** an off-centre press, and nothing combined the two.
+The fix for that is not one test: presses are now taken at a *fraction* into a tile, the move spec
+presses a corner rather than a centre, and the regression spec asserts the **trigger** — that the
+board moved and did not resize — so it fails loudly rather than passing vacuously if a future layout
+stops moving the board.
+
+**The repair had a wrong first draft that is worth keeping.** Re-measuring per press with
+`measureInWindow` is **asynchronous on web** — a `setTimeout(0)` around `getBoundingClientRect` — so
+the tile resolves outside React's event handling and two presses landing in one task both compute
+from the same `Run`, silently discarding a turn. That was not theoretical: a spec's press loop lost
+two thirds of its presses. It also voided an exemption I had granted on review ("two presses in one
+tick is not reachable through a real `touchend`"), which was true only of a *synchronous* handler.
+The shipped version has **no cache at all** — it reads the node's rect at the press, synchronously —
+because "re-measure more often" is still a theory about what can move the board, and this file has
+now been wrong twice about exactly that.
+
 **`React.memo` on the cells is currently doing nothing measurable, and the honest number is worth more
 than the assumption.** 40 real taps against the built web app at a Pixel 7 viewport, timed from
 `touchend` to DOM commit: 1.1ms median unthrottled, 8.3ms at 4× CPU throttle, 20.5ms at 8×. Removing

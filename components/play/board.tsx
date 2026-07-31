@@ -53,56 +53,82 @@ export type BoardProps = {
 
 export function Board({ grid, taps, cellSize, theme, onTapTile }: BoardProps) {
   const board = useRef<View | null>(null);
-  const origin = useRef<{ x: number; y: number } | null>(null);
 
-  // Re-measured on every layout, so a rotation, a font-size change or a HUD that grew by a line
-  // cannot leave a stale origin behind and send every tap one row off.
-  const measure = () => {
-    board.current?.measureInWindow((x, y) => {
-      origin.current = { x, y };
-    });
+  /** A point in board space -> the tile it means -> the screen's handler. The last two lines. */
+  const resolve = (x: number, y: number) => {
+    // A press whose coordinates did not survive the platform is dropped rather than guessed at.
+    // Guessing would move the player somewhere they did not aim, which is worse than a dead tap.
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+    const tile = tileAtPoint({ x, y }, cellSize, taps);
+    onTapTile(tile.x, tile.y);
   };
 
   /**
    * Every tap on the board, resolved to a tile.
    *
    * ═══════════════════════════════════════════════════════════════════════════════════════════════
-   * `locationX` IS `undefined` ON REACT NATIVE WEB, AND THE FALLBACK IS NOT OPTIONAL
+   * `locationX` IS `undefined` ON REACT NATIVE WEB, SO THE OFFSET IS MEASURED — PER PRESS
    * ═══════════════════════════════════════════════════════════════════════════════════════════════
    *
    * React Native types `GestureResponderEvent['nativeEvent'].locationX` as a `number`, and native
    * supplies one. **React Native Web does not**: its `nativeEvent` is the raw DOM event, whose own
-   * enumerable keys are `['isTrusted']`, and which carries `pageX`/`pageY` instead. So a handler
-   * written to the type — `Math.floor(locationX / cellSize)` — type-checks, works on a phone, and
-   * silently drops every press on the web build, which is the build this project tests and ships
-   * first (ADR-0002).
+   * enumerable keys are `['isTrusted']`. So a handler written to the type —
+   * `Math.floor(locationX / cellSize)` — type-checks, works on a phone, and silently drops every
+   * press on the web build, which is the build this project tests and ships first (ADR-0002). That
+   * is not hypothetical: it shipped here, and its E2E test passed anyway, because the test asserted
+   * that a distant tap changes nothing and nothing was listening.
    *
-   * That is not hypothetical: it shipped in this file, and its E2E test passed anyway, because the
-   * test asserted that a distant tap changes nothing and nothing was listening. It was found by
-   * mutating the screen to make a distant tap spend a turn and watching the test stay green.
+   * ── AND THE OBVIOUS REPAIR — CACHE THE ORIGIN, REFRESH IT `onLayout` — IS ALSO WRONG. ──────────
    *
-   * `pageX` minus the board's measured origin is the same quantity on both platforms, so the fallback
-   * is not a web special case so much as the portable form of the question.
+   * **`onLayout` on react-native-web is a `ResizeObserver`** (`modules/useElementLayout/index.js`).
+   * It observes **size, and never position.** At a phone viewport the board is *width*-bound —
+   * eleven columns against 390pt — so anything above it that grows taller moves the board while
+   * leaving `cellSize`, and therefore the board's own box, exactly as it was. No resize, no
+   * callback, no re-measure. The trigger is not exotic: shutting the shutter makes `hud.sense`
+   * report `adapting`, the HUD gains a line, the board slides ~6pt down, and every press for the
+   * rest of the run lands ~16% of a cell low — one tile too far south at the bottom edge of every
+   * tile. That is a move the player did not aim at, which is the thing the line above forbids.
+   *
+   * It is also invisible from two directions at once, which is why it survived review: at a
+   * *desktop* viewport the board is **height**-bound, so the same HUD growth changes `cellSize`,
+   * the board really does resize, `onLayout` fires and the cache is correct — the desktop project
+   * physically cannot reproduce it. And every spec that presses a tile *centre* has ±17pt of
+   * half-cell to absorb a 6pt error.
+   *
+   * So there is no cache. **The origin is read at the moment of the press**, which is correct
+   * whatever moved and needs no theory about what might.
+   *
+   * ── AND IT IS READ SYNCHRONOUSLY, WHICH IS THE THIRD THING THIS BUG TEACHES. ──────────────────
+   *
+   * The obvious way to read it is `measureInWindow`, and that is **asynchronous on web**:
+   * `UIManager.measureInWindow` is a `setTimeout(0)` around `getBoundingClientRect`. Resolving the
+   * tile in that callback moves the state update out of React's event handling, and two presses
+   * whose timers land in the same task then both compute from the render that installed the
+   * handler — the second `setRun` derives from the same `Run` as the first and silently discards a
+   * turn. That was measured, not theorised: driving presses in a tight loop lost two thirds of
+   * them. So the DOM node is asked directly and the press stays synchronous, exactly as it was.
    * ═══════════════════════════════════════════════════════════════════════════════════════════════
    */
   const onBoardPress = (event: GestureResponderEvent) => {
-    const { locationX, locationY, pageX, pageY } = event.nativeEvent;
-    const at = origin.current;
-    const x = Number.isFinite(locationX) ? locationX : at === null ? NaN : pageX - at.x;
-    const y = Number.isFinite(locationY) ? locationY : at === null ? NaN : pageY - at.y;
+    const { locationX, locationY } = event.nativeEvent;
 
-    // A press whose coordinates did not survive the platform is dropped rather than guessed at.
-    // Guessing would move the player somewhere they did not aim, which is worse than a dead tap.
-    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+    // Native: the press already knows where it landed inside this view, and no measurement can be
+    // more authoritative than that.
+    if (Number.isFinite(locationX) && Number.isFinite(locationY)) {
+      resolve(locationX, locationY);
+      return;
+    }
 
-    const tile = tileAtPoint({ x, y }, cellSize, taps);
-    onTapTile(tile.x, tile.y);
+    // Web: work it out from where the board is *right now*.
+    const origin = originOf(board.current);
+    const point = viewportPointOf(event.nativeEvent);
+    if (origin === null || point === null) return;
+    resolve(point.x - origin.x, point.y - origin.y);
   };
 
   return (
     <Pressable
       ref={board}
-      onLayout={measure}
       testID="board"
       accessibilityRole="button"
       // A stopgap, and named as one: one label for the whole board is not access to a glyph grid, it
@@ -138,6 +164,54 @@ export function Board({ grid, taps, cellSize, theme, onTapTile }: BoardProps) {
       ))}
     </Pressable>
   );
+}
+
+/**
+ * The board's top-left corner in viewport coordinates, read **now**.
+ *
+ * On react-native-web a `View`'s ref *is* the host `div`, so this asks the element itself and gets a
+ * synchronous answer. React Native's own `measureInWindow` is deliberately not used: it is
+ * asynchronous on both platforms, and resolving a press outside React's event handling is what
+ * makes two presses in one task collapse into one turn (see `onBoardPress`).
+ *
+ * `null` when the node cannot answer — which on a real platform means the press arrived with
+ * `locationX` and never reached here. It is not a fallback path in disguise: it is the "coordinates
+ * did not survive, so drop the press rather than guess" rule, applied to the other input.
+ */
+function originOf(node: View | null): { readonly x: number; readonly y: number } | null {
+  const dom = node as unknown as { getBoundingClientRect?: () => { left: number; top: number } };
+  if (node === null || typeof dom.getBoundingClientRect !== 'function') return null;
+  const rect = dom.getBoundingClientRect();
+  return Number.isFinite(rect.left) && Number.isFinite(rect.top)
+    ? { x: rect.left, y: rect.top }
+    : null;
+}
+
+/**
+ * Where a press landed, in the same coordinate space `originOf` answers in.
+ *
+ * **`clientX` first, `pageX` second, and the order is the whole point.** `measureInWindow` reports a
+ * *viewport*-relative box on web (`getBoundingClientRect`) and a *window*-relative one on native.
+ * The DOM's `pageX` is **document**-relative — it includes the scroll offset — so subtracting a
+ * viewport-relative origin from it is only correct while the page is scrolled to the top. This
+ * screen does not scroll today, which is exactly the kind of fact that stops being true quietly, and
+ * the failure it produces is a press attributed to the wrong tile. `clientX` is the viewport form
+ * and is what react-native-web's raw DOM event carries; `pageX` is what React Native's own
+ * `GestureResponderEvent` declares and is what native supplies, where there is no scroll to differ
+ * by.
+ *
+ * The cast is narrow and deliberate: `clientX` is genuinely present on web and genuinely absent from
+ * React Native's type, so it is read as optional and ignored when it is not a number.
+ */
+function viewportPointOf(
+  nativeEvent: GestureResponderEvent['nativeEvent'],
+): { readonly x: number; readonly y: number } | null {
+  const dom = nativeEvent as unknown as { clientX?: unknown; clientY?: unknown };
+  if (typeof dom.clientX === 'number' && typeof dom.clientY === 'number') {
+    return { x: dom.clientX, y: dom.clientY };
+  }
+  const { pageX, pageY } = nativeEvent;
+  return Number.isFinite(pageX) && Number.isFinite(pageY) ? { x: pageX, y: pageY } : null;
 }
 
 /**

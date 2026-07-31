@@ -6,6 +6,7 @@ import type { Hud } from '@/render';
 // string union that references nothing in the simulation — see `session/index.ts`.
 import type { ShutterState } from '@/session';
 import { TOUCH_TARGET } from './hit-test';
+import { descendHint } from './messages';
 import type { GameTheme } from './theme';
 
 /**
@@ -73,7 +74,9 @@ export function Controls({ hud, onSetShutter, onDescend, theme }: ControlsProps)
         <ControlButton
           testID="control-descend"
           label="DESCEND"
-          hint={`to floor ${hud.floor.number + 1}`}
+          // §13: the eighth descent *is* the ending, so the last floor's stairs do not lead to a
+          // floor 9. The copy is decided in `messages.ts`, where a test can read it.
+          hint={descendHint(hud.floor)}
           onPress={onDescend}
           theme={theme}
         />

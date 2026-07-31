@@ -54,9 +54,29 @@ async function pressAt(page: Page, x: number, y: number): Promise<void> {
  * used here only to locate the tile §9 classified, never as the thing that receives the press.
  */
 async function pressTile(page: Page, marker: Locator): Promise<void> {
+  await pressWithin(page, marker, 0.5, 0.5);
+}
+
+/**
+ * Press a tile somewhere other than its middle.
+ *
+ * **This is the shape of press the suite could not see, and it hid a live bug for a whole review.**
+ * A tile is ~37pt at the phone viewport, so a press at its centre has ±18pt of slack — an error of a
+ * few points in the board's assumed origin is silently absorbed, and every spec here aimed at
+ * centres. The bug that exploited that gap was a cached origin that went stale the moment the HUD
+ * grew a line (see `components/play/board.tsx`), which put a ~6pt offset on every press: harmless in
+ * the middle of a tile, and a *different tile* at its edge.
+ *
+ * `fx`/`fy` are fractions of the tile, `0` at its top-left corner and `1` at its bottom-right. They
+ * are clamped 3pt inside the box, because a press exactly on a boundary is a different question
+ * (`tests/unit/play-hit-test.test.ts` owns that one) and the browser rounds it.
+ */
+async function pressWithin(page: Page, marker: Locator, fx: number, fy: number): Promise<void> {
   const box = await marker.boundingBox();
   expect(box, 'the tile marker has no box to aim at').not.toBeNull();
-  await pressAt(page, box!.x + box!.width / 2, box!.y + box!.height / 2);
+  const inset = (span: number, fraction: number) =>
+    Math.min(span - 3, Math.max(3, span * fraction));
+  await pressAt(page, box!.x + inset(box!.width, fx), box!.y + inset(box!.height, fy));
 }
 
 function touch(): boolean {
@@ -113,7 +133,9 @@ test('tapping an adjacent tile moves the player, and the board changes', async (
   const id = (await target.getAttribute('data-testid')) ?? '';
   const [x, y] = id.replace('tap-move-', '').split('-').map(Number);
 
-  await pressTile(page, target);
+  // Deliberately **not** the middle of the tile: a press near a corner is the shape that catches an
+  // origin or a cell size that is a few points out, and a centre press is the shape that hides it.
+  await pressWithin(page, target, 0.15, 0.85);
 
   // The player is on the tapped tile and no longer on the old one: the board really redrew, rather
   // than the HUD alone ticking over.
@@ -121,9 +143,9 @@ test('tapping an adjacent tile moves the player, and the board changes', async (
   await expect(page.getByTestId(`cell-${before.x}-${before.y}`)).not.toHaveText('@');
   expect(await playerTile(page)).toEqual({ x, y });
 
-  // Exactly one turn. Two would mean the tap was handled twice — the board's fallback surface and
-  // the target on top of it both firing, which is the failure mode of stacking two press handlers.
-  expect(await turn(page)).toBe(1);
+  // Exactly one turn. Two would mean the press was handled twice, which is the failure mode of
+  // stacking press handlers; the board deliberately has exactly one.
+  await expect.poll(() => turn(page)).toBe(1);
 });
 
 test('tapping your own tile waits, which is a real turn', async ({ page }) => {
@@ -133,8 +155,8 @@ test('tapping your own tile waits, which is a real turn', async ({ page }) => {
   await pressTile(page, page.getByTestId(`tap-wait-${at.x}-${at.y}`));
 
   // §9: the self-tap is `wait`, not descend. The player has not moved and the turn was spent.
+  await expect.poll(() => turn(page)).toBe(1);
   expect(await playerTile(page)).toEqual(at);
-  expect(await turn(page)).toBe(1);
 });
 
 test('tapping an impassable neighbour does nothing, and says so', async ({ page }) => {
@@ -164,9 +186,21 @@ test('tapping a distant tile is unbound — nothing happens at all', async ({ pa
   expect(box).not.toBeNull();
   await pressAt(page, box!.x + box!.width - 8, box!.y + box!.height - 8);
 
-  expect(await playerTile(page)).toEqual(at);
-  expect(await turn(page)).toBe(0);
   await expect(page.getByTestId('status-line')).toHaveText('');
+  expect(await playerTile(page)).toEqual(at);
+
+  // ── THE POSITIVE CONTROL, and it is not optional. ────────────────────────────────────────────
+  // Every assertion above holds just as well against a board that received no press at all, which
+  // is precisely how an earlier version of this spec passed while the press path was dead on web.
+  // So the same test now presses something that *must* work, and counts: the turn after both
+  // presses is **1**, which says the distant one spent nothing and the near one spent its turn.
+  const target = page.locator('[data-testid^="tap-move-"]').first();
+  const id = (await target.getAttribute('data-testid')) ?? '';
+  const [x, y] = id.replace('tap-move-', '').split('-').map(Number);
+  await pressTile(page, target);
+
+  await expect.poll(() => turn(page)).toBe(1);
+  expect(await playerTile(page)).toEqual({ x, y });
 });
 
 test('the shutter control is a toggle that changes the burn rate', async ({ page }) => {
@@ -202,9 +236,26 @@ test('shuttering hides the room and the ember-sense radius starts climbing', asy
   const at = await playerTile(page);
 
   // §4's dark column: terrain drops to the eight tiles you can touch, and what you saw before is
-  // remembered rather than gone. The observable version of that: a tile the player could see from
-  // across the room is still drawn, and the sense radius readout starts moving.
+  // **remembered rather than gone** — "permanent once seen, dimmed". Both halves are asserted, since
+  // the comment used to promise the first and check only the second.
   await expect(page.getByTestId('hud-sense')).toHaveText('1/5');
+
+  // A tile the player can see from across the room right now: lit, drawn, and far enough away that
+  // touch will not reach it once the shutter is shut. Found by asking the board rather than by
+  // hard-coding a coordinate, so this survives #47 replacing the fixed seed.
+  const far = await page.evaluate((player) => {
+    for (const node of Array.from(document.querySelectorAll('[data-testid^="cell-"]'))) {
+      const [, x, y] = (node.getAttribute('data-testid') ?? '').split('-').map(Number);
+      const away = Math.max(Math.abs(x - player.x), Math.abs(y - player.y));
+      const glyph = (node.textContent ?? '').trim();
+      if (away >= 3 && glyph !== '' && getComputedStyle(node).opacity === '1') {
+        return { id: `cell-${x}-${y}`, glyph };
+      }
+    }
+    return null;
+  }, at);
+  expect(far, 'no lit tile three or more tiles from the player').not.toBeNull();
+
   await press(page, page.getByTestId('control-shutter'));
   await pressTile(page, page.getByTestId(`tap-wait-${at.x}-${at.y}`));
 
@@ -213,6 +264,66 @@ test('shuttering hides the room and the ember-sense radius starts climbing', asy
   await expect(page.getByTestId('hud-sense')).toHaveText('2/5');
   // §4: 1 fuel a turn shuttered. 80, less the free action's own burn, less the wait's.
   await expect(page.getByTestId('hud-fuel')).toHaveText('78');
+
+  // §10's four states, as pixels: the tile is still on screen, still the same terrain, and now drawn
+  // at memory's opacity rather than at full. `CELL_OPACITY.remembered` is 0.4 and the point is that
+  // it is neither 1 (still lit — the shutter did nothing) nor 0 (erased — the map was thrown away).
+  const remembered = page.getByTestId(far!.id);
+  await expect(remembered).toHaveText(far!.glyph);
+  await expect(remembered).toHaveCSS('opacity', '0.4');
+});
+
+test('a press at the edge of a tile hits that tile, after the HUD has changed height', async ({
+  page,
+}) => {
+  await boot(page);
+  const at = await playerTile(page);
+  const self = page.getByTestId(`tap-wait-${at.x}-${at.y}`);
+
+  // ═══════════════════════════════════════════════════════════════════════════════════════════════
+  // THE REGRESSION THIS SUITE STRUCTURALLY COULD NOT SEE
+  //
+  // The board resolves a press to a tile by subtracting its own position on screen. That position
+  // used to be cached and refreshed `onLayout` — which on react-native-web is a `ResizeObserver`,
+  // so it observes **size and never position**. At a phone viewport the board is width-bound, so a
+  // taller HUD moves it without resizing it: no callback, no re-measure, and every press for the
+  // rest of the run lands ~6pt low on a ~37pt cell.
+  //
+  // Two independent blind spots kept it hidden, and this test is aimed at both. Every other spec
+  // presses tile **centres**, where ±18pt of half-cell swallows the error — so this presses 3pt
+  // inside the bottom edge. And the **desktop** board is height-bound, so the same HUD growth does
+  // resize it and the cache stays correct there — so the trigger is asserted below, and only where
+  // it exists, rather than assumed.
+  // ═══════════════════════════════════════════════════════════════════════════════════════════════
+  const before = await page.getByTestId('board').boundingBox();
+  await pressWithin(page, self, 0.5, 1);
+  await expect.poll(() => turn(page)).toBe(1);
+  expect(await playerTile(page), 'the baseline edge press').toEqual(at);
+
+  // Shut the shutter: `hud.sense` starts reporting `adapting` (§4's four-turn window), the HUD gains
+  // a line, and the board is pushed down the screen. Any layout change above the board does this;
+  // this one is simply the one a player makes on turn one of most runs.
+  await press(page, page.getByTestId('control-shutter'));
+  await expect(page.getByTestId('hud-shutter')).toHaveText('SHUT');
+  const after = await page.getByTestId('board').boundingBox();
+
+  if (touch()) {
+    // The trigger, asserted rather than assumed — otherwise this test could quietly stop exercising
+    // anything (a HUD that no longer grows, a board that starts resizing) and go on passing, which
+    // is the exact failure mode that let the bug through in the first place.
+    expect(
+      { moved: after!.y !== before!.y, resized: after!.height !== before!.height },
+      'the board must move without resizing, or this test proves nothing',
+    ).toEqual({ moved: true, resized: false });
+  }
+
+  // The identical press must still be the identical tile. With the stale cache this resolved one row
+  // south — a wall on this seed, so a false refusal; one tile of different terrain and it is a step
+  // the player did not aim at, with a turn spent on it.
+  await pressWithin(page, self, 0.5, 1);
+  await expect.poll(() => turn(page)).toBe(2);
+  expect(await playerTile(page), 'the edge press after the layout moved').toEqual(at);
+  await expect(page.getByTestId('status-line')).not.toHaveText(/blocked/i);
 });
 
 test('at 0 fuel the shutter control shows itself dead rather than doing nothing', async ({
@@ -247,7 +358,7 @@ test('at 0 fuel the shutter control shows itself dead rather than doing nothing'
   await expect(page.getByTestId('status-line')).not.toHaveText(/lantern goes out/i);
   const spent = await turn(page);
   await pressTile(page, page.locator('[data-testid^="tap-move-"]').first());
-  expect(await turn(page)).toBe(spent + 1);
+  await expect.poll(() => turn(page)).toBe(spent + 1);
   await expect(page.getByTestId('hud-shutter')).toHaveText('SHUT');
 });
 

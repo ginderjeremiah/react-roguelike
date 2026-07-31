@@ -57,6 +57,131 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-07-31 — Two of the six commands in `CLAUDE.md` never worked where agents run them (#49)
+
+**Did:** `npm run build:web` and `npm run test:e2e` now work from inside a git worktree. Three
+independent fixes: `metro.config.js`'s worktree blockList is conditional on the project root not
+itself being a worktree, `metro.config.js` gives each project root its own `cacheVersion`, and a
+`pretest:e2e` hook links a worktree's missing `node_modules` to the main checkout's. 986 tests, up
+from 956.
+
+**Why:** Every agent is told to work in a worktree under `.claude/worktrees/`, and two of the six
+commands in `CLAUDE.md` failed there — `Error: No routes found` and `Failed to resolve "extends"
+path "expo/tsconfig.base"`. **CI never saw it and never could**: CI runs on a clean checkout where
+`.claude/worktrees/` does not exist, so the only mandatory gate is green on exactly the path that
+does not have the bug.
+
+The realistic damage was never a red build. It was agents reporting "E2E green" having never run
+it, or dropping the step as environment noise — the same shape as the `expo lint` episode, where a
+check quietly stopped covering what everyone believed it covered. This is why it was worth fixing
+before #20, whose definition of done is *E2E green, screenshot it, look at it*: that issue's
+acceptance evidence is precisely the two commands that did not run.
+
+The blockList bug is a nice miniature of the general one. The pattern
+`/[\\/]\.claude[\\/]worktrees[\\/].*/` matches **absolute** paths, so it does the right thing from
+the main checkout and blocks the worktree's *own* `app/` from inside one. Right rule, wrong frame
+of reference.
+
+**Learned:** Three things, and the first cost the most time.
+
+**Metro's cache is per-MACHINE, not per-project, and it poisons brand-new worktrees.** This was the
+second, independent cause of `No routes found`, and it outlived the blockList fix. Metro's default
+cache store is one directory in the OS temp dir shared by every project root on the box, and the
+resolver's blockList is not part of the key. expo-router discovers routes through a
+`require.context` that lives in the main checkout's `node_modules` and therefore resolves to the
+*same absolute file* from every worktree, so a worktree gets served an expansion of it computed for
+somebody else's root. In the failing worktree the evaluated config is provably correct — `blockList`
+is Expo's own two entries and matches nothing of ours — which is exactly what made this masquerade
+as a bad predicate.
+
+Established by A/B on this machine's real cache, twice, on two worktrees created minutes earlier
+and never built: **fix disabled -> `Error: No routes found`; fix restored, same worktree, same
+cache, no `--clear` -> 3 static routes.** Both pairs back to back.
+
+**The trigger is a build from another worktree at the same nesting depth. The main checkout neither
+poisons nor is poisoned.** In a dedicated empty cache with the fix disabled: worktree P builds (3
+routes); sibling worktree Q, created at the same time and never built, then fails; Q with the fix
+restored succeeds *in that same poisoned cache*. The prediction that identified the mechanism:
+a worktree at `.claude/worktrees/nest/deep/rr-r` — a **different depth** — is immune, and builds
+fine in the poisoned cache with the fix still disabled.
+
+Depth is the whole story. Metro keys its transform cache on the path *relative* to the project root,
+and every agent worktree sits at exactly `<repo>/.claude/worktrees/<name>`, so expo-router's entry
+resolves to `../../../node_modules/expo-router/entry.js` from all of them and they share its cached
+expansion. The main checkout is at depth 0 and shares with nothing. (The relative-path key is
+inferred black-box from the depth experiment, not read out of Metro's source. The behaviour is
+directly observed and deterministic; the explanation is the one soft link in the chain, and it is
+flagged here rather than in a comment that reads like fact.)
+
+**This paragraph previously said the trigger was unknown and told you not to look for it.** That was
+written after a controlled attempt to poison an empty `TMPDIR` with a single *main-checkout* build
+failed to reproduce anything — which was a true observation and, it turns out, the clue: the main
+checkout is exactly the root that cannot poison. Having been burned twice in this entry by claims a
+clause wider than their evidence, the correction over-steered into telling the next reader to stop
+investigating, which is worse — a wrong claim gets falsified, an instruction to stop looking does
+not. **Hedge the claim, never the inquiry.** The trigger took three builds to find once someone
+ignored the instruction.
+
+**The first version of this entry got the scope wrong, and the reason it did is the reusable
+part.** It said the poisoning was a one-off artefact of the reproduction run, with "nil consequence
+for the fix, since a fresh worktree has no such cache". That is false, and the mistake was not
+analytical — **verification happened in a worktree where `--clear` had already been run, so the
+fresh-worktree case, the one the DoD is actually about, was never exercised at all.** Same shape as
+the lesson already in this file: verify in the environment that has the bug, and if you have already
+"fixed" that environment by hand, it has stopped being one. `--clear` is a manual step, and the DoD
+says in as many words that a documented manual step is a step that gets skipped.
+
+The fix is `cacheVersion: <expo's>:root-<md5 of __dirname>`, applied unconditionally in
+`metro.config.js`. A hash of `__dirname` in a Metro config looks like superstition, so it carries a
+comment saying what deleting it costs.
+
+**The three failures are genuinely independent, which the first runs actively suggested
+otherwise.** `build:web` from a worktree needs the two `metro.config.js` changes and succeeds with
+**no `node_modules` present at all**, because Metro walks up; only Playwright's tsconfig resolver
+is rooted at the config's own directory, and only it needs the link. Worth stating because the
+tempting single fix — "give the worktree a `node_modules` and everything goes away" — would have
+left both Metro bugs in place under a workaround.
+
+**A test that loads `metro.config.js` in place cannot catch this, and would have read as if it
+could.** In the main checkout the real config can only ever be asked the main-checkout question,
+and CI is always the main checkout — so re-inlining the bug stays green. The test therefore copies
+the real config into a `mkdtemp` sandbox under a `.claude/worktrees/<name>/` path and requires the
+copy, so the actual shipped file can be asked the worktree question from anywhere. Confirmed by
+reverting the fix verbatim and watching that named test go red. Eighteen mutations were run in
+total, each mapped to the named test that caught it, and one test was **deleted** as a result: the
+in-place check `expect(blocks(…)).toBe(!isInsideAgentWorktree(ROOT))` computed its expectation from
+the function under test, so both sides moved together and it survived all six predicate mutations —
+a test that cannot fail, sitting where the most important one appeared to be.
+
+An earlier draft of this entry claimed one of those mutations — splitting paths on `/` only — would
+be "green on Linux CI and broken on Windows". **It is caught on Linux too**, by two tests that
+assert against hardcoded backslash strings and go red on any platform. The corrected version is
+less alarming and matters more: overstating a gap sends the next session off to fix something that
+is already covered.
+
+**Next:** #20 — the game screen, grid rendering and touch input. It is the critical path: the last
+build item in M1, and the thing standing between the project and its first playtest, which is M1's
+exit criterion and the concept checkpoint the roadmap moved here. Pass a constant seed (#47 says so
+explicitly).
+
+**Watch:** Three residuals, all filed here rather than fixed.
+
+- **Only `npm run test:e2e` is hooked.** A bare `npx playwright test` in a fresh worktree still
+  fails the same way. Acceptable because `CLAUDE.md` documents the npm script, but it is a
+  documented-path-only fix.
+- **The junction is a junction.** `rm -rf` under MSYS follows it and would delete the *main*
+  checkout's `node_modules` contents. Remove it with `fs.rmdirSync`. This is a live foot-gun for
+  any agent cleaning up a worktree by hand.
+- **The config tests stub `getDefaultConfig`.** Loading `expo/metro-config` for real took 7.6s on a
+  cold filesystem cache, which is a unit test that times out on a fresh CI runner, so the sandbox
+  harness supplies a stub shaped like what Expo ships today (an array `blockList`, `cacheVersion:
+  '1.0'`). If Expo changes either shape, those tests keep passing against a fiction. The composition
+  functions are separately tested against both shapes, which bounds the damage but does not remove it.
+
+  (A "drive-letter case" bullet stood here and was wrong: self-linking needs no `node_modules` in the
+  main checkout, and that case throws `the main checkout … has none either` first. The behaviour is
+  better than the note claimed.)
+
 ## 2026-07-30 — Archivist: the roadmap was a milestone behind, and its headline count was never `game/`
 
 **Did:** Reconciled `ROADMAP.md`, `GDD.md` and this file against `main` at `2db3f39` (#45/#51), in

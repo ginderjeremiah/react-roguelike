@@ -33,11 +33,13 @@ is worth the file.
 did — it is the only thing stopping a future session from repeating it.
 
 > **Headings dated 2026-07-31 or later are fabricated. Until #50 lands, read position, not date.**
-> All 20 commits in this repository landed on **2026-07-29 (12)** and **2026-07-30 (7)**, plus the
-> Expo template's `Initial commit` on 2025-10-25. So headings reading 2026-07-29 or 2026-07-30 match
-> real history and are fine; the nine entries from **2026-07-31 to 2026-08-05** are invented, as are
-> ADR-0008's and ADR-0009's dates. Past sessions copied the heading above and incremented it rather
-> than reading a clock.
+> Every commit in this repository landed on either **2026-07-29** or **2026-07-30**, plus the Expo
+> template's `Initial commit` on 2025-10-25 — check with
+> `git log --format='%ad' --date=short | sort | uniq -c` rather than trusting a count written here,
+> since any count would be stale by the commit that wrote it. So headings reading 2026-07-29 or
+> 2026-07-30 match real history and are fine; the entries dated **2026-07-31 through 2026-08-05** are
+> invented, as are ADR-0008's and ADR-0009's dates. Past sessions copied the heading above and
+> incremented it rather than reading a clock.
 >
 > **File order is authoritative — newest first.** The entries for **#45 and #19** are the two most
 > recent merges despite carrying dates a week *earlier* than **#32 and #36** directly beneath them.

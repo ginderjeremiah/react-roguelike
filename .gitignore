@@ -53,3 +53,6 @@ app-example
 # generated native folders
 /ios
 /android
+
+# playtest/inspection screenshots — take them, look at them, do not commit them
+shot-*.png

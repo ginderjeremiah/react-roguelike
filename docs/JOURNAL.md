@@ -57,6 +57,128 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-07-31 — There is a game on the screen, and you can tap it (#20)
+
+**Did:** The playable screen. A glyph grid built from `Scene.grid`, a five-readout HUD, bump-to-attack
+by tapping an adjacent tile, self-tap to wait, a persistent shutter control and a descend control that
+exists only on the stairs. `render/` gained `taps.ts`; `components/play/` is ten new files; `app/index.tsx`
+holds a `Run` in `useState` and nothing else. 1040 tests, up from 1005. 22 E2E specs, up from 4.
+
+**Why:** M1's last build item, and the reason it is the last one is that #45 had to exist first —
+`render/` shipped `presentScene(state)` in #19 and nothing in the repository could legally call it.
+
+**The one thing that had to go below the seam.** GDD §9 says an impassable neighbour is not a tap
+target, and nothing in `render/` answered that. It is a game rule, so it could not become a
+`blocksMovement` call in a `.tsx` — and it could not be a new `GameState`-taking function either,
+because nothing above `session/` can hold a `GameState`. So it rides on `Scene`, which `sceneOf(run)`
+already delivers, and `session/` did not change at all.
+
+The shape is `Scene.taps: readonly TapAction[]` — the ≤5 interesting tiles, self first then the four
+neighbours in `DIRECTIONS` order — plus `tapAt(taps, x, y)` answering `unbound` for everything else.
+Five kinds: `move`, `attack`, `wait`, `blocked`, `unbound`. **`blocked` and `unbound` are deliberately
+not the same value**: they need different treatment now (§2 wants feedback for a refusal and silence
+for a non-target) and different futures (ADR-0009's `travel(to)` lands on `unbound` in M2). Every
+variant carries `at`, so travel is one more `case` rather than a restructuring — which is the
+constraint ADR-0009 was shaped to satisfy, now discharged. Storing 165 entries of "nothing happens"
+to express a default would have been a per-turn allocation the size of the board.
+
+**Learned:** Three things, and the first is the one that matters.
+
+**A surviving mutant found a bug that was already shipped, and the test that should have caught it
+passed for the wrong reason.** The mutation "a distant tile spends a turn" stayed green. The cause:
+`nativeEvent.locationX` is typed `number` by React Native and is **`undefined` on react-native-web**,
+whose `nativeEvent` is the raw DOM event (own keys: `['isTrusted']`). The guard therefore dropped
+*every* press on the board, so tapping was dead on the exact build we ship — and the test passed
+because nothing was listening, so "nothing happened" was indistinguishable from the expected outcome.
+**A test whose expected result is "nothing happens" cannot tell a working refusal from a dead handler**,
+and that is a general trap in a codebase whose §2 is full of legitimate refusals. The touch layer was
+rebuilt around a single `Pressable` and a pure, unit-tested `tileAtPoint` with a `pageX − measuredOrigin`
+fallback, so every tap in the game now goes through those three lines and any test that taps anything
+exercises them.
+
+**Then review found a second, live instance of the same bug in the same file, and the shape of *that*
+is the more useful lesson.** The board cached its origin and refreshed it `onLayout` — but **`onLayout`
+on react-native-web is a `ResizeObserver`**, which observes size and never position. At a phone
+viewport the board is *width*-bound, so shuttering the lantern grows the HUD by a line, moves the
+board 6pt, and changes neither its width nor its height: no callback, no re-measure, and a stale
+origin on the path of **every press in the shipped build**. A 16% band at the bottom of every tile
+resolved to the tile below, for as long as the shutter was shut — which is most of the game this
+design is about. The comment above the code asserted the exact property that was false.
+
+**No test could see it, and the reason generalises.** The *desktop* board is height-bound, so there
+the same HUD growth does resize it, `onLayout` fires, and the origin is correct — desktop can never
+reproduce it. And every phone spec pressed tile *centres*, where a 6pt error vanishes into the ±17pt
+half-cell. The bug needed a phone viewport **and** an off-centre press, and nothing combined the two.
+The fix for that is not one test: presses are now taken at a *fraction* into a tile, the move spec
+presses a corner rather than a centre, and the regression spec asserts the **trigger** — that the
+board moved and did not resize — so it fails loudly rather than passing vacuously if a future layout
+stops moving the board.
+
+**The repair had a wrong first draft that is worth keeping.** Re-measuring per press with
+`measureInWindow` is **asynchronous on web** — a `setTimeout(0)` around `getBoundingClientRect` — so
+the tile resolves outside React's event handling and two presses landing in one task both compute
+from the same `Run`, silently discarding a turn. That was not theoretical: a spec's press loop lost
+two thirds of its presses. It also voided an exemption I had granted on review ("two presses in one
+tick is not reachable through a real `touchend`"), which was true only of a *synchronous* handler.
+The shipped version has **no cache at all** — it reads the node's rect at the press, synchronously —
+because "re-measure more often" is still a theory about what can move the board, and this file has
+now been wrong twice about exactly that.
+
+**The same "emission order" assumption was wrong a second time, in a second file, and the test for it
+could not fail.** `describeTurn` took the *last* speaking cue, on the grounds that `CUE_KINDS` is in
+emission order so the last sentence is the newest news. That holds **between** cue kinds and not
+**within** one: `render/cues.ts` emits `damaged` by iterating `world.actors` in ascending id order and
+the player is id `0`, so the player's own `damaged` cue is always *first* among a turn's blows and
+last-wins always discarded it. **Every turn in which blows were traded said `You strike for 4.` and
+never `You take 3.`** At 12 max HP and 3-4 a hit, that is three silent turns from death — and with
+nothing animating, the only remaining signal was auditing a HUD number.
+
+The `playtester` found it in six runs ("the only thing that compromised Pillar 2") and review found it
+independently. What made it *blocking* rather than a follow-up was the test: its comment named this
+exact case — "a turn that opens the shutter and **takes a hit** must say the hit" — while its sample
+held **one** `damaged` cue, and the bug needs two. It asserted a property the code did not have,
+passed, and would have gone on passing under a comment that told the next reader it was covered.
+
+Fixed as **precedence, not recency**: death outranks damage, damage outranks everything, and only then
+does recency decide. Ordering by *who it happened to* rather than by actor id is the point — it does
+not care what order the simulation iterates, which is the assumption that broke twice. The same audit
+found `fuelGained` is emitted *after* `died`, so last-wins could have reported `You gather 25 ember.`
+on the turn the run ended; that is now covered by a named test too.
+
+**`React.memo` on the cells is currently doing nothing measurable, and the honest number is worth more
+than the assumption.** 40 real taps against the built web app at a Pixel 7 viewport, timed from
+`touchend` to DOM commit: 1.1ms median unthrottled, 8.3ms at 4× CPU throttle, 20.5ms at 8×. Removing
+the memo entirely: 8.0ms at 4×, inside the noise. 165 cells is simply not many and the React Compiler
+is on. The memo stays — it is free and it is what makes ADR-0003's 40×24 case tractable — but nobody
+should believe it is load-bearing today. The issue said measure before optimizing; the measurement says
+there is nothing to optimize yet.
+
+**The directory is `components/play/`, not `components/game/`.** The layer lint matches import
+specifiers by path segment, so `@/components/game/board` is reported as a component reaching into the
+simulation. ARCHITECTURE.md documents the mirror case — a `components/` directory inside `game/` — but
+not this one. Filed.
+
+**Next:** #21 — death, winning, and the run-summary screen. It is the last issue in M1 and it carries
+the exit criterion in its own body: both endings, and an E2E path over a full run. After that, M1's
+exit is the first `playtester` run, which the roadmap has made the concept checkpoint for the whole
+light wager.
+
+**Watch:** Five, from actually looking at the screen rather than from the diff.
+
+- **Cells are 34pt at 390pt wide.** The *targets* are 44 by arithmetic — the hit test widens each
+  target and snaps from the dead diagonals — but the thing you aim at is 34, and a first-time player
+  discovers the widening rather than sees it. This is the most likely source of a bad first
+  impression and the playtest should be asked about it directly.
+- **"EMBER-SENSE 1/5" with the lantern open will read as a bug.** It is correct — the ramp only climbs
+  while shuttered — but it is the one readout that needs a word of explanation.
+- **Nothing moves.** No animation was shipped, deliberately, so reduced motion is satisfied vacuously
+  and cues are a sentence under the board rather than motion. A turn resolving with no acknowledgement
+  beyond the board changing is a little dead, and it is the first thing a playtester will notice.
+- **The board is not reachable by a screen reader** — one label announcing that a grid exists is not
+  access to it. Not one of §11's five requirements, so filed rather than fixed here.
+- **The palette is provisional and M4 owns it (§10).** It is checked for completeness against
+  `COLOR_TOKENS` and for contrast, so it cannot silently lose a token, but the values will move.
+
 ## 2026-07-31 — Two of the six commands in `CLAUDE.md` never worked where agents run them (#49)
 
 **Did:** `npm run build:web` and `npm run test:e2e` now work from inside a git worktree. Three

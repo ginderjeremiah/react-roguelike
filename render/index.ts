@@ -56,6 +56,7 @@
  * | Which creatures does the player perceive, and how? | `perception.ts` — via `perceive`, with the real list. §4's promise stays a type |
  * | What does a declared action look like? | `cell.ts`'s `Telegraph` — two non-colour channels again, because §2 says two |
  * | Is the descend control visible? Is the shutter pressable? | `hud.ts`, from `game/systems/` predicates |
+ * | What does a tap on **this** tile do? | `taps.ts` — §9's rule, including which neighbours are not targets |
  * | What just happened? | `cues.ts` — facts, never durations |
  *
  * If a component finds itself asking any of those, the answer is missing from this layer and belongs
@@ -104,3 +105,5 @@ export {
 } from './perception';
 
 export { cellAt, presentScene, type Scene, type SceneGrid } from './scene';
+
+export { TAP_KINDS, tapAt, type TapAction } from './taps';

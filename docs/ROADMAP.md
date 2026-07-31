@@ -7,7 +7,7 @@ Kept in sync with GitHub milestones. Issues live there; this file explains the i
 
 **Current milestone: M1 — Playable core.** The simulation, both pure layers above it, and the screen
 are all built, and #21 closed the run loop. **Nothing is left to build: what gates the exit is the
-second `playtester` run** — both endings, on a phone. The open M1 issues (#12, #47, #60, #69, #70)
+second `playtester` run** — both endings, on a phone. The open M1 issues (#12, #47, #69, #70)
 are real work that does not stand between the milestone and that playtest. See "Where M1 actually
 stands" below before picking up work.
 
@@ -62,7 +62,7 @@ is layered on top.
       last issue gating the exit; **what remains before M1 closes is the second playtest, not more
       building**
 - [ ] Determinism rules applied to `game/**/*.test.ts` — #12
-- [ ] A tap on a non-adjacent tile is silent — #60. Found by the first playtest; §2 requires feedback
+- [x] A tap on a non-adjacent tile is silent — #60. Found by the first playtest; §2 requires feedback
       for a refusal and this is the first interaction a new player will attempt
 - [x] The HUD's ember-sense readout lies while the lantern is open — #61. Found by the first
       playtest; it misreported the consequence of the game's central decision at the moment it is
@@ -136,10 +136,11 @@ while it was still open:
 
 **What is left in M1 is a playtest, not a feature.** #21 merged with the summary screen, both
 endings, and an E2E path over a full run — so the exit criterion is now a thing to *check* rather
-than a thing to build. #12, #47, #60, #69 and #70 are real work that does not stand between the
-milestone and that check; **#60 is the one worth clearing first**, because a silent tap on a distant
-tile is the first interaction a new player will try and it reads as a broken touch, which would cost
-the playtest a finding about the game rather than about the input.
+than a thing to build. **Both playtest findings that would have distorted that check are cleared** —
+#61 (the ember-sense readout lied at the moment of the central decision) and #60 (a silent tap on a
+distant tile, the first interaction a new player attempts, reading as a broken touch). Either would
+have cost the playtest a finding about the *input* instead of about the game. #12, #47, #69 and #70
+are real work that does not stand between the milestone and that check.
 
 **The concept checkpoint was spent early, at #20 rather than at #21.** The exit criteria below say
 the first `playtester` run is M1's exit; in fact it ran against #20's branch, six runs on the fixed

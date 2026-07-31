@@ -4,7 +4,12 @@ import { StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import { Board } from '@/components/play/board';
 import { Controls } from '@/components/play/controls';
 import { HudBar } from '@/components/play/hud-bar';
-import { BLOCKED_MESSAGE, describeTurn, RUN_OVER_MESSAGE } from '@/components/play/messages';
+import {
+  BLOCKED_MESSAGE,
+  describeTurn,
+  RUN_OVER_MESSAGE,
+  TOO_FAR_MESSAGE,
+} from '@/components/play/messages';
 import { RunSummaryPanel } from '@/components/play/run-summary';
 import { StatusLine } from '@/components/play/status-line';
 import { useGameTheme } from '@/components/play/use-game-theme';
@@ -42,9 +47,16 @@ import {
  *   - Start another run: `setRun(beginRun(SEED))`. §13's loop, closed, with no reload.
  *
  * The one decision that is genuinely local is what a tap that resolves to nothing looks like: §2
- * insists a dead tap be acknowledged, so a `blocked` tap — and a tap on a board whose run has ended —
- * writes a line rather than doing nothing at all. Those are the two refusals that never reach
- * `step`, so they are the two with no cue to speak for them. See `components/play/messages.ts`.
+ * insists a dead tap be acknowledged, so **all three refusals that never reach `step` write a line**
+ * rather than doing nothing at all — `blocked`, `unbound`, and a tap on a board whose run has ended.
+ * Those three have no cue to speak for them, because no command is ever built. See
+ * `components/play/messages.ts`.
+ *
+ * Two of the three were silent when they shipped, and neither was caught by a test: the run-over case
+ * by a mutant that survived review (#21), the `unbound` case by a playtester tapping a distant tile
+ * (#60). **A refusal with no feedback is indistinguishable from a handler that was never called**, so
+ * the suite cannot tell them apart either. #75 is about making that structural rather than
+ * remembered; until it lands, assume a fourth refusal has forgotten its line.
  *
  * (The directory is `components/play/` and not `components/game/` because the layer lint rule
  * matches the *specifier* by path segment: `@/components/game/board` contains a `game` segment and is
@@ -67,8 +79,10 @@ import {
  * reduced-motion requirement for a first playtest — there is nothing to reduce. When it arrives it
  * attaches here, to the cue list, with Reanimated and a `useReducedMotion()` guard.
  *
- * **No tap on a distant tile.** ADR-0009 defers auto-travel to M2; `tapAt` answers `unbound` and this
- * switch does nothing with it. The `Position` is already in hand, which was the whole constraint.
+ * **No travel on a distant tile.** ADR-0009 defers auto-travel to M2 (#65); `tapAt` answers `unbound`
+ * and this switch acknowledges the tap without acting on it (#60) — the acknowledgement is a refusal
+ * message, deliberately worded so it promises nothing about pathing. The `Position` is already in
+ * hand, which was the whole constraint, so `travel(run, tap.at)` replaces that one line.
  */
 
 /**
@@ -145,6 +159,13 @@ export default function GameScreen() {
         case 'unbound':
           // Nothing is bound to this tile yet. ADR-0009's `travel(run, tap.at)` lands here in M2;
           // the position is already in hand, which is the only thing this milestone owed it.
+          //
+          // Until then the tap is a refusal like any other, and §2 says a refusal is acknowledged.
+          // It was silent until #60, and the first playtest found it the way a player would: tapping
+          // a distant tile is the first thing anyone does on a phone, and nothing happening reads as
+          // a missed touch rather than as a rule. **When travel lands this becomes the travel call
+          // and the message goes away** — it is not permanent copy.
+          setMessage(TOO_FAR_MESSAGE);
           return;
       }
     },

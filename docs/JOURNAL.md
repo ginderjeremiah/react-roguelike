@@ -57,6 +57,62 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-07-31 — The third silent refusal, and the pattern behind all three (#60)
+
+**Did:** A tap on a non-adjacent tile now says `Too far to step.` instead of nothing. Found by the
+first playtest. 1087 tests, up from 1085. **The last playtest finding before M1's exit playtest** —
+everything left in M1 is work that does not gate it.
+
+**Why:** GDD §2 requires a refused tap to produce feedback, because "a tap that does nothing at all
+reads on a phone as 'the touch did not register'". Tapping a distant tile is the **first thing a new
+mobile player does** — every touch roguelike is tap-to-path, so the tap arrives before the player has
+learned this game does not do that. The game answered with total silence, which reads as broken
+hardware rather than as a rule. Worth clearing before the exit playtest specifically so that playtest
+spends its findings on the game rather than on the input.
+
+**The copy has one hard constraint and it is the whole design content of this issue: it may not
+promise auto-travel.** ADR-0009 settles `travel(to)`'s rules and defers the build to M2 (#65), so
+anything reading as "you cannot path *there*" advertises a feature that does not exist — and a player
+who hears "not *yet*" taps distant tiles again, which is worse than the silence it replaced. So the
+line states the rule (adjacency) and the verb a tap performs (a step), and promises nothing. There is
+a test asserting it contains no pathing vocabulary, because that constraint is exactly the kind that
+survives as a comment and dies in a rewrite.
+
+I did **not** consult the `game-designer` here, having done so for #21's ending copy, and the
+distinction is worth stating: that was choosing what winning *means*, with no settled answer in the
+documents. This is a refusal message for a rule §2 and §9 already state in full, and
+`BLOCKED_MESSAGE` set the precedent without a design pass.
+
+**Learned:** **This is the third refusal to ship silent, and none of the three was caught by a test.**
+
+| Refusal | Had feedback | Found by |
+| --- | --- | --- |
+| `blocked` | from the start | — |
+| run-over | no | a mutant that survived review (#21) |
+| `unbound` | no | a playtester tapping a distant tile (#60) |
+
+The reason the suite cannot see it is structural and worth stating once: **a refusal with no feedback
+is indistinguishable from a handler that was never called**, so the spec asserting "nothing happens"
+passes either way. That is the same fact that let #20 ship a board handler which was dead on web.
+
+**And this spec had been asserting the bug.** The distant-tap E2E read `toHaveText('')` — it pinned
+the silence the playtest later reported as the game looking broken. Written from the implementation
+rather than from the rule, and green the entire time.
+
+The refusals are a closed set (`TapAction` is `move | attack | wait | blocked | unbound`, plus the
+run-over state where the list is empty), so this is enumerable rather than a matter of remembering.
+**#75** is that check. Until it lands, the header of `app/index.tsx` now says plainly: assume a fourth
+refusal has forgotten its line.
+
+**Next:** M1's exit playtest — both endings, on a phone. Everything remaining in M1 (#12, #47, #69,
+#70) is real work that does not gate it.
+
+**Watch:** The `unbound` branch is temporary by construction. When `travel(to)` lands it stops being a
+refusal and becomes a command, and this message goes away — which is why #20 kept `blocked` and
+`unbound` as distinct `TapAction` kinds rather than collapsing them, and why every variant carries
+`at`. **Do not "simplify" the two together.** It also means #75's check has to tolerate a kind moving
+between the refusal and command categories, rather than assuming the classification is fixed.
+
 ## 2026-07-31 — The HUD was lying at the exact moment the game's central decision is made (#61)
 
 **Did:** `EMBER-SENSE` now reports the reach the player actually has: `—/5 · sealed while lit` while

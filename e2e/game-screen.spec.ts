@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { TOO_FAR_MESSAGE } from '@/components/play/messages';
 import { GLYPHS } from '@/render';
 import {
   boot,
@@ -126,7 +127,7 @@ test('tapping an impassable neighbour does nothing, and says so', async ({ page 
   expect(await turn(page)).toBe(0);
 });
 
-test('tapping a distant tile is unbound — nothing happens at all', async ({ page }) => {
+test('tapping a distant tile spends no turn, and says why', async ({ page }) => {
   await boot(page);
   const at = await playerTile(page);
 
@@ -138,14 +139,24 @@ test('tapping a distant tile is unbound — nothing happens at all', async ({ pa
   expect(box).not.toBeNull();
   await pressAt(page, box!.x + box!.width - 8, box!.y + box!.height - 8);
 
-  await expect(page.getByTestId('status-line')).toHaveText('');
+  // §2: the tap is acknowledged. This line was `toHaveText('')` until #60 — the spec asserted the
+  // silence that the first playtest reported as the game looking broken, which is what an assertion
+  // written from the implementation rather than from the rule gets you.
+  //
+  // It is also the observable this spec never had. Everything below used to rest on a turn counter,
+  // and a turn counter cannot tell a working refusal from a handler that was never called.
+  await expect(page.getByTestId('status-line')).toHaveText(TOO_FAR_MESSAGE);
   expect(await playerTile(page)).toEqual(at);
 
-  // ── THE POSITIVE CONTROL, and it is not optional. ────────────────────────────────────────────
-  // Every assertion above holds just as well against a board that received no press at all, which
-  // is precisely how an earlier version of this spec passed while the press path was dead on web.
-  // So the same test now presses something that *must* work, and counts: the turn after both
-  // presses is **1**, which says the distant one spent nothing and the near one spent its turn.
+  // ── THE POSITIVE CONTROL. Weaker than it was, and kept anyway. ───────────────────────────────
+  // Until #60 every assertion above held just as well against a board that received no press at
+  // all — which is precisely how an earlier version of this spec passed while the press path was
+  // dead on web. The message assertion now discriminates that on its own: a handler that never ran
+  // writes no status line.
+  //
+  // This stays because it proves a *different* thing the message cannot: that the distant press
+  // spent **no turn**. The count after both presses is 1, so the near press spent one and the
+  // distant press spent none. Drop this and a distant tap that quietly advanced the run would pass.
   const target = page.locator('[data-testid^="tap-move-"]').first();
   const id = (await target.getAttribute('data-testid')) ?? '';
   const [x, y] = id.replace('tap-move-', '').split('-').map(Number);

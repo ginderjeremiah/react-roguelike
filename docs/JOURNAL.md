@@ -104,6 +104,19 @@ run-over state where the list is empty), so this is enumerable rather than a mat
 **#75** is that check. Until it lands, the header of `app/index.tsx` now says plainly: assume a fourth
 refusal has forgotten its line.
 
+**The issue had three repros and this fixes two, which is a decision rather than an omission.** A
+distant *tile* tap now speaks. A press **below the board entirely** — the ~44pt strip between the
+grid and the thumb controls, where the status line sits — stays silent, because the press surface is
+sized to the grid exactly and nothing outside it reaches the handler.
+
+Keeping it that way. The strip's other neighbour is the shutter control, so making the padded parent
+the press surface would answer a thumb that *missed the shutter* with **"Too far to step."** — a
+sentence about the board, in reply to a press aimed at a button. §2 asks that a refused **tap on a
+tile** be acknowledged; it does not ask the game to narrate every square point of the screen, and
+answering a missed control with the wrong rule is worse than answering it with nothing. Written at
+the call site in `board.tsx`, because review *measured* that strip and found it silent — and a gap
+that is measured but unexplained gets "fixed" by the next person.
+
 **Next:** M1's exit playtest — both endings, on a phone. Everything remaining in M1 (#12, #47, #69,
 #70) is real work that does not gate it.
 

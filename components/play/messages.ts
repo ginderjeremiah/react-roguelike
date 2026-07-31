@@ -30,9 +30,10 @@ export const BLOCKED_MESSAGE = 'The way is blocked.';
 /**
  * §13: the run has ended, so the board accepts nothing — and §2 still wants the tap acknowledged.
  *
- * **This is the only refusal in the game with nothing else to speak for it.** A blocked neighbour at
- * least produces `BLOCKED_MESSAGE`; every refusal that reaches `step` produces a `refused` cue. A tap
- * on a finished board produces neither: `render/taps.ts` empties the tap list at the ending, so
+ * **Three refusals never reach `step`, so none of them has a cue to speak for it** — a blocked
+ * neighbour, a tap further away than a neighbour, and this one. Each has exactly one string standing
+ * between it and silence, and two of the three shipped without theirs. A tap on a finished board is
+ * the starkest case: `render/taps.ts` empties the tap list at the ending, so
  * `tapAt` answers `unbound` and no command is ever built. Without this line the press is genuinely
  * indistinguishable from a press that was never received — which is §2's "a UI failure wearing the
  * costume of a rule", and which is also why the E2E could not tell a working refusal from a dead

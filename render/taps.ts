@@ -28,17 +28,19 @@
  * | `attack` | a neighbour with a living thing on it | `move(run, tap.dir)` — §3, bump-to-attack |
  * | `wait` | the player's own tile | `wait(run)` |
  * | `blocked` | an impassable neighbour | **nothing**, plus §2's feedback |
- * | `unbound` | anything else | **nothing** — no action is bound to this tile *yet* |
+ * | `unbound` | anything else | **nothing**, plus §2's feedback — nothing is bound to it *yet* |
  *
  * `move` and `attack` emit the same intent, and that is not redundancy: §3 settled bump-to-attack and
  * there is no `attack` command, so the pair exists to let a component *draw* the difference — a
  * player about to strike should see that they are about to strike — without ever deciding it.
  *
  * **`blocked` and `unbound` are different answers and must stay different.** Both mean "this tap does
- * nothing", and collapsing them would be the easy simplification. `blocked` is a tile the player
- * plainly aimed at and §2 requires feedback for (a dead tap on a phone reads as a missed touch);
- * `unbound` is a tile that no gesture claims *today*, which is a statement about this milestone
- * rather than about the tile. ADR-0009's `travel(to)` lands exactly there in M2, and when it does,
+ * nothing", and collapsing them would be the easy simplification. **Both carry §2's feedback** —
+ * `unbound` was silent until #60, and a playtester reported that silence as the game looking broken
+ * — so the split is no longer about whether the player is told, and an argument resting on that has
+ * expired. `blocked` is a permanent rule about a tile; `unbound` is a statement about *this
+ * milestone*, and its message is temporary by construction.
+ * ADR-0009's `travel(to)` lands exactly there in M2, and when it does,
  * the distant-but-remembered case becomes a sixth kind carrying the `Position` it already carries —
  * one more `case` in the component's `switch`, not a restructuring. That is the whole reason
  * **every variant carries `at`** even where the intent needs only a `Direction`.

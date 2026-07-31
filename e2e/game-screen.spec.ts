@@ -1,4 +1,22 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { GLYPHS } from '@/render';
+
+/**
+ * The glyphs that belong to the *map* and survive the lantern closing.
+ *
+ * Deliberately excludes `ember` and `contact`: an ember cache or drop is not drawn at all while
+ * shuttered (§4 — items are invisible), and a contact is a living thing, not terrain. Taken from
+ * `GLYPHS` rather than written as literals so that a renamed glyph is a compile error here instead
+ * of a spec that silently stops matching anything.
+ */
+const TERRAIN_GLYPHS: readonly string[] = [
+  GLYPHS.wall,
+  GLYPHS.floor,
+  GLYPHS.pillar,
+  GLYPHS.doorway,
+  GLYPHS.entrance,
+  GLYPHS.stairs,
+];
 
 /**
  * The game screen, driven the way a player drives it: taps on tiles, taps on the thumb controls.
@@ -145,7 +163,7 @@ test('tapping an adjacent tile moves the player, and the board changes', async (
 
   // Exactly one turn. Two would mean the press was handled twice, which is the failure mode of
   // stacking press handlers; the board deliberately has exactly one.
-  await expect.poll(() => turn(page)).toBe(1);
+  expect(await turn(page)).toBe(1);
 });
 
 test('tapping your own tile waits, which is a real turn', async ({ page }) => {
@@ -155,7 +173,7 @@ test('tapping your own tile waits, which is a real turn', async ({ page }) => {
   await pressTile(page, page.getByTestId(`tap-wait-${at.x}-${at.y}`));
 
   // §9: the self-tap is `wait`, not descend. The player has not moved and the turn was spent.
-  await expect.poll(() => turn(page)).toBe(1);
+  expect(await turn(page)).toBe(1);
   expect(await playerTile(page)).toEqual(at);
 });
 
@@ -199,7 +217,7 @@ test('tapping a distant tile is unbound — nothing happens at all', async ({ pa
   const [x, y] = id.replace('tap-move-', '').split('-').map(Number);
   await pressTile(page, target);
 
-  await expect.poll(() => turn(page)).toBe(1);
+  expect(await turn(page)).toBe(1);
   expect(await playerTile(page)).toEqual({ x, y });
 });
 
@@ -243,17 +261,27 @@ test('shuttering hides the room and the ember-sense radius starts climbing', asy
   // A tile the player can see from across the room right now: lit, drawn, and far enough away that
   // touch will not reach it once the shutter is shut. Found by asking the board rather than by
   // hard-coding a coordinate, so this survives #47 replacing the fixed seed.
-  const far = await page.evaluate((player) => {
-    for (const node of Array.from(document.querySelectorAll('[data-testid^="cell-"]'))) {
-      const [, x, y] = (node.getAttribute('data-testid') ?? '').split('-').map(Number);
-      const away = Math.max(Math.abs(x - player.x), Math.abs(y - player.y));
-      const glyph = (node.textContent ?? '').trim();
-      if (away >= 3 && glyph !== '' && getComputedStyle(node).opacity === '1') {
-        return { id: `cell-${x}-${y}`, glyph };
+  //
+  // TERRAIN ONLY, and that is not fussiness. A creature and an ember drop are both drawn at opacity
+  // 1 on a lit tile and both revert to the terrain glyph once the shutter is shut — `embers` is
+  // empty while shuttered, and a creature at Chebyshev >= 3 is outside sense radius 1. Either would
+  // make this spec fail for a reason that has nothing to do with remembered terrain. On `emberdepth`
+  // the first match happens to be terrain, so without this filter the claim above about surviving a
+  // seed change would be false.
+  const far = await page.evaluate(
+    ({ player, terrain }) => {
+      for (const node of Array.from(document.querySelectorAll('[data-testid^="cell-"]'))) {
+        const [, x, y] = (node.getAttribute('data-testid') ?? '').split('-').map(Number);
+        const away = Math.max(Math.abs(x - player.x), Math.abs(y - player.y));
+        const glyph = (node.textContent ?? '').trim();
+        if (away >= 3 && terrain.includes(glyph) && getComputedStyle(node).opacity === '1') {
+          return { id: `cell-${x}-${y}`, glyph };
+        }
       }
-    }
-    return null;
-  }, at);
+      return null;
+    },
+    { player: at, terrain: TERRAIN_GLYPHS },
+  );
   expect(far, 'no lit tile three or more tiles from the player').not.toBeNull();
 
   await press(page, page.getByTestId('control-shutter'));
@@ -297,7 +325,7 @@ test('a press at the edge of a tile hits that tile, after the HUD has changed he
   // ═══════════════════════════════════════════════════════════════════════════════════════════════
   const before = await page.getByTestId('board').boundingBox();
   await pressWithin(page, self, 0.5, 1);
-  await expect.poll(() => turn(page)).toBe(1);
+  expect(await turn(page)).toBe(1);
   expect(await playerTile(page), 'the baseline edge press').toEqual(at);
 
   // Shut the shutter: `hud.sense` starts reporting `adapting` (§4's four-turn window), the HUD gains
@@ -321,7 +349,7 @@ test('a press at the edge of a tile hits that tile, after the HUD has changed he
   // south — a wall on this seed, so a false refusal; one tile of different terrain and it is a step
   // the player did not aim at, with a turn spent on it.
   await pressWithin(page, self, 0.5, 1);
-  await expect.poll(() => turn(page)).toBe(2);
+  expect(await turn(page)).toBe(2);
   expect(await playerTile(page), 'the edge press after the layout moved').toEqual(at);
   await expect(page.getByTestId('status-line')).not.toHaveText(/blocked/i);
 });
@@ -358,7 +386,7 @@ test('at 0 fuel the shutter control shows itself dead rather than doing nothing'
   await expect(page.getByTestId('status-line')).not.toHaveText(/lantern goes out/i);
   const spent = await turn(page);
   await pressTile(page, page.locator('[data-testid^="tap-move-"]').first());
-  await expect.poll(() => turn(page)).toBe(spent + 1);
+  expect(await turn(page)).toBe(spent + 1);
   await expect(page.getByTestId('hud-shutter')).toHaveText('SHUT');
 });
 

@@ -80,20 +80,47 @@ export function describeCue(cue: Cue): string | null {
 }
 
 /**
- * The one line to show for a whole turn: the **last** cue that has something to say.
+ * The one line to show for a whole turn: **what happened to the player**, else the last cue that has
+ * something to say.
  *
- * Last rather than first, because `CUE_KINDS` is in emission order — "the board changes, then the
- * lamp, then the player, then the blows, then the bodies, then the spoils" — so the last sentence is
- * the end of the turn's story, and the end is what the player has not seen yet. A turn that opens the
- * shutter and takes a hit should say the hit.
+ * ## Precedence, not recency — and the reason is a bug this rule already had
+ *
+ * The first version of this function took the last speaking cue, justified on the grounds that
+ * `CUE_KINDS` is in emission order — board, lamp, player, blows, bodies, spoils — so the last
+ * sentence is the newest news. **That holds *between* cue kinds and not *within* one.**
+ * `render/cues.ts` emits `damaged` by iterating `world.actors`, which is in ascending id order, and
+ * the player is id `0`. So the player's own `damaged` cue is always *first* among a turn's blows, and
+ * last-wins always discarded it: every turn in which blows were traded said `You strike for 4.` and
+ * never `You take 3.` At 12 max HP and 3-4 damage a hit, that is three silent turns from death, and
+ * with nothing on screen animating, the only remaining signal was auditing a HUD number.
+ *
+ * Found independently by the `playtester` (six runs, "the only thing that compromised Pillar 2") and
+ * by review of #20 — and the test that covered this rule could not fail, because its sample held a
+ * single `damaged` cue where the bug needs two. See `play-messages.test.ts`.
+ *
+ * The same argument applies to death: `fuelGained` is emitted *after* `died`, so last-wins could
+ * report `You gather 25 ember.` on the turn the run ended. Death outranks damage, damage outranks
+ * everything else, and only then does recency decide.
+ *
+ * Ordering by *who it happened to* rather than by actor id is what makes this stable: it does not
+ * care what order the simulation iterates, which is exactly the assumption that broke.
  *
  * `null` when nothing is worth saying, which clears the line rather than leaving last turn's news up.
  */
 export function describeTurn(cues: readonly Cue[]): string | null {
+  let playerDied: Cue | null = null;
+  let playerHurt: Cue | null = null;
   let latest: string | null = NO_MESSAGE;
+
   for (const cue of cues) {
+    if (cue.kind === 'died' && cue.who === 'player') playerDied = cue;
+    else if (cue.kind === 'damaged' && cue.who === 'player') playerHurt = cue;
+
     const sentence = describeCue(cue);
     if (sentence !== null) latest = sentence;
   }
+
+  if (playerDied !== null) return describeCue(playerDied);
+  if (playerHurt !== null) return describeCue(playerHurt);
   return latest;
 }

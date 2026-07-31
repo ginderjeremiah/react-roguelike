@@ -124,6 +124,27 @@ The shipped version has **no cache at all** — it reads the node's rect at the 
 because "re-measure more often" is still a theory about what can move the board, and this file has
 now been wrong twice about exactly that.
 
+**The same "emission order" assumption was wrong a second time, in a second file, and the test for it
+could not fail.** `describeTurn` took the *last* speaking cue, on the grounds that `CUE_KINDS` is in
+emission order so the last sentence is the newest news. That holds **between** cue kinds and not
+**within** one: `render/cues.ts` emits `damaged` by iterating `world.actors` in ascending id order and
+the player is id `0`, so the player's own `damaged` cue is always *first* among a turn's blows and
+last-wins always discarded it. **Every turn in which blows were traded said `You strike for 4.` and
+never `You take 3.`** At 12 max HP and 3-4 a hit, that is three silent turns from death — and with
+nothing animating, the only remaining signal was auditing a HUD number.
+
+The `playtester` found it in six runs ("the only thing that compromised Pillar 2") and review found it
+independently. What made it *blocking* rather than a follow-up was the test: its comment named this
+exact case — "a turn that opens the shutter and **takes a hit** must say the hit" — while its sample
+held **one** `damaged` cue, and the bug needs two. It asserted a property the code did not have,
+passed, and would have gone on passing under a comment that told the next reader it was covered.
+
+Fixed as **precedence, not recency**: death outranks damage, damage outranks everything, and only then
+does recency decide. Ordering by *who it happened to* rather than by actor id is the point — it does
+not care what order the simulation iterates, which is the assumption that broke twice. The same audit
+found `fuelGained` is emitted *after* `died`, so last-wins could have reported `You gather 25 ember.`
+on the turn the run ended; that is now covered by a named test too.
+
 **`React.memo` on the cells is currently doing nothing measurable, and the honest number is worth more
 than the assumption.** 40 real taps against the built web app at a Pixel 7 viewport, timed from
 `touchend` to DOM commit: 1.1ms median unthrottled, 8.3ms at 4× CPU throttle, 20.5ms at 8×. Removing

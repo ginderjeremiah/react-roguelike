@@ -89,11 +89,45 @@ describe('the descend control promises a floor that exists', () => {
 
 describe('a whole turn is one sentence', () => {
   it('reports the end of the turn’s story, not its beginning', () => {
-    // `CUE_KINDS` is in emission order — board, lamp, player, blows, bodies, spoils — so the last
-    // sentence is the newest news. A turn that opens the shutter and then takes a hit must say the
-    // hit; a first-match implementation says "the shutter opens" and swallows the damage.
+    // `CUE_KINDS` is in emission order — board, lamp, player, blows, bodies, spoils — so a
+    // first-match implementation says "the shutter opens" and swallows everything after it.
     const turn: readonly Cue[] = [SAMPLES.shutterChanged, SAMPLES.playerMoved, SAMPLES.damaged];
     expect(describeTurn(turn)).toBe(describeCue(SAMPLES.damaged));
+  });
+
+  it('says you were hit on a turn you also dealt a blow', () => {
+    // The bug this rule shipped with, and the reason the test above is not enough on its own: it
+    // holds ONE `damaged` cue, and this needs two. `render/cues.ts` emits `damaged` by iterating
+    // `world.actors` in ascending id order and the player is id 0, so the player's own cue is
+    // always FIRST among a turn's blows — and last-wins always threw it away. Every turn in which
+    // blows were traded said "You strike" and never "You take", which at 12 max HP is three silent
+    // turns from death.
+    const hitBack: Cue = { ...SAMPLES.damaged, who: 'creature', amount: 4 } as Cue;
+    const turn: readonly Cue[] = [SAMPLES.damaged, hitBack];
+
+    expect(describeTurn(turn)).toBe(describeCue(SAMPLES.damaged));
+    expect(describeTurn(turn)).not.toBe(describeCue(hitBack));
+  });
+
+  it('says you were hit even when the turn ends in spoils', () => {
+    // `fuelGained` is emitted after the blows, so recency alone reports the ember and not the wound.
+    const turn: readonly Cue[] = [SAMPLES.damaged, SAMPLES.fuelGained];
+    expect(describeTurn(turn)).toBe(describeCue(SAMPLES.damaged));
+  });
+
+  it('lets the run ending outrank being hit on the way out', () => {
+    // Death is emitted before spoils, so last-wins could report "You gather 25 ember." on the turn
+    // the run ended. Death outranks damage; damage outranks everything else; recency decides last.
+    const died: Cue = { kind: 'died', who: 'player' } as Cue;
+    const turn: readonly Cue[] = [SAMPLES.damaged, died, SAMPLES.fuelGained];
+    expect(describeTurn(turn)).toBe(describeCue(died));
+  });
+
+  it('still reports the blow you struck when nothing hit you', () => {
+    // The precedence must not turn into "always narrate the player" — a turn where you land a hit
+    // and take none is the commonest combat turn there is.
+    const struck: Cue = { ...SAMPLES.damaged, who: 'creature', amount: 4 } as Cue;
+    expect(describeTurn([SAMPLES.playerMoved, struck])).toBe(describeCue(struck));
   });
 
   it('clears the line when a turn has nothing to say', () => {

@@ -35,10 +35,13 @@ did — it is the only thing stopping a future session from repeating it.
 > **Some headings below this note carry invented dates. Until #50 lands, read position, not date.**
 > Past sessions copied the heading above and incremented it rather than reading a clock, so a run of
 > entries — and ADR-0008's and ADR-0009's dates — advance past dates on which nothing was committed.
-> `git log --format='%ad' --date=short | sort | uniq -c` against
-> `grep -o '^## 20[0-9-]*' docs/JOURNAL.md | sort | uniq -c` shows the divergence; **run them rather
-> than trusting any figure written here**, because a count is stale by the commit that writes it and
-> that is the mistake this note exists to describe.
+> At the time this was written, `git log --format='%ad' --date=short | sort | uniq -c` against
+> `grep -o '^## 20[0-9-]*' docs/JOURNAL.md | sort | uniq -c` showed the divergence directly. **That
+> signal fades** — once real time reaches those dates, honest entries and their commits fill them in
+> and the histograms agree again. So the rule below is positional, and it is the authority; the
+> commands are corroboration, not the test. Either way, **run them rather than trusting any figure
+> written here**: a count is stale by the commit that writes it, which is the mistake this note
+> exists to describe.
 >
 > **The boundary is positional, not a date range**, and that is deliberate — a range would sweep up
 > honest entries as real time walked into it. **Everything at or above the archivist entry for
@@ -115,8 +118,8 @@ easy to say and each of these had an argument for jumping the queue:**
 
 **#50 deliberately not fixed here — but its evidence was wrong and that *is* fixed.** #50 as filed
 claimed entries run "up to 2026-08-07" and that "every commit landed on 2026-07-30". Re-derived:
-the maximum heading date is **2026-08-05**, and every commit landed on **2026-07-29 or 2026-07-30**,
-plus the Expo template's `Initial commit` on 2025-10-25. So the invented headings ran
+as of `2db3f39`, the maximum heading date was **2026-08-05** and every commit had landed on
+**2026-07-29 or 2026-07-30**, plus the Expo template's `Initial commit` on 2025-10-25. So the invented headings ran
 **2026-07-31 to 2026-08-05**, and every entry dated 07-29 or 07-30 is **accurate and must not be
 swept up**. (No per-day totals here on purpose: a count is stale by the commit that writes it, which
 is how this went wrong twice already. Run
@@ -128,10 +131,12 @@ cross-references that cite them, and the policy is still not mechanical, so the 
 the obvious phrasing and it is a trap: 2026-07-31 through 2026-08-05 is *the next six days of real
 time*, so an entry written honestly tomorrow lands inside the "fabricated" window and #50's
 implementer rewrites a correct heading — the exact failure this paragraph is about, with the sign
-flipped. Anchored to this entry's position instead, the suspect set is closed and cannot grow. What was safe here is the note at the top of
-the Format section. **Correcting with a new note rather than editing the entries is the rule in this
-file, and it is also the cheap fix** — but a note that is itself wrong is worse than no note, so it
-now states the ranges rather than a summary of them.
+flipped. Anchored to this entry's position instead, the suspect set is closed and cannot grow.
+
+What was safe here is the note at the top of the Format section. **Correcting with a new note rather
+than editing the entries is the rule in this file, and it is also the cheap fix** — but a note that
+is itself wrong is worse than no note, so it names **no dates and no counts at all** beyond the two
+ADRs, and points at this entry instead.
 
 **Learned — and this is the finding about the session, not about any one doc. The same failure
 happened three times in one work session, twice inside this PR, and each instance was caught only by
@@ -145,8 +150,8 @@ the *next* reader:**
    headline. **I copied a sentence instead of re-deriving it, in the same PR whose whole thesis is
    that copying a number instead of re-deriving it is how docs rot.** Caught by review of this PR.
 3. **"every commit landed on 2026-07-30" and "entries run to 2026-08-07"** — the first generalised
-   from `git log -3` (three commits of the whole history; every commit is on 07-29 or 07-30, so the
-   generalisation was not even close to safe), the second read
+   from `git log -3` (three commits of the whole history, which at that point sat entirely on 07-29
+   and 07-30 — so the generalisation was not even close to safe), the second read
    off an ADR date the author had written himself minutes earlier. Both were in the #45 entry's
    `Learned:` section *and* in #50's body, i.e. in the two places a future session would go to fix
    the dates. Corrected in the entry, in #50, and in the note above.

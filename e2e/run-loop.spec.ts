@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { DEATH_MARKER, DEATH_VERDICT, VICTORY_MARKER, VICTORY_VERDICT } from '@/render';
+import { RUN_OVER_MESSAGE } from '@/components/play/messages';
 import { boot, playerCell, press, pressCell, turn, wander } from './support/drive';
 
 /**
@@ -30,7 +31,30 @@ import { boot, playerCell, press, pressCell, turn, wander } from './support/driv
  * ═══════════════════════════════════════════════════════════════════════════════════════════════
  */
 
-/** A press budget with room to spare. A wander that exceeds it throws rather than passing quietly. */
+/**
+ * Press budgets. A wander that exceeds one throws rather than passing quietly.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
+ * THESE ARE MEASURED HEADROOM OVER `emberdepth`, AND THEY STOP BEING MEASUREMENTS AT #47
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * Observed on the fixed seed: **21 presses to a death, 52 to floor 1's stairs, 830 to the bottom.**
+ * Each budget is roughly 3x its observation, which is headroom for a `wander` that takes a different
+ * turn — not a guess.
+ *
+ * **Two things will invalidate them, and both deserve to be seen coming.**
+ *
+ * *Tuning.* `wander` with `onContact: 'strike'` fights whatever it meets, so it can die on the way
+ * down. Any change to the Cinder's numbers, to the fuel economy, or to level generation can turn the
+ * eight-floor wander into a death — and the failure would be `REACHED THE BOTTOM` versus `DIED` at an
+ * assertion that says nothing about the run loop. If that is what you are looking at, the run loop is
+ * probably fine and the balance moved.
+ *
+ * *#47.* The moment the seed comes from a clock, none of the three numbers above is an observation
+ * any more; they become bets on an unseeded distribution, and the wander's route stops being the same
+ * route twice. That is when this file starts to flake, and the fix is to measure the distribution
+ * rather than to raise the budgets until it goes quiet.
+ */
 const DEATH_PRESSES = 250;
 const STAIRS_PRESSES = 300;
 const BOTTOM_PRESSES = 2500;
@@ -80,11 +104,11 @@ test('a run that ends in death: the summary reads, the board goes quiet, and you
   test.slow();
   await boot(page);
 
-  // ── POSITIVE CONTROL, PART ONE ───────────────────────────────────────────────────────────────
-  // Everything below about the ended board asserts that nothing happened, and "nothing happened" is
-  // exactly what a dead press handler looks like — that is not hypothetical, it is #20's shipped
-  // bug. So the same press, at the same kind of target, found the same way, is proved to work
-  // *first*: press the centre of a cell's box and a turn is spent.
+  // ── CONTROL: THE PRESS HELPER ITSELF WORKS ───────────────────────────────────────────────────
+  // Narrow, and stated narrowly. This proves that `pressCell` — a press at the centre of a cell's
+  // measured box — reaches the board's handler and spends a turn **in the running layout**. It does
+  // not, on its own, say anything about the ended layout; that is what the acknowledgement below is
+  // for, and the two used to be conflated here.
   const opening = await stepTarget(page);
   await pressCell(page, opening.x, opening.y);
   expect(await turn(page), 'the running board must accept a cell-centre press').toBe(1);
@@ -134,18 +158,70 @@ test('a run that ends in death: the summary reads, the board goes quiet, and you
   // so there is not one ring left on screen.
   await expect(page.locator('[data-testid^="tap-"]')).toHaveCount(0);
 
-  // ── THE BOARD REFUSES, AND IT IS A REFUSAL RATHER THAN A DEAD HANDLER ─────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════════════════════════
+  // THE BOARD REFUSES — AND THE REFUSAL IS OBSERVABLE, WHICH IS THE ONLY REASON THIS CAN FAIL
+  // ═══════════════════════════════════════════════════════════════════════════════════════════════
+  //
+  // "Nothing happened" is exactly what a dead handler looks like, and a run-over board is nothing
+  // but legitimate refusals — so for as long as this press produced no output at all, no assertion
+  // here could tell the two apart. A review mutant proved it: making `onTapTile` a no-op **only
+  // while the summary is mounted** (#20's shipped bug, transposed onto the new band) left all four
+  // of these specs green.
+  //
+  // So the refusal was given the thing §2 says it always owed the player: a line acknowledging the
+  // tap (`RUN_OVER_MESSAGE`). It is the one refusal in the game with no cue behind it — the tap list
+  // is empty at the ending, so nothing ever reaches `step` — and it is now the observable that
+  // separates *reached and refused* from *never reached*.
+  await expect(page.getByTestId('summary-note'), 'nothing has been refused yet').toHaveText('');
   const target = await stepTarget(page);
+  const boardBefore = await page.getByTestId('board').boundingBox();
+
+  // Where a press at that point actually lands. The plausible way for a press to miss is the ~200pt
+  // panel overlapping the board, and this converts that from "the geometry spec covers it elsewhere"
+  // into a fact asserted at the exact coordinate this test is about to press.
+  //
+  // It resolves to the **board**, not to a cell: the grid is `pointerEvents="none"` (`board.tsx` —
+  // one press handler for the whole board, deliberately), so hit testing passes straight through the
+  // glyphs to the one surface underneath them. That is the element a press has to reach.
+  const hit = await page.evaluate((at) => {
+    const cell = document.querySelector(`[data-testid="cell-${at.x}-${at.y}"]`);
+    const box = cell!.getBoundingClientRect();
+    const node = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+    return {
+      onBoard: node !== null && node.closest('[data-testid="board"]') !== null,
+      underSummary: node !== null && node.closest('[data-testid="run-summary"]') !== null,
+    };
+  }, target);
+  expect(hit, 'the press must land on the board, not on the summary over it').toEqual({
+    onBoard: true,
+    underSummary: false,
+  });
+
   await pressCell(page, target.x, target.y);
+
+  // The press was received and refused: the run did not advance, nobody moved, and the screen said
+  // so. Remove any one of those three and the assertion stops meaning what it says.
+  // The constant, not a copy of it — `tests/unit/play-messages.test.ts` is what stops it being
+  // empty, which is the one value that would make the assertion above and this one agree vacuously.
+  await expect(page.getByTestId('summary-note'), 'the refusal must be acknowledged').toHaveText(
+    RUN_OVER_MESSAGE,
+  );
   await expect(page.getByTestId('summary-turns'), 'a finished run spends no turns').toHaveText(
     String(spent),
   );
   expect(await playerCell(page), 'a finished run moves nobody').toEqual(grave);
   await expect(page.getByTestId('run-summary')).toBeVisible();
 
-  // ── POSITIVE CONTROL, PART TWO ───────────────────────────────────────────────────────────────
-  // The screen is not frozen: a press still reaches the application in this exact layout, and this
-  // is the button that proves it.
+  // And the acknowledgement did not move the thing that was pressed. The note shares the seed's row
+  // and that row reserves its height (`run-summary.tsx`) precisely so this holds — a panel that grew
+  // by a line on every press would slide the board under the thumb, which is #20's stale-origin bug
+  // arriving from the other direction. A one-pixel tolerance for sub-pixel layout, and no more.
+  const settled = await page.getByTestId('board').boundingBox();
+  expect(Math.abs(settled!.y - boardBefore!.y), 'the board must not move when a tap is refused')
+    .toBeLessThanOrEqual(1);
+  expect(Math.abs(settled!.height - boardBefore!.height)).toBeLessThanOrEqual(1);
+
+  // ── AND THE REST OF THE SCREEN IS NOT FROZEN EITHER ──────────────────────────────────────────
   await press(page, page.getByTestId('control-restart'));
 
   // §13's loop, closed. A fresh run, in place, no reload: floor 1, full HP, the opening reserve, and
@@ -160,10 +236,11 @@ test('a run that ends in death: the summary reads, the board goes quiet, and you
   await expect(page.getByTestId('seed-note')).toHaveCount(1);
   expect(await turn(page)).toBe(0);
 
-  // ── POSITIVE CONTROL, PART THREE ─────────────────────────────────────────────────────────────
-  // The same helper, the same geometry, the same browser — and now a turn is spent. Together with
-  // part one this brackets the refusal above: the mechanism used to press the ended board is one
-  // that demonstrably reaches the handler both before the run ended and after a new one began.
+  // ── CONTROL: THE HELPER STILL WORKS AFTERWARDS ───────────────────────────────────────────────
+  // The same helper, the same geometry, the same browser, on the other side of a restart. This and
+  // the control at the top of the test bracket the *press helper* — they say the mechanism is live
+  // before and after, which is worth having and is **not** what proves the refusal was reached. The
+  // acknowledgement above is what proves that, and it is the only thing that does.
   const again = await stepTarget(page);
   await pressCell(page, again.x, again.y);
   expect(await turn(page), 'the restarted board must accept the very same press').toBe(1);
@@ -204,7 +281,26 @@ test('taking the stairs advances the floor', async ({ page }) => {
   await expect(page.getByTestId('run-summary')).toHaveCount(0);
 });
 
+/**
+ * The win, on the phone project only.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
+ * ONE PROJECT, BECAUSE THE SECOND COPY IS 30 SECONDS OF THE SAME 830 PRESSES
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * Measured: this spec is **34.1s on phone and 32.2s on desktop**, against ~5s for the entire rest of
+ * the suite, and landing it took CI's Build & E2E job from ~1m50s to 4m2s. The desktop copy walks the
+ * same fixed seed by the same rule to the same ending — it is the same run, twice, differing only in
+ * press transport, which every other spec here already covers in both projects.
+ *
+ * The phone is the design target (Pillar 3), so that is the copy that survives. This halves both the
+ * runner cost and the flake surface of the slowest thing in the suite.
+ */
 test('a run that reaches the bottom is a win, and says so', async ({ page }) => {
+  test.skip(
+    test.info().project.name !== 'phone',
+    'eight floors of walking; the phone is the design target and the desktop copy adds no coverage',
+  );
   test.slow();
   test.setTimeout(180_000);
   await boot(page);

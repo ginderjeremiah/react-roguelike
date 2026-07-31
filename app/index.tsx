@@ -4,7 +4,7 @@ import { StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import { Board } from '@/components/play/board';
 import { Controls } from '@/components/play/controls';
 import { HudBar } from '@/components/play/hud-bar';
-import { BLOCKED_MESSAGE, describeTurn } from '@/components/play/messages';
+import { BLOCKED_MESSAGE, describeTurn, RUN_OVER_MESSAGE } from '@/components/play/messages';
 import { RunSummaryPanel } from '@/components/play/run-summary';
 import { StatusLine } from '@/components/play/status-line';
 import { useGameTheme } from '@/components/play/use-game-theme';
@@ -42,8 +42,9 @@ import {
  *   - Start another run: `setRun(beginRun(SEED))`. §13's loop, closed, with no reload.
  *
  * The one decision that is genuinely local is what a tap that resolves to nothing looks like: §2
- * insists a dead tap be acknowledged, so a `blocked` tap writes a line rather than doing nothing at
- * all. See `components/play/messages.ts`.
+ * insists a dead tap be acknowledged, so a `blocked` tap — and a tap on a board whose run has ended —
+ * writes a line rather than doing nothing at all. Those are the two refusals that never reach
+ * `step`, so they are the two with no cue to speak for them. See `components/play/messages.ts`.
  *
  * (The directory is `components/play/` and not `components/game/` because the layer lint rule
  * matches the *specifier* by path segment: `@/components/game/board` contains a `game` segment and is
@@ -93,14 +94,34 @@ export default function GameScreen() {
    * Both halves matter. A refused intent still returns a **new** `Run` whose scene is the previous
    * object (`session/run.ts`), so React re-renders, the board does not repaint, and the cue list
    * carries §2's refusal — which becomes the line under the board.
+   *
+   * **Except on the turn that ends the run.** `describeTurn` would return `The lantern goes out.`,
+   * which is the headline the summary is about to print two lines below in bold. One line, one
+   * voice: the panel says how the run ended, and this line goes quiet so that whatever it says next
+   * is about the *press*, not about the run.
    */
   const advance = useCallback((next: Run) => {
     setRun(next);
-    setMessage(describeTurn(cuesOf(next)));
+    setMessage(sceneOf(next).summary === null ? describeTurn(cuesOf(next)) : null);
   }, []);
 
   const onTapTile = useCallback(
     (x: number, y: number) => {
+      // ═════════════════════════════════════════════════════════════════════════════════════════
+      // §13's refusal, and the only one in the game that produces neither a cue nor a `TapAction`
+      // ═════════════════════════════════════════════════════════════════════════════════════════
+      //
+      // A finished run accepts no commands (§13), and `render/taps.ts` expresses that by emitting an
+      // **empty** tap list — so every tile answers `unbound` below and nothing is ever sent to
+      // `session/`. That is correct, and it leaves this press with no observable at all: §2's "a tap
+      // that does nothing reads on a phone as 'the touch did not register'" applies exactly here,
+      // and a dead handler would be indistinguishable from a working refusal. Both the rule and the
+      // test need this line to exist.
+      if (scene.summary !== null) {
+        setMessage(RUN_OVER_MESSAGE);
+        return;
+      }
+
       // §9's whole control scheme, decided in `render/taps.ts` and merely obeyed here.
       const tap = tapAt(scene.taps, x, y);
       switch (tap.kind) {
@@ -127,7 +148,7 @@ export default function GameScreen() {
           return;
       }
     },
-    [advance, run, scene.taps],
+    [advance, run, scene.summary, scene.taps],
   );
 
   const onSetShutter = useCallback(
@@ -200,7 +221,12 @@ export default function GameScreen() {
             />
           </>
         ) : (
-          <RunSummaryPanel summary={scene.summary} onRestart={onRestart} theme={theme} />
+          <RunSummaryPanel
+            summary={scene.summary}
+            note={message}
+            onRestart={onRestart}
+            theme={theme}
+          />
         )}
 
         {/* The build note, and it belongs to a run in progress. Once the summary is up it would be a

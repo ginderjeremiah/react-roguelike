@@ -147,10 +147,24 @@ function outcomeOf(state: GameState): OutcomeHud {
   switch (state.status.kind) {
     case 'running':
       return { kind: 'running' };
+    // GDD §13's constraint on ending copy: **the verdict names the player's fate, the headline is
+    // an image of the world**, and neither names a number — floor count and fuel are both tuning,
+    // so a headline mentioning either becomes a lie the first time they move.
+    //
+    // The win line was `You reach the bottom.` until #21 put the verdict `> REACHED THE BOTTOM`
+    // directly above it, at which point the two lines shared a subject and read as one thought said
+    // twice. `The dark goes no deeper.` is §13's own settled fact — "there is no floor 9 and there
+    // is no boss; the eighth descent *is* the ending" — as an image, and it answers the live
+    // question a player has on winning a roguelike with no boss: *is that it, or did I miss
+    // something?*
+    //
+    // It must also stay true at 0 fuel, which kills the tempting mirror of the death line: §4 says
+    // a dry lantern is a desperate state and not a loss state, so a win with no fuel is legal and
+    // `The lantern still burns.` would be false in exactly the most retellable runs.
     case 'died':
       return { kind: 'died', headline: 'The lantern goes out.' };
     case 'reachedBottom':
-      return { kind: 'reachedBottom', headline: 'You reach the bottom.' };
+      return { kind: 'reachedBottom', headline: 'The dark goes no deeper.' };
     default:
       return assertNever(state.status, 'outcomeOf');
   }

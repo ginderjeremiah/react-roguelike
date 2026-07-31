@@ -47,12 +47,27 @@ import type { GameTheme } from './theme';
  */
 export type RunSummaryPanelProps = {
   readonly summary: RunSummary;
+  /**
+   * §2's one line of feedback, while the run is over. `null` most of the time.
+   *
+   * This is the same role `StatusLine` plays during a run, and it exists for the same reason: the
+   * board is still on screen and still receives presses, every one of which §13 refuses. Without an
+   * acknowledgement those presses are "a UI failure wearing the costume of a rule" — and, because
+   * `render/taps.ts` empties the tap list at the ending, they are also the one refusal with no cue
+   * behind it, so nothing else can speak for them.
+   *
+   * **It shares the seed's row and the row reserves its height**, which is not a layout preference:
+   * a line that appeared and pushed the panel taller would move the board under it, and the board
+   * resolves a press by measuring where it is (`board.tsx`). A summary that shifted the board every
+   * time it was tapped would be re-creating #20's stale-origin bug from the other end.
+   */
+  readonly note: string | null;
   /** Starts a fresh run in place. `session/`'s `beginRun` is pure and total, so it cannot fail. */
   readonly onRestart: () => void;
   readonly theme: GameTheme;
 };
 
-export function RunSummaryPanel({ summary, onRestart, theme }: RunSummaryPanelProps) {
+export function RunSummaryPanel({ summary, note, onRestart, theme }: RunSummaryPanelProps) {
   // The third carrier, never the first — see `summary-style.ts`, where it is decided and tested.
   const tone = verdictTone(summary, theme);
 
@@ -85,10 +100,16 @@ export function RunSummaryPanel({ summary, onRestart, theme }: RunSummaryPanelPr
           off the screen. `selectable` is one prop on web and costs nothing anywhere else, so the
           seed can be copied instead of transcribed — which is the difference between "shareable"
           and "printed". The word is chrome and the seed is the data, so only one of them is dim. */}
-      <Text testID="summary-seed" selectable style={[styles.seed, { color: theme.textDim }]}>
-        {'seed  '}
-        <Text style={{ color: theme.text }}>{summary.seed}</Text>
-      </Text>
+      <View style={styles.seedRow}>
+        <Text testID="summary-seed" selectable style={[styles.seed, { color: theme.textDim }]}>
+          {'seed  '}
+          <Text style={{ color: theme.text }}>{summary.seed}</Text>
+        </Text>
+        {/* §2's acknowledgement, in the space the row already occupies. See the `note` prop. */}
+        <Text testID="summary-note" style={[styles.note, { color: theme.textDim }]}>
+          {note ?? ''}
+        </Text>
+      </View>
 
       <Pressable
         testID="control-restart"
@@ -182,10 +203,23 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.mono,
     fontSize: 10,
   },
+  seedRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: 8,
+    // Reserved, so an acknowledgement appearing cannot move the board above it. See `note`.
+    minHeight: 15,
+  },
   seed: {
     fontFamily: Fonts.mono,
     fontSize: 11,
     letterSpacing: 0.4,
+  },
+  note: {
+    fontFamily: Fonts.mono,
+    fontSize: 11,
+    textAlign: 'right',
   },
   button: {
     // The same generous target as the thumb controls it replaces, and for the same reason: this is

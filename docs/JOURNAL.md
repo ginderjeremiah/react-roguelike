@@ -57,6 +57,111 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-07-31 — A run can be finished, and it tells you what it was (#21)
+
+**Did:** The run loop closes. `GameState` gained `kills`, `fuelBurned` and `seed`; `render/` gained
+`summary.ts`; `components/play/run-summary.tsx` draws both endings over the frozen board, and
+`RUN AGAIN` restarts without a reload. 1082 tests, up from 1047; 32 E2E runs, up from 24. **M1's last
+build item.**
+
+**Why the tally is in `game/` and not `session/`.** `session/` sees every intent and `cuesFor` already
+emits `died` and `fuelGained`, so a run tally could have been accumulated above the seam with `game/`
+untouched. Rejected: a tally accumulated there is a function of *the sequence of calls `session/`
+happened to make*, not of the state, so a replay could not reproduce it and `game/`'s replay tests
+could not assert it. Pillar 4 makes a run a stored artifact; a summary that is not part of the
+replayed state is a summary that can disagree with the run it describes. Kills settle it on their own
+— dead actors leave the world, so no single state can be asked how many there were.
+
+The seed went the same way for a duller reason: `render/presentHud` takes a `GameState`, so a summary
+built in `render/` cannot see a seed held in `session/`. It also makes **#47's second bullet — "the
+seed a run started with is recoverable" — fall out free.** That is not #47: M1 still ships a constant
+and `platform/` still does not exist.
+
+**Learned:** Three, and the first is the most reusable thing in this entry.
+
+**A determinism fixture pinned less than it appeared to, and only an experiment showed it.** The
+replay suite's stored records compare a hand-written `Digest` projection of `GameState`. New fields
+are *reproduced* by a replay but are not *pinned* by the fixture unless someone adds them to the
+projection — so the tally could have silently stopped being deterministic while the project's central
+invariant stayed green. Verified rather than assumed: with `kills`/`fuelBurned` left out of `Digest`
+**and** `kills` stubbed to never increment, both `reproduces the stored final state exactly` tests
+passed. Both fields are now in the digest with their arithmetic written beside them.
+
+Its sibling behaved correctly and the contrast is the lesson: `divergence.ts` builds the sorted
+**union of both sides' keys**, so it picked the new fields up automatically — and announced itself by
+turning a test red, because `fuelBurned` sorts before `lantern` and became the newly-reported first
+divergence. **A generic comparator widens by itself; a hand-written projection does not, and it is the
+one that looks more rigorous.**
+
+**`RULES_VERSION` went 2 → 3 and no digest was regenerated**, which is the evidence that matters. The
+policy in `replay.ts` requires the bump for any new `GameState` field, but every pre-existing recorded
+value — status, floor, turns, fuel, shutter, sense radius, remembered, hp, creatures, embers, all four
+RNG words — is byte-identical to the version-2 fixtures. Adding fields did not move a rule or a draw.
+A regenerated determinism fixture proves nothing about the change that regenerated it, so "we added,
+we did not rewrite" is the claim worth being able to make.
+
+**A refusal nobody could observe turned out to be a missing feature, not a missing assertion — and
+the review round found it by transposing an old bug.** The post-death refusal was bracketed by three
+positive controls, and they looked sufficient. They were not: a mutant that kills the board handler
+**only while the summary is mounted** — #20's shipped bug moved onto the new panel — passed all four
+specs. Parts one and three of the bracket run in the *running* layout; part two presses a different
+element on a different press path.
+
+The reason no assertion could fix it is the useful part. `render/taps.ts` empties the tap list when
+the run ends, so this is **the only refusal in the game that reaches neither a cue nor a
+`TapAction`** — the press never gets to `step()`, so nothing existed to speak for it, and a
+reached-and-refused press was indistinguishable from an unreached one *by construction*. §2 says a
+refused tap must still produce feedback ("a dead tap on a phone reads as a missed touch"), and this
+one never did. **The observability gap and the §2 gap were the same gap**, so the fix is that a press
+on a finished board now says so — a feature that happens to be the observable, rather than an
+observable dressed as a feature.
+
+My own suggested fix — assert the press *landed* on the board via `elementFromPoint` — would not have
+killed the mutant, because landing says nothing about the handler being live. It is in anyway, aimed
+at the thing it can actually catch: the panel overlapping the board at the pressed point.
+
+One trap avoided in the fix, worth recording because it is the same bug from the other side: the
+acknowledgement shares the seed's row and **the row reserves its height**. A panel that grew by a line
+on every refused press would slide the board out from under the thumb — #20's stale-origin problem
+arriving by a different route. Asserted, not assumed: board `y` and `height` are unchanged across the
+refused press.
+
+**Where a counter increments is a rule, not an implementation detail.** `fuelBurned` is metered as a
+*difference* across §2's phase 2 rather than as `burnRate(shutter)`, so the turn you run dry books the
+2 that were actually there and not the 4 you would have spent. `kills` is counted across the whole
+turn rather than at the phase-5 sweep, because §13 skips phase 5 entirely on the turn the player dies
+— counting the sweep would have silently dropped **the last kill of every losing run**. Both are
+pinned by one test that constructs the single state where phase 2 has run and phase 5 has not.
+
+**Next:** M1's exit is the second `playtester` run — both endings, on a phone. The first playtest ran
+against #20 and its verdict is recorded on #31 and #32. Before that, #60 and #61 are cheap and both
+degrade the exit playtest's ability to answer its own question: #61 in particular lies about
+ember-sense at the exact moment the game's central decision is made.
+
+**Watch:** Four.
+
+- **~~The win headline is the flattest text on the screen.~~ Fixed in this PR.** `> REACHED THE
+  BOTTOM` sat directly above `You reach the bottom.` — the same sentence twice at the one moment a
+  player has earned something, and the duplication was *new*, created by this issue putting a verdict
+  above #18's copy. Referred to the `game-designer` rather than reworded here, because choosing what
+  winning *means* is a design act that should not fall to whoever holds the file. The diagnosis was
+  better than a replacement line: the death pair works because **the verdict names the player's fate
+  and the headline is an image of the world**, so any fix keeping "you" as the subject would have
+  been a reword. Now `The dark goes no deeper.` — §13's own "there is no floor 9 and there is no
+  boss" as an image, answering the question a player actually has on winning a roguelike with no
+  boss. GDD §13 gained a standing constraint on ending copy, because §13 disclaimed the summary
+  screen and then said nothing about what its copy may claim, which is how the tone at the game's
+  peak became the property of whoever was holding the file.
+- **A floor-1 death is a mostly-black board** — about 45% unexplored void. Honest (you died knowing
+  nothing) but it makes the *common* ending the visually emptiest one.
+- **#69: the board is one frame behind any layout change above it**, and the summary band is the
+  biggest such change in the game, so the desktop board paints over the HUD for one frame before
+  settling. Found by a screenshot catching the bad frame. The E2E pins the *settled* layout, so **the
+  suite cannot see this by construction** — the same shape as #49.
+- **#70: no `SafeAreaView` on this screen.** `RUN AGAIN` is the only control on the summary, and on a
+  device with a home indicator it would sit under it. No native build has ever run, so nothing we
+  currently gate on can catch this.
+
 ## 2026-07-31 — Archivist: a stale milestone marker in the GDD cost a playtest verdict
 
 **Did:** Reconciled `ROADMAP.md`, `GDD.md` and `ARCHITECTURE.md` against `main` at `6e20978` (#20
@@ -165,78 +270,6 @@ both endings and a full run start to finish.
   #47, #48, #52, #53 and now #57. **#58 is not one of them** and must not be counted — a
   react-native-web typing bug is not a statement about our layers, and counting it would fire a
   tripwire that is measuring something else.
-
-## 2026-07-31 — A run can be finished, and it tells you what it was (#21)
-
-**Did:** The run loop closes. `GameState` gained `kills`, `fuelBurned` and `seed`; `render/` gained
-`summary.ts`; `components/play/run-summary.tsx` draws both endings over the frozen board, and
-`RUN AGAIN` restarts without a reload. 1082 tests, up from 1047; 32 E2E runs, up from 24. **M1's last
-build item.**
-
-**Why the tally is in `game/` and not `session/`.** `session/` sees every intent and `cuesFor` already
-emits `died` and `fuelGained`, so a run tally could have been accumulated above the seam with `game/`
-untouched. Rejected: a tally accumulated there is a function of *the sequence of calls `session/`
-happened to make*, not of the state, so a replay could not reproduce it and `game/`'s replay tests
-could not assert it. Pillar 4 makes a run a stored artifact; a summary that is not part of the
-replayed state is a summary that can disagree with the run it describes. Kills settle it on their own
-— dead actors leave the world, so no single state can be asked how many there were.
-
-The seed went the same way for a duller reason: `render/presentHud` takes a `GameState`, so a summary
-built in `render/` cannot see a seed held in `session/`. It also makes **#47's second bullet — "the
-seed a run started with is recoverable" — fall out free.** That is not #47: M1 still ships a constant
-and `platform/` still does not exist.
-
-**Learned:** Three, and the first is the most reusable thing in this entry.
-
-**A determinism fixture pinned less than it appeared to, and only an experiment showed it.** The
-replay suite's stored records compare a hand-written `Digest` projection of `GameState`. New fields
-are *reproduced* by a replay but are not *pinned* by the fixture unless someone adds them to the
-projection — so the tally could have silently stopped being deterministic while the project's central
-invariant stayed green. Verified rather than assumed: with `kills`/`fuelBurned` left out of `Digest`
-**and** `kills` stubbed to never increment, both `reproduces the stored final state exactly` tests
-passed. Both fields are now in the digest with their arithmetic written beside them.
-
-Its sibling behaved correctly and the contrast is the lesson: `divergence.ts` builds the sorted
-**union of both sides' keys**, so it picked the new fields up automatically — and announced itself by
-turning a test red, because `fuelBurned` sorts before `lantern` and became the newly-reported first
-divergence. **A generic comparator widens by itself; a hand-written projection does not, and it is the
-one that looks more rigorous.**
-
-**`RULES_VERSION` went 2 → 3 and no digest was regenerated**, which is the evidence that matters. The
-policy in `replay.ts` requires the bump for any new `GameState` field, but every pre-existing recorded
-value — status, floor, turns, fuel, shutter, sense radius, remembered, hp, creatures, embers, all four
-RNG words — is byte-identical to the version-2 fixtures. Adding fields did not move a rule or a draw.
-A regenerated determinism fixture proves nothing about the change that regenerated it, so "we added,
-we did not rewrite" is the claim worth being able to make.
-
-**Where a counter increments is a rule, not an implementation detail.** `fuelBurned` is metered as a
-*difference* across §2's phase 2 rather than as `burnRate(shutter)`, so the turn you run dry books the
-2 that were actually there and not the 4 you would have spent. `kills` is counted across the whole
-turn rather than at the phase-5 sweep, because §13 skips phase 5 entirely on the turn the player dies
-— counting the sweep would have silently dropped **the last kill of every losing run**. Both are
-pinned by one test that constructs the single state where phase 2 has run and phase 5 has not.
-
-**Next:** M1's exit is the second `playtester` run — both endings, on a phone. The first playtest ran
-against #20 and its verdict is recorded on #31 and #32. Before that, #60 and #61 are cheap and both
-degrade the exit playtest's ability to answer its own question: #61 in particular lies about
-ember-sense at the exact moment the game's central decision is made.
-
-**Watch:** Four.
-
-- **The win headline is the flattest text on the screen.** `> REACHED THE BOTTOM` sits directly above
-  `You reach the bottom.` — the same sentence twice, at the one moment a player has earned something.
-  The duplication is *new*, created by this issue adding a verdict line above copy from #18 that used
-  to stand alone. Referred to the `game-designer` rather than reworded here, because choosing what
-  winning *means* is a design act and should not fall to whoever is holding the file.
-- **A floor-1 death is a mostly-black board** — about 45% unexplored void. Honest (you died knowing
-  nothing) but it makes the *common* ending the visually emptiest one.
-- **#69: the board is one frame behind any layout change above it**, and the summary band is the
-  biggest such change in the game, so the desktop board paints over the HUD for one frame before
-  settling. Found by a screenshot catching the bad frame. The E2E pins the *settled* layout, so **the
-  suite cannot see this by construction** — the same shape as #49.
-- **#70: no `SafeAreaView` on this screen.** `RUN AGAIN` is the only control on the summary, and on a
-  device with a home indicator it would sit under it. No native build has ever run, so nothing we
-  currently gate on can catch this.
 
 ## 2026-07-31 — There is a game on the screen, and you can tap it (#20)
 

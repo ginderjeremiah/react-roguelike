@@ -3,6 +3,7 @@ import { LAST_FLOOR } from '@/game/content';
 import { replay } from '@/game/core';
 import { presentHud, presentSummary, type RunSummary } from '@/render';
 import { DARK_THEME, LIGHT_THEME, type GameTheme } from '@/components/play/theme';
+import { RUN_OVER_MESSAGE } from '@/components/play/messages';
 import { monoWidth, verdictTone } from '@/components/play/summary-style';
 import { diveToTheBottom, standUntilDead } from '@/tests/unit/support/run-script';
 
@@ -96,6 +97,17 @@ describe('the summary fits a 390pt phone', () => {
         expect(value, `${ending}/${stat.key} value`).toBeLessThanOrEqual(COLUMN_WIDTH);
         expect(note, `${ending}/${stat.key} note`).toBeLessThanOrEqual(COLUMN_WIDTH);
       }
+    }
+  });
+
+  it('leaves the seed room to share its row with §2’s acknowledgement', () => {
+    // `run-summary.tsx` puts the seed and the run-over note on one reserved-height row, so that a
+    // press on the finished board can be acknowledged without moving the board it was aimed at. The
+    // two have to fit side by side or that row wraps and the panel grows anyway.
+    const band = PHONE_WIDTH - PANEL_PADDING - COLUMN_GAP;
+    for (const [ending, summary] of SUMMARIES) {
+      const seed = monoWidth(`seed  ${summary.seed}`, 11, 0.4);
+      expect(seed + monoWidth(RUN_OVER_MESSAGE, 11), `${ending} seed row`).toBeLessThanOrEqual(band);
     }
   });
 

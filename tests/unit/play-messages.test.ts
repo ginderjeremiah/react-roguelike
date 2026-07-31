@@ -6,6 +6,7 @@ import {
   describeCue,
   describeTurn,
   descendHint,
+  RUN_OVER_MESSAGE,
 } from '@/components/play/messages';
 
 /**
@@ -44,6 +45,12 @@ describe('every cue has copy', () => {
     // missed touch — "a UI failure wearing the costume of a rule".
     expect(describeCue({ kind: 'refused' })).toBeTruthy();
     expect(BLOCKED_MESSAGE).toBeTruthy();
+    // §13's refusal has no cue at all — `render/taps.ts` empties the tap list at the ending, so the
+    // press never reaches `step`. This string is therefore the *only* acknowledgement it has, and an
+    // empty one would take the run-loop E2E's refusal assertion vacuous along with it: it would
+    // match both "nothing has been refused yet" and "the refusal was acknowledged".
+    expect(RUN_OVER_MESSAGE).toBeTruthy();
+    expect(RUN_OVER_MESSAGE).not.toBe(BLOCKED_MESSAGE);
   });
 
   it('stays silent about a move, which the board says better', () => {

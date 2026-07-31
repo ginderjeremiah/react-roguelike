@@ -317,7 +317,12 @@ test('at 0 fuel the shutter control shows itself dead rather than doing nothing'
 
   // §4 is also explicit that a dry lantern is a desperate state and **not** a loss state. So the
   // board is still playable: the run has not ended and a step still costs a turn and resolves.
-  await expect(page.getByTestId('status-line')).not.toHaveText(/lantern goes out/i);
+  //
+  // This used to read the status line for a death headline, which stopped being able to fail the
+  // moment #21 moved the ending onto its own screen — `StatusLine` no longer receives an outcome and
+  // can never print one. The end of a run is now a *panel that exists or does not*, so that is what
+  // is asked. Same intent, and this version can go red.
+  await expect(page.getByTestId('run-summary')).toHaveCount(0);
   const spent = await turn(page);
   await pressTile(page, page.locator('[data-testid^="tap-move-"]').first());
   expect(await turn(page)).toBe(spent + 1);

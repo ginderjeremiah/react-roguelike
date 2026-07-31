@@ -14,7 +14,7 @@
  * `state.status` a second time. That is deliberate and it is the same rule `state.ts` applies to
  * `floorNumber`: **one source of truth**. Two independent readings of `status` would be two places
  * to add a third ending to, and — worse — two places the *copy* could disagree, so a status line
- * saying `The lantern goes out.` could sit above a panel headlined `You reach the bottom.`
+ * saying `The lantern goes out.` could sit above a panel headlined `The dark goes no deeper.`
  *
  * The consequence is the two-argument signature, which looks redundant (`outcome` is derivable from
  * `state`) and is not: `presentScene` already computed the HUD, and `taps.ts` is handed

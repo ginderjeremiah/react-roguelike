@@ -4,7 +4,7 @@
  * ```ts
  * import { cuesFor, presentScene, type Scene } from '@/render';
  *
- * // in a hook, holding the previous state and the previous scene:
+ * // in `session/`, which holds the previous state and the previous scene:
  * const scene = presentScene(next, previousScene);   // board + HUD, cells reused where unchanged
  * const cues = cuesFor(previous, next);              // what happened, as data
  * ```
@@ -20,12 +20,24 @@
  * `render/` is pure TypeScript. No React, no React Native, no Expo, no `.tsx`, no animation library.
  * The same rules apply upward that `game/`'s apply downward, and the same two gates enforce them.
  *
+ * ## Who calls this, and who does not
+ *
+ * **`session/` does** (ADR-0010). Both functions below take a `GameState`, so the caller has to be
+ * able to hold one — and nothing above `session/` can, which was the hole #45 was filed about. The
+ * previous state and the previous scene are held *there*, in an opaque `Run`, and `components/`
+ * receives `sceneOf(run)` and `cuesOf(run)` having never seen either.
+ *
+ * That division is not tidiness. This module's public API necessarily **names** `GameState`, so it
+ * cannot also be the place `GameState` stops being nameable; one module cannot both expose and hide
+ * the same type. Keep it that way — an opaque run handle exported from here would hand `components/`
+ * the key and the lock in a single import.
+ *
  * ## The two functions, and why they are two
  *
  * A `Scene` is a function of **one** state; a `Cue` is a function of **two**. Fusing them would mean
  * a single call that cannot answer either question on its own — you could not present the opening
  * board, which has no predecessor, without inventing a null state to diff against. So they are
- * separate, `app/` holds the one extra reference, and each is testable at its own arity.
+ * separate, `session/` holds the one extra reference, and each is testable at its own arity.
  *
  * ## What is decided here, so that nothing above has to decide it
  *

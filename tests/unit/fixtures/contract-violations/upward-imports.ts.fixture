@@ -8,6 +8,10 @@ import { ThemedText } from '../../components/themed-text';
 import { model } from '../../../render/model';
 import { save } from '../platform/save';
 import { Screen } from '@/app/index';
+// The bare-directory alias form, which no other case here covers: `@/session` has no subpath, so
+// it only matches if the layer pattern is anchored with `(/|$)` rather than requiring a trailing
+// slash. ADR-0010 put a layer between render/ and components/; game/ and render/ must not reach it.
+import { beginRun } from '@/session';
 import { View } from 'react-native';
 import { useState } from 'react';
 import * as Haptics from 'expo-haptics';
@@ -15,4 +19,4 @@ import * as Haptics from 'expo-haptics';
 const lazy = () => import('../../components/themed-view');
 const legacy = require('@/render/presentation');
 
-export { ThemedText, model, save, Screen, View, useState, Haptics, lazy, legacy };
+export { ThemedText, model, save, Screen, beginRun, View, useState, Haptics, lazy, legacy };

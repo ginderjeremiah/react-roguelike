@@ -98,13 +98,35 @@ enforced nothing**, which is the failure this repo keeps finding.
 - Two guards that read as defence-in-depth were **masking each other into unkillability**: a
   `contact !== 'seen'` check and an `if (!lamplit) return` in the telegraph pass were both dead,
   because `faceOf` returns on a felt contact before either is reached and `identified` is empty in
-  the dark anyway. Deleted. One equivalent survivor is kept and documented (`contacts.get(i) ===
-  'seen'` vs `.has(i)`), because it states the rule where the rule applies.
+  the dark anyway. Deleted — that part stands.
 - Both HP-threshold branches and `Math.floor` on turns-of-fuel survived: the corpus tests recomputed
   the level with the *same operator*, and 12 HP / 4 fuel-per-turn make every corpus value land
   exactly on a boundary or exactly on a multiple. Fixed with pinned threshold cases.
 
-Final: **49/51 mutants killed**, two documented equivalents.
+**Review addendum — the count above was wrong, and so was one of the "equivalents".** This entry
+originally closed at *49/51 killed, two documented equivalents*, and recorded `contacts.get(i) ===
+'seen'` vs `.has(i)` as an equivalent survivor "because it states the rule where the rule applies".
+**It is not equivalent.** That argument reasoned about `faceOf` — one of the map's *two* consumers.
+The other, `gatherTelegraphs`, has no such guard, so under `.has(i)` a **shuttered player adjacent
+to an awake Cinder is shown an attack telegraph on their own tile**: §4's vision table says intent
+is hidden in the dark, and that is the reason light costs 4 fuel a turn. The mutant survived all 917
+tests, and the guard named for the rule could not catch it — its creature sat at Chebyshev 2 with
+sense radius 1, so nothing was ever in `contacts` and the mutant had nothing to do. It passed for a
+reason unrelated to its own name.
+
+Now killed by a test with the creature *adjacent*, so it is felt **and** inside the touch radius.
+The annotation in `scene.ts` is corrected in place, because **a false "provably equivalent" note is
+worse than no note**: it instructs the next mutation run not to re-derive exactly the thing it is
+hiding. The same round found the `damaged` cue's entire payload unasserted — `at`, `who` and
+`amount` all replaceable by constants with nothing failing, which lands at #21 where a floating
+damage number is drawn at `cue.at` reading `cue.amount`.
+
+**Restated honestly: 10/11 killed over the re-derived set, one verified equivalent** (`isRunning`
+in the death cue, which holds because `deathCues` has one consumer where `contacts` has two — the
+asymmetry that broke the other note). The full 51 is *not* restated, because quoting a number
+nobody re-ran is what produced this correction. **The lesson generalises past this PR: an
+"equivalent mutant" annotation is a claim about every consumer of the mutated expression, and it
+should name them.**
 
 The other lesson is about `game/` rather than about this layer: **the simulation's terrain memory
 already contradicts §4's "items are invisible while shuttered".** `perceive`'s touch field returns a

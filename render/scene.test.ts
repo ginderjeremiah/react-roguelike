@@ -445,10 +445,13 @@ describe('telegraphs (GDD §2, §4)', () => {
   it('hides the intent of a creature too far away to be felt at all', () => {
     // The weak half of the shuttered rule, and it is worth being explicit that it is the weak half:
     // this creature is at Chebyshev 2 with the shuttered sense radius of 1, so nothing perceives it
-    // and no map downstream of `perceive` ever has an entry for it. What it catches is a
+    // and no map downstream of `perceive` ever has an entry for it. It is aimed at a
     // `gatherTelegraphs` that read `world.actors` instead of the perceived set — every creature on
-    // the floor telegraphing through the dark. The *adjacent* case, where the creature really is
-    // perceived, is the test below, and it is the one §4's table actually turns on.
+    // the floor telegraphing through the dark — but **the adjacent test below kills that mutant
+    // too**, measured rather than assumed: planting it turns both tests red. So this one is
+    // redundant rather than load-bearing, and is kept only because it is cheap and states the far
+    // case explicitly. Do not treat it as a unique guard. The *adjacent* case, where the creature
+    // really is perceived, is the one §4's table turns on.
     const state = declaring({ kind: 'attack', at: { x: 2, y: 1 } }, 'shuttered');
     expect(perceivedCreatureCount(state)).toBe(0);
     expect(presentScene(state).grid.cells.every((cell) => cell.telegraph === null)).toBe(true);

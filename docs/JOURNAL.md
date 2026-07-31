@@ -117,9 +117,18 @@ below says "1040 tests, up from 1005" and "22 E2E specs, up from 4"; the #49 ent
 956". 1047 ≠ 1040, 24 ≠ 22, and 1005 ≠ 986. **All three are left as written** — correcting an old
 entry destroys the record of what we believed — and the reconciled numbers are here instead. The
 likely cause is a count taken before review added tests, which is the ordinary way this goes wrong
-and is an argument for taking the count *last*. The E2E figure has a second cause worth naming: 12
-declarations run across two Playwright projects, so "specs" and "runs" differ by a factor of two and
-either is defensible until you say which you mean. **State the unit as well as the number.**
+and is an argument for taking the count *last*. That covers the E2E figure too: 22 is 11 × 2, a count
+taken before review added the twelfth declaration. *(Inference — #20 is squashed into `6e20978`, so
+the intermediate count is not recoverable. What is demonstrable is only that neither 12 nor 24 is 22.)*
+
+A first draft of this paragraph blamed the E2E number on unit confusion instead — 12 declarations
+across two Playwright projects, so "specs" and "runs" differ by a factor of two. **Arithmetic rules
+that out**: neither unit yields 22, so under either one the old entry is simply wrong, and a reader
+reconciling "22 specs" through that explanation would infer 22 declarations and 44 runs — wrong twice.
+It is kept here because it is the day's mistake in miniature: an explanation that fits the shape of
+the problem, is not checked against the numbers, and would have sent the next reader somewhere false.
+The advice it carried is still good on its own account — **state the unit as well as the number**, since
+12 and 24 are both honest answers to "how many E2E tests" — it just is not the cause of anything here.
 
 **`platform/` still does not exist, and `components/game/` still does not either.** #20's directory
 is `components/play/` because the layer lint matches import specifiers by path segment, so

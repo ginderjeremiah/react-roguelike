@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assertNever, type Command } from '@/game/core';
+import { assertNever, type Command, type GameState } from '@/game/core';
 import { cellAt, type Cue } from '@/render';
 import { diveToTheBottom } from '@/tests/unit/support/run-script';
 import { beginRun, cuesOf, descend, move, sceneOf, setShutter, wait, type Run } from './run';
@@ -136,22 +136,84 @@ describe('`Run` is opaque — the property this layer exists for', () => {
     expect(guessed).toBeUndefined();
   });
 
-  it('resists a consumer who reflects the key out at runtime — at the type level, and only there', () => {
-    // The last door, and the one place this property is honest about its limit. The key really is an
-    // own property, so `Object.getOwnPropertySymbols` really does hand it over and the value really
-    // is behind it. What stops a consumer is that a plain `symbol` is not a *type* that can index
-    // `Run`, so nothing the compiler accepts can get there.
+  it('resists a consumer who reflects the key out at runtime', () => {
+    // The key really is an own property, so `Object.getOwnPropertySymbols` really does hand it over.
+    // What stops a consumer is that a plain `symbol` is not a *type* that can index `Run`.
     //
-    // A `WeakMap<Run, ...>` would close even this (see `run.ts`'s header for why it was not taken),
-    // and the residual risk is deliberately accepted: a component doing runtime reflection on a
-    // value it was told is opaque is not a failure mode a type can prevent, and it is loud enough to
-    // be caught in review. This test exists so that limit is written down rather than discovered.
+    // ── This test used to claim more than it checked, and that is worth leaving on the record. ──
+    // Its previous comment said "nothing the compiler accepts can get there", while the only thing
+    // it asserted was that ONE expression errors. A property stated in a comment and unasserted in
+    // the body cannot fail when the property is violated — and this one *was* violated, by two
+    // mechanisms it never touched (see the two tests below). It read as proof and was not, which is
+    // strictly worse than having had no test here at all. The scope of the claim now matches the
+    // scope of the assertions, and the claims it used to make are asserted below, separately.
     const keys = Object.getOwnPropertySymbols(run);
     expect(keys).toHaveLength(1);
 
     // @ts-expect-error a plain `symbol` cannot index a type whose only key is a `unique symbol`.
     const reflected: unknown = run[keys[0]];
     expect(reflected).toBeDefined();
+  });
+
+  it('does not let the key be computed, even though it cannot be written (mechanism 1)', () => {
+    // ═══════════════════════════════════════════════════════════════════════════════════════════
+    // A key you cannot spell is still a key `keyof` can hand you.
+    //
+    // `Run` was declared `{ readonly [RUN_STATE]: RunInternals }`. Nobody outside could *write* the
+    // key — and nobody needed to, because `keyof Run` **is** that key, so `Run[keyof Run]` resolved
+    // to `RunInternals` and `Run[keyof Run]['state']` resolved to `GameState`, by name, with
+    // autocomplete, from a file that had never imported `game/`. Declaring the property as `never`
+    // is what closes it: nothing can be projected out of `never`.
+    //
+    // This is asserted **positively** rather than with `@ts-expect-error`, and that distinction is
+    // the whole reason this test can fail. `type X = Run[keyof Run]['state']` does NOT error today —
+    // indexed access on `never` is legal and silently yields `never` — so a `@ts-expect-error` on
+    // that line would be reported as *unused* and the test would fail for the wrong reason while a
+    // regression sailed through. `IsNever` asserts the resolved type instead, so the day someone
+    // changes `never` back to `RunInternals`, `insidesAreNever` stops being assignable and
+    // `npm run typecheck` goes red naming this line.
+    // ═══════════════════════════════════════════════════════════════════════════════════════════
+    const insidesAreNever: IsNever<Run[keyof Run]> = true;
+    expect(insidesAreNever).toBe(true);
+  });
+
+  it('has no implicit index signature, because it is an `interface` (mechanism 2)', () => {
+    // ═══════════════════════════════════════════════════════════════════════════════════════════
+    // The runtime half of the same exploit, and it turns on `type` vs `interface` alone.
+    //
+    // A **type alias** gets an implicit index signature, so `const record: Record<symbol, T> = run`
+    // is an ordinary assignment — after which the symbol reflected off the object indexes it and the
+    // insides come out with no cast anywhere. An **interface** gets no implicit index signature, so
+    // the same assignment fails with `TS2322: Index signature for type 'symbol' is missing`.
+    //
+    // That is the entire difference, it is invisible at the call site, and `type` is what most
+    // people reach for. If someone ever "simplifies" `interface Run` back to `type Run`, this is the
+    // line that stops them.
+    // ═══════════════════════════════════════════════════════════════════════════════════════════
+
+    // @ts-expect-error `Run` is an interface: no implicit symbol index signature to assign through.
+    const record: Record<symbol, unknown> = run;
+    expect(record).toBeDefined();
+  });
+
+  it('is reachable only through a cast, which is the residual and is deliberate', () => {
+    // The honest limit, asserted rather than promised. The state IS on the object — that is the
+    // point of not using a `WeakMap` — so an explicit cast reaches it and no type system can stop
+    // that. What changed is the *cost*: this now requires `as any` (or `as never` and a second
+    // cast), which is loud, greppable and impossible to mistake for ordinary code in review. The
+    // path that had to be closed was the one that looked innocent, and it is closed.
+    //
+    // This test exists so the residual is a known, tested quantity rather than a discovery. If a
+    // future change makes even this fail — a `WeakMap`, a `#private` class field — that is a
+    // deliberate strengthening and this test is the one that should be rewritten to say so.
+    // `as unknown as` — two casts, because one is not enough: `Run` and this record type are
+    // unrelated in both directions, which is itself a small piece of evidence that the seam holds.
+    const smuggled = (run as unknown as Record<symbol, { readonly state: GameState }>)[
+      Object.getOwnPropertySymbols(run)[0]
+    ];
+
+    expect(smuggled.state).toBeDefined();
+    expect(smuggled.state.lantern.fuel).toBeGreaterThan(0);
   });
 
   it('leaks nothing when logged or serialized', () => {
@@ -163,6 +225,16 @@ describe('`Run` is opaque — the property this layer exists for', () => {
     expect(JSON.stringify(run)).toBe('{}');
   });
 });
+
+/**
+ * `true` only when `T` is exactly `never`.
+ *
+ * The tuple wrapping is not decoration: a bare `T extends never ? ... : ...` distributes over a
+ * naked type parameter, and distributing over `never` yields `never` rather than `true` — so the
+ * obvious spelling would resolve to `never` and be assignable to nothing, failing the one test it
+ * was written for while looking correct.
+ */
+type IsNever<T> = [T] extends [never] ? true : false;
 
 /** A consumer's best attempt at spelling the private key. Same description, different symbol. */
 const IMPOSTOR: unique symbol = Symbol('session/run: the private state of a run');

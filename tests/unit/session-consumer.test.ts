@@ -163,4 +163,71 @@ describe('a consumer that may not import `@/game`', () => {
     expect(Object.keys(run)).toEqual([]);
     expect(JSON.stringify(run)).toBe('{}');
   });
+
+  it('cannot name `GameState` by computing the key — the PR #51 review exploit, verbatim', () => {
+    // ═══════════════════════════════════════════════════════════════════════════════════════════
+    // THIS IS THE EXPLOIT THAT FAILED REVIEW, KEPT WHERE IT WAS FOUND
+    //
+    // The first version of this layer shipped a `Run` that leaked the entire simulation to any
+    // `components/`-legal file: no cast, no `any`, no `@ts-expect-error`, no `game/` import, all
+    // three gates green, and full autocomplete on `GameState`. It is reproduced here **unchanged**,
+    // in the one file in the repo that is bound by a component's import rules, because a regression
+    // test for a hole belongs at the position the hole was reachable from.
+    //
+    // Two independent mechanisms, each of which is sufficient on its own, so each gets its own
+    // directive. A single `@ts-expect-error` over the whole block would go on passing if one of the
+    // two reopened, and would tell nobody which.
+    // ═══════════════════════════════════════════════════════════════════════════════════════════
+
+    // ── Mechanism 1: the key cannot be *written*, but `keyof` computes it. ──────────────────────
+    // Closed by declaring the property `never`, so nothing can be projected out of it. Note this
+    // line itself does NOT error — indexed access on `never` is legal and yields `never` — which is
+    // exactly why the assertion has to be on the *use* below and on `IsNever` in `run.test.ts`,
+    // rather than a `@ts-expect-error` here that would be reported as unused.
+    type GameStateLeaked = Run[keyof Run]['state'];
+
+    function insides(run: Run): Run[keyof Run] {
+      // ── Mechanism 2: a `type` alias's implicit symbol index signature. ───────────────────────
+      // Closed by declaring `Run` an `interface`, which has no implicit index signature.
+      // @ts-expect-error TS2322: Index signature for type 'symbol' is missing in type 'Run'.
+      const record: Record<symbol, Run[keyof Run]> = run;
+      return record[Object.getOwnPropertySymbols(run)[0]];
+    }
+
+    function gameRuleInAComponent(run: Run): boolean {
+      // @ts-expect-error TS2339: Property 'state' does not exist on type 'never'.
+      const state: GameStateLeaked = insides(run).state;
+      // @ts-expect-error TS2339: Property 'world' does not exist on type 'never'.
+      return state.world.actors.some((a: { kind: string; hp: number }) => a.kind === 'creature' && a.hp <= 0);
+    }
+
+    // The exploit still *runs* — mechanism 2's cast is erased, so `insides` returns the real object
+    // at runtime and the rule evaluates. That is the residual, stated below, and it is why the
+    // assertions that matter here are the four compile errors above rather than this line.
+    expect(typeof gameRuleInAComponent(open('exploit'))).toBe('boolean');
+  });
+
+  it('reaches the state only through an explicit cast, which is the residual', () => {
+    // What is NOT closed, said plainly so nobody has to discover it: the state is a real property of
+    // a real object, so `as any` plus reflection reaches it, and no type system prevents a cast.
+    //
+    // That is accepted, and the reason is about *review* rather than about types. The path that had
+    // to be closed was the one that looked like ordinary code — the block above passes a reading
+    // eye, passes ESLint, passes the scanner, and passes `tsc`. This one does not: `as any` in a
+    // component, next to `getOwnPropertySymbols`, is loud, greppable and the kind of line a reviewer
+    // stops on. The property that now holds is "nothing above the seam inspects a `GameState`
+    // **without an explicit, visible cast**", which is weaker than the sentence the first version of
+    // this layer claimed and is the one that is actually true.
+    // Note what this file still cannot do even here: it cannot say `GameState`, because naming the
+    // type needs an import it does not have. The shape below is hand-written and structural, so the
+    // smuggler gets no field names, no autocomplete and no compiler help — which is a meaningfully
+    // worse position than the exploit above enjoyed, and is the rest of why this residual is
+    // tolerable.
+    const run = open('residual');
+    const smuggled = (
+      run as unknown as Record<symbol, { readonly state: { readonly world: { actors: unknown[] } } }>
+    )[Object.getOwnPropertySymbols(run)[0]];
+
+    expect(smuggled.state.world.actors.length).toBeGreaterThan(0);
+  });
 });

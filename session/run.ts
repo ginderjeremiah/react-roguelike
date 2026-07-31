@@ -13,32 +13,57 @@
  * the import to reach the field. So the type has to refuse first and the lint rule has to be the
  * second line of defence rather than the only one.
  *
- * `RUN_STATE` below is a **module-private `unique symbol`**, and every one of those three words is
- * carrying weight:
+ * ## The property that actually holds
  *
- *   - **`unique symbol`** makes the key nominal. A consumer cannot declare their own symbol and have
- *     it be the same key; `unique symbol` types are identical only to themselves.
- *   - **module-private** — it is not exported, not re-exported by `index.ts`, and appears in no
- *     exported signature. There is no expression in any other file that evaluates to it.
- *   - **symbol**, not a string key like `__state`, because a string key is guessable and
- *     `run['__state']` type-checks against an index signature the moment anyone adds one.
+ * > **Nothing above this layer can name a `GameState` or read a simulation field without an
+ * > explicit, visible cast.**
  *
- * The consequence is that `Run` has **no publicly reachable member at all**. `keyof Run` is a symbol
- * nobody upstairs can write down, so the only things a consumer can do with a `Run` are hold it and
- * pass it back to one of the six functions here that take one. `run.test.ts` proves that with
- * `@ts-expect-error` rather than asserting it in prose, because a property nothing checks is a
- * property that decays.
+ * That sentence is weaker than the one this file shipped with, and the weaker sentence is the true
+ * one. The first version claimed `Run` had "no publicly reachable member at all" on the strength of
+ * the key being unspellable. Review of PR #51 produced a working counter-example — see the
+ * `Run` declaration below for the two mechanisms and the exact fix — and the lesson is worth more
+ * than the patch: **a key being unwritable is not the same as a type being unreachable.** `keyof`
+ * computes keys nobody can spell, and a `type` alias hands out an index signature nobody declared.
  *
- * **A `WeakMap<Run, RunInternals>` was the alternative** and it is stronger by exactly one notch —
- * the state would not even be an own property at runtime, so `Object.getOwnPropertySymbols` would
- * find nothing to reflect on. It loses on everything else. It is module-level mutable state in a
- * layer whose value is that it has none; it makes a `Run` meaningless outside the module instance
- * that created it, so a `Run` could not survive a `structuredClone`, a `postMessage`, or a hot
- * reload that re-evaluates this file; and it turns a lifetime question ("when is this run
- * collectable") into something the garbage collector answers instead of the reference graph. The
- * symbol buys ~95% of the property for none of that, and the residual — a determined component
- * doing runtime reflection on a value it was told is opaque — is not a failure mode a type can
- * prevent and is loud enough to be caught in review.
+ * Three things carry the property now, and all three are structural:
+ *
+ *   - **`RUN_STATE` is a module-private `unique symbol`.** `unique symbol` makes the key nominal —
+ *     a consumer's own symbol with an identical description is a different key. It is not exported,
+ *     not re-exported by `index.ts`, and appears in no exported signature. A string key like
+ *     `__state` would be guessable and would type-check against any index signature anyone added.
+ *   - **`Run` is an `interface`,** which has no implicit index signature (a `type` alias does).
+ *   - **The declared property type is `never`,** so `Run[keyof Run]` projects nothing.
+ *
+ * The last two are the fix and are argued in full at the declaration. `run.test.ts` and
+ * `tests/unit/session-consumer.test.ts` assert each mechanism separately, and the review's exploit
+ * is kept verbatim in the consumer file — a regression test for a hole belongs at the position the
+ * hole was reachable from.
+ *
+ * **The residual, stated rather than discovered:** `(run as any)[Object.getOwnPropertySymbols(run)[0]]`
+ * still reaches the state, because the state really is a property of a real object and no type
+ * system prevents a cast. This is accepted, and the argument is about review rather than about
+ * types: the path that had to be closed was the one that *looked like ordinary code*, because that
+ * is the one that gets written by accident and survives a reading eye. An `as any` next to
+ * `getOwnPropertySymbols` in a component is loud, greppable, and the kind of line review stops on.
+ * Both test files pin the residual so it stays a known quantity.
+ *
+ * ## Why not a `WeakMap`, and the one claim about it that does not hold up
+ *
+ * `WeakMap<Run, RunInternals>` would close the residual too — the state would not be an own property
+ * at all, so there would be nothing to reflect on. It loses on three counts. It is module-level
+ * mutable state in a layer whose value is that it has none. It makes a `Run` meaningless outside the
+ * module instance that created it. And it turns "when is this run collectable" into a question the
+ * garbage collector answers instead of the reference graph.
+ *
+ * It is often argued that the symbol also wins on **React Native Fast Refresh**, on the grounds that
+ * re-evaluating this module would orphan every live `Run`. That hazard is real and it is **shared**:
+ * a fresh `Symbol()` orphans old runs exactly as a fresh `WeakMap` does, because both identities are
+ * module-scoped, and `insideOf` would read `undefined` either way. Writing it down as an advantage
+ * of the symbol would be a false claim in a file whose subject is a false claim, so: the honest
+ * asymmetry is **recoverability**. With the symbol the data is still physically on the object, so
+ * the state is in principle retrievable; with a `WeakMap` it is genuinely gone. `Symbol.for` would
+ * remove the hazard outright and is not used, because a global-registry key is a worse trade than a
+ * dev-time reload for a value React would usually reset anyway.
  *
  * ═══════════════════════════════════════════════════════════════════════════════════════════════
  * `Command` NEVER CROSSES THE SEAM, WHICH IS WHY THERE ARE FOUR INTENTS AND NOT ONE `apply`
@@ -136,13 +161,12 @@ import { cuesFor, presentScene, type Cue, type Scene } from '../render';
 /**
  * The key the run's insides sit behind. **Never exported, from here or from `index.ts`.**
  *
- * See the header for why this is a `unique symbol` and not a string key, and why the `WeakMap`
- * version was not taken. The description string is for a debugger and for nothing else; nothing
- * reads it, and two symbols with the same description are still different keys.
+ * The description string is for a debugger and for nothing else; nothing reads it, and two symbols
+ * with the same description are still different keys.
  */
 const RUN_STATE: unique symbol = Symbol('session/run: the private state of a run');
 
-/** Everything a `Run` actually is. Private, and reachable only through the accessors below. */
+/** Everything a `Run` actually is. Private, and reachable only through `insideOf` below. */
 type RunInternals = {
   /** The simulation, right now. The value nothing above this layer may name. */
   readonly state: GameState;
@@ -153,14 +177,75 @@ type RunInternals = {
 };
 
 /**
- * A run in progress. **An opaque handle: it has no member you can name or read.**
+ * A run in progress. **An opaque handle: it has no member you can name, compute, or project.**
  *
  * Hold it, pass it to an intent, ask `sceneOf` and `cuesOf` what to draw. That is the entire
- * vocabulary, and the type enforces it rather than documenting it.
+ * vocabulary, and the declaration enforces it rather than documenting it.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
+ * TWO WORDS HERE ARE LOAD-BEARING, AND BOTH WERE PAID FOR
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * The first version of this type was `export type Run = { readonly [RUN_STATE]: RunInternals }`,
+ * which looks equivalent and leaks the entire simulation. Review of PR #51 found a working exploit
+ * that named `GameState` from a `components/`-legal file with **no cast, no `any`, no
+ * `@ts-expect-error`, and no `game/` import**, with all three gates green and full autocomplete —
+ * `tsc` would report `Property 'turn' does not exist on type 'GameState'` from inside `components/`.
+ * It used two independent mechanisms, and the fix closes them separately:
+ *
+ * 1. **`interface`, not `type`.** A type alias with only a symbol key gets an *implicit index
+ *    signature*, so `const record: Record<symbol, ...> = run` is a plain assignment and the
+ *    reflected key from `Object.getOwnPropertySymbols` can then index it. An `interface` gets no
+ *    implicit index signature, so that same line fails with `TS2322: Index signature for type
+ *    'symbol' is missing`. This is a real, documented difference between the two declaration forms
+ *    and it is the entire reason this is not a `type`. **Do not "simplify" it back.**
+ *
+ * 2. **`never`, not `RunInternals`.** A key that cannot be *written* can still be *computed*:
+ *    `keyof Run` is the symbol whether or not anyone can spell it, so `Run[keyof Run]` resolved to
+ *    `RunInternals` and `Run[keyof Run]['state']` resolved to `GameState`, by name. Declaring the
+ *    property as `never` makes `Run[keyof Run]` resolve to `never`, out of which nothing can be
+ *    projected. The real `RunInternals` is reached through `insideOf` below, which is private and
+ *    casts.
+ *
+ * Neither mechanism needed the other: the first alone reaches the value at runtime, the second alone
+ * names the type. Both are asserted as compile-negative tests — see `run.test.ts` and
+ * `tests/unit/session-consumer.test.ts`, where the reviewer's exploit is kept verbatim with
+ * `@ts-expect-error` on each mechanism, so a regression in either is named rather than merely
+ * detected.
+ *
+ * **What this does not close** is the honest residual, and it is stated here rather than in a place
+ * nobody reads: an explicit `(run as any)[Object.getOwnPropertySymbols(run)[0]]` still reaches the
+ * state, because the value really is on the object and no type system prevents a cast. That is
+ * accepted deliberately. An `as any` is a *loud, greppable, reviewable* act that a reader cannot
+ * mistake for ordinary code — which is exactly what the no-cast path was not. The bar this property
+ * has to clear is "nothing above the seam inspects a `GameState` **by accident, or while looking
+ * innocent**", and a cast clears it. See ADR-0010 §1.
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
  */
-export type Run = {
+export interface Run {
+  readonly [RUN_STATE]: never;
+}
+
+/**
+ * The private view of a `Run`. Structurally what a `Run` really is, and never exported.
+ *
+ * `Run` lies about the property's type (`never`) so that nothing outside can project through it, so
+ * exactly one place has to tell the truth. Keeping that place to a single pair of one-line functions
+ * is the point: the casts are auditable by counting them, and there are two.
+ */
+type RunBox = {
   readonly [RUN_STATE]: RunInternals;
 };
+
+/** Read a run's insides. The only downcast in the layer, besides `sealed`'s. */
+function insideOf(run: Run): RunInternals {
+  return (run as unknown as RunBox)[RUN_STATE];
+}
+
+/** Build a run around its insides. The inverse of `insideOf`, and the only other cast. */
+function sealed(internals: RunInternals): Run {
+  return { [RUN_STATE]: internals } as unknown as Run;
+}
 
 /**
  * The opening run's cue list, shared by every `beginRun`.
@@ -194,7 +279,7 @@ const NO_CUES: readonly Cue[] = [];
  */
 export function beginRun(seed: string): Run {
   const state = createInitialState(seed);
-  return { [RUN_STATE]: { state, scene: presentScene(state), cues: NO_CUES } };
+  return sealed({ state, scene: presentScene(state), cues: NO_CUES });
 }
 
 /**
@@ -243,7 +328,7 @@ export function descend(run: Run): Run {
 
 /** Everything to draw for this run: the board and the frame around it. */
 export function sceneOf(run: Run): Scene {
-  return run[RUN_STATE].scene;
+  return insideOf(run).scene;
 }
 
 /**
@@ -255,7 +340,7 @@ export function sceneOf(run: Run): Scene {
  * honouring §11's reduced-motion setting looks like.
  */
 export function cuesOf(run: Run): readonly Cue[] {
-  return run[RUN_STATE].cues;
+  return insideOf(run).cues;
 }
 
 /**
@@ -291,15 +376,14 @@ export function cuesOf(run: Run): readonly Cue[] {
  * fail loudly rather than be swallowed into a refusal the player cannot distinguish from a wall.
  */
 function advance(run: Run, command: Command): Run {
-  const before = run[RUN_STATE].state;
+  const inside = insideOf(run);
+  const before = inside.state;
   const after = step(before, command);
   const refused = after === before;
 
-  return {
-    [RUN_STATE]: {
-      state: after,
-      scene: refused ? run[RUN_STATE].scene : presentScene(after, run[RUN_STATE].scene),
-      cues: cuesFor(before, after),
-    },
-  };
+  return sealed({
+    state: after,
+    scene: refused ? inside.scene : presentScene(after, inside.scene),
+    cues: cuesFor(before, after),
+  });
 }

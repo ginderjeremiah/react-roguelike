@@ -43,10 +43,15 @@
  * whose guarantees are documented rather than enforced is a layer that is one hurried PR from not
  * having them.
  *
- * 1. **`Run` is opaque.** The `GameState` sits behind a module-private `unique symbol` that is not
- *    exported from `run.ts` and is therefore not exported from here. `Run` has no member a consumer
- *    can name, so no amount of structural typing reaches `state.player.hp`, with or without an
- *    import of `game/`. `run.test.ts` proves it with `@ts-expect-error`.
+ * 1. **`Run` is opaque:** nothing above this layer can name a `GameState` or read a simulation field
+ *    **without an explicit, visible cast**. The state sits behind a module-private `unique symbol`
+ *    that is not exported from `run.ts` and therefore not exported from here; `Run` is declared as an
+ *    `interface` (no implicit index signature) whose property type is `never` (nothing to project
+ *    through `Run[keyof Run]`). All three are load-bearing — the second and third were added after
+ *    review of PR #51 found a component-legal exploit that used exactly those two gaps, with no cast
+ *    and full autocomplete on `GameState`. The residual is a deliberate `as any`, which is loud and
+ *    reviewable; the closed path is the one that looked like ordinary code. `run.test.ts` and
+ *    `tests/unit/session-consumer.test.ts` assert each mechanism separately.
  * 2. **`Command` never crosses the seam.** There are four intent functions instead of one
  *    `apply(run, command)`, so `components/` never needs `game/core/command.ts` to build one. What
  *    crosses is a verb plus plain data: a `Direction`, a `ShutterState`.

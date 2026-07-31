@@ -34,12 +34,19 @@ Concretely, inside `game/`:
 
 - Never call `Math.random()`. Use the injected RNG. Ever.
 - Never call `Date.now()` or `new Date()`.
-- Never import from `react`, `react-native`, `expo-*`, or anything in `app/` or `components/`.
+- Never import from `react`, `react-native`, `expo-*`, or anything in `app/`, `components/`,
+  `session/`, `render/`, or `platform/`.
 - Never iterate a `Set`/`Map`/object for anything that affects simulation order — sort explicitly.
 
-CI enforces the first three two ways: ESLint rules scoped to `game/`, and a unit test that scans
-`game/` sources directly. The fourth — iteration order — cannot be caught mechanically and is on
-you and the `code-reviewer`.
+**The first three apply to every pure layer, not only `game/`.** `render/` and `session/` are held to
+the same no-clock, no-randomness, no-framework rules — they are `.ts`-only, unit-tested in Vitest,
+and each may import only downward (`render/` from `game/`; `session/` from `game/` and `render/`).
+What `game/` carries *alone* is the fourth rule: iteration order is a determinism concern for the
+simulation specifically, because that is what a replay reproduces.
+
+CI enforces the first three two ways, across all three pure layers: ESLint rules scoped to `game/`,
+`render/` and `session/`, and a unit test that scans those sources directly. The fourth — iteration
+order — cannot be caught mechanically and is on you and the `code-reviewer`.
 
 Note that `npm run lint` runs `eslint .`, **not** `expo lint`. The latter silently lints only
 `app/` and `components/`, which meant the determinism rules were dead code for a while. Don't

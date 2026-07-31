@@ -143,12 +143,20 @@ sceneOf(run) -> Scene      cuesOf(run) -> readonly Cue[]
 
 Two properties, both structural rather than documented, because a guarantee nothing checks decays:
 
-- **`Run` is opaque.** The `GameState` sits behind a module-private `unique symbol` that is never
-  exported, so `Run` has no member a consumer can name — with or without an import of `game/`, and
-  regardless of structural typing. The import ban above the seam is a *proxy* for "nothing up there
-  inspects a `GameState`"; this makes the property itself true and demotes the lint rule and the
-  scanner to a second line of defence. Proved with `@ts-expect-error`, which fails the build in both
-  directions.
+- **`Run` is opaque:** nothing above the layer can name a `GameState` or read a simulation field
+  **without an explicit, visible cast**. Three mechanisms, all structural — the state sits behind a
+  module-private `unique symbol` that is never exported; `Run` is declared as an `interface`, which
+  has no implicit index signature; and its property type is `never`, so `Run[keyof Run]` projects
+  nothing. The import ban above the seam is a *proxy* for "nothing up there inspects a `GameState`";
+  this makes the property itself true and demotes the lint rule and the scanner to a second line of
+  defence. **The last two mechanisms were added after review of PR #51 found a component-legal
+  exploit** that used `Run[keyof Run]['state']` and a type alias's implicit index signature to reach
+  `GameState` with no cast and full autocomplete. The generalisable lesson is in ADR-0010 §1 and is
+  worth reading before relying on any "private because unspellable" argument: **unspellable is not
+  unreachable** — `keyof`, indexed access, implicit index signatures and `infer` all construct
+  references to things no source file can write. The residual is a deliberate `as any`, which is
+  loud and reviewable; each mechanism is asserted separately, and the exploit is kept verbatim as a
+  regression test.
 - **`Command` never crosses the seam.** Four intent functions rather than `apply(run, command)`, so
   `components/` never needs `game/core/command.ts` to build one. What crosses is a verb plus plain
   data — a `Direction`, a `ShutterState` — and those two are re-exported so a component can name what

@@ -54,12 +54,45 @@ component `{ state: GameState }` and both gates stay green while `run.state.worl
 compiles, because structural typing does not need the import to reach the field. So the answer had to
 make the *property* structural.
 
-It does. The state sits behind a module-private `unique symbol` — never exported, in no exported
-signature — so `Run` has **no member a consumer can name**. `run.state` does not typecheck, a
-hand-declared symbol with an identical description is a different key, and a symbol reflected out of
-`getOwnPropertySymbols` cannot index the type. Proved with `@ts-expect-error`, which fails the build
-*in both directions*: if the state ever becomes reachable, TypeScript reports the directive as unused
-and typecheck goes red.
+It does, but **the first attempt did not, and the correction is the most useful thing in this
+entry.** The shape that shipped for review was
+`export type Run = { readonly [RUN_STATE]: RunInternals }`, justified on the grounds that the key was
+a module-private `unique symbol` nobody could write. The `code-reviewer` requested changes with a
+working exploit: a `components/`-legal file that named `GameState` and read simulation fields with
+**no cast, no `any`, no `@ts-expect-error` and no `game/` import**, all three gates green, with full
+autocomplete — `tsc` would report `Property 'turn' does not exist on type 'GameState'` from inside
+`components/`. Two independent mechanisms, either sufficient alone:
+
+1. **A key you cannot write can still be computed.** `keyof Run` *is* the symbol, so
+   `Run[keyof Run]['state']` resolved to `GameState`, by name.
+2. **A `type` alias gets an implicit index signature.** `const record: Record<symbol, T> = run` was a
+   plain assignment; the symbol reflected off the object then indexed it.
+
+The fix is two words: `Run` is now an **`interface`** (no implicit index signature) whose property
+type is **`never`** (nothing to project through `Run[keyof Run]`), with the real internals reached
+through one private cast pair. Verified by mutating each word back and watching a *named* test go
+red — `interface`→`type` reports the index-signature directive unused; `never`→`RunInternals` fails
+the `IsNever` assertion and two more directives.
+
+**The generalisable lesson: unspellable is not unreachable.** `keyof`, indexed access, implicit index
+signatures and `infer` all construct references to things no source file can spell. Any future
+"private because you cannot name it" argument in this repo should be tested against those four first.
+
+**And the test that was there was worse than no test.** Its comment claimed "nothing the compiler
+accepts can get there" while its body asserted only that one expression errors — so it could not fail
+when the property it named was violated, and it read as proof, which is what stops the next person
+looking. Each mechanism is now asserted separately, and the exploit is kept verbatim in
+`tests/unit/session-consumer.test.ts` because a regression test for a hole belongs at the position
+the hole was reachable from. Mechanism 1 needs a *positive* `IsNever` assertion rather than a
+`@ts-expect-error`, because `Run[keyof Run]['state']` does **not** error when the property is
+`never` — it silently resolves to `never`, so the directive would be flagged unused and the test
+would fail for the wrong reason while a real regression passed.
+
+**The residual, stated rather than discovered:** `(run as any)[getOwnPropertySymbols(run)[0]]` still
+reaches the state, because it really is a property of a real object. Accepted — the argument is about
+review, not types. The path that had to be closed was the one that *looked like ordinary code*; an
+`as any` beside `getOwnPropertySymbols` in a component is loud, greppable and the kind of line review
+stops on. Both test files pin it so it stays a known quantity.
 
 **`render/` was the runner-up and the issue's stated objection to it was wrong**, which is worth more
 than the conclusion. The objection was that a run controller "costs `render/` a stateful surface in a

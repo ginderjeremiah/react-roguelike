@@ -72,19 +72,69 @@ guarantees are written down rather than enforced is one hurried PR away from not
 
 ### 1. `Run` is opaque by construction
 
-The `GameState` sits behind a **module-private `unique symbol`** that is not exported from `run.ts`,
-not re-exported by `session/index.ts`, and appears in no exported signature. `Run` therefore has no
-member a consumer can name: `run.state` does not type-check, a hand-declared symbol with an
-identical description is a different key (`unique symbol` is nominal), and a `symbol` reflected out
-with `Object.getOwnPropertySymbols` cannot be used to index the type. A consumer can hold a `Run`
-and pass it back. That is the whole vocabulary.
+The property, stated exactly, because the first version of this ADR stated a stronger one that was
+false:
 
-This is what turns the proxy back into the property. The lint rule and the scanner become the second
-line of defence rather than the only one, and they now guard something that is already true.
+> **Nothing above `session/` can name a `GameState` or read a simulation field without an explicit,
+> visible cast.**
 
-The tests prove it with `@ts-expect-error`, which fails the build **in both directions**: if the
-state ever becomes reachable, TypeScript reports the directive as unused and `npm run typecheck`
-goes red. A property nothing checks is a property that decays.
+Three mechanisms carry it, and all three are load-bearing:
+
+- **`RUN_STATE` is a module-private `unique symbol`.** Not exported from `run.ts`, not re-exported by
+  `session/index.ts`, present in no exported signature. `unique symbol` is nominal, so a consumer's
+  own symbol with an identical description is a different key.
+- **`Run` is declared as an `interface`, not a `type` alias.** A type alias with only a symbol key
+  gets an *implicit index signature*; an interface does not.
+- **The declared property type is `never`,** not the real internals type, so `Run[keyof Run]`
+  projects nothing. The implementation reaches the truth through one private accessor pair that
+  casts.
+
+**The second and third were added after this ADR was first accepted, and the reason is the most
+useful thing in this document.** The original shape was
+`export type Run = { readonly [RUN_STATE]: RunInternals }`, justified on the grounds that the key
+could not be written. Review of PR #51 produced a working exploit that named `GameState` from a
+`components/`-legal file with **no cast, no `any`, no `@ts-expect-error`, and no `game/` import** —
+all three gates green, full autocomplete, and `tsc` reporting
+`Property 'turn' does not exist on type 'GameState'` from inside `components/`. Two independent
+mechanisms, each sufficient alone:
+
+1. **A key that cannot be written can still be computed.** `keyof Run` *is* the symbol, so
+   `Run[keyof Run]` resolved to the internals and `Run[keyof Run]['state']` resolved to `GameState`,
+   by name.
+2. **A `type` alias's implicit index signature.** `const record: Record<symbol, T> = run` was a plain
+   assignment, after which the symbol reflected off the object indexed it.
+
+The generalisable lesson, which is why it is recorded here rather than only in a commit message:
+**unspellable is not unreachable.** TypeScript's structural machinery — `keyof`, indexed access,
+implicit index signatures, `infer` — can construct references to things no source file can spell.
+Any future "this is private because you cannot write its name" argument in this repo should be
+tested against those four before it is believed.
+
+**The residual, stated rather than discovered:** an explicit
+`(run as any)[Object.getOwnPropertySymbols(run)[0]]` still reaches the state. The state really is a
+property of a real object, and no type system prevents a cast. This is accepted deliberately, and
+the argument is about review rather than about types: the path that had to be closed was the one
+that *looked like ordinary code*, because that is the path that gets taken by accident and survives
+a reading eye. An `as any` beside `getOwnPropertySymbols` in a component is loud, greppable, and the
+kind of line review stops on. Closing even that would need a `WeakMap` or a `#private` class field,
+both rejected below.
+
+This is what turns the proxy back into the property. The lint rule and the scanner become a second
+line of defence rather than the only one.
+
+**How it is asserted.** Each mechanism is tested separately — a single test covering "opacity" is
+what allowed two mechanisms to hide behind one that was checked. `@ts-expect-error` fails the build
+in both directions (an unused directive is an error), and mechanism 1 additionally needs a
+*positive* type assertion, because `Run[keyof Run]['state']` does not error when the property is
+`never` — it silently resolves to `never`, so a `@ts-expect-error` there would be reported as unused
+and fail for the wrong reason while a real regression passed. The review's exploit is kept verbatim
+in `tests/unit/session-consumer.test.ts`, the one file bound by a component's import rules.
+
+The test that used to stand here is worth naming as a failure mode: its comment claimed "nothing the
+compiler accepts can get there" while its body asserted only that one expression errors. It could
+not fail when the property it named was violated — and the property *was* violated, by two
+mechanisms it never touched. **A check that enforces nothing but reads as proof is worse than no
+check**, because it stops the next person looking.
 
 ### 2. `Command` never crosses the seam
 
@@ -186,6 +236,31 @@ Briefly attractive because it needs no new layer: `useRun()` holds the state and
 in from... somewhere. There is no somewhere. The hook still has to call `step`, and it is in
 `components/`. It also puts the run's ownership inside the React tree, where a remount loses it and
 where testing it requires the component test runner ADR-0005 declined to have.
+
+### A `WeakMap<Run, RunInternals>`, or a `#private` class field
+
+The two shapes that would close the residual cast, considered again when the exploit was found. Both
+keep the state off the reachable surface entirely: a `WeakMap` keeps it in a side table, and a
+`#private` field is genuinely unreachable by reflection — `getOwnPropertySymbols` finds nothing and
+there is no cast that gets there.
+
+Rejected, and the state stays on the object. A `WeakMap` is module-level mutable state in a layer
+whose value is that it has none; it makes a `Run` meaningless outside the module instance that
+created it; and it turns "when is this run collectable" into a question the garbage collector
+answers instead of the reference graph. A `#private` field additionally makes `Run` a class
+instance, which stops it being plain data and reintroduces the constructor-and-methods shape this
+ADR rejected for `Run` being a value.
+
+**One argument for the symbol that does not hold, recorded so it is not repeated.** It is tempting to
+say the symbol also wins on React Native Fast Refresh — that re-evaluating the module would orphan
+every live `Run` under a `WeakMap`. The hazard is real and it is **shared**: a fresh `Symbol()`
+orphans old runs exactly as a fresh `WeakMap` does, since both identities are module-scoped, and the
+private accessor reads `undefined` either way. A `#private` field is marginally worse again — it
+throws a brand-check `TypeError` rather than returning `undefined`. The honest asymmetry is
+*recoverability*: with the symbol the data is still physically on the object, so it is retrievable in
+principle; with a `WeakMap` it is genuinely gone. `Symbol.for` would remove the hazard outright and
+is not used, because a global-registry key is a worse trade than a dev-time reload of a value React
+would usually reset anyway.
 
 ## Consequences
 

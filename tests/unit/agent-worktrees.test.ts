@@ -497,10 +497,11 @@ describe('ensureNodeModulesLink', () => {
   });
 
   it('passes the platform’s link type through to the filesystem call', () => {
-    // linkTypeFor is tested above; this is the wiring. Hard-coding 'junction' at the call site
-    // would pass that test and throw EPERM… no, worse: it would silently create a Windows-flavoured
-    // request on Linux, where Node ignores the type. It breaks nothing on CI and everything is fine
-    // until someone reads it. Assert the value actually travels.
+    // linkTypeFor is tested above; this is the wiring, and the two halves pin opposite directions.
+    // Hard-coding 'junction' at the call site is caught here and is harmless anyway — Node ignores
+    // the type argument on POSIX. Hard-coding 'dir' is the one that matters: it is caught by the
+    // Windows case above, and unguarded it would break every Windows dev machine while Linux CI
+    // stayed green. That asymmetry is the whole reason the choice is a named function.
     const { symlinks, io } = fakeIo({ platform: () => 'linux' });
     ensureNodeModulesLink(io);
     expect(symlinks[0].type).toBe('dir');

@@ -85,7 +85,10 @@ function blockOtherAgentWorktrees(config, projectRoot) {
  * @returns {string}
  */
 function cacheVersionForRoot(baseVersion, projectRoot) {
-  const digest = crypto.createHash('md5').update(String(projectRoot)).digest('hex').slice(0, 12);
+  // sha256 rather than md5: md5 throws on a FIPS-enforcing Node build, which would fail
+  // metro.config.js at load and therefore break every build. Nothing here is a security boundary —
+  // this is a cache-key salt — so the stronger hash is simply free.
+  const digest = crypto.createHash('sha256').update(String(projectRoot)).digest('hex').slice(0, 12);
   return `${baseVersion ?? ''}:root-${digest}`;
 }
 
@@ -94,16 +97,28 @@ function cacheVersionForRoot(baseVersion, projectRoot) {
  *
  * **This is not superstition, and deleting it silently breaks every worktree on the machine.**
  * Metro's default cache store is one directory in the OS temp dir, shared by every project on the
- * machine, and `cacheVersion` is the only part of the key we control. The observed symptom
- * (issue #49) was that after any ordinary `npm run build:web` in the main checkout, a worktree
- * created *afterwards* — never built before, with a provably correct blockList — reported
- * `Error: No routes found`, and would keep doing so until someone passed `--clear`. The routes are
- * discovered through a `require.context` inside `expo-router`, which resolves to the SAME absolute
- * file in the main checkout's node_modules from every worktree, so its cached expansion (the main
- * checkout's `app/`, or nothing) was being served to a different project root.
+ * machine, and `cacheVersion` is the only part of the key we control.
  *
- * Applied unconditionally rather than only in worktrees: the poisoning runs in both directions, and
- * a rule that only fires in the environment CI never sees is a rule nothing ever exercises.
+ * **A build from another worktree at the same nesting depth poisons this one. The main checkout
+ * neither poisons nor is poisoned.** The symptom (issue #49) is a worktree that has never been
+ * built, with a provably correct blockList, reporting `Error: No routes found` and continuing to
+ * until someone passes `--clear`.
+ *
+ * Depth is what makes it specific. Routes are discovered through a `require.context` inside
+ * `expo-router`, which lives in the main checkout's node_modules and is therefore the same absolute
+ * file from every root — but Metro keys its transform cache on the path *relative* to the project
+ * root. Every agent worktree sits at exactly `<repo>/.claude/worktrees/<name>`, so that entry has
+ * the identical relative path `../../../node_modules/expo-router/entry.js` from all of them and
+ * they share the cached expansion. The main checkout (depth 0) and a deeper worktree do not.
+ *
+ * Established by A/B in a dedicated empty cache: worktree P builds (3 routes), sibling worktree Q
+ * then fails, Q with this function restored succeeds in the *same* poisoned cache — and a worktree
+ * at a different depth is immune, which is the prediction that identified the mechanism. The
+ * relative-path key is inferred black-box from that depth experiment rather than read out of
+ * Metro's source; the behaviour is directly observed and deterministic.
+ *
+ * Applied unconditionally rather than only in worktrees: a rule that fires only in the environment
+ * CI never sees is a rule nothing ever exercises.
  *
  * Mutates and returns `config`.
  *

@@ -98,14 +98,29 @@ Established by A/B on this machine's real cache, twice, on two worktrees created
 and never built: **fix disabled -> `Error: No routes found`; fix restored, same worktree, same
 cache, no `--clear` -> 3 static routes.** Both pairs back to back.
 
-**What is NOT established is the trigger.** A controlled attempt to poison an *empty* `TMPDIR` with
-a single main-checkout `build:web` did not reproduce it — the fresh worktree built fine, both when
-created before that build and when created after. So "one ordinary main-checkout build poisons
-every worktree afterwards" is more than the evidence supports; something in the accumulated cache
-of a machine that has built this project from several roots is required, and what exactly is
-unknown. The remedy is unaffected — partitioning the key by root sidesteps whatever the trigger
-is — but do not go looking for a single poisoning command, because two people have now over-narrowed
-this same mechanism in this same entry.
+**The trigger is a build from another worktree at the same nesting depth. The main checkout neither
+poisons nor is poisoned.** In a dedicated empty cache with the fix disabled: worktree P builds (3
+routes); sibling worktree Q, created at the same time and never built, then fails; Q with the fix
+restored succeeds *in that same poisoned cache*. The prediction that identified the mechanism:
+a worktree at `.claude/worktrees/nest/deep/rr-r` — a **different depth** — is immune, and builds
+fine in the poisoned cache with the fix still disabled.
+
+Depth is the whole story. Metro keys its transform cache on the path *relative* to the project root,
+and every agent worktree sits at exactly `<repo>/.claude/worktrees/<name>`, so expo-router's entry
+resolves to `../../../node_modules/expo-router/entry.js` from all of them and they share its cached
+expansion. The main checkout is at depth 0 and shares with nothing. (The relative-path key is
+inferred black-box from the depth experiment, not read out of Metro's source. The behaviour is
+directly observed and deterministic; the explanation is the one soft link in the chain, and it is
+flagged here rather than in a comment that reads like fact.)
+
+**This paragraph previously said the trigger was unknown and told you not to look for it.** That was
+written after a controlled attempt to poison an empty `TMPDIR` with a single *main-checkout* build
+failed to reproduce anything — which was a true observation and, it turns out, the clue: the main
+checkout is exactly the root that cannot poison. Having been burned twice in this entry by claims a
+clause wider than their evidence, the correction over-steered into telling the next reader to stop
+investigating, which is worse — a wrong claim gets falsified, an instruction to stop looking does
+not. **Hedge the claim, never the inquiry.** The trigger took three builds to find once someone
+ignored the instruction.
 
 **The first version of this entry got the scope wrong, and the reason it did is the reusable
 part.** It said the poisoning was a one-off artefact of the reproduction run, with "nil consequence

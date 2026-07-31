@@ -24,14 +24,13 @@ blockOtherAgentWorktrees(config, __dirname);
 // second, independent cause of `Error: No routes found` in a worktree, and the one that survived
 // the blockList fix — a brand-new worktree is served a cached answer computed for another root,
 // while its own evaluated config is provably correct, which is what made this masquerade as a bad
-// predicate. The suspected route is expo-router's route-discovering `require.context`, which lives
-// in the main checkout's node_modules and so resolves to the same absolute file from every root.
+// predicate.
 //
-// SUSPECTED, not established, and the distinction is load-bearing: poisoning an *empty* TMPDIR
-// with a single main-checkout build does NOT reproduce it. Something about the accumulated cache
-// of a machine that has built this project from several roots is required, and what exactly is
-// unknown. Two people have now over-narrowed this mechanism — do not go hunting for one poisoning
-// command. The remedy does not depend on the answer. See docs/JOURNAL.md 2026-07-31.
+// A build from another worktree AT THE SAME NESTING DEPTH is what poisons it; the main checkout
+// neither poisons nor is poisoned. Every agent worktree sits at `<repo>/.claude/worktrees/<name>`,
+// so expo-router's route-discovering entry — one absolute file in the main checkout's node_modules
+// — has the same path *relative to the project root* from all of them, and Metro keys on the
+// relative path. See scripts/agent-worktrees.js for the evidence and the one inference in it.
 //
 // A hash of __dirname in a Metro config looks like superstition. It is the entire reason
 // `build:web` works from a fresh worktree without `--clear`. See scripts/agent-worktrees.js.

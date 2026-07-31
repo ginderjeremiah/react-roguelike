@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { runStates, step, type GameState } from '@/game/core';
 import { creatureById, withActor, withHp } from '@/game/entities';
 import { EMBER_SENSE_RADIUS, hasTile } from '@/game/fov';
-import { chebyshevDistance } from '@/game/map';
+import { chebyshevDistance, FLOOR_HEIGHT, FLOOR_WIDTH } from '@/game/map';
 import { awaken } from '@/tests/unit/support/scenario';
 import { scenarioState, stateFrom } from '@/tests/unit/support/presentation';
 import { diveToTheBottom, standUntilDead } from '@/tests/unit/support/run-script';
@@ -442,12 +442,49 @@ describe('telegraphs (GDD §2, §4)', () => {
     expect(presentScene(state).grid.cells.every((cell) => cell.telegraph === null)).toBe(true);
   });
 
-  it('hides intent entirely while shuttered', () => {
-    // §4's table: "Enemy intent | Visible | Hidden". §2: "Fighting dark means fighting an opponent
-    // whose plan is fixed and unknown." A telegraph leaking through the shutter would delete the
-    // reason light costs 4 fuel a turn.
+  it('hides the intent of a creature too far away to be felt at all', () => {
+    // The weak half of the shuttered rule, and it is worth being explicit that it is the weak half:
+    // this creature is at Chebyshev 2 with the shuttered sense radius of 1, so nothing perceives it
+    // and no map downstream of `perceive` ever has an entry for it. What it catches is a
+    // `gatherTelegraphs` that read `world.actors` instead of the perceived set — every creature on
+    // the floor telegraphing through the dark. The *adjacent* case, where the creature really is
+    // perceived, is the test below, and it is the one §4's table actually turns on.
     const state = declaring({ kind: 'attack', at: { x: 2, y: 1 } }, 'shuttered');
+    expect(perceivedCreatureCount(state)).toBe(0);
     expect(presentScene(state).grid.cells.every((cell) => cell.telegraph === null)).toBe(true);
+  });
+
+  it('hides the intent of a creature standing right beside you in the dark', () => {
+    // §4's table: "Enemy intent | Visible | **Hidden**". §2: "Fighting dark means fighting an
+    // opponent whose plan is fixed and unknown" — which is the reason light is worth 4 fuel a turn.
+    //
+    // THE ARRANGEMENT IS THE POINT. Adjacent, so the creature *is* felt and every map downstream of
+    // `perceive` has an entry for its tile; and the tile it has marked is the player's own, which
+    // the touch radius certainly perceives. So `gatherTelegraphs`'s two conditions — a creature in
+    // `identified`, a marked tile in the perceived set — are both satisfiable, and the single thing
+    // standing between the player and their attacker's plan is `identified` being built from
+    // `contacts.get(index) === 'seen'` rather than from `contacts.has(index)`. Relax that one token
+    // and the player is shown an attack telegraph on the tile they are standing on, in the dark.
+    const built = scenarioState(['#####', '#@c.#', '#####'], {
+      shutter: 'shuttered',
+      perceive: false,
+    });
+    const state = stateFrom(
+      awaken(built.state.world, built.scenario.ids[0], { kind: 'attack', at: { x: 1, y: 1 } }),
+      { shutter: 'shuttered' },
+    );
+    const scene = presentScene(state);
+
+    // Live in every way but the one under test: the creature is felt and drawn, it is awake with a
+    // declared attack, and the tile it marked is perceived. Without these the test would pass for
+    // the same irrelevant reason the one above does.
+    expect(cellAt(scene.grid, 2, 1).glyph).toBe(GLYPHS.contact);
+    expect(creatureById(state.world, built.scenario.ids[0]).mind.kind).toBe('awake');
+    expect(cellAt(scene.grid, 1, 1).state).toBe('visible');
+
+    expect(cellAt(scene.grid, 1, 1).telegraph).toBeNull();
+    expect(scene.grid.cells.every((cell) => cell.telegraph === null)).toBe(true);
+    expect(scene.grid.cells.every((cell) => cell.bgAlpha === 0)).toBe(true);
   });
 
   it('does not mark a tile the player is not perceiving', () => {
@@ -559,7 +596,15 @@ describe('cell identity is stable across turns (#20: an unchanged cell must not 
     const { state } = scenarioState(['###', '#@#', '###'], { shutter: 'shuttered' });
     const small = presentScene(state);
     const big = presentScene(CORPUS[0], small);
-    expect(big.grid.cells).toHaveLength(state.world.floor.grid.tiles.length * 0 + big.grid.cells.length);
+    // Each board is its own size — the 3x3 scenario stays nine cells, the generated floor stays
+    // FLOOR_WIDTH x FLOOR_HEIGHT — and each `cells` array matches the dimensions it is published
+    // with. That last one is the contract `cellAt` indexes on: a grid reporting one shape while
+    // carrying another's cells hands back the wrong cell for every lookup instead of throwing.
+    for (const grid of [small.grid, big.grid]) {
+      expect(grid.cells).toHaveLength(grid.width * grid.height);
+    }
+    expect(small.grid.cells).toHaveLength(3 * 3);
+    expect(big.grid.cells).toHaveLength(FLOOR_WIDTH * FLOOR_HEIGHT);
     expect(big.grid.width).not.toBe(small.grid.width);
     for (const cell of big.grid.cells) expect(small.grid.cells).not.toContain(cell);
   });

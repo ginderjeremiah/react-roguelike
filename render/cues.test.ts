@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { createInitialState, floorNumberOf, runStates, step, type Command, type GameState } from '@/game/core';
-import { playerOf } from '@/game/entities';
-import { scenarioState } from '@/tests/unit/support/presentation';
+import { creatureById, playerOf } from '@/game/entities';
+import { scenarioState, stateFrom } from '@/tests/unit/support/presentation';
 import { atTheStairs, diveToTheBottom, standUntilDead } from '@/tests/unit/support/run-script';
+import { awaken } from '@/tests/unit/support/scenario';
 import { CUE_KINDS, cuesFor, type Cue } from './cues';
 
 /**
@@ -181,33 +182,108 @@ describe('the player moving', () => {
 });
 
 describe('damage and death (§2 phases 4 and 5, §3)', () => {
-  it('reports every HP drop, with the amount and who took it', () => {
+  it('reports every HP drop elementwise — the tile, the amount, and who took it', () => {
+    // The whole payload, in order, over every transition of both runs. The previous version of this
+    // test compared `reported.length` against a list of *final HP values* and then asserted only
+    // that `amount > 0`, which left all three fields of a `damaged` cue unasserted: `at: (0,0)`,
+    // `who: 'creature'` and `amount: 1` all survived as hard-coded constants. #21 draws a floating
+    // number at `cue.at` reading `cue.amount`, so those constants are a damage popup that appears in
+    // the map's top-left corner saying "1" for every blow in the game.
+    //
+    // This is deliberately a *mirror* of the derivation — same two states, recomputed a different
+    // way — so it catches drift over hundreds of transitions but cannot tell a wrong-by-design
+    // choice of tile from a right one. The two tests below pin literal coordinates and literal
+    // damage against GDD §3's numbers, which is the half a mirror cannot do.
+    let drops = 0;
     for (const { before, after, cues } of ALL) {
       if (kinds(cues).includes('descended') || kinds(cues).includes('refused')) continue;
       const wasHp = new Map(before.world.actors.map((actor) => [actor.id, actor.hp]));
-      const expected = after.world.actors
-        .filter((actor) => (wasHp.get(actor.id) ?? actor.hp) > actor.hp)
-        .map((actor) => actor.hp);
-      const reported = cues.filter((cue) => cue.kind === 'damaged');
-      expect(reported).toHaveLength(expected.length);
-      for (const cue of reported) {
-        if (cue.kind !== 'damaged') continue;
-        expect(cue.amount).toBeGreaterThan(0);
-      }
+      const expected = after.world.actors.flatMap((actor) => {
+        const previous = wasHp.get(actor.id);
+        if (previous === undefined || actor.hp >= previous) return [];
+        return [
+          {
+            kind: 'damaged',
+            at: actor.at,
+            who: actor.kind === 'player' ? 'player' : 'creature',
+            amount: previous - actor.hp,
+          },
+        ];
+      });
+      expect(cues.filter((cue) => cue.kind === 'damaged')).toEqual(expected);
+      drops += expected.length;
     }
+    // Not vacuous: two runs in which nothing was ever hit would satisfy the loop trivially. The
+    // real figure is 6, all of them the player being hit — the dark dive walks around creatures and
+    // the lit run never swings — so `who: 'creature'` is unreachable from the corpus and needs the
+    // constructed test below. The bound is loose on purpose: it exists to catch a corpus that went
+    // quiet, not to pin a number a rules change is entitled to move by one.
+    expect(drops).toBeGreaterThan(3);
+  });
+
+  it('reports a blow the player takes on the player’s own tile, for the §3 amount', () => {
+    // The `who: 'player'` direction, with the tile and the number written out. §3 gives the Cinder
+    // attack 2 against an awake target, and the player is standing at (1,1) — so a `damaged` cue
+    // hard-coded to `(0,0)`, to `'creature'`, or to `1` fails here on the field that is wrong.
+    const built = scenarioState(['#####', '#@c.#', '#####'], {
+      shutter: 'shuttered',
+      perceive: false,
+    });
+    const state = stateFrom(
+      awaken(built.state.world, built.scenario.ids[0], { kind: 'attack', at: { x: 1, y: 1 } }),
+      { shutter: 'shuttered' },
+    );
+
+    // `awaken` joins the schedule for *next* turn, so the first wait is the Cinder winding up and
+    // the second is the one it lands on. Asserting the quiet turn as well keeps the test honest
+    // about which transition it is making a claim on.
+    const waited = step(state, { kind: 'wait' });
+    const struck = step(waited, { kind: 'wait' });
+
+    expect(cuesFor(state, waited).filter((cue) => cue.kind === 'damaged')).toEqual([]);
+    expect(playerOf(struck.world).hp).toBe(playerOf(waited.world).hp - 2);
+    expect(cuesFor(waited, struck)).toContainEqual({
+      kind: 'damaged',
+      at: { x: 1, y: 1 },
+      who: 'player',
+      amount: 2,
+    });
+  });
+
+  it('reports a blow a creature survives on the creature’s tile, and calls it a creature', () => {
+    // The `who: 'creature'` direction, which neither scripted run reaches — so a `who` frozen to
+    // `'creature'` would pass every corpus assertion in this file. §3: the player's attack is 3, and
+    // the doubling only applies to a *dormant* target, so an awake Cinder takes 3 off its 5 and
+    // lives. It has to live: a creature killed by the blow is removed in phase 5 and never appears
+    // in `after.world.actors`, which is why the kill scenario below reports a death and no damage.
+    const built = scenarioState(['####', '#@c#', '####'], { shutter: 'shuttered', perceive: false });
+    const id = built.scenario.ids[0];
+    const state = stateFrom(awaken(built.state.world, id, { kind: 'wait' }), {
+      shutter: 'shuttered',
+    });
+    const after = step(state, { kind: 'move', dir: 'east' });
+
+    expect(creatureById(after.world, id).hp).toBe(2);
+    expect(cuesFor(state, after)).toContainEqual({
+      kind: 'damaged',
+      at: { x: 2, y: 1 },
+      who: 'creature',
+      amount: 3,
+    });
+    // And the player, who threw the punch, is not reported as having taken one.
+    expect(cuesFor(state, after).filter((cue) => cue.kind === 'damaged')).toHaveLength(1);
   });
 
   it('reports the player’s own death, which never leaves the actor list', () => {
     // Two shapes, because there are two rules: a creature is *removed* in phase 5, and the player
     // never is (`game/entities/world.ts`). A single "hp reached 0" check would miss both.
-    const last = LIT[LIT.length - 4] ?? LIT[LIT.length - 1];
     const dying = LIT.find(({ after }) => after.status.kind === 'died')!;
+    expect(dying.after.world.actors.some((actor) => actor.kind === 'player')).toBe(true);
     expect(dying.cues).toContainEqual({
       kind: 'died',
       at: playerOf(dying.after.world).at,
       who: 'player',
     });
-    expect(last).toBeDefined();
   });
 
   it('reports the player’s death exactly once, not on every turn afterwards', () => {
@@ -217,6 +293,27 @@ describe('damage and death (§2 phases 4 and 5, §3)', () => {
       cues.some((cue) => cue.kind === 'died' && cue.who === 'player'),
     );
     expect(deaths).toHaveLength(1);
+  });
+
+  it('says only `refused` for a command issued after the run has ended', () => {
+    // The premise `cues.ts`'s `isRunning(before)` annotation rests on, pinned rather than assumed.
+    // That guard is a genuine equivalent mutant *only because* §13 refuses every command once a run
+    // is over and a refusal returns its input by reference — so `cuesFor` short-circuits and
+    // `deathCues` never sees a pair whose `before` is already terminal. The day `step` stops
+    // short-circuiting, the guard becomes load-bearing (it is what stops a `died` cue firing again
+    // on every subsequent turn) and this test is what says the annotation needs re-deriving.
+    const dead = LIT[LIT.length - 1].after;
+    expect(dead.status.kind).toBe('died');
+    for (const command of [
+      { kind: 'wait' },
+      { kind: 'move', dir: 'east' },
+      { kind: 'setShutter', to: 'shuttered' },
+      { kind: 'descend' },
+    ] as Command[]) {
+      const after = step(dead, command);
+      expect(after, JSON.stringify(command)).toBe(dead);
+      expect(cuesFor(dead, after)).toEqual([{ kind: 'refused' }]);
+    }
   });
 
   it('reports a creature’s death on the tile it stood on', () => {
@@ -231,6 +328,13 @@ describe('damage and death (§2 phases 4 and 5, §3)', () => {
     expect(cuesFor(state, after)).toContainEqual({ kind: 'died', at, who: 'creature' });
     // And the body left an ember on the tile it died on (§4), which the player is not standing on.
     expect(after.world.embers.map((drop) => drop.at)).toEqual([at]);
+
+    // A killing blow reports the death and **not** the 6 damage that caused it: `damageCues` walks
+    // `after.world.actors`, and phase 5 has already removed the body. Pinned because it is a real,
+    // observable choice rather than an accident nobody has to live with — #21 gets a death beat on
+    // this tile and no floating "-6" beside it. If that reads wrong when the animation lands, the
+    // change belongs in `cues.ts` and this line is the paired edit.
+    expect(kinds(cuesFor(state, after))).toEqual(['died']);
   });
 });
 

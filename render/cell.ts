@@ -226,7 +226,18 @@ export type Cell = {
   readonly bgAlpha: number;
   /** The §10/§11 non-colour channel for `state`. Always `CELL_OPACITY[state]`. */
   readonly opacity: number;
-  /** Lamplight, `LAMP_TINT_EDGE`..`1` inside the lit field and `NO_TINT` everywhere else. */
+  /**
+   * Lamplight, `LAMP_TINT_EDGE`..`1` inside the lit field and `NO_TINT` everywhere else.
+   *
+   * **This is a colour weight, not an alpha multiplier, and the distinction is load-bearing.**
+   * `tint` is `0` on every remembered cell and on every cell of a shuttered board — so a
+   * consumer that reasonably writes `opacity * tint` erases the entire remembered map, and the
+   * whole screen in the dark. It modulates how much lamplight is mixed into `fg`/`bg`; the
+   * channel that says how strongly a cell is drawn at all is `opacity`, and the two are
+   * independent by design (§10 asks for falloff as *tint*, §11 needs `state` legible without
+   * colour). Nothing in `render/`'s tests can catch a `components/` mistake here, which is why
+   * the rule is written at the declaration rather than left to be inferred.
+   */
   readonly tint: number;
   /** A creature's declared action on this tile, or `null`. §2. */
   readonly telegraph: Telegraph | null;

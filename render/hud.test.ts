@@ -20,6 +20,7 @@ import {
   LOW_FRACTION,
   LOW_TURNS_OF_FUEL,
   presentHud,
+  type OutcomeHud,
 } from './hud';
 
 /**
@@ -218,13 +219,17 @@ describe('the two endings (§13)', () => {
     const wonHud = presentHud(won);
     expect(deadHud.outcome.kind).toBe('died');
     expect(wonHud.outcome.kind).toBe('reachedBottom');
-    // A summary screen has to be able to say *which* ending happened. Identical copy for a win and
-    // a loss is the failure mode of collapsing the union to `over: boolean`.
-    expect(deadHud.outcome).not.toEqual(wonHud.outcome);
-    if (deadHud.outcome.kind === 'died') expect(deadHud.outcome.headline.length).toBeGreaterThan(0);
-    if (wonHud.outcome.kind === 'reachedBottom') {
-      expect(wonHud.outcome.headline.length).toBeGreaterThan(0);
-    }
+
+    // A summary screen has to be able to say *which* ending happened, **in words**. Comparing the
+    // two `outcome` objects would be satisfied by `kind` alone and would say nothing about the copy;
+    // the failure mode of collapsing the union to `over: boolean` is one headline for both endings,
+    // so the headlines are what gets compared. Not pinned to their literal text — that is
+    // presentation copy §13 lets M4 rewrite — but they must exist and they must differ.
+    const deathLine = headlineOf(deadHud.outcome);
+    const winLine = headlineOf(wonHud.outcome);
+    expect(deathLine.length).toBeGreaterThan(0);
+    expect(winLine.length).toBeGreaterThan(0);
+    expect(deathLine).not.toBe(winLine);
   });
 
   it('says running for every state of a run in progress', () => {
@@ -233,6 +238,11 @@ describe('the two endings (§13)', () => {
     }
   });
 });
+
+/** The words an ending shows, or `''` for a run still in progress. */
+function headlineOf(outcome: OutcomeHud): string {
+  return outcome.kind === 'running' ? '' : outcome.headline;
+}
 
 function stepShut(state: GameState): GameState {
   return step(state, { kind: 'setShutter', to: 'shuttered' });

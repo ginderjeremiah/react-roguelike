@@ -193,12 +193,18 @@ function gatherOverlays(state: GameState): Overlays {
   //     to iterate. An explicit `if (shuttered) return no telegraphs` was written, and a mutation
   //     run showed deleting it changed nothing — an unkillable line. It is gone; this is why.
   //
-  // `contacts.get(index) === 'seen'` versus `contacts.has(index)` is, today, a **provably
-  // equivalent mutant**: `faceOf` checks for a `felt` contact before it ever consults this map, so
-  // a felt creature that slipped in here could not be drawn. It is written the strict way anyway,
-  // because it states the rule at the point the rule applies rather than relying on the order of
-  // four branches in another function, and noted here so a later mutation run does not spend time
-  // re-deriving that it survives.
+  // `contacts.get(index) === 'seen'` is **not** interchangeable with `contacts.has(index)`. An
+  // earlier note here said it was, on the grounds that `faceOf` checks for a `felt` contact before
+  // it ever consults this map, so a felt creature that slipped in could not be *drawn*. That
+  // argument is sound and it covers exactly one of this map's two consumers. `gatherTelegraphs`
+  // reads it as well and has no such prior branch: loosen the check and a creature the player can
+  // only feel starts telegraphing, and — adjacent, in the dark — its declared attack is painted on
+  // the tile the player is standing on. That is §4's "Enemy intent | Visible | **Hidden**" deleted
+  // by one token, which is the reason the strict form is the code and not a stylistic preference.
+  //
+  // `scene.test.ts`'s "hides the intent of a creature standing right beside you in the dark" kills
+  // that mutant, and adjacency is what makes it killable: a creature far enough off to be out of
+  // ember-sense is not in `contacts` at all, so a test using one passes without ever reaching here.
   // ═══════════════════════════════════════════════════════════════════════════════════════════════
   const identified = new Map<number, CreatureActor>();
   for (const actor of world.actors) {

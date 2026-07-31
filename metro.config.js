@@ -20,12 +20,18 @@ const config = getDefaultConfig(__dirname);
 blockOtherAgentWorktrees(config, __dirname);
 
 // Metro's cache is per-MACHINE, not per-project: one directory in the OS temp dir, shared by every
-// project root on the box. That was the second, independent cause of `Error: No routes found` in a
-// worktree, and the one that survived the blockList fix — an ordinary `npm run build:web` in the
-// main checkout poisons every worktree created after it, because expo-router's route-discovering
-// `require.context` lives in the main checkout's node_modules and resolves to the same absolute
-// file from every root. The worktree then serves the main checkout's cached answer while its own
-// evaluated config is provably correct, which is what made this look like a bad blockList.
+// project root on the box, and the resolver's blockList is not part of its key. That was the
+// second, independent cause of `Error: No routes found` in a worktree, and the one that survived
+// the blockList fix — a brand-new worktree is served a cached answer computed for another root,
+// while its own evaluated config is provably correct, which is what made this masquerade as a bad
+// predicate. The suspected route is expo-router's route-discovering `require.context`, which lives
+// in the main checkout's node_modules and so resolves to the same absolute file from every root.
+//
+// SUSPECTED, not established, and the distinction is load-bearing: poisoning an *empty* TMPDIR
+// with a single main-checkout build does NOT reproduce it. Something about the accumulated cache
+// of a machine that has built this project from several roots is required, and what exactly is
+// unknown. Two people have now over-narrowed this mechanism — do not go hunting for one poisoning
+// command. The remedy does not depend on the answer. See docs/JOURNAL.md 2026-07-31.
 //
 // A hash of __dirname in a Metro config looks like superstition. It is the entire reason
 // `build:web` works from a fresh worktree without `--clear`. See scripts/agent-worktrees.js.

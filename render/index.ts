@@ -80,7 +80,7 @@ export {
   type Telegraph,
 } from './cell';
 
-export { CUE_KINDS, cuesFor, type Cue } from './cues';
+export { CUE_KINDS, cuesFor, wakesOnArrival, type Cue } from './cues';
 
 export { GLYPHS, glyphForCreature, glyphForTile } from './glyphs';
 

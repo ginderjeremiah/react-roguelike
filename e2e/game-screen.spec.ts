@@ -1,8 +1,9 @@
-import { expect, test } from '@playwright/test';
-import { TOO_FAR_MESSAGE } from '@/components/play/messages';
+import { expect, test, type Page } from '@playwright/test';
+import { TOO_FAR_MESSAGE, wakeMessage } from '@/components/play/messages';
 import { GLYPHS } from '@/render';
 import {
   boot,
+  playerCell,
   playerTile,
   press,
   pressAt,
@@ -352,6 +353,140 @@ test('a press at the edge of a tile hits that tile, after the HUD has changed he
   expect(await turn(page)).toBe(2 + rampTurns);
   expect(await playerTile(page), 'the edge press after the layout moved').toEqual(at);
   await expect(page.getByTestId('status-line')).not.toHaveText(/blocked/i);
+});
+
+/**
+ * Every sentence the wake line can be, taken from the copy rather than retyped.
+ *
+ * §8 caps a floor at `min(2 + floor, 6)` creatures, so six is the ceiling a turn can reach. Imported
+ * rather than written out for the same reason `TOO_FAR_MESSAGE` is: a change to the wording should
+ * be a change in one place, not a spec that quietly stops matching.
+ */
+const WAKE_MESSAGES: readonly string[] = [1, 2, 3, 4, 5, 6].map(wakeMessage);
+
+type At = { readonly x: number; readonly y: number };
+
+/**
+ * Manhattan distance — steps, not pixels, and deliberately not Chebyshev.
+ *
+ * The greedy walk below closes on a mark one orthogonal step at a time, and Chebyshev **does not
+ * decrease** on a single orthogonal step toward a diagonal target: from (4,3) to (8,7) every legal
+ * step leaves `max(dx, dy)` at 4. A first draft used it and stalled on its first attempt, in a spec
+ * whose only symptom was a flash at nothing. Manhattan always falls by one on a correct step.
+ */
+function apart(a: At, b: At): number {
+  return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+}
+
+/** Every tile the board is currently drawing `glyph` on. */
+async function tilesShowing(page: Page, glyph: string): Promise<At[]> {
+  return page.evaluate((wanted) => {
+    const found: { x: number; y: number }[] = [];
+    for (const cell of Array.from(document.querySelectorAll('[data-testid^="cell-"]'))) {
+      if ((cell.textContent ?? '').trim() !== wanted) continue;
+      const [, x, y] = (cell.getAttribute('data-testid') ?? '').split('-').map(Number);
+      found.push({ x, y });
+    }
+    return found;
+  }, glyph);
+}
+
+/**
+ * Where the dark says something is: the `*` nearest the player, or `null` if it says nothing.
+ *
+ * §4/§10's ember-sense mark, read straight off the board — the one thing the game deliberately tells
+ * a shuttered player, and the thing a player reads before deciding whether a flash is worth it. It
+ * carries position and nothing else, so this spec cannot tell a sleeper from a hunter either.
+ */
+async function nearestMark(page: Page, me: At): Promise<At | null> {
+  let best: At | null = null;
+  for (const mark of await tilesShowing(page, GLYPHS.contact)) {
+    if (best === null || apart(me, mark) < apart(me, best)) best = mark;
+  }
+  return best;
+}
+
+/** The move target that gets closest to `goal`, or `null` if none of the four improves on `me`. */
+async function stepTowardId(page: Page, me: At, goal: At): Promise<string | null> {
+  const moves = await page
+    .locator('[data-testid^="tap-move-"]')
+    .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-testid') ?? ''));
+
+  let best: { id: string; at: At } | null = null;
+  for (const id of moves) {
+    const [x, y] = id.replace('tap-move-', '').split('-').map(Number);
+    if (best === null || apart({ x, y }, goal) < apart(best.at, goal)) best = { id, at: { x, y } };
+  }
+  return best === null || apart(best.at, goal) >= apart(me, goal) ? null : best.id;
+}
+
+/** How close the flash is taken from. Manhattan 2 is well inside `LIT_RADIUS` (4), and not adjacent. */
+const FLASH_RANGE = 2;
+
+test('a wake reaches the line under the board, and says how many (§4, #79)', async ({ page }) => {
+  test.slow();
+  await boot(page);
+
+  // ═══════════════════════════════════════════════════════════════════════════════════════════════
+  // THE LIGHT WAGER, PLAYED — WHICH IS THE ONLY WAY TO SEE THE LINE THIS ISSUE ADDED
+  // ═══════════════════════════════════════════════════════════════════════════════════════════════
+  //
+  // The bug: opening the shutter wakes everything in the lit radius (§4) and the game never said so.
+  // The M1 exit playtest measured seven turns, two Cinders woken, and the line under the board empty
+  // the whole way — the run's most consequential event was the only one with no acknowledgement.
+  //
+  // So this shutters, walks in the dark until ember-sense marks something, closes on the mark, and
+  // opens up. **Nothing here is a recorded route** — `support/drive.ts` explains why one dies
+  // silently at #47 — and nothing here can see the map. The walk is one greedy step at a time toward
+  // a `*` that is on screen, using only the four move targets §9 puts under a thumb; it has no
+  // memory, cannot go around anything, and gives up rather than searching. When it cannot close it
+  // falls back to `wander`'s own rule, pressing the target it has pressed least.
+  //
+  // Shuttered first, and not only to save fuel: §4 says **nothing wakes in the dark**, so every
+  // creature is still asleep when the flash lands and the wake under test is the flash's.
+  const line = page.getByTestId('status-line');
+  const shutter = page.getByTestId('control-shutter');
+  await expect(line).not.toHaveText(/wake/i);
+
+  await press(page, shutter);
+  await expect(page.getByTestId('hud-shutter')).toHaveText('SHUT');
+
+  const visits = new Map<string, number>();
+  let said = '';
+  for (let steps = 0; steps < 40; steps += 1) {
+    const me = await playerCell(page);
+    const mark = await nearestMark(page, me);
+
+    if (mark !== null && apart(me, mark) <= FLASH_RANGE) {
+      await press(page, shutter);
+      said = ((await line.textContent()) ?? '').trim();
+      break;
+    }
+
+    const closer = mark === null ? null : await stepTowardId(page, me, mark);
+    const targets = await page
+      .locator('[data-testid^="tap-move-"]')
+      .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-testid') ?? ''));
+    expect(targets.length, 'the board offered nowhere to step').toBeGreaterThan(0);
+
+    let target = closer;
+    if (target === null) {
+      target = targets[0];
+      for (const id of targets) if ((visits.get(id) ?? 0) < (visits.get(target) ?? 0)) target = id;
+    }
+    visits.set(target, (visits.get(target) ?? 0) + 1);
+    await pressTile(page, page.getByTestId(target));
+  }
+
+  // The exact sentence, not merely "something is written there". The count is the part §4 ruled
+  // load-bearing — `Something wakes.` on a turn that woke two is the failure the rule names — and
+  // the *empty string* is the bug this issue was filed about, which is what a message assertion
+  // catches and a turn counter never could.
+  //
+  // It also pins the precedence at the only tier that can see it: the shutter was pressed on this
+  // very turn, so `The shutter opens. Light spills out.` is exactly what this line would read if
+  // `woke` did not outrank `shutterChanged`.
+  expect(WAKE_MESSAGES, `the status line read ${JSON.stringify(said)}`).toContain(said);
 });
 
 test('at 0 fuel the shutter control shows itself dead rather than doing nothing', async ({

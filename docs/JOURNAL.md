@@ -57,6 +57,93 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-07-31 — The flash finally prints a receipt (#79)
+
+**Did:** Added an eighth cue, `woke`, so that the turn a creature wakes says so — with a count. First
+code of M2, and step 1 of the build order the #83 ruling fixed. Ruled the copy and the precedence in
+GDD §4 first (`game-designer`), then built it across `render/`, `session/` and `components/`. Filed
+**#89** for the inverse hole. PR #92.
+
+**Why this was step 1 and not polish.** Opening the shutter wakes everything in the lit radius, which
+is *the* cost of light and the entire reason the wager exists — and the game never said it. The M1
+exit playtest walked seven turns, woke two Cinders, and did not notice until one was adjacent. While
+a woken creature *parked*, that cost the player a fact. Once #83 lands and a woken Cinder **pursues**,
+an unannounced wake is an unannounced hunter, and a death you cannot retell fails Pillars 2 and 4 at
+once. That is why the ruling made it a precondition rather than a nicety.
+
+**Two things the issue proposed were overruled, and both matter.**
+
+The issue said `woke` "outranks nothing — it would sit below player damage". Wrong by one tier: it
+also has to beat **`shutterChanged`**, and those two fire on the same turn *by construction*, competing
+for the one line under the board. `The shutter opens. Light spills out.` restates the board's entire
+tint change on the one turn the player pressed the control themselves — the least informative sentence
+available at the most consequential moment. Demoted, the turn line now reports the flash's **outcome**,
+and the shutter line survives meaning something real: *you got away with it*. Final order is
+`player death > player damage > woke > recency`.
+
+The issue also implied one cue. The ruling took **one cue per creature carrying `at`**, not an
+aggregate count, on `render/cues.ts`'s own stated bar for a new kind — *a renderer would draw it
+differently*. A count can only ever become text; a position can become a pulse on the tile that woke,
+which is the treatment most likely to fix "I did not notice" **without the sentence at all**. The
+count falls out as the list's length, so the aggregate would have carried strictly less for the same
+cost. It is also what lets #82 check a spatial promise against a spatial receipt.
+
+**Learned — the scope was three emission sites, not one, and two of them were invisible.**
+
+`cuesFor` early-returns `[descended]` on a descent, on the sound reasoning that *nothing may be diffed
+across the stairs*: ids are reused for unrelated actors, so a cross-boundary diff invents a movement
+animation on a board that no longer exists. But `descendTurn` runs §2's **whole phase pipeline on the
+new floor**, so arriving with the shutter open genuinely wakes things — and §4 measures one arrival in
+five as waking something. Same hole at the opening: `createInitialState` → `beginRun(floor)` →
+`lightingAndWakingPhase(createLanternWorld(floor, 'open', …))`, the lantern **starts open**, and
+`session/beginRun` handed back `NO_CUES` with a doc comment asserting the opening has nothing to say.
+It did have something to say, on roughly 1 seed in 10 measured.
+
+**The resolution is that a census is not a diff.** Every creature spawns dormant
+(`game/entities/world.ts`), so on a floor that came into existence this turn, *awake* and *woken this
+turn* are the same set — readable from `after` **alone**, never touching `before`. So the exact reason
+the four diffed cues are barred from a descent is the reason this one is admissible. `wakesOnArrival`
+carries that invariant in its header along with the consequence: **if creatures ever stop spawning
+dormant — a floor seeded with a hunter already on your trail — the census is silently wrong and must
+become a diff.** It will not fail loudly; it will announce a wake that did not happen.
+
+**Learned — the corpus could not exercise the new cue, and that was the interesting part.**
+`render/cues.test.ts` asserts every `CUE_KINDS` entry is emitted by real runs. It went red immediately,
+and the reason is worth recording: `diveToTheBottom` shutters on command 1 and never opens, so it wakes
+nothing; and `standUntilDead`'s creatures were woken by the **opening state's** phase 3, *before* the
+first command — so there is no transition in it either. Two runs that look like they cover lit play
+and dark play cover neither wake. Rather than weaken the assertion, added
+`walkInTheDarkThenFlash(seed)` — shutter, route to within 2 of the nearest sleeper, flash — which
+**throws if the flash wakes nothing**, so it cannot go quietly vacuous. Seed `flash` wakes two at once,
+so the plural path is reached by a real run rather than a hand-built pair.
+
+**Watch — three, and the first is the one I would bet on biting.**
+
+The status line is `theme.textDim`, the dimmest text on screen, sitting directly above a full-width
+high-contrast `CLOSE SHUTTER` button; in dark mode it is grey on near-black. We have just ruled this
+the announcement of the most consequential event in the game and rendered it as the least emphatic
+text in the app. **The line alone may not fix the "I did not notice" it was written for** — verify
+with the playtester before believing #79 is closed in spirit rather than in letter. Not changed here
+because status-line weight affects every message and that is its own decision.
+
+Second: on a descent that wakes something, `woke` outranks recency, so the line reads `Two things
+wake.` **instead of** `You climb down to floor 2.` That is intended — the floor number is in the HUD,
+the hunter is not — but `e2e/run-loop.spec.ts` asserts `/floor 2/` on that line and currently passes
+only because that seed's arrival happens to wake nobody. A generator change could turn that into a
+confusing red.
+
+Third: `reuseExistingServer: true` against a fixed port 3000 means a `serve dist` left running in
+another worktree gets reused, so a spec can silently test **another checkout's bundle**. This cost the
+implementation an hour of chasing a failure that was real code being tested against a stale build, and
+with parallel worktrees it can just as easily produce a **false green**. Filed as #90. Related: the
+worktree `node_modules` guard is defeated by Vitest creating `node_modules/.vite` first — #91.
+
+**Next:** #31/#41 (caches are invisible while shuttered — what un-contaminates the fuel corpus), then
+**#83** itself, then a `HARVESTER` style in the economy corpus, then **#82 last**. That order is the
+ruling's and two steps of it are hard constraints. Do not tune a fuel number before #31/#41.
+
+---
+
 ## 2026-07-31 — M1's exit playtest: the wager does not work, and the reason inverts twice (#87, #83)
 
 **Did:** Ran M1's exit playtest, got a `game-designer` ruling on #83/#63, amended M1's third exit

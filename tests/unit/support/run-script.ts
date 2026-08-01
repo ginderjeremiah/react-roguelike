@@ -203,6 +203,102 @@ export function atTheStairs(seed: string, floorNumber: number = 1): GameState {
   return state;
 }
 
+/** Manhattan distance. The metric §4's radii are not measured in, and the one a router needs. */
+function stepsApart(a: Position, b: Position): number {
+  return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+}
+
+/** The living creature nearest the player, by distance then by id. `null` on an empty floor. */
+function nearestCreature(world: ActorWorld): { readonly at: Position } | null {
+  const at = playerOf(world).at;
+  let best: { at: Position; distance: number } | null = null;
+  // `world.actors` is in ascending id order, and `>` rather than `>=` keeps the first of a tie — so
+  // the target is a pure function of the board and never of iteration order (ADR-0004).
+  for (const actor of world.actors) {
+    if (actor.kind !== 'creature' || !isAlive(actor)) continue;
+    const distance = stepsApart(at, actor.at);
+    if (best === null || distance < best.distance) best = { at: actor.at, distance };
+  }
+  return best;
+}
+
+/** How close the flasher walks before it opens up. Inside `LIT_RADIUS` (4) with room to spare. */
+const FLASH_RANGE = 2;
+
+/**
+ * A run that walks in the dark, gets close to something asleep, and then opens the shutter.
+ *
+ * **This is the play pattern the light wager is about**, and neither of the two scripts above
+ * contains it: `diveToTheBottom` shutters on command 1 and never opens again, and `standUntilDead`
+ * stands in its own light from turn 0 and never moves. Between them they never produce a single
+ * `dormant` → `awake` **transition** — the dive wakes nothing at all, and the lit run's creatures
+ * were already woken by the opening state's phase 3 before the first command was issued. So the
+ * corpus in `render/cues.test.ts` could assert every property about waking and be describing a cue
+ * that never fires. This script exists to close that hole, and it is also the pattern #83 is about:
+ * you approach unseen, you flash, and now something is coming.
+ *
+ * Deliberately stops at `FLASH_RANGE` rather than walking adjacent: a bump on an adjacent tile is an
+ * attack (§3), which would make this a combat fixture instead of a lighting one.
+ *
+ * **Throws if the flash wakes nothing.** A fixture that quietly produced no wake would leave the
+ * completeness test above passing for the wrong reason on some future seed, which is exactly the
+ * failure this script was added to fix.
+ *
+ * @param after how many turns to keep waiting, in the light, once something is awake — which is what
+ *   makes the *silence* of re-lighting an already-awake creature observable in the corpus.
+ */
+export function walkInTheDarkThenFlash(seed: string, after: number = 4): RunRecord {
+  const commands: Command[] = [{ kind: 'setShutter', to: 'shuttered' }];
+  let state = step(createInitialState(seed), commands[0]);
+
+  for (let turns = 0; ; turns += 1) {
+    if (turns > TURN_CAP_PER_FLOOR) {
+      throw new Error(`run-script: seed ${JSON.stringify(seed)} never got within flash range`);
+    }
+    const target = nearestCreature(state.world);
+    if (target === null) throw new Error(`run-script: seed ${JSON.stringify(seed)} has no creature`);
+    if (stepsApart(playerOf(state.world).at, target.at) <= FLASH_RANGE) break;
+
+    const at = playerOf(state.world).at;
+    // Around every *other* creature, but not around the target — whose tile is the goal, and which a
+    // blocked-goal search would refuse to reach at all. The walk stops two tiles short regardless.
+    const taken = occupied(state.world);
+    const grid = state.world.floor.grid;
+    const goalIndex = tileIndex(grid, target.at.x, target.at.y);
+    const next = stepTowardOnGrid(grid, at, target.at, (index) => index !== goalIndex && taken(index));
+    const dir = next === null ? null : headingTo(at, next);
+    if (dir === null) throw new Error(`run-script: seed ${JSON.stringify(seed)} cannot reach a sleeper`);
+
+    commands.push({ kind: 'move', dir });
+    const before = state;
+    state = step(state, commands[commands.length - 1]);
+    if (state === before) throw new Error(`run-script: the walk was refused on seed ${seed}`);
+  }
+
+  const dark = state;
+  commands.push({ kind: 'setShutter', to: 'open' });
+  state = step(state, commands[commands.length - 1]);
+  if (!wokeBetween(dark, state)) {
+    throw new Error(`run-script: the flash on seed ${JSON.stringify(seed)} woke nothing`);
+  }
+
+  for (let i = 0; i < after && state.status.kind === 'running'; i += 1) {
+    commands.push({ kind: 'wait' });
+    state = step(state, commands[commands.length - 1]);
+  }
+  return recordRun(seed, commands);
+}
+
+/** Did any creature go dormant → awake across this pair? Computed here, never read from `render/`. */
+function wokeBetween(before: GameState, after: GameState): boolean {
+  const wasDormant = new Set(
+    before.world.actors.filter((a) => a.kind === 'creature' && a.mind.kind === 'dormant').map((a) => a.id),
+  );
+  return after.world.actors.some(
+    (a) => a.kind === 'creature' && a.mind.kind === 'awake' && wasDormant.has(a.id),
+  );
+}
+
 /**
  * A run that stands in its own light until something kills it.
  *

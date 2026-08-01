@@ -85,6 +85,59 @@ export function descendHint(floor: FloorHud): string {
 export const NO_MESSAGE = null;
 
 /**
+ * The words for two through six — the whole range above one that the game can reach.
+ *
+ * §8 caps a floor at `min(2 + floor, 6)` creatures, so six is the most a single turn can wake and
+ * this table is provably total over everything the simulation can produce. One is not in the table
+ * because it is not a count in the copy at all ("Something"), and `wakeMessage` still answers past
+ * the end — see there.
+ */
+const COUNT_WORDS: readonly string[] = ['Two', 'Three', 'Four', 'Five', 'Six'];
+
+/**
+ * §4 (#79): the turn woke `n` creatures, said with the number.
+ *
+ * ## Every word here was ruled, and three of them were close calls
+ *
+ * **"wakes", not "stirs".** *Stirs* is the better mood and the wrong fact — it describes the
+ * beginning of waking, and under #83 the creature is awake, has declared, and is coming. More
+ * importantly *wake* is **the rule's own word**: §2 phase 3, §4's table and §6's dormancy row all
+ * say it. In a game with no tutorial the copy is the only place the vocabulary can be taught, and a
+ * player who reads `Something wakes.` on the turn the room lit up has been handed *light wakes
+ * things* for free. `Nothing happens.` and `The way is blocked.` set the register: plain, literal.
+ *
+ * **"things", not "Cinders".** In light you can see what it is, so naming it would leak nothing —
+ * it is a scaling problem. M3 adds creatures and the line would have to enumerate mixed groups
+ * (*A Cinder and two Ashwalkers wake.*), which is combinatorial copy for a one-line status bar.
+ * `died` already chose anonymity for the same reason (`It burns out.`), and "something" also covers
+ * the one case where identity genuinely is unknown: a dormant strike landed while shuttered.
+ *
+ * **The count is spoken, and spoken as a word.** Spoken at all because the failure without it is
+ * concrete: you flash, wake three, read `Something wakes.`, budget for one hunter and have three.
+ * The count is also the part that cannot be read off the board — the woken creatures *are* on
+ * screen, but a flash reveals a whole room at once and one new glyph among twenty is not a signal.
+ * As a **word** rather than a numeral because every existing numeral in this line (`You take 3.`,
+ * `You gather 25 ember.`) is a quantity of a metered resource the HUD also shows, so a digit there
+ * reads as *check the meter*. This is a count of bodies with no meter behind it, and `2 things
+ * wake.` reads like a debug string.
+ *
+ * **No cause-variant string.** Welding the flash in (`Light spills out. Something wakes.`) is
+ * tempting and wrong, because a wake is not always a flash: walking with the shutter open slides the
+ * lit radius over a sleeper, and there is no `shutterChanged` cue on that turn at all. One string
+ * that reads correctly in all three contexts — flash, walk-while-lit, dormant strike — beats two
+ * that need a branch to choose between. The causal link is carried by *when* the line appears.
+ *
+ * The numeral fallback above six **cannot fire today** and is kept so the function is total without
+ * a throw. It is not a live branch; §8's cap is what makes it dead, and if that cap moves this is
+ * already correct rather than a crash at the worst possible moment.
+ */
+export function wakeMessage(count: number): string {
+  if (count === 1) return 'Something wakes.';
+  const word: string | undefined = COUNT_WORDS[count - 2];
+  return `${word ?? count} things wake.`;
+}
+
+/**
  * One cue as a sentence, or `null` if the board already says it.
  *
  * The switch is exhaustive over `Cue['kind']` by construction — a new cue kind is a type error here
@@ -104,6 +157,11 @@ export function describeCue(cue: Cue): string | null {
       return cue.to === 'open' ? 'The shutter opens. Light spills out.' : 'The shutter closes.';
     case 'playerMoved':
       return NO_MESSAGE;
+    case 'woke':
+      // One cue is one creature (`render/cues.ts`), so a single `woke` is exactly `n = 1` and this
+      // is accurate rather than a default. The turn's *count* is `describeTurn`'s job, because only
+      // it sees the whole list — this function is per-cue by construction.
+      return wakeMessage(1);
     case 'damaged':
       return cue.who === 'player' ? `You take ${cue.amount}.` : `You strike for ${cue.amount}.`;
     case 'died':
@@ -139,16 +197,45 @@ export function describeCue(cue: Cue): string | null {
  * Ordering by *who it happened to* rather than by actor id is what makes this stable: it does not
  * care what order the simulation iterates, which is exactly the assumption that broke.
  *
+ * ## The third tier: a wake beats the shutter (§4, #79)
+ *
+ *     player death  >  player damage  >  woke  >  last speaking cue by emission order
+ *
+ * **`woke` is above recency specifically so that it beats `shutterChanged`.** The two fire on the
+ * same turn by construction — you open the shutter, the light wakes what it touches — and only one
+ * line fits. `The shutter opens. Light spills out.` restates the single most visible change the game
+ * can make, the entire board's tint, on the one turn the player pressed the control themselves: the
+ * least informative sentence available at the most consequential moment. Demoting it makes the turn
+ * line report the flash's **outcome** instead of its input, and leaves the shutter line meaning
+ * something real — *you got away with it*.
+ *
+ * **Player damage keeps the tier it won above.** A turn can wake a sleeper *and* take a hit from
+ * something already awake (phase 3 wakes, phase 4 swings); at 12 HP and 2-4 a blow the hit is still
+ * the more urgent fact, and the woken creature announces itself next turn by moving.
+ *
+ * §3's dormant strike falls out of this order with **no special branch**: `You strike for 6.` is a
+ * `damaged` cue in recency, `woke` is a tier above it, so a survivor's wake takes the line. That is
+ * the right answer on the merits — the strike was chosen and is visible, the waking is the surprise
+ * — and a compound sentence is deliberately not built, because §4's change log records that branch
+ * as unreachable at M1's numbers and a special case for a branch that cannot fire is the same defect
+ * as #80's undrawable glyph. If a creature that survives a strike ever ships, the compound is the
+ * prepared answer and it is a copy change, not a precedence change.
+ *
+ * The count is **aggregated here** rather than read off any one cue, because a cue is one creature
+ * and only this function sees the turn.
+ *
  * `null` when nothing is worth saying, which clears the line rather than leaving last turn's news up.
  */
 export function describeTurn(cues: readonly Cue[]): string | null {
   let playerDied: Cue | null = null;
   let playerHurt: Cue | null = null;
+  let woken = 0;
   let latest: string | null = NO_MESSAGE;
 
   for (const cue of cues) {
     if (cue.kind === 'died' && cue.who === 'player') playerDied = cue;
     else if (cue.kind === 'damaged' && cue.who === 'player') playerHurt = cue;
+    else if (cue.kind === 'woke') woken += 1;
 
     const sentence = describeCue(cue);
     if (sentence !== null) latest = sentence;
@@ -156,5 +243,6 @@ export function describeTurn(cues: readonly Cue[]): string | null {
 
   if (playerDied !== null) return describeCue(playerDied);
   if (playerHurt !== null) return describeCue(playerHurt);
+  if (woken > 0) return wakeMessage(woken);
   return latest;
 }

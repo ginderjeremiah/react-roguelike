@@ -2,21 +2,34 @@ import { describe, expect, it } from 'vitest';
 import { createInitialState, floorNumberOf, runStates, step, type Command, type GameState } from '@/game/core';
 import { creatureById, playerOf } from '@/game/entities';
 import { scenarioState, stateFrom } from '@/tests/unit/support/presentation';
-import { atTheStairs, diveToTheBottom, standUntilDead } from '@/tests/unit/support/run-script';
+import {
+  atTheStairs,
+  diveToTheBottom,
+  standUntilDead,
+  walkInTheDarkThenFlash,
+} from '@/tests/unit/support/run-script';
 import { awaken } from '@/tests/unit/support/scenario';
-import { CUE_KINDS, cuesFor, type Cue } from './cues';
+import { CUE_KINDS, cuesFor, wakesOnArrival, type Cue } from './cues';
 
 /**
  * Cues are derived, never emitted: nothing in `game/` reports an event, so every variant below is
  * recovered by comparing the state before a command with the state after it. That is what caps the
  * vocabulary and what makes these tests possible at this tier — no clock, no Reanimated, no DOM.
  *
- * The corpus is two real runs, walked one command at a time, because a cue is a statement about a
+ * The corpus is three real runs, walked one command at a time, because a cue is a statement about a
  * *transition* and a hand-built pair of states is not one.
+ *
+ * The third run was added with `woke` (#79) and is not a formality. `diveToTheBottom` shutters on
+ * command 1 and never opens; `standUntilDead` stands in its own light from turn 0 and never moves.
+ * Between them they contain **no dormant → awake transition at all** — the dive wakes nothing, and
+ * the lit run's creatures were woken by the opening state's phase 3, before the first command. So
+ * the completeness test below went red the moment `woke` was declared, which is exactly what it is
+ * for, and the answer was to add the missing play pattern rather than to weaken the assertion.
  */
 
 const DIVE = diveToTheBottom('cues', 3);
 const DEATH = standUntilDead('grave', 3);
+const FLASH = walkInTheDarkThenFlash('flash');
 
 /** Every (before, after, cues) triple of a run. */
 function transitions(record: { seed: string; commands: readonly Command[] }) {
@@ -31,7 +44,8 @@ function transitions(record: { seed: string; commands: readonly Command[] }) {
 
 const DARK = transitions(DIVE);
 const LIT = transitions(DEATH);
-const ALL = [...DARK, ...LIT];
+const APPROACH = transitions(FLASH);
+const ALL = [...DARK, ...LIT, ...APPROACH];
 
 function kinds(cues: readonly Cue[]): string[] {
   return cues.map((cue) => cue.kind);
@@ -50,7 +64,7 @@ describe('the vocabulary', () => {
     }
   });
 
-  it('is exercised in full by two real runs', () => {
+  it('is exercised in full by three real runs', () => {
     // Otherwise every property below could be true of a vocabulary half of which never fires.
     const emitted = new Set(ALL.flatMap(({ cues }) => kinds(cues)));
     expect([...emitted].sort()).toEqual([...CUE_KINDS].sort());
@@ -96,19 +110,76 @@ describe('a refusal (GDD §2: a refused tap must still produce feedback)', () =>
 });
 
 describe('a descent (GDD §13: you leave the map behind)', () => {
-  it('is announced alone, so nothing is animated across two different boards', () => {
-    // The player is at the old floor's stairs and then at the new floor's entrance, HP is 2 higher,
-    // and ids have been reassigned to entirely different creatures. Every other cue computed across
-    // that boundary would be a lie about a board that no longer exists.
+  it('carries no diffed cue across the boundary, on any descent in a whole dive', () => {
+    // The sharper form of what this test has always been protecting. It used to assert the cue list
+    // was *exactly* `[descended]`, which was a proxy: what matters is that no cue **derived from
+    // two states** crosses the stairs. The player is at the old floor's stairs and then at the new
+    // floor's entrance, HP is 2 higher, and ids have been reassigned to entirely different
+    // creatures, so a naive diff would emit a `playerMoved` animating across a board that no longer
+    // exists and `damaged`/`died` cues pairing unrelated actors that share an id.
+    //
+    // `woke` is deliberately not in that list: on a descent it is a **census of the new floor**, not
+    // a diff, which is the whole argument in `cues.ts`'s header for why it is admissible where the
+    // other four are not. Asserting `[descended]` exactly would have made adding it look like a
+    // regression in a rule that never said that.
+    const DIFFED = ['playerMoved', 'damaged', 'died', 'fuelGained'];
+
     const before = atTheStairs('descend-cue');
     const after = step(before, { kind: 'descend' });
 
     expect(floorNumberOf(after)).toBe(floorNumberOf(before) + 1);
-    expect(cuesFor(before, after)).toEqual([{ kind: 'descended', toFloor: floorNumberOf(after) }]);
+    expect(kinds(cuesFor(before, after))[0]).toBe('descended');
+    for (const kind of kinds(cuesFor(before, after))) expect(DIFFED).not.toContain(kind);
     // The player really did move, and the floor below really is a different set of creatures — so
     // there was plenty for a naive diff to report, and none of it would have been true.
     expect(playerOf(after.world).at).not.toEqual(playerOf(before.world).at);
     expect(after.world.actors.map((a) => a.at)).not.toEqual(before.world.actors.map((a) => a.at));
+
+    // And over every descent the dark dive takes, so a single lucky floor cannot carry this.
+    const descents = ALL.filter(({ cues }) => kinds(cues).includes('descended'));
+    expect(descents.length).toBeGreaterThan(1);
+    for (const { cues } of descents) {
+      expect(kinds(cues)[0]).toBe('descended');
+      for (const kind of kinds(cues)) expect(DIFFED).not.toContain(kind);
+    }
+  });
+
+  it('reports what the arrival woke, when the stairs are taken with the shutter open', () => {
+    // §4/#79's third emission site, and the one the bug was worst at: `descendTurn` runs the whole
+    // phase pipeline **on the new floor**, so arriving lit genuinely runs phase 3 and genuinely
+    // wakes — and the player has a new board, sense radius 1 and no reason to suspect anything.
+    // Before this, `cuesFor` early-returned `[descended]` and the arrival was silent.
+    //
+    // The dive used by the test above shutters on command 1, which is why that one still passes and
+    // why this one has to open the lantern deliberately. `descend-cue` is not reused: this needs a
+    // seed whose floor 2 puts a creature in the arrival's light, and most do not.
+    const dark = atTheStairs('z');
+    const lit = step(dark, { kind: 'setShutter', to: 'open' });
+    const arrived = step(lit, { kind: 'descend' });
+    const cues = cuesFor(lit, arrived);
+
+    expect(kinds(cues)[0]).toBe('descended');
+    const woke = cues.filter((cue) => cue.kind === 'woke');
+    expect(woke.length).toBeGreaterThan(0);
+    // The census, recomputed the other way round: every awake creature on the arrival floor, and
+    // nothing else. A `descended` that swallowed the wakes would leave this empty; a census that
+    // reported dormant creatures too would leave it longer.
+    expect(woke).toEqual(
+      arrived.world.actors
+        .filter((actor) => actor.kind === 'creature' && actor.mind.kind === 'awake')
+        .map((actor) => ({ kind: 'woke', at: actor.at })),
+    );
+  });
+
+  it('reports nothing woken when the stairs are taken in the dark', () => {
+    // The other half, and the one that stops the census from being "announce every creature".
+    // Nothing wakes in the dark (§4), so a shuttered arrival has no news beyond the new floor.
+    const before = atTheStairs('z');
+    expect(before.lantern.vision.shutter).toBe('shuttered');
+    const after = step(before, { kind: 'descend' });
+
+    expect(after.world.actors.filter((actor) => actor.kind === 'creature').length).toBeGreaterThan(0);
+    expect(kinds(cuesFor(before, after))).toEqual(['descended']);
   });
 
   it('fires once per descent in a full dive and never otherwise', () => {
@@ -178,6 +249,146 @@ describe('the player moving', () => {
         expect(Math.abs(cue.from.x - cue.to.x) + Math.abs(cue.from.y - cue.to.y)).toBe(1);
       }
     }
+  });
+});
+
+describe('waking (§2 phase 3, §4: the whole cost of light)', () => {
+  /** A corridor with two sleepers at unequal distances, both inside `LIT_RADIUS` (4). */
+  const CORRIDOR = ['#########', '#c...@.c#', '#########'];
+
+  it('emits one cue per woken creature, on its own tile, in ascending actor id', () => {
+    // Three separate ways to be wrong, and the map is built so each fails differently. One cue for
+    // the pair (`fuelGained`'s aggregate shape) fails the length. A hard-coded or player-relative
+    // `at` fails the tiles. And the two sleepers sit at distance **4 and 2** from the player while
+    // their ids run left to right, so an implementation that walked a `Map`, a `filter` by distance
+    // or the lit-tile list would emit (7,1) before (1,1) and fail the order — which is ADR-0004's
+    // rule at this tier: a cue list that reordered itself would make a Playwright assertion flake.
+    const { state, scenario } = scenarioState(CORRIDOR, { shutter: 'shuttered', perceive: false });
+    const flash = step(state, { kind: 'setShutter', to: 'open' });
+
+    expect(cuesFor(state, flash).filter((cue) => cue.kind === 'woke')).toEqual([
+      { kind: 'woke', at: { x: 1, y: 1 } },
+      { kind: 'woke', at: { x: 7, y: 1 } },
+    ]);
+    expect(scenario.ids).toHaveLength(2);
+  });
+
+  it('emits a cue per creature rather than one for the turn, so the count is the list length', () => {
+    // The shape ruling, pinned as a property rather than as a literal: #79 chose `damaged`/`died`'s
+    // one-per-actor shape over an aggregate count so that a renderer can pulse the tile that woke.
+    // `components/play/messages.ts` derives its plural sentence from this length, so an aggregate
+    // cue carrying `amount: 2` would render "Something wakes." on a turn that woke two.
+    const { state } = scenarioState(CORRIDOR, { shutter: 'shuttered', perceive: false });
+    const woke = cuesFor(state, step(state, { kind: 'setShutter', to: 'open' })).filter(
+      (cue) => cue.kind === 'woke',
+    );
+
+    expect(woke).toHaveLength(2);
+    for (const cue of woke) expect(Object.keys(cue).sort()).toEqual(['at', 'kind']);
+  });
+
+  it('is silent for a creature that was already awake, however long the light stays on', () => {
+    // §4 is explicit that re-lighting says nothing: a line that fired every turn a `C` stood in the
+    // light would speak on every turn of every fight, which is how a player learns to stop reading
+    // the line. A census of `after` — the shape the *arrival* case legitimately uses — would fail
+    // here, which is why the ordinary path is a diff and the two are separate functions.
+    const { state, scenario } = scenarioState(CORRIDOR, { shutter: 'shuttered', perceive: false });
+    let current = step(state, { kind: 'setShutter', to: 'open' });
+
+    for (let turn = 0; turn < 3; turn += 1) {
+      const before = current;
+      current = step(before, { kind: 'wait' });
+      expect(kinds(cuesFor(before, current)), `turn ${turn}`).not.toContain('woke');
+    }
+    // Not vacuous: something really is still awake and still standing in the light, so the silence
+    // is a decision rather than an empty board.
+    expect(creatureById(current.world, scenario.ids[0]).mind.kind).toBe('awake');
+    expect(current.lantern.vision.shutter).toBe('open');
+  });
+
+  it('speaks again for a creature that went re-dormant and was woken a second time', () => {
+    // §4's other clause, and the reason the diff is on the *transition* rather than on a
+    // "has it ever been announced" flag: after eight turns of no contact the creature is a sleeper
+    // again, the player has been treating it as one, and it is a new hunter when it wakes.
+    //
+    // Played out for real: flash, shutter, retreat to the end of the corridor, and wait while
+    // §6's `TURNS_TO_REDORMANCY` runs out. The creature walks to the tile it last saw the light on
+    // and parks there, three tiles short of the player — never adjacent, so contact never resumes.
+    const { state, scenario } = scenarioState(
+      ['#############', '#...@...c...#', '#############'],
+      { shutter: 'shuttered', perceive: false },
+    );
+    const id = scenario.ids[0];
+
+    const first = step(state, { kind: 'setShutter', to: 'open' });
+    expect(cuesFor(state, first)).toContainEqual({ kind: 'woke', at: { x: 8, y: 1 } });
+
+    let current = step(first, { kind: 'setShutter', to: 'shuttered' });
+    for (const dir of ['west', 'west', 'west'] as const) {
+      const before = current;
+      current = step(before, { kind: 'move', dir });
+      expect(kinds(cuesFor(before, current))).not.toContain('woke');
+    }
+    for (let turn = 0; turn < 12 && creatureById(current.world, id).mind.kind === 'awake'; turn += 1) {
+      const before = current;
+      current = step(before, { kind: 'wait' });
+      expect(kinds(cuesFor(before, current)), `turn ${turn}`).not.toContain('woke');
+    }
+
+    // The premise: it really did fall asleep, in the dark, without ever reaching the player.
+    expect(creatureById(current.world, id).mind.kind).toBe('dormant');
+    expect(playerOf(current.world).hp).toBe(playerOf(state.world).hp);
+
+    const again = step(current, { kind: 'setShutter', to: 'open' });
+    expect(cuesFor(current, again)).toContainEqual({
+      kind: 'woke',
+      at: creatureById(again.world, id).at,
+    });
+  });
+
+  it('never reports a creature the light did not reach', () => {
+    // The containment claim §4 makes about the flash, read back off the cue list. A sleeper outside
+    // `LIT_RADIUS` is not woken and is therefore not announced — so the count the player reads is a
+    // count of *this* flash, not of the floor.
+    const { state } = scenarioState(['############', '#@.c......c#', '############'], {
+      shutter: 'shuttered',
+      perceive: false,
+    });
+    const flash = step(state, { kind: 'setShutter', to: 'open' });
+
+    expect(cuesFor(state, flash).filter((cue) => cue.kind === 'woke')).toEqual([
+      { kind: 'woke', at: { x: 3, y: 1 } },
+    ]);
+  });
+
+  it('fires on a real approach-and-flash run, at the moment the shutter opens', () => {
+    // The corpus half. The scripted run walks in the dark and then opens up two tiles from a
+    // sleeper, which is the play pattern the light wager exists for — and the turn it flashes is
+    // the only turn in three whole runs that carries both a `shutterChanged` and a `woke`.
+    const flashes = APPROACH.filter(({ cues }) => kinds(cues).includes('woke'));
+    expect(flashes).toHaveLength(1);
+    expect(kinds(flashes[0].cues)).toContain('shutterChanged');
+    expect(flashes[0].command).toEqual({ kind: 'setShutter', to: 'open' });
+    // More than one woke, so the plural copy path is reached by a real run and not only by a
+    // hand-built pair of states.
+    expect(flashes[0].cues.filter((cue) => cue.kind === 'woke').length).toBeGreaterThan(1);
+  });
+
+  it('agrees with the ordinary diff wherever both are defined', () => {
+    // `wakesOnArrival` is a census and `wakeCues` is a diff, and the argument that the census is
+    // legal is that on a board that came into existence this turn the two coincide. That claim is
+    // only checkable where a board is genuinely new — so it is checked on the opening state of
+    // several seeds, which is the other place the census is used (`session/run.ts`).
+    for (const seed of ['open-1', 'open-17', 'open-20', 'session', 'cues']) {
+      const state = createInitialState(seed);
+      const awake = state.world.actors.filter(
+        (actor) => actor.kind === 'creature' && actor.mind.kind === 'awake',
+      );
+      expect(wakesOnArrival(state), seed).toEqual(awake.map((actor) => ({ kind: 'woke', at: actor.at })));
+    }
+    // Not vacuous in the interesting direction: at least one of those openings really did wake
+    // something, so this is not five empty lists agreeing with each other.
+    expect(wakesOnArrival(createInitialState('open-1')).length).toBeGreaterThan(0);
   });
 });
 

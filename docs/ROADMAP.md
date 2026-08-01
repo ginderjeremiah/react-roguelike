@@ -361,9 +361,12 @@ this milestone, not its method.
       playtest **#103** whether `You take N.` earns `alarm` when it has three carriers already in
       frame, and **#102** the board jogs 6pt every flash cycle. They are
       one family: the exit criterion is a *felt* decision, and none of these change what the
-      simulation does. **The family grows by roughly three per playtest and has never shrunk except by
-      being built** — worth watching, because at some point "the wager is illegible" stops being a
-      list of bugs and becomes a finding about the screen
+      simulation does. **By creation time the three playtests contributed 6 → 1 → 2**, and the family
+      has never shrunk except by being built. Do **not** read that as a trend in either direction: the
+      M1 exit playtest was a full sweep and the two since were narrow briefs about a single line, so
+      the later counts are confounded by scope. **The measurement that would settle it is the next
+      broad playtest — the one after #83.** If it returns six again, "the wager is illegible" has
+      stopped being a list of bugs and become a finding about the screen
 
 ### The build order for the wager, and where it stands
 

@@ -95,11 +95,37 @@ behaviour PR #97's split asked for. It is also a **duplicate of #76**, which has
 milestone since #74, with a fuller definition of done. It was filed by an agent that hit the bug live
 during #94 and did not check whether it was known. **Filing into the right milestone is not the same
 as reading the milestone**, and the roadmap's tooling list — which exists precisely to make that queue
-readable — was not consulted either. #100's genuinely new evidence was moved onto #76 and is worth
-having: a *second* occurrence (a ~900-line spurious diff), and a CRLF file list that has **changed**
-since #76 was written (`render/hud.test.ts` is now LF; `components/play/theme.ts` and
-`tests/unit/play-opening.test.ts` are the CRLF files today). A stale file list in an open issue is a
-small thing that makes the issue look already-done.
+readable — was not consulted either. What genuinely survives from #100 and is now on #76: **the
+mechanism has bitten twice** (PR #74 at 738 lines, PR #101 at ~900), and it bites in a predictable
+place — `Edit`/`Write` preserve a file's existing endings while a scripted rewrite normalises them, so
+the trigger is a mechanical change across many files, which is exactly when a script is the obvious
+tool.
+
+**Learned the hard way, in this very entry, and it is the sharpest finding in the PR.** The paragraph
+above originally carried a **third** claim: that #76's CRLF file list had gone stale, that
+`render/hud.test.ts` "is LF now", and that the offending set was *drifting silently as unrelated PRs
+touched it* — so there was "no state to converge on". **All of that was false, and the review caught
+it.** Re-derived at `86eda1e`:
+
+```bash
+git ls-files --eol | grep crlf     # ten files, not three
+```
+
+Ten, including two in `game/` and `eslint.config.js`, none of which any version of the list named.
+`render/hud.test.ts` **is** CRLF and always has been — `git log -- render/hud.test.ts` ends at
+`65f10f0`, so nothing has touched it since #76 was written. And the drift claim inverts: the CRLF
+counts at `65f10f0` / `bd4f577` / `86eda1e` are **9 / 10 / 10**, the same set throughout, and the one
+addition is `tests/unit/play-opening.test.ts` — a **new file** from #79, not a file that flipped. So
+there is a **stable set of ten** and it can simply be fixed. **#76's original body was accurate in
+full and did not need my correction.**
+
+**The irony is the lesson.** This is the entry that argues *re-derive from the artefact, never from a
+description of it* — and its own file list was copied from a description, of a description: an
+implementer's report became #100's body, #100's body became my comment on #76, and my comment became
+this paragraph. Nobody ran the command. **The rule that actually holds is that `git ls-files --eol` is
+the check — not a list in any issue body, including #76's.** A file list written into prose is a
+measurement with a timestamp nobody can see, and the fix is to cite the command rather than its
+output. Corrected on #76 (comment `5153280410`) and here.
 
 **Flagged and now settled: the journal and the roadmap disagreed about what to build next.** The #94
 entry below ended **"Next: #83"**. The roadmap's build order, and #83's own build-order-update comment
@@ -144,10 +170,15 @@ therefore what unblocks every fuel number in M2 and the `HARVESTER` style at ste
 after it.
 
 **Watch:** the playtest-issue family in M2 ("the wager is invisible before it is taken and illegible
-after it") went from seven to **nine** this session and has never shrunk except by being built. Three
-playtests have each added roughly three. That is now noted on the roadmap bullet, because at some
-point it stops being a list of bugs and becomes a finding about the screen — and the milestone whose
-exit criterion is *a felt decision* is the one paying for it.
+after it") went from seven to **nine** this session and has never shrunk except by being built. **By
+issue creation time the three playtests contributed 6 → 1 → 2**, not three each — I wrote "roughly
+three per playtest" first, which is an average dressed as a trend, and review caught that the real
+shape points the *other* way. The M1 exit playtest found a backlog; the two since found 1 and 2, and
+both were narrow briefs about a single line rather than full sweeps. **So this is not evidence of a
+screen getting worse, and the honest reading is that we do not yet know**: the later counts are
+confounded by scope. The thing that would actually answer it is the next *broad* playtest — the one
+after #83 — and if that one comes back with six again, the family has stopped being a list of bugs
+and become a finding about the screen. Noted on the roadmap bullet in those terms.
 
 ## 2026-08-01 — The wake line is drawn like a wake line (#94)
 

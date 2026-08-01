@@ -16,22 +16,22 @@
  *   3. **A seen creature** (`c`/`C`). §4's lit column: "visible in the lit radius, **identified**".
  *   4. **An ember drop**, with the shutter open. §4: "Items / ember caches — visible in the lit
  *      radius / **invisible**" while shuttered.
- *   5. **The terrain**, if the cell is `visible` or `remembered`.
+ *   5. **The terrain the player knows**, if the cell is `visible` or `remembered`. See below — it
+ *      is not always the terrain that is there.
  *   6. **Nothing.** `unknown` cells are blank. Not a dot, not a shade of the wall behind them.
  *
- * ## The one place this layer knowingly diverges from §4, and why it is not fixable here
+ * ## The terrain is asked for, never indexed (#31, #41)
  *
- * §4 makes items **invisible while shuttered**. An ember *drop* is an actor-layer value with a
- * position, so rule 4 above implements that exactly. An ember **cache is terrain** — a `cache` tile
- * — and `game/systems/light.ts` phase 3 folds *everything* `perceive` returns into permanent memory,
- * including a cache tile felt by touch in the dark. So a cache you shuffle past shuttered is
- * remembered, and this layer draws what the player is recorded as knowing.
+ * §4 makes an ember cache **terrain the lantern has to have shown you**: crawl past one shuttered
+ * and you feel ordinary floor, and it is `·` until a flash puts the `♦` there. This layer does not
+ * implement one word of that. It calls `perceivedTileAt(grid, vision, x, y)` where it used to write
+ * `grid.tiles[index]`, and `game/fov/vision.ts` hands back a tile that already reads as `floor`.
  *
- * The fix does not belong here. Suppressing the glyph would put a §4 rule in `render/` while
- * `vision.remembered` — the simulation's own record of what has been seen — went on saying the
- * opposite, which is the two-sources-of-truth failure this codebase keeps refusing. It is a
- * `game/fov/` question (does touch perceive a cache as a cache, or as floor?) and it may well be a
- * `game-designer` one. **Issue #41.** Delete this note when that lands.
+ * That split is the point and it is where an earlier note here said the fix had to go. Suppressing
+ * the `♦` in this file would have put a §4 rule in the presentation layer while the simulation's own
+ * record went on saying the opposite — and the wrong one is the one a `travel(to)` route or a
+ * summary screen would read. One predicate, one plane, one answer, and both the glyph and the payout
+ * read the same bit.
  * ═══════════════════════════════════════════════════════════════════════════════════════════════
  *
  * ═══════════════════════════════════════════════════════════════════════════════════════════════
@@ -63,7 +63,14 @@
 
 import { assertNever, isRunning, type GameState } from '../game/core';
 import { declaredIntent, playerOf, type CreatureActor, type Intent } from '../game/entities';
-import { hasTile, perceive, type CreatureSense, type TileSet } from '../game/fov';
+import {
+  hasTile,
+  perceive,
+  perceivedTileAt,
+  type CreatureSense,
+  type TileSet,
+  type Vision,
+} from '../game/fov';
 import {
   chebyshevDistance,
   positionOf,
@@ -131,6 +138,12 @@ export type Scene = {
 type Overlays = {
   readonly perceived: TileSet;
   readonly remembered: TileSet;
+  /**
+   * The player's vision, for `perceivedTileAt` — what a tile *looks like* to them, which is not
+   * always what is on it (§4's cache rule; see the header). Held whole rather than as the one plane
+   * it currently reads, so that a second disguise would not need a second field here.
+   */
+  readonly vision: Vision;
   readonly playerAt: Position;
   /** `true` while the lit field is real light rather than the touch radius. Drives `tint`. */
   readonly lamplit: boolean;
@@ -260,6 +273,7 @@ function gatherOverlays(state: GameState): Overlays {
   return {
     perceived: perception.terrain,
     remembered: vision.remembered,
+    vision,
     playerAt,
     lamplit,
     contacts,
@@ -322,7 +336,16 @@ function buildCell(grid: Grid, index: number, overlays: Overlays): Cell {
   const contact = overlays.contacts.get(index) ?? null;
   const state = cellStateOf(perceived, hasTile(overlays.remembered, at.x, at.y), contact);
   const telegraph = overlays.telegraphs.get(index) ?? null;
-  const face = faceOf(grid.tiles[index], at, index, state, contact, overlays);
+  // Not `grid.tiles[index]`. §4's cache rule means the tile the player knows is not always the tile
+  // that is there, and `game/` is the layer that decides which one this is. See the header.
+  const face = faceOf(
+    perceivedTileAt(grid, overlays.vision, at.x, at.y),
+    at,
+    index,
+    state,
+    contact,
+    overlays,
+  );
 
   return {
     x: at.x,

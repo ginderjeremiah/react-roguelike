@@ -15,17 +15,17 @@ was wrong"**, so M2 opens with the build order the #83 ruling specifies. Four M1
 determinism-gate debt (see the split below). So `gh issue list --milestone "M2: The light loop"`
 will not show you #12 — that is deliberate, not a lost issue.
 
-**M2 is two steps into a six-step build order.** #79 (PR #92) made a wake announce itself, with a
-count; #94 (PR #101) gave that announcement two emphasis levels so it is read first. Neither moved a
-simulation value. **The order has changed since the #83 ruling was written**, so read "The build order
-for the wager" under M2 below, not #83's issue body.
+**M2 is three steps into a six-step build order.** #79 (PR #92) made a wake announce itself, with a
+count; #94 (PR #101) gave that announcement two emphasis levels so it is read first; **#31/#41 made a
+cache terrain the lantern has to have shown you**, which is the first of the three to move a
+simulation value and the one that un-contaminates the fuel corpus. **The order has changed since the
+#83 ruling was written**, so read "The build order for the wager" under M2 below, not #83's issue body.
 
-**Next up is #31/#41 — caches invisible while shuttered — and then #83.** That is step 3 of the build
-order below, and it was **re-confirmed against a contradiction** during PR #104: the journal's #94
-entry ended `**Next:** #83`, skipping step 3. The list won. Ruling and reasoning are comment
-`5153249392` on **#83**; the short version is that #83 moves no fuel number but *does* change the game
-the corpus measures, so taking it first costs two re-measurements instead of one and the second cannot
-attribute which change moved the number.
+**Next up is #83 — a woken Cinder pursues.** That is step 4 of the build order below. Step 3 landed on
+2026-08-01 and its measurement is recorded there and in §4's invariant-4 blockquote: `DARK_PACIFIST`'s
+cache take went 119/121 → **0/121**, `STALKER`'s 121/121 → 114/121 and its net +8 → +7 a floor. The
+flashing style barely moved, which is the ruling's prediction rather than its falsifier, so the
+baseline #83 is measured against is now a clean one.
 
 ---
 
@@ -324,16 +324,19 @@ this milestone, not its method.
       (#98), `You take N.` fired five turns running with identical text (#103), and the board jogs 6pt
       on every flash cycle for an unrelated reason (#102)
 - [ ] Fuel economy and the risk/reward tuning around it — calibrated once in #17. **#63 is ruled**
-      and **no fuel number may move yet**, because the corpus is measuring a different game than the
-      one we designed: §4 says caches are invisible while shuttered, the code pays on tile kind, and
-      `DARK_PACIFIST` takes **119 of 121 caches** — dark play receives light's entire income stream,
-      ~37 fuel a floor. **Every fuel figure in both playtest reports inherits that.** #31/#41 first,
-      then a never-flash fighter in the corpus, *then* numbers
+      and **no fuel number may move yet.** The first of the two reasons is now discharged: #31/#41
+      landed 2026-08-01 and `DARK_PACIFIST`'s take went **119 of 121 → 0 of 121**, so the corpus is
+      finally measuring the game §4 describes. **Every fuel figure in both playtest reports still
+      predates it and inherits the contamination.** What is left before numbers move is a never-flash
+      *fighter* in the corpus (step 5), which is what invariant 4 is actually asserted against
 - [ ] Sound/haptic feedback for moving blind — **untouched.** #79 is adjacent and does not discharge
       it: a wake is announced in *text*, which is neither sound nor haptic, and #94 is about the
       pixels of that text. Nothing here has been built
 - [ ] Does a creature on a marked tile take the hit? — #28, a design ruling §6 is missing
-- [ ] Touch perceives ember caches, which §4 says are invisible while shuttered — #41
+- [x] Touch perceives ember caches, which §4 says are invisible while shuttered — **#41, with #31**.
+      Touch now reports an unlit cache tile as ordinary `floor` and the tile still enters remembered
+      terrain, so there is no hole where the cache is; a cache pays only once its tile has *ever*
+      been lit. One monotone plane in `Vision`, `RULES_VERSION` 4
 - [ ] GDD §10's cell-state names vs the ones `render/` shipped — #46. Until this is ruled on, §10
       and the code disagree; §10 carries a pointer so a playtester reading it is not misled
 - [ ] `litQuery`'s once-per-turn invariant has no test behind it — #35
@@ -395,13 +398,15 @@ on **#83**.
    worked** (1 alarm in 23 turns; the line read first on 5 of 5 waking flashes) and adds one verdict
    worth keeping: *#82's tile pulse is not needed for this*, said plainly so nobody spends step 6
    defensively.
-3. **#31/#41** — caches are invisible while shuttered, per §4. This is what un-contaminates the fuel
-   corpus, and **no fuel number moves before it.** ← **NEXT**, confirmed against a contradiction in PR
-   #104 (the #94 journal entry said #83; the list won — comment `5153249392` on #83). **It is not
-   enough that #83 moves no fuel number:** it changes the game the corpus *measures*, so this first
-   buys one re-measurement against a clean baseline and the other order costs two, the second of which
-   cannot say which change moved the number.
-4. **#83** — the ruling itself: a woken Cinder pursues.
+3. ~~**#31/#41** — caches are invisible while shuttered, per §4.~~ **Done, 2026-08-01.** It did what
+   it was sequenced to do: `DARK_PACIFIST` 119/121 → **0/121**, `STALKER` 121/121 → 114/121 and net
+   +8 → +7. **No fuel number moved**, per the rule above. Two things worth carrying forward. The
+   corpus's `driedAfterTurns` had to be *re-instrumented* — it summed whole floors, and once every
+   pacifist style dried on floor 1 it was measuring floor length rather than solvency; that is
+   #105's "a threshold in the harness is instrument calibration" applied to the quantity rather than
+   to the threshold, and no assertion was loosened. And the *sequencing argument was confirmed by
+   the outcome*: the measurement above is attributable to exactly one change.
+4. **#83** — the ruling itself: a woken Cinder pursues. ← **NEXT**
 5. A **`HARVESTER`** style in `game/systems/economy.test.ts` — never flashes, routes to every
    ember-sense contact, one-shots each dormant — which is what §4's invariant 4 is asserted against.
 6. **#82 last, unchanged and still explicitly last.** Shipping it before #83 makes the game *worse*:

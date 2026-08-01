@@ -36,9 +36,14 @@ import { ACTION_COST, hasActor, nextActAtOf } from './schedule';
 const FLOOR_ONE: Floor = generateFloor(createRng('descent'), 1).value;
 const FLOOR_TWO: Floor = generateFloor(createRng('descent-below'), 2).value;
 
-/** A floor already crossed: shuttered, mid-ramp, part-spent, wounded, with terrain remembered. */
+/**
+ * A floor already crossed: shuttered, mid-ramp, part-spent, wounded, with terrain remembered **and
+ * with the lantern's own plane non-empty**, so that "it does not cross the stairs" is a claim about
+ * something that was there.
+ */
 function crossedFloor(): LanternWorld {
   const arrived = createLanternWorld(FLOOR_ONE, 'shuttered', 40);
+  const lit = computeLitField(FLOOR_ONE.grid, FLOOR_ONE.entrance);
   const explored = {
     ...arrived,
     world: withActor(arrived.world, withHp(playerOf(arrived.world), 4)),
@@ -47,7 +52,8 @@ function crossedFloor(): LanternWorld {
       vision: {
         shutter: 'shuttered' as const,
         senseRadius: 3,
-        remembered: computeLitField(FLOOR_ONE.grid, FLOOR_ONE.entrance),
+        remembered: lit,
+        revealed: lit,
       },
     },
   };
@@ -206,6 +212,23 @@ describe('arriveOnFloor — what crosses the stairs (§13)', () => {
     expect(after.lantern.vision.remembered.width).toBe(FLOOR_TWO.grid.width);
     expect(after.lantern.vision.remembered.height).toBe(FLOOR_TWO.grid.height);
     expect(after.lantern.vision.remembered.flags).toHaveLength(FLOOR_TWO.grid.tiles.length);
+  });
+
+  it('leaves behind what the lantern found, too (§4s cache rule, #31/#41)', () => {
+    // The second monotone plane has to cross the stairs the same way the first one does — which is
+    // to say, not at all. A carried `revealed` would pay out on whatever the new generator happened
+    // to put at those indices: a cache on floor 2 standing where floor 1's lit room was would be
+    // takeable the moment the player walked over it, with no flash and no explanation.
+    expect(before.lantern.vision.revealed.flags.filter(Boolean).length).toBeGreaterThan(10);
+    expect(after.lantern.vision.revealed.flags.filter(Boolean).length).toBe(0);
+    expect(after.lantern.vision.revealed.flags).toHaveLength(FLOOR_TWO.grid.tiles.length);
+    // ...and it is sized to the new grid rather than merely emptied, which is the same shape claim
+    // the test above makes about memory and is only falsifiable against a differently shaped floor.
+    const small = scenario(['#####', '#@..#', '#####']).world.floor;
+    const arrived = arriveOnFloor(before, small).lantern.vision.revealed;
+    expect(arrived.width).toBe(small.grid.width);
+    expect(arrived.flags).toHaveLength(small.grid.tiles.length);
+    expect(arrived.flags.filter(Boolean).length).toBe(0);
   });
 
   it('sizes the fresh memory to a floor of a genuinely different shape', () => {

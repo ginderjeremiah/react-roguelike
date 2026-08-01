@@ -245,7 +245,7 @@ passes through. Reasoning in *Why a square*, below.
 | Remembered terrain | Permanent once seen, dimmed | Permanent once seen, dimmed |
 | Creatures | Visible in the lit radius, identified | **Ember-sense: position only, Chebyshev radius 5 (tuning), through walls** |
 | Enemy intent | Visible | Hidden |
-| Items / ember caches | Visible in the lit radius | Invisible |
+| Items / ember caches | Visible in the lit radius, and **lighting one is what makes it takeable** | **Invisible — an unlit cache tile is felt as ordinary floor, and pays nothing** |
 | Effect on creatures | **Every dormant creature in the lit radius wakes** | Nothing wakes |
 | Fuel burn | 4 / turn (tuning) | 1 / turn (tuning) |
 
@@ -253,13 +253,22 @@ Two asymmetries are doing all the work and both are single rules:
 
 - **Ember-sense ignores walls; light does not.** Darkness therefore tells you something light
   physically cannot — what is in the next room. That is the whole answer to "why go dark".
-- **A flash buys a room; touch buys a step.** One lit turn inside a 5×4 or 5×5 room reveals the
-  entire room and the walls around it, from any tile in it, for 4 fuel — that is what radius 4
-  Chebyshev *is* (see below). Feeling the same room out by touch is 10-15 turns at 1 fuel each,
-  and still never shows you the cache, because items are invisible while shuttered. Light is
-  roughly three times cheaper in fuel and ten times cheaper in *turns* for exploring; dark is four
-  times cheaper for travelling through space you have already seen. Neither dominates, and the
-  reason is arithmetic rather than a special rule.
+- **A flash buys a room; touch buys a step.** Opening the shutter inside a 5×4 or 5×5 room reveals
+  the entire room and the walls around it, from any tile in it — that is what radius 4 Chebyshev
+  *is* (see below) — **and it reveals the room's cache, which is the only way a cache ever becomes
+  takeable** (*What the dark may take*, below). Feeling the same room out by touch is 10-15 turns at
+  1 fuel each; it gives you the shape and the exits, and it gives you **no cache**, because an unlit
+  cache tile is remembered as ordinary floor.
+
+  **The arithmetic this bullet used to state was wrong in the unit that mattered, and the correction
+  is not a tuning change.** A flash is `open` then `shut`: 4 fuel at the lit rate plus 1 at the dark
+  rate, and **both are free actions, so it costs no turns at all** (§2, ruled 2026-08-02). So light
+  is **two to three times cheaper in fuel** for exploring and is **not measured in turns** — which
+  means the thing this paragraph was really pricing does not appear in it. **The flash's price is
+  neither fuel nor tempo. It is what it wakes**, which is the same conclusion §12 reached from the
+  other end and the reason #83 exists. Dark stays four times cheaper for crossing space you have
+  already seen, and that is where a cache is actually *collected*: **the lantern prospects, the dark
+  hauls.** Neither dominates, and the reason is still arithmetic rather than a special rule.
 
 **You always know your own four neighbours.** The dark touch radius and the adaptation floor are
 the same 1, deliberately (below), and that has a consequence worth stating as its own rule: however
@@ -468,16 +477,98 @@ rejected.
 **Fuel.**
 
 - Sources: **kills** (Cinder drops 20, tuning) and **ember caches** in the level (25 each, 1-2 per
-  floor, tuning). Caches are terrain and require light to find. Start of run: 80 (tuning).
+  floor, tuning). Caches are terrain, and **the lantern has to have found them** — the rule and its
+  three clauses are below. Start of run: 80 (tuning).
 - Fuel reaching 0: the shutter can no longer be opened. You are not dead — you can still crawl at
   radius 1 with ember-sense, and the stairs are still findable. It is a desperate state, not a
   loss state, and it is exactly the situation Pillar 4 wants people retelling.
   **A dry lantern is not a fifth vision state**: it is the shuttered column of the table above,
   permanently. Touch still reaches one tile, ember-sense still climbs back to five, the dormant
-  strike still works, and a kill or a cache re-opens the shutter the moment it lands. Ember-sense is
-  the player's dark-adapted eyes, not the lamp — if it went out with the fuel, 0 fuel would be
-  unrecoverable in practice, which is the "unplayable rather than desperate" failure this rule
-  exists to avoid.
+  strike still works, and a kill — or **a cache the lantern found before it died** — re-opens the
+  shutter the moment it lands. Ember-sense is the player's dark-adapted eyes, not the lamp — if it
+  went out with the fuel, 0 fuel would be unrecoverable in practice, which is the "unplayable rather
+  than desperate" failure this rule exists to avoid.
+  **The cache clause is a gain rather than a narrowing**, and it is the answer to a measured hole: a
+  bot ran 143 turns at fuel 0 with nothing to do and no way to finish. A `♦` you lit two rooms ago
+  and never picked up is still on the map when the lamp dies, so a dry run has a **destination**
+  rather than a wander. That is the shape Pillar 4 wants out of 0 fuel.
+
+**What the dark may take, and what it may not — *ruled 2026-08-01, built 2026-08-01 (#31, #41)*.**
+
+§4 has said since it was written that caches are invisible while shuttered, and §1 has said since
+before that: *light finds supplies; dark finds enemies.* **Neither was enforced anywhere.**
+`computeTouchField` returned the cache tile as a cache, §2 phase 3 folded that into permanent
+memory, and `collectFuelUnderfoot` paid on the tile kind. Measured over the economy corpus, a style
+that never opens the shutter took **119 of 121 caches** — light's whole income stream, ~37 fuel a
+floor, handed to the one style the design says has none. The ruling is that **the code is wrong and
+the document is right**:
+
+> **A cache is terrain the lantern has to have shown you. Until it has, the tile is floor to you —
+> you feel it, you walk over it, and nothing happens. Once it has, it is yours whenever you stand on
+> it, lit or not.**
+
+Three clauses, each of which was a live way to get this wrong:
+
+- **Touch perceives a cache tile as ordinary floor.** Not as a cache, and **not as nothing** — the
+  tile still enters remembered terrain. Skipping it was the cheaper option (one predicate, no new
+  state) and it is *refuted* rather than out-voted, twice over. A permanent blank cell in the middle
+  of ground you have crawled is **more** informative than the `♦` would have been, because nothing
+  else on the board is ever skipped — the leak runs the other way and it is worse. And it would
+  break *You always know your own four neighbours* above, which §2 spends to refuse an illegal move
+  for free. **A rule that says items are invisible may not make the item's tile the only unknown on
+  the board.**
+- **A cache pays when its tile has *ever* been lit** — not when it is lit at the moment you stand on
+  it. The stricter reading loses twice and neither loss is a matter of taste. It **contradicts a
+  settled sentence three paragraphs up**: at 0 fuel the shutter cannot open, so *"a kill or a cache
+  re-opens the shutter"* would be false in exactly the desperate state that sentence exists to
+  protect. And it **manufactures an autopilot**: the shutter is a free action and §2 runs phase 5 on
+  free actions, so standing on a cache in the dark, `open`-`shut` takes it for 4 fuel and no turns —
+  a sequence with an obvious right answer whenever ember-sense is clear, which is the permission
+  check both playtests already complained about, rebuilt on a new tile. Under the ruling as stated
+  there is exactly **one** decision and it is the flash the player was already deciding.
+- **Ember a kill drops is not covered, and must not be.** A drop is an actor-layer value on a tile
+  you chose to fight on, and you know it is there because you made it. §1 makes kills the income
+  side of the economy, and a dormant strike in the dark whose ember you could not collect would
+  delete darkness's one capability. **Ember you made is yours; ember the ruin hid belongs to the
+  lantern.** #81 is about *drawing* that drop in the dark and is untouched by this ruling.
+
+**Rejected, and recorded so it is not re-proposed: a cue when you scuff an unlit cache underfoot.**
+It is the most attractive wrong answer here — it preserves the good moment of stumbling on fuel in
+the dark, and it turns the dark into a scout and light into the claim. It loses because it hands the
+information straight back in a costume: a marked-but-unclaimed tile is routable, so dark cache
+routing returns, and the follow-up flash is *obviously correct* whenever nothing is sensed, which
+makes the wager a permission check for +21 fuel. It also adds a mechanic to enforce a rule that one
+predicate already enforces.
+
+**What it costs, said plainly.** The simulation must record which tiles the **lantern** has revealed,
+separately from which tiles have been perceived at all: one more monotone per-tile channel in run
+state, which a replay has to reproduce and which resets on descent exactly as remembered terrain does
+(§13). That is a real widening of run state and it is the price of the rule. It is **not** the "map
+of known tile kinds" this looked like from the outside — there is exactly one kind whose knowledge
+diverges, and it diverges one way only (cache reads as floor), so a single boolean plane covers it.
+One channel buys both halves with one predicate, which is why this is one rule and not two: **the
+glyph and the payout read the same bit.** The representation is the `gameplay-engineer`'s.
+
+**It teaches itself, once, with no text.** The first time a player flashes a room they had already
+crawled and a `♦` appears on a tile they walked over, they have learned what the lantern is for and
+what the crawl costs — in one frame, at no risk, on a turn nobody died. That is the whole tutorial
+this rule needs. It is carried by the glyph and by the dimming already used for remembered terrain,
+**never by colour alone** (§11), and §10's glyph list does not change: a disguised cache draws the
+floor glyph that is already in it.
+
+*Watch:* it is wrong if a playtest reports flashing because it **must** rather than because it chose
+to — light stops being a wager and becomes a bill the moment cache income is the only way to stay
+solvent. It is wrong in the other direction if the corpus shows a **flashing** style losing caches
+too: the intervention is aimed at the never-flash line, so `STALKER`'s cache take should barely move,
+and if it collapses instead, the fault is §5's leaf-room bias rather than this rule.
+
+**This ruling is what makes `CACHE_FUEL` a dial for invariant 4, and it is why no number moves before
+it.** Today cache fuel is paid to every style, so raising it favours nobody; afterwards it is light's
+exclusive income, so it and the 1-2 cache count become the direct lever on *"a style that never opens
+the shutter must not out-earn one that flashes"*. Expect the ruling to be **necessary and not
+sufficient** on its own: it removes ~37 fuel a floor from every dark style, which narrows the gap
+invariant 4 names without closing it, because a never-flash **fighter** still banks 20 a kill. The
+`HARVESTER` measurement is what says whether anything further is owed.
 
 **The four tuning invariants** (these are design; the numbers above are not):
 
@@ -506,12 +597,19 @@ play, is strictly worse than a line a human found by accident.
 
 > **Until the corpus contains a never-flash *fighter*, no number in §4 should be moved.** The
 > instrument does not currently measure the thing being tuned, and a re-tune against it would
-> calibrate the game to the second-best strategy. Two further corrections have to land first — see the
-> change log for the ordering — because **invariant 4 is currently unsatisfiable through no fault of
-> the numbers**: §4 says caches are invisible while shuttered and `collectFuelUnderfoot` pays on the
-> tile kind regardless (#31, #41), so dark play is being handed light's entire income stream. A dark
-> pacifist takes 119 of 121 caches in the corpus. Every fuel figure in both playtest reports includes
-> income the design says darkness cannot have.
+> calibrate the game to the second-best strategy.
+>
+> **The cache rule above is now built (#31/#41, 2026-08-01), and this paragraph is moved the day it
+> shipped as the previous version of it demanded.** What it removed is the half of invariant 4 that
+> was a bug rather than a number: dark play is no longer handed light's income stream. Measured over
+> the same corpus, before and after, `DARK_PACIFIST`'s cache take went **119 of 121 → 0 of 121** and
+> its income to zero, while `STALKER`'s went 121/121 → 114/121 and its net per floor +8 → +7. That
+> is the ruling's own prediction and not its falsifier: the flashing style barely moved, so the
+> intervention is aimed where it was pointed rather than at §5's leaf-room bias. **The rest of
+> invariant 4 is still open**, exactly as the ruling said it would be — it was necessary and not
+> sufficient, and a never-flash *fighter* still banks 20 a kill. Every fuel figure in the two
+> playtest reports predates this and still includes income darkness cannot have; re-measure before
+> quoting one.
 
 **Awake-creature behaviour — *ruled 2026-07-31, not yet implemented (#83)*.** Specified here because
 §6 depends on it.
@@ -1221,3 +1319,4 @@ recorded at the moment we made it, is the part git cannot give us.
 | 2026-07-31 | **§3/§6: recorded that the dormant strike's "if the target survives, it wakes" clause is unreachable at M1's numbers** | Not a change — an honesty fix, and the second dead branch found this week (#80's `c` glyph is the first). 6 damage against 5 HP means a dormant strike against a Cinder is always lethal, so the *survive-and-wake* branch is dead. **The gradient §3 names is not** — it is the dormant kill (one strike, no damage) against the awake fight (two strikes, 2-4 damage), which is two points and unaffected. An earlier draft of this row said §3 describes a one-point gradient; that overstates it, and the correction matters because the next reader of this row might otherwise re-tune Cinder HP to fix a gradient that is not broken. The numbers are deliberately **not** moved to make the clause live: §2's phase order means a survivor declares on the turn it wakes and resolves on the next, so it only ever swings if it survives the strike *and* a full follow-up, which needs 10 HP, which turns an awake Cinder into a four-hit grind — Pillar 1's "attack until it dies", bought to make one sentence true. The clause is kept for creatures that do not exist yet (M3). Written down because an unreachable clause reads as a live branch, and the next person to tune Cinder HP needs to know which of the two things they are doing |
 | 2026-07-31 | **§4/§6: a wake is announced in the turn line, with a count, and it outranks the shutter line** | #79, from the M1 exit playtest: seven turns, two Cinders woken, the line under the board empty the whole way. §4 promised the player the price of a flash *in creatures* **before** the press ("everything a flash can wake, you can already feel") and said nothing about what they are owed **after** it — so the game's most consequential event was the only one it never acknowledged, which is §2's own standard applied to the wager instead of to a refused tap. Ruled here rather than left to the `ui-engineer` because two of the three clauses are design, not copy. **The count is spoken** — not to substitute for looking, since a woken creature is lit or adjacent by construction, but because a flash reveals a *whole room at once* and one new glyph among twenty is not a signal; the number is also the only executable form of the containment guarantee until #82 draws the footprint. **The wake line beats `shutterChanged`**, which competes for the same single line every flash turn: "The shutter opens" restates the board's entire tint change on the one turn the player pressed the control themselves, and demoting it means the turn line reports the flash's *outcome*, with the shutter line surviving as the sentence that means *you got away with it*. **It covers arrival** — phase 3 runs on `descend` and on `beginRun`, and §4 measures one arrival in five as waking something, where the player has a new floor, sense radius 1 and no reason to suspect anything. On a fresh floor every creature spawns dormant, so awake-in-`after` **is** woken-this-turn and no cross-floor diff is needed; if that spawn invariant ever moves, the census is wrong and must become a diff. Precedence is player death > player damage > **woke** > recency: player damage keeps the tier it won in #20 (three silent turns from death at 12 HP), and woke sitting directly under it resolves the §3 dormant-strike case with no special branch — a survivor's wake takes the line over `You strike for 6.`, which is right, since the strike was chosen and visible and the waking is the surprise. **Re-lighting an awake creature is silent**: no transition, and a line that fired every turn a `C` stood in the light would speak on every turn of every fight, which is how a player learns to stop reading the line. The runner-up shape was a single aggregated cue carrying only a count (`fuelGained`'s shape); it lost to one cue per creature carrying `at` (`damaged`/`died`'s shape) because `render/cues.ts`'s bar for a new kind is *a renderer would draw it differently*, and a count can only ever become text where a position can become a pulse on the tile that woke — the treatment most likely to fix the playtest's "I did not notice" without the line at all. The count comes free as the list's length, and `at` is what lets #82's spatial promise be checked against a spatial receipt rather than a scalar one |
 | 2026-08-01 | **§10: the turn line gets two emphasis levels, `alarm` and `report`, and which messages sit in each is a rule** | #94, from the playtest of #79. #79's rule, copy, count and precedence all held in play; what failed was the volume knob. Measured at 390×844 dark, the turn line is 13px/400 in the same grey as the shutter button's sub-caption and the build note — the second-smallest text on the screen — so `The shutter opens. Light spills out.` and `Two things wake.`, the two outcomes of one press, are **typographically identical**, and at the half-second a phone player gives the line the difference between *you got away with it* and *you have company* is which dim grey letters are present. A rule that fires correctly and cannot be read is not a rule the player has, which is why this is ruled rather than left to the `ui-engineer`. **Two levels, not three.** `alarm` is *something is now against you that was not before* — a wake, damage taken, the player's death; `report` is *here is what your press did*, which is everything else including every refusal. A third level below `report` for refusals was rejected because it has nowhere to go: `report` already sits one step above the captions and dropping under them is Pillar 3's footnote-sized text. A third level splitting *hunted* from *hit* was rejected because §4's precedence means those two never appear side by side, and a distinction the player can never contrast is a costume rather than a tier. The levels turn out to **agree with §4's precedence exactly** — `death > player damage > woke` *is* the `alarm` set and everything recency can reach is a `report` — so no turn ever pre-empts a louder line with a quieter one, and that is pinnable over the real-run corpus. **Weight and colour both carry it, and the words carry nothing.** The tempting §11 defence is that the sentences differ, so the distinction survives greyscale; it is rejected because it is the same defence that would justify doing nothing, and §11's real test is whether the distinction survives *how the element is read* — at a glance, which is a channel words do not reach. So weight is the non-colour carrier, and colour gets a closed `alarm`/`report` token pair that a theme may not collapse — not `token.creature` as proposed, which is a board role, is wrong for `You take N.`, and would let a board retune move the chrome. `report` may keep `textDim`'s value; what is ruled is that it stops *being* `textDim`. One shared size for both levels, raised to rank above every caption — a per-level size was rejected because the row is fixed-height so the board does not jump and §11's text scaling multiplies it, which puts reflow risk on exactly the message that must not reflow. **No persistence and no motion.** Persistence was the serious runner-up and it is free of motion, but it protects the line only in the case that does not need protecting: it exists for the player tapping fast, and a tap makes a press, a press makes a line, and §2 requires even a refused press be acknowledged — so it is pre-empted by the very next tap and survives only while the player is idle. It also lies by tense, since `Two things wake.` is a sentence about *this* turn, and carrying it forward would need a re-wording into a state readout, which is a copy change made by the presentation layer and belongs in the HUD if it is wanted at all. One turn is positively right: an ordinary dark step says nothing, so an `alarm` appearing on an empty row is a change in how much ink is on screen — the nearest thing to motion available to something that has none. **The descent keeps its precedence:** on an arrival that wakes, the line stays the wake. A compound was the runner-up and `messages.ts`'s standing argument against compounds does **not** defeat it — that argument is about *unreachability*, and 20% of arrivals is not unreachable — but it loses anyway on three: the floor number is on the HUD in the largest type on screen and the hunter is nowhere; a compound overturns §4's cause-variant ruling (*the causal link is carried by when the line appears*) for a press at least as visible as the flash that ruling was written about; and it is the one message that reliably wraps at increased text scale, on the arrival where reading fast matters most. The level closes the gap instead — a waking arrival draws `alarm`, a quiet one draws `You climb down to floor N.` in `report` — so the descend press gets the same glanceable contrast the flash press does, which is what the compound was reaching for. **Checkable by construction:** the level is a property of the cue that won the line, never of the string, so a pure unit test pins the assignment, a component test pins that the two levels differ in two channels in both schemes, and an E2E reads the level off the DOM as an attribute rather than off computed styles. Cut signals in §10: `alarm` firing more than ~1 turn in 6 means fewer things should speak, not a third level; a playtest still reporting the `C` read first and the line second means the sentence is the wrong instrument and #82's pulse is the right one, and the response is to revert this rather than escalate it |
+| 2026-08-01 | **§4: a cache is terrain the lantern has to have shown you — touch feels it as floor, and it pays once its tile has *ever* been lit. The code is wrong; §4 and §1 are right** | #31 and #41, ruled together because answering one alone yields a cache you can see and not take, or take and not see. Both issues leaned the other way (amend §4, let the dark keep its caches) and **both were reasoning without the number.** #41 priced the leak as "probably not by much" on the grounds that touch is radius 1, so finding a cache that way is the 10-15-turn expensive path; the corpus falsifies it — a dark crawler walks the floor to find the *stairs* anyway, so the cache comes free with an activity it was already doing, and `DARK_PACIFIST` takes **119 of 121**. Restricting only *routing* still takes 89 of 121, so reading (c) is a 26% haircut, not a rule. **The amend-§4 option is also mispriced as "a line of the GDD".** §1's settled core loop names *light finds supplies; dark finds enemies* as one of the **three facts that give the light decision teeth**, and the other two (fuel from kills, the dormant strike) are both *dark* advantages — so deleting it leaves light with no product darkness cannot buy, which is invariant 4's exact wording, and makes the invariant unsatisfiable by design rather than by bug. That is an ADR against ADR-0007's territory and a new mechanic to replace what it deletes, against **one boolean plane** to enforce what is already written. **The three clauses each refute an option rather than out-voting it.** Touch renders the tile as *floor*, not as nothing: a permanent hole at exactly the cache tile is **more** informative than the `♦`, and it would break §4's four-neighbour guarantee, which §2 spends to refuse an illegal move for free. Payment keys on **ever lit**, not *currently* lit: the strict reading falsifies §4's own "a kill or a cache re-opens the shutter" at 0 fuel, where the shutter cannot open, and it manufactures an autopilot — the shutter is a free action and §2 runs phase 5 on free actions, so `open`-`shut` on a cache tile takes it for 4 fuel and no turns whenever ember-sense is clear, which is the permission check both playtests named, rebuilt on a new tile. **Ember a kill drops is explicitly excluded** — you know it is there because you made it, and a dormant strike whose ember you could not collect would delete darkness's one capability. Runner-up rejected and recorded: a *scuff* cue when you step on an unlit cache, which preserves the good stumble but hands the information back in a costume, restores dark cache routing, and makes the follow-up flash obviously correct for +21. **Cost, admitted:** one more monotone per-tile channel in `Vision` — the tiles the *lantern* has revealed — which a replay must reproduce and which resets on descent like remembered terrain. Not the "map of known kinds" it looked like: one kind diverges, one way only. §4's exploration arithmetic is corrected in the same pass and the correction is factual, not tuning — a flash is 5 fuel and **zero turns**, both toggles being free actions, so "ten times cheaper in *turns*" was never true and light is 2-3× cheaper in fuel and unmeasured in tempo; **the flash's price is what it wakes**, which is what §12 and #83 already say. Expected effect, for the re-measurement to be checked against: dark cache income ~37/floor → near zero (only the entrance room, lit on arrival, survives), `STALKER`'s take should barely move, and `CACHE_FUEL` becomes light's exclusive income and therefore the dial for invariant 4. **Necessary, not sufficient** — a never-flash *fighter* still banks 20 a kill, and `HARVESTER` is what says whether more is owed. Numbers deliberately **not** moved here: that is the roadmap's later step and moving one now would re-tune against the contaminated corpus this ruling exists to clean |

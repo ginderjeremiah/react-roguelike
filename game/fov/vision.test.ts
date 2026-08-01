@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { creatures, origin, parseScene } from '@/tests/unit/support/ascii-grid';
 import { senseCreatures } from './embersense';
+import { computeLitField } from './light';
 import { computeTouchField } from './touch';
 import { emptyTileSet, hasTile, tileSetOf, tileSetSize } from './tileset';
 import {
@@ -11,9 +12,11 @@ import {
   createVision,
   DARK_TOUCH_RADIUS,
   EMBER_SENSE_RADIUS,
+  hasBeenLit,
   LIT_RADIUS,
   openShutter,
   remember,
+  revealByLight,
   setShutter,
   tileKnowledge,
   TURNS_TO_FULL_ADAPTATION,
@@ -211,6 +214,83 @@ describe('remembered terrain', () => {
     const after = remember(before, computeTouchField(grid, { x: 5, y: 5 }));
     expect(after.shutter).toBe(before.shutter);
     expect(after.senseRadius).toBe(before.senseRadius);
+  });
+});
+
+describe('what the lantern has revealed (§4s cache rule, #31/#41)', () => {
+  const grid = ROOM.grid;
+  const litHere = computeLitField(grid, { x: 5, y: 5 });
+
+  it('starts empty even with the shutter open — light has to fall somewhere first', () => {
+    // `createVision(grid, 'open')` describes a lantern that is *set* to open, not one that has lit
+    // anything. Seeding this from the shutter would hand a fresh run the whole floor, and §2 phase
+    // 3 — which is what actually lights the entrance room — would have nothing left to do.
+    for (const shutter of ['open', 'shuttered'] as const) {
+      const vision = createVision(grid, shutter);
+      expect(tileSetSize(vision.revealed)).toBe(0);
+      expect(vision.revealed.flags).toHaveLength(grid.tiles.length);
+    }
+  });
+
+  it('accumulates, and never forgets, exactly like remembered terrain', () => {
+    let vision = revealByLight(createVision(grid, 'open'), litHere);
+    const first = tileSetSize(vision.revealed);
+    expect(first).toBeGreaterThan(9); // a lit field is bigger than a touch field, or nothing is
+
+    vision = revealByLight(vision, computeLitField(grid, { x: 1, y: 1 }));
+    expect(tileSetSize(vision.revealed)).toBeGreaterThan(first);
+    expect(hasBeenLit(vision, 5, 5)).toBe(true);
+    expect(hasBeenLit(vision, 1, 1)).toBe(true);
+  });
+
+  it('returns the same vision when the light falls where it has fallen before', () => {
+    const first = revealByLight(createVision(grid, 'open'), litHere);
+    expect(revealByLight(first, litHere)).toBe(first);
+  });
+
+  it('does not mutate the vision or the field it was given', () => {
+    const before = createVision(grid, 'open');
+    const snapshot = [...litHere.flags];
+    const after = revealByLight(before, litHere);
+
+    expect(tileSetSize(before.revealed)).toBe(0);
+    expect(litHere.flags).toEqual(snapshot);
+    expect(after.revealed).not.toBe(before.revealed);
+  });
+
+  it('survives every shutter transition and every turn of the ramp', () => {
+    // The property the *ever lit* reading rests on: nothing in this module may narrow it. Each
+    // transition is applied in turn and the plane is re-checked, because "monotone" is a claim
+    // about the transitions rather than about the union function.
+    let vision = revealByLight(createVision(grid, 'open'), litHere);
+    const lit = tileSetSize(vision.revealed);
+
+    for (const transition of [closeShutter, adaptVision, adaptVision, openShutter, closeShutter]) {
+      vision = transition(vision);
+      expect(tileSetSize(vision.revealed)).toBe(lit);
+      expect(hasBeenLit(vision, 5, 5)).toBe(true);
+    }
+    vision = remember(vision, computeTouchField(grid, { x: 9, y: 9 }));
+    expect(tileSetSize(vision.revealed)).toBe(lit);
+  });
+
+  it('is a strictly separate plane from remembered terrain', () => {
+    // The two must not be aliased. A `revealByLight` that grew `remembered` — or a `remember` that
+    // grew `revealed` — would compile, would pass every accumulation test above, and would hand a
+    // shuttered crawl every cache on the floor, which is the bug the rule exists to fix.
+    const felt = remember(createVision(grid, 'shuttered'), computeTouchField(grid, { x: 9, y: 9 }));
+    expect(tileSetSize(felt.remembered)).toBe(9);
+    expect(tileSetSize(felt.revealed)).toBe(0);
+
+    const shown = revealByLight(createVision(grid, 'open'), litHere);
+    expect(tileSetSize(shown.remembered)).toBe(0);
+    expect(tileSetSize(shown.revealed)).toBeGreaterThan(0);
+  });
+
+  it('reports false off the edge of the grid rather than throwing', () => {
+    const vision = revealByLight(createVision(grid, 'open'), litHere);
+    expect(hasBeenLit(vision, -1, 5)).toBe(false);
+    expect(hasBeenLit(vision, 5, 99)).toBe(false);
   });
 });
 

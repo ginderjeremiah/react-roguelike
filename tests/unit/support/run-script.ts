@@ -323,3 +323,68 @@ export function standUntilDead(seed: string, after: number = 3): RunRecord {
   for (let i = 0; i < after; i += 1) commands.push({ kind: 'wait' });
   return recordRun(seed, commands);
 }
+
+/**
+ * A run that crawls to an ember cache in the dark, flashes it, shuts, and then walks onto it.
+ *
+ * **The play pattern §4's cache rule creates** (#31/#41), and the only script in this file that
+ * collects one: *the lantern prospects, the dark hauls.* Every step of it is load-bearing —
+ *
+ *   1. shutter, and crawl to a tile **orthogonally adjacent** to the cache. Nothing about the cache
+ *      is known yet; §4 says the tile is felt as ordinary floor, so this walk pays nothing.
+ *   2. `setShutter open`. Free (§2), and phase 3 folds the lit field into `vision.revealed`. From
+ *      adjacent there is no line-of-sight question to get wrong.
+ *   3. `setShutter shuttered`, before taking a single step. This is what makes the fixture a test of
+ *      **ever** lit rather than *currently* lit: the cache is collected with the lantern shut, on a
+ *      turn during which no light falls on it at all.
+ *   4. step onto it. Phase 5 pays, the tile becomes floor, and it leaves `floor.caches`.
+ *
+ * Steps 2 and 3 are one command each and cost no turn, so the whole detour is 5 fuel.
+ *
+ * **Throws if the cache is not collected.** The whole value of this fixture is the pickup, and a
+ * seed on which the crawl gets walled in would otherwise leave every consumer of it green and
+ * measuring a run in which nothing happened.
+ */
+export function takeACacheTheLanternFound(seed: string): RunRecord {
+  const commands: Command[] = [{ kind: 'setShutter', to: 'shuttered' }];
+  let state = step(createInitialState(seed), commands[0]);
+
+  const cache = state.world.floor.caches[0];
+  if (cache === undefined) throw new Error(`run-script: seed ${JSON.stringify(seed)} has no cache`);
+
+  for (let turns = 0; stepsApart(playerOf(state.world).at, cache) > 1; turns += 1) {
+    if (turns > TURN_CAP_PER_FLOOR) {
+      throw new Error(`run-script: seed ${JSON.stringify(seed)} never reached its cache`);
+    }
+    const at = playerOf(state.world).at;
+    const grid = state.world.floor.grid;
+    // Around living creatures, then through them if the floor leaves no other way — the same
+    // fallback `diveCommand` uses, and for the same reason (a Cinder can genuinely own a doorway).
+    const next =
+      stepTowardOnGrid(grid, at, cache, occupied(state.world)) ??
+      stepTowardOnGrid(grid, at, cache, () => false);
+    const dir = next === null ? null : headingTo(at, next);
+    if (dir === null) throw new Error(`run-script: seed ${JSON.stringify(seed)} cannot reach its cache`);
+
+    commands.push({ kind: 'move', dir });
+    const before = state;
+    state = step(state, commands[commands.length - 1]);
+    if (state === before) throw new Error(`run-script: the crawl was refused on seed ${seed}`);
+  }
+
+  for (const to of ['open', 'shuttered'] as const) {
+    commands.push({ kind: 'setShutter', to });
+    state = step(state, commands[commands.length - 1]);
+  }
+
+  const dir = headingTo(playerOf(state.world).at, cache);
+  if (dir === null) throw new Error(`run-script: seed ${JSON.stringify(seed)} stopped off-axis`);
+  commands.push({ kind: 'move', dir });
+  const before = state;
+  state = step(state, commands[commands.length - 1]);
+
+  if (state.world.floor.caches.length !== before.world.floor.caches.length - 1) {
+    throw new Error(`run-script: seed ${JSON.stringify(seed)} never collected its cache`);
+  }
+  return recordRun(seed, commands);
+}

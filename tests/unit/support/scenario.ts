@@ -24,7 +24,7 @@
  * The `Floor` it produces is **partial by design** — no rooms, no doorway list, no merge. Nothing
  * in `game/entities/` or the combat rules reads those; they exist for level generation and for
  * placement. If something here ever starts reading them, this builder should start filling them in
- * rather than growing a special case.
+ * rather than growing a special case. `caches` **is** filled in, because phase 5 reads it.
  */
 
 import {
@@ -104,6 +104,7 @@ export function scenario(lines: readonly string[]): Scenario {
 
   const tiles: Tile[] = [];
   const spawns: CreatureSpawn[] = [];
+  const caches: Position[] = [];
   const awake: number[] = [];
   let entrance: Position | null = null;
   let stairs: Position | null = null;
@@ -116,6 +117,12 @@ export function scenario(lines: readonly string[]): Scenario {
       tiles.push(tile);
       if (glyph === '@') entrance = { x, y };
       if (glyph === '>') stairs = { x, y };
+      // Row-major by construction, which is the order `generateFloor` sorts its list into. This
+      // list used to be left empty while the grid held `cache` tiles, so every test that wanted a
+      // real cache had to rebuild the floor by hand — and `generate.test.ts` asserts of a *real*
+      // floor that the two agree, so leaving them disagreeing here made scenarios a shape the game
+      // cannot produce.
+      if (glyph === '♦') caches.push({ x, y });
       if (glyph === 'c' || glyph === 'C') {
         if (glyph === 'C') awake.push(spawns.length);
         spawns.push({ kind: 'cinder', at: { x, y } });
@@ -134,7 +141,7 @@ export function scenario(lines: readonly string[]): Scenario {
     merge: NO_MERGE,
     entrance,
     stairs: stairs ?? entrance,
-    caches: [],
+    caches,
     creatures: spawns,
   };
 

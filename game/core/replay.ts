@@ -49,7 +49,7 @@ import { step } from './step';
 import { createInitialState, type GameState } from './state';
 
 /** The rules version this build of the simulation implements. See the header. */
-export const RULES_VERSION = 3;
+export const RULES_VERSION = 4;
 
 /**
  * Append-only. One line per bump, newest last, so that a fixture pinned at version N can be
@@ -67,6 +67,14 @@ export const RULES_VERSION_LOG: readonly string[] = [
     'show field for field. The bump is the policy above applied literally ("any new field in ' +
     '`GameState`"): a version-2 record replayed under these rules produces a state with three ' +
     'fields it did not have, so a stored *state* comparison against one would not hold.',
+  '4 — §4\'s cache rule (#31, #41): a cache is terrain the lantern has to have shown you. ' +
+    '`Vision` gains `revealed`, a second monotone tile plane holding every tile the lantern has ' +
+    'lit, and phase 5 pays a cache only where that plane holds its tile — so a version-3 record ' +
+    'that walked over a cache in the dark replays to a different fuel reserve, a different grid ' +
+    '(the tile is no longer rewritten to floor) and a different `floor.caches`. Both a new field ' +
+    'in `GameState` and a changed rule, which is the one bump that is unambiguous under either ' +
+    'clause of the policy above. Perception changed with it — touch reports a cache tile as ' +
+    'ordinary floor — but that is `render/`-side and moves no state.',
 ];
 
 /**

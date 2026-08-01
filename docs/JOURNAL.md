@@ -57,6 +57,127 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-08-01 — A cache is terrain the lantern has to have shown you (#31, #41)
+
+**Did:** Built §4's cache rule, ruled the same day by the `game-designer` and written into the GDD
+before this branch started. Two halves, one bit. **Perception (#41):** touch reports an unlit cache
+tile as ordinary `floor`, and the tile still enters remembered terrain. **Collection (#31):**
+`collectFuelUnderfoot` pays a cache only once its tile has *ever* been lit. `Vision` gains
+`revealed`, a second monotone `TileSet` holding every tile the lantern has lit; `RULES_VERSION` → 4
+with a log line, and the two stored fixtures re-pinned (only the new field moved, which is the
+evidence that nothing else changed). A third pinned fixture was added because **no stored run took a
+cache** — `takeACacheTheLanternFound` crawls to one in the dark, flashes it, shuts, and hauls it home.
+
+**Why the plane lives in `Vision` and not beside it.** It is the same shape and the same lifetime as
+`remembered` — monotone, per floor, reset by `arriveOnFloor` — and every consumer that reads one is
+holding the other. The designer's cost estimate said "one more monotone per-tile channel in
+`Vision`"; there was nothing to gain by disagreeing. The two folds are *not* aliased and there is a
+test that says so, because a `remember` that grew both would compile and would hand a shuttered crawl
+every cache on the floor.
+
+**Why `render/` learned nothing.** #41's own note said the fix could not live in the renderer, and it
+does not: `game/fov/vision.ts` exports `perceivedTileAt(grid, vision, x, y)` and `scene.ts` calls it
+where it used to write `grid.tiles[index]`. One substitution covers the glyph *and* the colour token,
+because `terrainColorOf` is downstream of the same tile. The header note pointing at #41 is deleted.
+
+**Why phase 3 does not read the shutter.** `TurnPerception` gained `terrainFrom: 'light' | 'touch'`
+and `rememberPerception` switches on it. The alternative — `light.ts` branching on
+`vision.shutter` — is correct today and is a second site that knows which column of §4's table
+produces the lit field. One place decides; the phase reads the answer.
+
+**Measured, and it is the predicted finding rather than the falsifier.** Same corpus, before → after:
+
+| style | cache take | cache income/floor | median net/floor | turns to dry |
+| --- | --- | --- | --- | --- |
+| `STALKER` | 121/121 → **114/121** | 37.8 → 35.6 | +8 → **+7** | never → never |
+| `FLOODLIT` | 121/121 → 96/121 | 37.8 → 30.0 | −56 → −62 | 34 |
+| `PACIFIST` | 117/121 → 11/121 | 36.6 → 3.4 | −80 → −109 | 65 |
+| `DARK_PACIFIST` | 119/121 → **0/121** | 37.2 → **0.0** | −71 → −110 | 206 → **80** |
+
+`STALKER` barely moved — the ruling's prediction — so the intervention is aimed where it was
+pointed and **not** at §5's leaf-room bias, which was the named falsifier. #105's worry did not
+materialise: invariant 3's `net > 0` is still green at +7, so **no threshold was loosened and no game
+constant moved.** The two pacifists' collapse to ~9% is not a third finding — they dry on floor 1 and
+`canOpen` is false at 0 fuel, so they are dark crawlers for seven of their eight floors.
+
+**Learned — the harness measurement that broke was a *label*, not a threshold.** Invariant 2's
+`flashed < never` went red, and the honest-looking reading was "the ruling inverted the ordering".
+It had not. `driedAfterTurns` summed **whole floors** — its own docstring admitted it and said to use
+it for ordering only — and the moment every pacifist style dried on floor 1 it became the *length of
+floor 1*, so it was ranking styles by how far they wandered. Recording the turn fuel actually hits 0
+restores the ordering (26 floodlit < 65 flashing < 80 dark) with the assertion untouched. That is
+#105's principle applied one level deeper than #105 anticipated: the instrument to calibrate was the
+quantity, not the bound. **A test that goes red is not evidence about the code until you have checked
+that the number under it still means what its name says.**
+
+**Learned — two of the three pinned replay fixtures have `revealed === remembered`,** because one
+ends with the shutter open and the other spends its dark half retracing lit ground. Only the new
+fixture separates them (69 vs 61). A digest field that is accidentally equal to its neighbour pins
+nothing, so the third fixture is the only place a bug growing the wrong plane is visible, and both
+the digest comment and `state-shape.test.ts` now say so out loud.
+
+**Learned — `tests/unit/support/scenario.ts` built floors the generator cannot produce:** a `♦`
+became a `cache` tile but `floor.caches` was left `[]`, so every cache test rebuilt the floor by hand.
+`generate.test.ts` asserts the two agree on real floors. Fixed at the source.
+
+**Verified by planting five mutants**, each killed: collection ignoring the plane (4 tests), touch
+growing the plane (11), no disguise in `perceivedTileAt` (6), the plane carried across a descent (3),
+and — the one the ruling explicitly warns about — `computeTouchField` *skipping* the cache tile, which
+is the cheap wrong fix and leaves a permanent hole where the cache is (9, including the four-neighbour
+guarantee and the dry-crawl route in `economy.test.ts`).
+
+**Playtested — the rule lands, and it produced the first measurement that makes light pay.** Nine
+runs, four deliberate styles. Head to head on floor 1: never-flash **22 turns / 97 fuel / 12 HP**,
+clear-then-flash **24 turns / 115 fuel / 12 HP** — so *clear the dormants in the dark, then open on a
+tile you know is safe* now beats never opening at all, by **+18 fuel**. That is the first time in this
+project's measurements that flashing has won anything. The teaching moment also reads: walk a tile in
+the dark, flash the room three turns later, and the `♦` appears in saturated amber on a dim remembered
+map. And the design's rejection of a "scuff" cue **survives contact** — stepping onto an unlit cache
+advances the turn, grows the map and ticks fuel, so the silence reads as *nothing was there* rather
+than as a missed input. §2's dead-tap concern is about a **press**; this is a step that visibly
+resolved. Do not add the cue.
+
+**Two findings, and the first is this PR's own doing.**
+
+**A cache taken by opening the shutter is announced by nothing (#107).** §10's precedence is
+`player death > player damage > woke > recency`, and `fuelGained` lives in recency — so a flash that
+wakes something *and* pays a cache reads `Two things wake.` and never mentions the fuel. **This is new
+here and it is a regression the precedence table could not have anticipated:** it was ruled when a
+cache could only be taken by *stepping* on one, which never coincides with a flash. This rule makes
+the two simultaneous, so the PR's own payoff is the thing that goes unsaid. Verified in the code —
+`describeTurn` returns at the `woken` tier and never reaches `latest`. Not fixed here because it is a
+precedence question and precedence is ruled, not chosen; **it should land before #83**, for the same
+reason #94 did.
+
+**The milestone's premise is narrower than it was stated (#108).** Caches are 25-50 fuel a floor;
+creature ember is **60-120 and free in the dark** — sense is radius 5 through walls, a dormant dies to
+one strike and never swings back. So "caches were light's entire income" was true of the *pacifist*
+corpus styles and is **not** true of the line a player actually finds. An 824-turn dark autoplay
+reached the bottom of all eight floors at **12/12 HP, never once damaged**. Worth being exact about
+what this does and does not overturn: it is **not** a contradiction of the cache ruling, which said in
+terms that it was *necessary and not sufficient* and named the never-flash **fighter** as the case it
+does not reach. It is that Watch arriving early, with numbers. What it changes is urgency — step 5's
+`HARVESTER` is no longer a completeness exercise, it is the measurement without which step 6 tunes the
+wrong constant.
+
+**Also recorded: the teaching moment is real but is not a teacher.** It fired **once in nine runs**,
+and only because it was engineered. `CACHE_SLOTS = 2` with `count = int(rng, 0, 1)` gives 1-2 caches a
+floor, and the run *starts lit*, so the entrance room is revealed before it can be crawled. For the
+lesson to land the player must walk over one of one-or-two specific tiles in the dark and later light
+that exact tile. The rule has no other teacher, so this is worth knowing before anyone counts on it.
+
+**Next:** #83 — a woken Cinder pursues. Step 4 of the build order; the corpus baseline it will be
+measured against is now clean, which is the whole reason this was sequenced first.
+
+**Watch:** invariant 4 is **not** discharged. The ruling said necessary-and-not-sufficient and the
+numbers agree — a never-flash *fighter* still banks 20 a kill and is not in the corpus. That is step
+5 (`HARVESTER`), and it is what says whether `CACHE_FUEL` or `CINDER.emberDrop` owe anything. Also:
+`STALKER` loses 7 caches, all on floors it crossed without lighting that room, so `CACHE_FUEL` is now
+a dial whose effect on the flashing style is real but small — expect to need the leaf-room bias
+(§5 step 8) in the conversation when step 6 arrives.
+
+---
+
 ## 2026-08-01 — Reconcile after #94: a duplicate, a falsified issue, and two docs that disagree about what to build next
 
 **Did:** Archivist pass over `main` at `86eda1e`. Touched `ROADMAP.md`, `ARCHITECTURE.md` and one

@@ -171,17 +171,66 @@ describe('§4 invariant 1: avoiding all combat is unsustainable', () => {
     // the minimum the rules permit — 1 a turn. If *this* style could sustain itself, avoiding
     // combat would be a viable strategy and §4's first invariant would be decoration.
     //
-    // NOTE, measured in review: this style still collects ~98% of the caches on the floor (119 of
-    // 121 across this corpus), and cache fuel is its entire income. §4 says "caches are terrain
-    // and require light to find" and its vision table marks items Invisible while shuttered —
-    // **that rule is not enforced anywhere**, and `collectFuelUnderfoot` pays on the tile kind
-    // regardless of whether the tile was ever lit. See issue #31.
-    //
-    // The invariant below is unaffected in direction: enforcing the rule would make a dark
-    // pacifist dry out *sooner*, not later. But the calibration behind CINDER.emberDrop and
-    // CACHE_FUEL rests on ~37 fuel/floor of income a style §4 says should have none, so those two
-    // numbers should be re-derived when #31 lands.
+    // MEASURED, #31/#41 (this PR): this style used to collect **119 of the 121 caches** in this
+    // corpus — ~37 fuel a floor, and its entire income — because `collectFuelUnderfoot` paid on the
+    // tile kind while §4 said caches are terrain the lantern has to have shown you. The rule is now
+    // enforced, and its take is **0 of 121**. It survives 80 turns from a full reserve, which is
+    // 80 fuel at 1 a turn and no income at all: the arithmetic of a style with nothing coming in.
     for (const result of darkPacifist) expect(result.driedOnFloor).not.toBeNull();
+  });
+
+  it('gives the dark none of the light’s income, which is the rule §4 spent a milestone unenforced', () => {
+    // ═══ §4's cache rule, at the corpus tier (#31/#41, ruled 2026-08-01) ═══
+    //
+    // The unit suites pin the rule on one tile; this pins it on 80 played floors, which is where
+    // "the dark walks over caches anyway, because it is crossing the floor to find the stairs"
+    // was measured in the first place. It is the assertion the ruling was actually about.
+    //
+    // Stated as a **comparison between styles** rather than as an absolute, for the reason this
+    // whole file gives: the claim is that light has a product darkness cannot buy (§4 invariant 4),
+    // and that is a difference or it is nothing.
+    const take = (results: RunResult[]): { taken: number; available: number } => {
+      const floors = floorsOf(results);
+      return {
+        taken: floors.reduce((total, floor) => total + floor.cachesTaken, 0),
+        available: floors.reduce((total, floor) => total + floor.cachesOnFloor, 0),
+      };
+    };
+    const dark = take(darkPacifist);
+    const flashing = take(stalker);
+    console.log(
+      `cache take — stalker ${flashing.taken}/${flashing.available}, ` +
+        `dark pacifist ${dark.taken}/${dark.available} (was 121/121 and 119/121 before #31/#41)`,
+    );
+
+    // The corpus has caches in it at all. Without this, "the dark took none" is satisfied by a
+    // generator that placed none, and every number above and below would be about an empty ruin.
+    expect(dark.available).toBeGreaterThan(SEEDS * FLOORS);
+    expect(dark.available).toBe(flashing.available); // same seeds, same floors, same caches
+
+    // The dark takes **none**, and the flashing fighter takes nearly all of them. Not "fewer":
+    // `DARK_PACIFIST` never opens the shutter, so no tile it stands on has ever been lit, and there
+    // is no seed on which the rule can leak. A single leaked cache here is a rule with a hole.
+    //
+    // ── EXACTLY ZERO IS A FACT ABOUT THE HARNESS, NOT A CLAIM ABOUT THE GAME ────────────────────
+    //
+    // `arriveOn` builds every floor already shuttered and runs no lighting phase, so this style's
+    // `revealed` plane is empty for the whole run *by construction*. A real run is not like that:
+    // `beginRun` opens the lantern on arrival (§4), so floor 1's entrance room is lit before the
+    // player touches anything. Measured over 200 generated floor 1s, that opening field covers
+    // **65 of 305 caches (~21%)** — so a real never-flash player keeps roughly **0.2 caches a run**,
+    // not none.
+    //
+    // The difference is small and it runs in the harmless direction — the rule is marginally
+    // *looser* in play than this line reports, never stricter. But do not quote `toBe(0)` as a
+    // statement about the game: the game's number is "almost none, and the exception is the room
+    // you were standing in when the run began".
+    expect(dark.taken).toBe(0);
+    expect(flashing.taken).toBeGreaterThan(flashing.available * 0.7);
+
+    // And the whole of the dark style's *income* is gone with it, not merely reduced — a pacifist
+    // has no kills either, so cache fuel was all of it.
+    expect(floorsOf(darkPacifist).reduce((total, floor) => total + floor.income, 0)).toBe(0);
   });
 
   it('is combat that makes the difference, not the route', () => {
@@ -201,6 +250,20 @@ describe('§4 invariant 2: keeping the shutter open is unsustainable, and faster
     // The controlled comparison for *light*: `FLOODLIT_PACIFIST` and `PACIFIST` fight the same
     // amount (never) and explore the same way; one holds the shutter open. Measured in turns
     // survived rather than floors, because turns are what the burn rate is charged against.
+    //
+    // ═══ THE INSTRUMENT UNDER THIS MOVED IN #31/#41, AND IT IS THE INSTRUMENT THAT MOVED ═══
+    //
+    // `driedAfterTurns` used to sum whole *floors* — its own docstring said so, and said to use it
+    // for ordering only. That was tolerable while the styles dried on different floors. It stopped
+    // being tolerable the moment the cache rule landed: every pacifist style now dries on floor 1,
+    // so the number became the length of floor 1 and the ordering below inverted (163 flashing
+    // against 117 dark) while measuring how far each style *wandered*, not how long it stayed
+    // solvent. The field now records the turn fuel actually hit 0, which is what the sentence above
+    // has always claimed it was, and the ordering is back: **26 floodlit, 65 flashing, 80 dark**.
+    //
+    // That is instrument calibration and not a threshold move (#105): the assertions are unchanged
+    // and the quantity now matches its label. The dark pacifist's 80 is worth reading — 80 fuel at
+    // 1 a turn, income zero — which is the cache rule's whole effect in one number.
     const held = median(floodlitPacifist.map(turnsToDry));
     const flashed = median(pacifist.map(turnsToDry));
     const never = median(darkPacifist.map(turnsToDry));
@@ -229,6 +292,27 @@ describe('§4 invariant 3: a floor played well nets slightly positive', () => {
     .map((floor) => floor.income / floor.demand);
 
   it('is positive', () => {
+    // ═══ #105: WHAT #31/#41 DID TO THIS NUMBER, AND WHICH OF THE TWO FINDINGS IT WAS ═══
+    //
+    // #105 was filed before the cache rule was implemented, predicting that `STALKER` might lose
+    // 5-10 of an 11-fuel margin here and take this assertion red on a PR behaving as designed. It
+    // did not. Measured across this corpus, before and after:
+    //
+    //     cache take     121/121 (100%)  ->  114/121 (94%)
+    //     cache income   37.8/floor      ->  35.6/floor
+    //     median net     +8/floor        ->  +7/floor
+    //
+    // **`STALKER` barely moved, which is the ruling's own prediction and not its falsifier.** The
+    // falsifier was a *collapse* in the flashing style's take, which would have meant the
+    // intervention was mis-aimed and the real fault was §5's leaf-room bias. It flashes more than
+    // three times a floor across ~6 rooms, so nearly every cache is still inside something it lit;
+    // the 7 it loses are the ones on floors it crossed without ever lighting that room.
+    //
+    // Meanwhile a style that never opens the shutter went from 119/121 to **0**, which is the whole
+    // point: `CACHE_FUEL` is now light's exclusive income and therefore an actual dial for §4's
+    // invariant 4. **No game constant moved in this PR**, per the roadmap's build order — the
+    // re-derivation of `CINDER.emberDrop` and `CACHE_FUEL` is a later step and would otherwise be
+    // calibrated against the contaminated corpus this rule exists to clean.
     console.log(`stalker: net ${net} per floor, income/spend ${median(ratios).toFixed(2)}`);
     expect(net).toBeGreaterThan(0);
     expect(median(ratios)).toBeGreaterThan(1);

@@ -7,10 +7,13 @@
  *
  * ## What is state and what is derived
  *
- * `Vision` is the three things that survive a turn: which way the shutter is set, how far
- * ember-sense currently reaches, and what terrain has ever been seen. Everything else — the lit
- * field, the felt creatures — is recomputed from the map every turn by `perceive`, because storing
- * it would mean a second copy of the truth that can disagree with the first.
+ * `Vision` is the four things that survive a turn: which way the shutter is set, how far
+ * ember-sense currently reaches, what terrain has ever been seen, and what terrain the *lantern*
+ * has ever shown you. Everything else — the lit field, the felt creatures — is recomputed from the
+ * map every turn by `perceive`, because storing it would mean a second copy of the truth that can
+ * disagree with the first.
+ *
+ * The last of the four is new and is §4's cache rule; see *WHAT THE LANTERN HAS SHOWN YOU* below.
  *
  * ## The transitions are the rules
  *
@@ -19,7 +22,7 @@
  * if it reset the ramp, a stray no-op command would blind the player for four turns.
  */
 
-import type { Grid } from '../map';
+import { FLOOR, tileAt, type Grid, type Tile } from '../map';
 import { assertNever } from '../core/assert';
 import { emptyTileSet, hasTile, tileSetContains, unionTileSets, type TileSet } from './tileset';
 
@@ -74,6 +77,11 @@ export type Vision = {
   readonly senseRadius: number;
   /** Every tile ever perceived. Permanent, and never shrinks. The renderer dims these. */
   readonly remembered: TileSet;
+  /**
+   * Every tile the **lantern** has ever lit — a subset of `remembered`, and the other monotone
+   * plane. §4's cache rule reads this one and nothing else reads it; see the block below.
+   */
+  readonly revealed: TileSet;
 };
 
 /**
@@ -95,7 +103,15 @@ export type Vision = {
  * whoever owns the start of a run, not with FOV. (`game/systems/run.ts` answers it: open.)
  */
 export function createVision(grid: Grid, shutter: ShutterState): Vision {
-  return { shutter, senseRadius: ADAPTATION_FLOOR, remembered: emptyTileSet(grid) };
+  return {
+    shutter,
+    senseRadius: ADAPTATION_FLOOR,
+    remembered: emptyTileSet(grid),
+    // Empty even when the shutter starts open: the lantern has not *lit* anything yet. §2 phase 3
+    // is what fills this in, and `run.ts` runs it once before the first command precisely so that
+    // the opening room is revealed by the same rule every other room is.
+    revealed: emptyTileSet(grid),
+  };
 }
 
 /**
@@ -105,7 +121,12 @@ export function createVision(grid: Grid, shutter: ShutterState): Vision {
  */
 export function closeShutter(vision: Vision): Vision {
   if (vision.shutter === 'shuttered') return vision;
-  return { shutter: 'shuttered', senseRadius: ADAPTATION_FLOOR, remembered: vision.remembered };
+  return {
+    shutter: 'shuttered',
+    senseRadius: ADAPTATION_FLOOR,
+    remembered: vision.remembered,
+    revealed: vision.revealed,
+  };
 }
 
 /**
@@ -117,7 +138,13 @@ export function closeShutter(vision: Vision): Vision {
  */
 export function openShutter(vision: Vision): Vision {
   if (vision.shutter === 'open') return vision;
-  return { shutter: 'open', senseRadius: vision.senseRadius, remembered: vision.remembered };
+  return {
+    shutter: 'open',
+    senseRadius: vision.senseRadius,
+    remembered: vision.remembered,
+    // Opening reveals nothing by itself. The light has to *fall* somewhere, which is phase 3.
+    revealed: vision.revealed,
+  };
 }
 
 /** Set the shutter either way. The command layer's entry point; dispatches to the two transitions. */
@@ -150,6 +177,7 @@ export function adaptVision(vision: Vision): Vision {
     // so a later mutation run does not spend time re-deriving that it is harmless.
     senseRadius: Math.min(vision.senseRadius + ADAPTATION_STEP, EMBER_SENSE_RADIUS),
     remembered: vision.remembered,
+    revealed: vision.revealed,
   };
 }
 
@@ -166,7 +194,76 @@ export function remember(vision: Vision, perceived: TileSet): Vision {
     shutter: vision.shutter,
     senseRadius: vision.senseRadius,
     remembered: unionTileSets(vision.remembered, perceived),
+    revealed: vision.revealed,
   };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+// WHAT THE LANTERN HAS SHOWN YOU — GDD §4, ruled 2026-08-01 (#31, #41)
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+//
+// > **A cache is terrain the lantern has to have shown you. Until it has, the tile is floor to you
+// > — you feel it, you walk over it, and nothing happens. Once it has, it is yours whenever you
+// > stand on it, lit or not.**
+//
+// Both halves of that rule read one bit, which is why it is one plane and not two mechanisms:
+//
+//   - **Perception.** `perceivedTileAt` reports a cache the lantern has not lit as ordinary
+//     `floor`. Not as *nothing*: the tile still enters `remembered` by the ordinary route, because
+//     a permanent blank cell in ground you have crawled is a **better** cache detector than the `♦`
+//     would have been, and because it would break §4's *"you always know your own four
+//     neighbours"*, which §2 spends to refuse an illegal move for free.
+//   - **Collection.** `game/systems/light.ts` phase 5 pays a cache only where `hasBeenLit`. Keyed
+//     on **ever** lit rather than *currently* lit: at 0 fuel the shutter cannot open, so the
+//     stricter reading would falsify §4's own "a kill or a cache re-opens the shutter the moment it
+//     lands" in exactly the desperate state that sentence protects — and it would manufacture an
+//     autopilot, since the shutter is free and §2 runs phase 5 on free actions, so `open`-`shut` on
+//     a cache tile would take it for 4 fuel and no turns.
+//
+// **Ember a kill drops is not covered and must not be.** A drop is an actor-layer value on a tile
+// you chose to fight on; you know it is there because you made it (§4, and #81 for drawing it).
+//
+// This plane is **monotone and per floor**, exactly like `remembered`: it only grows, and §13 says
+// a descent leaves the map behind, so `arriveOnFloor` rebuilds it from the new grid rather than
+// carrying it. It is run state and a replay reproduces it — see `RULES_VERSION` 4.
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Fold a lit field into the tiles the lantern has revealed.
+ *
+ * Union only, like `remember`, and the same identity shortcut: standing still in a room you have
+ * already lit allocates nothing. The caller is §2 phase 3, and it calls this **only** with the
+ * shutter open — touch reveals nothing, which is the whole rule.
+ */
+export function revealByLight(vision: Vision, lit: TileSet): Vision {
+  if (tileSetContains(vision.revealed, lit)) return vision;
+  return {
+    shutter: vision.shutter,
+    senseRadius: vision.senseRadius,
+    remembered: vision.remembered,
+    revealed: unionTileSets(vision.revealed, lit),
+  };
+}
+
+/** Has the lantern ever lit `(x, y)`? Out of bounds is `false`, per `hasTile`. */
+export function hasBeenLit(vision: Vision, x: number, y: number): boolean {
+  return hasTile(vision.revealed, x, y);
+}
+
+/**
+ * The tile as the **player** knows it, which is the tile any consumer above `game/` must draw.
+ *
+ * Exactly one kind diverges and it diverges one way only: an ember cache the lantern has never lit
+ * reads as `floor`. Everything else — including a cache it *has* lit, lit or shuttered right now —
+ * is itself. This is the function `render/` calls instead of indexing `grid.tiles`, so that the
+ * §4 rule lives here rather than being re-decided by whichever layer happens to be drawing.
+ *
+ * @throws if `(x, y)` is off the grid — the same contract as `tileAt`, for the same reason.
+ */
+export function perceivedTileAt(grid: Grid, vision: Vision, x: number, y: number): Tile {
+  const tile = tileAt(grid, x, y);
+  if (tile.kind !== 'cache') return tile;
+  return hasBeenLit(vision, x, y) ? tile : FLOOR;
 }
 
 /** How much the player knows about one tile. The three states the renderer draws (§4, §10). */

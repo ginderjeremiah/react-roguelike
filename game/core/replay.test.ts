@@ -1,8 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { diveToTheBottom, headingTo, standUntilDead, stepTowardOnGrid } from '@/tests/unit/support/run-script';
-import { CACHE_FUEL, CINDER, FUEL_BURN_LIT, LAST_FLOOR, PLAYER_MAX_HP, STARTING_FUEL } from '../content';
+import {
+  CACHE_FUEL,
+  CINDER,
+  FUEL_BURN_LIT,
+  FUEL_BURN_SHUTTERED,
+  LAST_FLOOR,
+  PLAYER_MAX_HP,
+  STARTING_FUEL,
+} from '../content';
 import { isAlive, playerOf } from '../entities';
-import { expectedDrawCount, samePosition } from '../map';
+import { hasBeenLit, hasTile, tileSetContains, tileSetsEqual } from '../fov';
+import { expectedDrawCount, samePosition, tileAt } from '../map';
 import { createRng, int, next, pick, type Draw, type Rng } from '../rng';
 import { DIRECTIONS, SHUTTER_STATES, type Command } from './command';
 import {
@@ -833,7 +842,7 @@ describe('RunRecord', () => {
 // --- Pinned run ---------------------------------------------------------------------------------
 
 /**
- * A stored replay fixture, pinned at `RULES_VERSION` 3.
+ * A stored replay fixture, pinned at `RULES_VERSION` 4.
  *
  * Everything above proves the simulation reproduces *itself*. Nothing above notices if what it
  * reproduces silently changes — a different fuel burn, a reordered phase, a different seed
@@ -881,6 +890,13 @@ type Digest = {
   readonly shutter: string;
   readonly senseRadius: number;
   readonly remembered: number;
+  /**
+   * §4's cache rule (#31/#41): tiles the **lantern** has lit, which is what makes a cache takeable.
+   * Pinned separately from `remembered` because the two are equal on a run that never shutters and
+   * on a run that never opens — so a digest holding only one of them would be blind to a bug that
+   * grew the wrong plane on exactly the mixed runs the rule is about.
+   */
+  readonly revealed: number;
   readonly player: { readonly x: number; readonly y: number };
   readonly hp: number;
   /**
@@ -905,6 +921,7 @@ function digest(state: GameState): Digest {
     shutter: state.lantern.vision.shutter,
     senseRadius: state.lantern.vision.senseRadius,
     remembered: state.lantern.vision.remembered.flags.filter(Boolean).length,
+    revealed: state.lantern.vision.revealed.flags.filter(Boolean).length,
     player: playerOf(state.world).at,
     hp: playerOf(state.world).hp,
     creatures: state.world.actors
@@ -931,7 +948,7 @@ function expectPinned(record: RunRecord, pinned: Digest): void {
 
 describe('pinned run — a descent in the dark', () => {
   const PINNED_RECORD: RunRecord = {
-    version: 3,
+    version: 4,
     seed: 'emberdepth',
     // A dark crawl across floor 1 to its stairs, a descent, and three commands on the floor below —
     // one of which (the move north) is refused by the new floor's geometry, which is why the two
@@ -975,6 +992,10 @@ describe('pinned run — a descent in the dark', () => {
     shutter: 'open',
     senseRadius: 5,
     remembered: 38,
+    // Equal to `remembered`, and that is a fact about this log rather than a tautology: the last
+    // command opens the shutter, and floor 2's touch tiles from the two commands before it are all
+    // inside the lit field that follows. The third fixture below is the one where they differ.
+    revealed: 38,
     player: { x: 6, y: 5 },
     hp: 12,
     // Floor 2's spawn, undisturbed: four Cinders, where the generator put them, all still asleep.
@@ -1049,7 +1070,7 @@ describe('pinned run — the whole combat loop, ending in a death', () => {
    * time changes silently whenever the script does, which is the one thing a fixture must not do.
    */
   const PINNED_RECORD: RunRecord = {
-    version: 3,
+    version: 4,
     seed: 'ember-z',
     commands: [
       { kind: 'setShutter', to: 'shuttered' },
@@ -1104,6 +1125,9 @@ describe('pinned run — the whole combat loop, ending in a death', () => {
     shutter: 'open',
     senseRadius: 5,
     remembered: 66,
+    // Equal to `remembered` again, for the same reason: this log spends its dark half retracing one
+    // corridor it had already lit.
+    revealed: 66,
     player: { x: 9, y: 8 },
     hp: 0,
     creatures: [
@@ -1206,5 +1230,163 @@ describe('pinned run — the whole combat loop, ending in a death', () => {
     // it is what makes this run's `fuelBurned` exceed `STARTING_FUEL - fuel` by exactly one ember.
     expect(final.fuelBurned).toBe(STARTING_FUEL - final.lantern.fuel + CINDER.emberDrop);
     expect(final.fuelBurned).toBeGreaterThan(STARTING_FUEL - final.lantern.fuel);
+  });
+});
+
+describe('pinned run — a cache the lantern found, hauled home in the dark', () => {
+  /**
+   * The third fixture, and the one #31/#41 owes the tripwire: **no stored run took a cache.**
+   *
+   * The two above pin generation, movement, fuel, the shutter, descent and the whole combat loop,
+   * and neither of them ever picks a cache up — so §4's cache rule could have been written, or
+   * un-written, without a single fixture noticing. This log is the rule end to end, and it is also
+   * the only fixture in the repo where `remembered` and `revealed` are different numbers, which is
+   * the whole substance of the new plane.
+   *
+   * `cache-haul`'s floor 1 holds two caches, at (7, 6) and (9, 9).
+   *
+   *   1. **command 1** — shutter. The run opens lit (§4) and the entrance room is already revealed;
+   *      this is where the crawl starts.
+   *   2. **commands 2-13** — twelve turns of dark crawl to the tile above the cache at (7, 6). The
+   *      cache is felt as ordinary floor the whole way and pays nothing, which is #41's half of the
+   *      ruling. Nothing wakes: §4 says nothing wakes in the dark.
+   *   3. **command 14** — `setShutter open`. Free (§2), 4 fuel, and phase 3 folds the lit field into
+   *      `revealed`. **It also wakes a Cinder**, which is §4's price of a flash and is why the
+   *      creature below is `awake` with a declared move.
+   *   4. **command 15** — `setShutter shuttered`, before a single step is taken. This is the
+   *      fixture's point: the pickup that follows happens with the lantern **shut**, so it pins
+   *      *ever* lit rather than *currently* lit. Under the rejected reading it pays nothing and
+   *      every number below changes.
+   *   5. **command 16** — step south onto the cache. Phase 5 pays 25, the tile becomes floor, and
+   *      (7, 6) leaves `floor.caches`. (9, 9) is still there, untouched and unlit.
+   *
+   * Recorded by running `takeACacheTheLanternFound('cache-haul')` once and storing the resulting log
+   * verbatim — stored, not regenerated, for the reason the fixture above gives.
+   */
+  const PINNED_RECORD: RunRecord = {
+    version: 4,
+    seed: 'cache-haul',
+    commands: [
+      { kind: 'setShutter', to: 'shuttered' },
+      { kind: 'move', dir: 'east' },
+      { kind: 'move', dir: 'south' },
+      { kind: 'move', dir: 'east' },
+      { kind: 'move', dir: 'south' },
+      { kind: 'move', dir: 'east' },
+      { kind: 'move', dir: 'east' },
+      { kind: 'move', dir: 'south' },
+      { kind: 'move', dir: 'east' },
+      { kind: 'move', dir: 'east' },
+      { kind: 'move', dir: 'south' },
+      { kind: 'move', dir: 'south' },
+      { kind: 'move', dir: 'west' },
+      { kind: 'setShutter', to: 'open' },
+      { kind: 'setShutter', to: 'shuttered' },
+      { kind: 'move', dir: 'south' },
+    ],
+  };
+
+  const PINNED_DIGEST: Digest = {
+    status: 'running',
+    floorNumber: 1,
+    // 16 commands, 2 of them free (§2), so 13 turns.
+    turnsElapsed: 13,
+    commandsResolved: 16,
+    kills: 0,
+    // 15 shuttered commands at 1 and the one `open` at 4. The 25 off the cache is income and does
+    // not come off it: 80 - 19 + 25 == the 86 below.
+    fuelBurned: 19,
+    now: 1300,
+    fuel: 86,
+    // Shut on command 15 and never reopened — so the collection on command 16 happened in the dark.
+    shutter: 'shuttered',
+    // One turn of §2 phase 6 since the shutter closed: the ramp is at 2, not at 5. A second
+    // statement of the same fact, because a fixture that collected while lit would read 'open' here.
+    senseRadius: 2,
+    // **The two planes disagree, and that is the assertion.** 69 tiles perceived, 61 of them lit by
+    // the lantern: the difference is the eight-odd tiles this run only ever felt. On the fixtures
+    // above the two numbers are equal, so this is the only place a bug that grew `revealed` from
+    // touch — which would hand the dark every cache on the floor again — is visible.
+    remembered: 69,
+    revealed: 61,
+    player: { x: 7, y: 6 },
+    hp: 12,
+    creatures: [
+      // Woken by the flash on command 14 and coming: §4's price, paid in the same breath as the
+      // cache was found.
+      {
+        at: { x: 6, y: 7 },
+        hp: 5,
+        mind: {
+          kind: 'awake',
+          intent: { kind: 'move', to: { x: 6, y: 6 } },
+          awareness: { kind: 'lastSeen', at: { x: 7, y: 5 } },
+          turnsSinceContact: 0,
+        },
+      },
+      { at: { x: 10, y: 8 }, hp: 5, mind: { kind: 'dormant' } },
+      { at: { x: 4, y: 12 }, hp: 5, mind: { kind: 'dormant' } },
+    ],
+    embers: [],
+    rng: { s0: 1846781296, s1: 3875458717, s2: 4216625777, s3: 1218200354 },
+  };
+
+  it('reproduces the stored final state exactly', () => {
+    expectPinned(PINNED_RECORD, PINNED_DIGEST);
+  });
+
+  it('took the cache in the dark, and only the one the lantern had lit', () => {
+    // The digest above is one frame; this is the trajectory that makes the frame worth pinning, and
+    // it is where the ruling's three clauses are checked as events rather than as a fuel total.
+    const states = runStates(PINNED_RECORD.seed, PINNED_RECORD.commands);
+    const start = states[0];
+    const final = states[states.length - 1];
+    const taken = { x: 7, y: 6 };
+
+    // The setup this whole fixture rests on: the cache was there at the start, and the player's
+    // route ends on its tile. Without this the assertions below are about an empty tile.
+    expect(start.world.floor.caches).toContainEqual(taken);
+    expect(playerOf(final.world).at).toEqual(taken);
+
+    // #41: the crawl felt the ground around the cache without the lantern ever showing it. So at
+    // the moment before the flash, the tile the player is about to stand on has been *perceived*
+    // and has **not** been lit — which is the exact state the rejected "skip the tile" reading
+    // could not represent.
+    const beforeTheFlash = states[13];
+    expect(beforeTheFlash.lantern.vision.shutter).toBe('shuttered');
+    expect(hasTile(beforeTheFlash.lantern.vision.remembered, taken.x, taken.y)).toBe(true);
+    expect(hasBeenLit(beforeTheFlash.lantern.vision, taken.x, taken.y)).toBe(false);
+    // ...and it was still a cache: nothing was collected or consumed by walking past it.
+    expect(tileAt(beforeTheFlash.world.floor.grid, taken.x, taken.y).kind).toBe('cache');
+    expect(beforeTheFlash.lantern.fuel).toBe(STARTING_FUEL - 13);
+
+    // #31: the flash reveals it, the shutter closes again, and the payout lands on a turn with the
+    // lantern shut. `fuel` going *up* while `shutter` is `shuttered` is the ruling in one line.
+    const flashed = states[14];
+    expect(hasBeenLit(flashed.lantern.vision, taken.x, taken.y)).toBe(true);
+    const shut = states[15];
+    expect(shut.lantern.vision.shutter).toBe('shuttered');
+    expect(final.lantern.fuel).toBe(shut.lantern.fuel - FUEL_BURN_SHUTTERED + CACHE_FUEL);
+    expect(tileAt(final.world.floor.grid, taken.x, taken.y).kind).toBe('floor');
+
+    // And exactly one cache moved. The floor's other cache at (9, 9) is inside the same flash, so
+    // it is *revealed* and still sitting there — which is the third thing worth pinning here:
+    // **lighting a cache does not take it.** Phase 3 reveals, phase 5 pays, and only for the tile
+    // the player is standing on. A revealing phase that also collected would empty this list.
+    expect(start.world.floor.caches).toHaveLength(2);
+    expect(final.world.floor.caches).toEqual([{ x: 9, y: 9 }]);
+    expect(hasBeenLit(final.lantern.vision, 9, 9)).toBe(true);
+    expect(tileAt(final.world.floor.grid, 9, 9).kind).toBe('cache');
+
+    // The other half of the plane's shape: `revealed` is a strict subset of `remembered`, over every
+    // state of the run. Equality would mean touch was growing it; a tile in `revealed` and not in
+    // `remembered` would mean the lantern lit ground the player never perceived.
+    let sawADifference = false;
+    for (const state of states) {
+      const vision = state.lantern.vision;
+      expect(tileSetContains(vision.remembered, vision.revealed)).toBe(true);
+      if (!tileSetsEqual(vision.remembered, vision.revealed)) sawADifference = true;
+    }
+    expect(sawADifference, 'the two planes were identical all run').toBe(true);
   });
 });

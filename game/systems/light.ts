@@ -78,9 +78,10 @@ import {
 import {
   adaptVision,
   computeLitField,
+  hasBeenLit,
   hasTile,
   perceive,
-  remember,
+  rememberPerception,
   type ShutterState,
   type TileSet,
 } from '../fov';
@@ -197,10 +198,15 @@ export function burnFuelPhase(state: LanternWorld): LanternWorld {
  * Two things happen and only one of them is visible in the state:
  *
  *   - **Terrain memory grows.** `perceive` resolves §4's vision table for this turn — the lit field
- *     with the shutter open, the 8 touchable tiles with it shut — and `remember` folds it in.
- *     Memory is the *only* part of a `TurnPerception` that is stored; the creature list and the
+ *     with the shutter open, the 8 touchable tiles with it shut — and `rememberPerception` folds it
+ *     in. Memory is the *only* part of a `TurnPerception` that is stored; the creature list and the
  *     lit field itself are recomputed by whoever needs them, because a second copy can disagree
  *     with the first (`fov/vision.ts`).
+ *
+ *     **Two planes grow, not one, and only one of them grows in the dark.** `remembered` takes
+ *     whatever was perceived; `revealed` takes it only under light, which is §4's cache rule
+ *     (#31/#41). The branch is `rememberPerception`'s and not this function's on purpose: it reads
+ *     `perception.terrainFrom`, so the shutter is consulted once, by `perceive`, rather than twice.
  *   - **Sleepers wake.** `wakeInLight` asks the injected light query and nothing else — light wakes
  *     things, proximity does not, or the dormant strike would not exist.
  *
@@ -218,14 +224,17 @@ export function lightingAndWakingPhase(state: LanternWorld): LanternWorld {
   const grid = world.floor.grid;
   const origin = playerOf(world).at;
 
-  const vision = remember(state.lantern.vision, perceive(grid, state.lantern.vision, origin, []).terrain);
+  const vision = rememberPerception(
+    state.lantern.vision,
+    perceive(grid, state.lantern.vision, origin, []),
+  );
   const lantern = { fuel: state.lantern.fuel, vision };
 
   // Built from `lantern` rather than `state.lantern` so that a shutter opened by this turn's command
-  // wakes the room this turn. The two differ only in `remembered`, which `lanternLight` does not
-  // read, so this is an equivalent mutant and a mutation run will not kill it — noted so a later run
-  // does not spend time re-deriving that. It is written this way because the next thing to enter
-  // `Vision` may well be something the query does read.
+  // wakes the room this turn. The two differ only in `remembered` and `revealed`, neither of which
+  // `lanternLight` reads, so this is an equivalent mutant and a mutation run will not kill it —
+  // noted so a later run does not spend time re-deriving that. It is written this way because the
+  // next thing to enter `Vision` may well be something the query does read.
   const light = lanternLight(grid, lantern, origin);
   return { world: wakeInLight(world, light), lantern };
 }
@@ -233,11 +242,24 @@ export function lightingAndWakingPhase(state: LanternWorld): LanternWorld {
 // --- phase 5: deaths, embers, caches ------------------------------------------------------------
 
 /**
- * Everything on the player's tile that is fuel, taken.
+ * Everything on the player's tile that is fuel **and that the player can take**, taken.
  *
  * §2 phase 5: "Deaths resolve; embers drop and are collected by walking over them." §4 adds the
  * other source: "ember caches in the level". Both are collected the same way — by being
  * stood on — so they are collected in the same place.
+ *
+ * ## The two sources are not collected under the same condition (#31/#41)
+ *
+ * §4, ruled 2026-08-01: **"a cache is terrain the lantern has to have shown you"**. So a cache pays
+ * only where `hasBeenLit`, and standing on an unlit one in the dark does nothing at all — no fuel,
+ * no cue, and the tile is untouched, so it is still there to be found later. **Ever lit, not
+ * currently lit**: the tile stays yours once the lantern has shown it to you, which is what keeps
+ * §4's "a kill or *a cache* re-opens the shutter" true at 0 fuel, where the shutter cannot open.
+ *
+ * **An ember a kill dropped is explicitly excluded from that rule and pays in the dark.** You know
+ * it is there because you made it, and a dormant strike whose ember you could not collect would
+ * delete darkness's one capability (§4). The asymmetry is the ruling, not an oversight: ember you
+ * made is yours; ember the ruin hid belongs to the lantern.
  *
  * **A collected cache stops being a cache.** The tile becomes floor and the position leaves
  * `floor.caches`, rather than being tracked in a parallel "already taken" list somewhere in run
@@ -247,12 +269,15 @@ export function lightingAndWakingPhase(state: LanternWorld): LanternWorld {
  * turns a cache is taken.
  *
  * Order between the two sources cannot matter — they are disjoint and the gains are summed — so
- * there is no sort here and nothing for a sort to fix.
+ * there is no sort here and nothing for a sort to fix. Nothing here draws from the generator on
+ * either branch, so the unlit case cannot shift the stream.
  */
 export function collectFuelUnderfoot(state: LanternWorld): LanternWorld {
   const at = playerOf(state.world).at;
   const embers = state.world.embers.filter((drop) => samePosition(drop.at, at));
-  const cache = tileAt(state.world.floor.grid, at.x, at.y).kind === 'cache';
+  const cache =
+    tileAt(state.world.floor.grid, at.x, at.y).kind === 'cache' &&
+    hasBeenLit(state.lantern.vision, at.x, at.y);
   if (embers.length === 0 && !cache) return state;
 
   let gained = 0;

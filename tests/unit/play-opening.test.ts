@@ -61,11 +61,19 @@ describe('the line a run already owes on its opening frame (§4, #79)', () => {
     expect(opened.message).toBeNull();
   });
 
-  it('describes the run it returns, never a second run begun to describe the first', () => {
-    // `openRun` hands back the pair from one `beginRun` call. A caller that began a run and then
-    // asked a separate helper for "the opening message for this seed" would be describing a
-    // different run object — identical today, and a silent lie the moment a run stops being a pure
-    // function of its seed alone (a resumed save, #47's platform seed, a daily challenge).
+  it('returns the line that describes the cues of the run it returns', () => {
+    // ── What this checks, and what it deliberately does NOT ──────────────────────────────────────
+    // It checks the pair is consistent: the message is `describeTurn` of the returned run's cues.
+    //
+    // An earlier title claimed more — "never a second run begun to describe the first" — and review
+    // showed the body cannot check that: `{ run: beginRun(s), message: describeTurn(cuesOf(beginRun(s))) }`
+    // passes, because two runs on one seed produce equal cue lists and therefore an equal string.
+    // The property is real and is why `openRun` returns a pair (a caller that began a run and then
+    // asked a separate helper for "the opening message for this seed" would describe a *different*
+    // run object — identical today, a silent lie the moment a run stops being a pure function of its
+    // seed alone: a resumed save, #47's platform seed, a daily challenge). It is simply not
+    // reachable without instrumenting `beginRun`, so it lives in `opening.ts`'s header as a design
+    // constraint rather than here as an assertion that cannot fail.
     const opened = openRun(WAKING_SEED);
     expect(opened.message).toBe(describeTurn(cuesOf(opened.run)));
     expect(sceneOf(opened.run).hud.floor.number).toBe(1);
@@ -105,28 +113,63 @@ describe('the screen uses it — for the first run and for RUN AGAIN alike', () 
    * `app/index.tsx` imports `react-native`, so Vitest cannot load it, and the fixed seed means no
    * E2E can reach an opening that wakes (see this file's header). That leaves reading the file.
    * There is precedent — `tests/unit/infrastructure.test.ts` scans sources for layer violations that
-   * no runtime test can observe — and the bar is the same: assert the *shape of the mistake*, not
-   * the formatting.
+   * no runtime test can observe.
    *
-   * These two go red against the version of `app/index.tsx` that shipped this defect, which is the
-   * whole point of writing them.
+   * ## These assert what the screen DOES, because the negative form was dodgeable
+   *
+   * The first version of this block was two `not.toMatch` assertions: no `useState<string |
+   * null>(null)`, and no `setMessage(null)` as the last statement of a `useCallback`. Review broke
+   * them **by demonstration** — it restored the original bug on *both* paths and all seven tests
+   * here stayed green:
+   *
+   * ```tsx
+   * const [message, setMessage] = useState<string | null>(NO_MESSAGE);   // === null, from ./messages
+   * const onRestart = useCallback(() => {
+   *   const restarted = openRun(SEED);
+   *   setMessage(NO_MESSAGE);
+   *   setRun(restarted.run);
+   * }, []);
+   * ```
+   *
+   * That is not a contrived evasion — `NO_MESSAGE` is this codebase's own name for that value, and
+   * reordering two `set` calls is the kind of thing a refactor does without thinking. A negative
+   * assertion bans **one spelling of the mistake**, and there are unboundedly many spellings; a
+   * positive assertion names the **one spelling that is correct**, and there is one. The evasion
+   * above cannot produce either line below.
+   *
+   * The negatives are kept alongside as a second line, but they are not what is load-bearing here.
+   * They were also brittle in the wrong direction — `toHaveLength(2)` on `openRun(SEED)` fails a
+   * correct refactor to a shared `const open = () => openRun(SEED)` — so the count is gone.
    */
-  it('does not start the line at a literal, which is the defect verbatim', () => {
-    expect(CODE, 'the opening line must come from the run, not from a literal').not.toMatch(
-      /useState<string \| null>\(\s*null\s*\)/,
+  it('feeds the opening line from the opened run, not from a literal', () => {
+    // The defect verbatim was `useState<string | null>(null)`: a run begun, its cues computed by
+    // nobody, and the line under the board starting blank on a turn that owed the player a sentence.
+    expect(CODE, 'the first render takes its line from the run it opened').toMatch(
+      /useState<string \| null>\(\s*opened\.message\s*\)/,
     );
-    expect(CODE, 'a restart must not clear the line it has just been given').not.toMatch(
-      /setMessage\(\s*null\s*\)\s*;?\s*\n\s*\}, \[\]\)/,
+    expect(CODE, 'and the run on screen is that same run').toMatch(
+      /useState<Run>\(\s*opened\.run\s*\)/,
     );
   });
 
-  it('routes both the first run and the restart through `openRun`', () => {
-    // Two call sites, because there are two ways a fresh run appears on this screen and only one of
-    // them was ever going to be remembered. `beginRun` must not be reached for either: it returns a
-    // `Run` and no sentence, which is precisely the shape that lost the line.
-    expect(CODE.match(/openRun\(SEED\)/g) ?? [], 'openRun(SEED), twice').toHaveLength(2);
+  it('feeds the restart line from the restarted run, not from a literal', () => {
+    // The second half of the defect, and the half that would have survived a fix aimed only at the
+    // first: `onRestart` cleared the line it had just been handed, so every run after the first in a
+    // session was silent too.
+    expect(CODE, 'RUN AGAIN takes its line from the run it opened').toMatch(
+      /setMessage\(\s*restarted\.message\s*\)/,
+    );
+    expect(CODE, 'and both halves come from one `openRun`, so they cannot drift').toMatch(
+      /const restarted = openRun\(SEED\)/,
+    );
+  });
+
+  it('never begins a run without describing it', () => {
+    // `beginRun` returns a `Run` and no sentence, which is precisely the shape that lost the line.
+    // The screen must not be able to reach it at all; `openRun` is the only door.
     expect(CODE, 'the screen no longer begins a run without describing it').not.toMatch(
       /\bbeginRun\s*\(/,
     );
+    expect(CODE, 'and it does open runs').toMatch(/\bopenRun\(SEED\)/);
   });
 });

@@ -104,8 +104,13 @@ type BoardSpace = { readonly width: number; readonly height: number };
 export default function GameScreen() {
   const theme = useGameTheme();
   // One `openRun` call feeds both pieces of state, so the board and the line under it are always
-  // describing the same run. Both initialisers are lazy, so the run is begun once and not on every
-  // render — and `opened` is read only during the first render, which is why it is not a ref.
+  // describing the same run. `opened` is read only during the first render, which is why it is not
+  // a ref.
+  //
+  // **Only the first initialiser is lazy, and it is the one that matters.** The two below are eager
+  // property reads of an object that already exists — cheap, and correct. Do not "simplify" either
+  // to `useState<Run>(openRun(SEED).run)`: that spelling looks equivalent and calls `openRun` — a
+  // whole `generateFloor` — on **every render**, throwing the result away each time.
   const [opened] = useState(() => openRun(SEED));
   const [run, setRun] = useState<Run>(opened.run);
   const [message, setMessage] = useState<string | null>(opened.message);

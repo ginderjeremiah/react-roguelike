@@ -167,8 +167,9 @@ the hunter is not. **No E2E currently takes a lit descent**, so nothing exercise
 *(An earlier draft of this entry claimed `e2e/run-loop.spec.ts`'s `/floor 2/` assertion was a latent
 red that "passes only because that seed's arrival wakes nobody". That was wrong, and review caught
 it: the spec shuts the shutter before descending and drives `wander` with `relight: false`, so its
-arrival is dark **by construction**, not by luck — and `cues.test.ts` pins that a shuttered arrival
-wakes nothing on any seed. Corrected in place rather than left standing, because a fabricated
+arrival is dark **by construction**, not by luck — and `cues.test.ts` pins a shuttered arrival as
+waking nothing (on one seed; the guarantee comes from §4's rule, not from that test's coverage).
+Corrected in place rather than left standing, because a fabricated
 fragility in the journal costs the next session either a wild goose chase or a "hardening" of a spec
 that is already deterministic.)*
 

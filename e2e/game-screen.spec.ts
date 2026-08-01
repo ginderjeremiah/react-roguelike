@@ -450,7 +450,10 @@ test('a wake reaches the line under the board, and says how many (§4, #79)', as
   // **This opening is silent because nothing woke, not because openings are silent.** §4 starts the
   // lantern open and `beginRun` runs phase 3, so roughly one launch in ten already has a wake
   // sentence on it before a finger touches the screen (`tests/unit/play-opening.test.ts` measures
-  // it); `emberdepth` is one of the other nine, which `session/run.test.ts` asserts by seed.
+  // it); `emberdepth` is one of the other nine, which the same file pins by name as its `QUIET_SEED`.
+  // (An earlier draft of this comment sent the reader to `session/run.test.ts`, which uses the seed
+  // `'session'` and never mentions `emberdepth` — so a future red here would have been debugged
+  // against a test about a different world.)
   //
   // So this is a real assertion in both directions now. It fails if the opening census ever starts
   // reporting creatures the light did not wake — the census reads `after` alone, so an over-broad

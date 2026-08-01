@@ -907,7 +907,7 @@ signal whose entire job is to be caught before you read the sentence. So:
   as heavy as the control labels. It survives greyscale, every colourblindness, and both schemes.
 - **Colour is the second, and it gets its own tokens.** The theme grows a closed pair — `alarm` and
   `report` — named separately from `text` and `textDim`, and **a theme may not map both to the same
-  value** (the same assertion `game-theme.test.ts` already makes of `ColorToken`). Not `token.creature`,
+  value** (the same assertion `tests/unit/play-theme.test.ts` already makes of `ColorToken`). Not `token.creature`,
   which the issue proposed: that is a *board* role meaning "a creature seen in light", it is wrong for
   `You take N.` and `The lantern goes out.`, and reusing it would let a retune intended for the board
   silently move the chrome. `report`'s **value** may stay where `textDim` is today; what is ruled is

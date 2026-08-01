@@ -579,10 +579,13 @@ test('one control, two volumes: a flash that wakes is drawn louder than one that
 
   // ── AND THE ROW NEVER MOVED THE THING THE PLAYER IS AIMING AT ────────────────────────────────
   //
-  // §10 raised the turn line's size, and the row it lives in is 71pt of the gap between the board
-  // and the thumb controls. It reserves two lines' height whether or not it uses them
-  // (`status-line.tsx`) precisely so that a message appearing — or getting louder — cannot resize
-  // the board underneath it. `board.tsx` resolves a press by measuring where the board is, so a
+  // §10 raised the turn line from 13px to 14px, inside a row whose height is a **fixed 34pt**
+  // (`status-line.tsx`, which carries the arithmetic: one 18pt line plus 8pt of padding is 26, so
+  // the bump has 8pt of slack and cannot resize the row). The point of the fixed height is that a
+  // message appearing — or getting louder — cannot resize the board underneath it. A draft of the
+  // implementation reserved *two* lines instead, and the overflow spec below caught it costing a
+  // point of desktop cell; do not restore that reading of this comment.
+  // `board.tsx` resolves a press by measuring where the board is, so a
   // board that moved when the line changed would be #20's stale-origin bug arriving from a third
   // direction. A one-pixel tolerance for sub-pixel layout, and no more.
   for (const [when, box] of [

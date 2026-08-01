@@ -13,7 +13,7 @@
  * **These numbers are provisional and are expected to move.** M4 owns colour and typography; what
  * this file owes the project until then is (a) a total mapping, so no token renders as transparent,
  * and (b) enough contrast that the first playtest is about the game rather than about squinting.
- * `tests/unit/game-theme.test.ts` holds both to account.
+ * `tests/unit/play-theme.test.ts` holds both to account.
  *
  * ## What this table may not do
  *

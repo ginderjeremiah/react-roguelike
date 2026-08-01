@@ -126,6 +126,46 @@ and — the one the ruling explicitly warns about — `computeTouchField` *skipp
 is the cheap wrong fix and leaves a permanent hole where the cache is (9, including the four-neighbour
 guarantee and the dry-crawl route in `economy.test.ts`).
 
+**Playtested — the rule lands, and it produced the first measurement that makes light pay.** Nine
+runs, four deliberate styles. Head to head on floor 1: never-flash **22 turns / 97 fuel / 12 HP**,
+clear-then-flash **24 turns / 115 fuel / 12 HP** — so *clear the dormants in the dark, then open on a
+tile you know is safe* now beats never opening at all, by **+18 fuel**. That is the first time in this
+project's measurements that flashing has won anything. The teaching moment also reads: walk a tile in
+the dark, flash the room three turns later, and the `♦` appears in saturated amber on a dim remembered
+map. And the design's rejection of a "scuff" cue **survives contact** — stepping onto an unlit cache
+advances the turn, grows the map and ticks fuel, so the silence reads as *nothing was there* rather
+than as a missed input. §2's dead-tap concern is about a **press**; this is a step that visibly
+resolved. Do not add the cue.
+
+**Two findings, and the first is this PR's own doing.**
+
+**A cache taken by opening the shutter is announced by nothing (#107).** §10's precedence is
+`player death > player damage > woke > recency`, and `fuelGained` lives in recency — so a flash that
+wakes something *and* pays a cache reads `Two things wake.` and never mentions the fuel. **This is new
+here and it is a regression the precedence table could not have anticipated:** it was ruled when a
+cache could only be taken by *stepping* on one, which never coincides with a flash. This rule makes
+the two simultaneous, so the PR's own payoff is the thing that goes unsaid. Verified in the code —
+`describeTurn` returns at the `woken` tier and never reaches `latest`. Not fixed here because it is a
+precedence question and precedence is ruled, not chosen; **it should land before #83**, for the same
+reason #94 did.
+
+**The milestone's premise is narrower than it was stated (#108).** Caches are 25-50 fuel a floor;
+creature ember is **60-120 and free in the dark** — sense is radius 5 through walls, a dormant dies to
+one strike and never swings back. So "caches were light's entire income" was true of the *pacifist*
+corpus styles and is **not** true of the line a player actually finds. An 824-turn dark autoplay
+reached the bottom of all eight floors at **12/12 HP, never once damaged**. Worth being exact about
+what this does and does not overturn: it is **not** a contradiction of the cache ruling, which said in
+terms that it was *necessary and not sufficient* and named the never-flash **fighter** as the case it
+does not reach. It is that Watch arriving early, with numbers. What it changes is urgency — step 5's
+`HARVESTER` is no longer a completeness exercise, it is the measurement without which step 6 tunes the
+wrong constant.
+
+**Also recorded: the teaching moment is real but is not a teacher.** It fired **once in nine runs**,
+and only because it was engineered. `CACHE_SLOTS = 2` with `count = int(rng, 0, 1)` gives 1-2 caches a
+floor, and the run *starts lit*, so the entrance room is revealed before it can be crawled. For the
+lesson to land the player must walk over one of one-or-two specific tiles in the dark and later light
+that exact tile. The rule has no other teacher, so this is worth knowing before anyone counts on it.
+
 **Next:** #83 — a woken Cinder pursues. Step 4 of the build order; the corpus baseline it will be
 measured against is now clean, which is the whole reason this was sequenced first.
 

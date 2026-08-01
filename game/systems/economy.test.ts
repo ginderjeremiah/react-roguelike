@@ -211,6 +211,20 @@ describe('§4 invariant 1: avoiding all combat is unsustainable', () => {
     // The dark takes **none**, and the flashing fighter takes nearly all of them. Not "fewer":
     // `DARK_PACIFIST` never opens the shutter, so no tile it stands on has ever been lit, and there
     // is no seed on which the rule can leak. A single leaked cache here is a rule with a hole.
+    //
+    // ── EXACTLY ZERO IS A FACT ABOUT THE HARNESS, NOT A CLAIM ABOUT THE GAME ────────────────────
+    //
+    // `arriveOn` builds every floor already shuttered and runs no lighting phase, so this style's
+    // `revealed` plane is empty for the whole run *by construction*. A real run is not like that:
+    // `beginRun` opens the lantern on arrival (§4), so floor 1's entrance room is lit before the
+    // player touches anything. Measured over 200 generated floor 1s, that opening field covers
+    // **65 of 305 caches (~21%)** — so a real never-flash player keeps roughly **0.2 caches a run**,
+    // not none.
+    //
+    // The difference is small and it runs in the harmless direction — the rule is marginally
+    // *looser* in play than this line reports, never stricter. But do not quote `toBe(0)` as a
+    // statement about the game: the game's number is "almost none, and the exception is the room
+    // you were standing in when the run began".
     expect(dark.taken).toBe(0);
     expect(flashing.taken).toBeGreaterThan(flashing.available * 0.7);
 

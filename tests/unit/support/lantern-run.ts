@@ -264,7 +264,21 @@ export function playRun(seed: string, style: Style, floors: number, startFuel?: 
     fuel = result.fuelAfter;
     if (driedOnFloor === null && result.ranDry) {
       driedOnFloor = floorNumber;
-      driedAfterTurns = turnsSoFar + (result.driedOnTurn ?? result.turns);
+      // `driedOnTurn` is non-null exactly when `ranDry` is true, so there is no fallback here and
+      // deliberately no `?? result.turns`. An earlier draft had one, and it was worse than dead
+      // code: `result.turns` is the *whole floor's* length, which is precisely the quantity this
+      // instrument was rewritten to stop using (#31/#41 — once every pacifist style dried on floor
+      // 1, summing whole floors ranked styles by how far they wandered rather than by how long
+      // their fuel lasted, and invariant 2 went red for a reason that had nothing to do with the
+      // rule under test). A fallback to it would read as if that quantity can still leak back in.
+      //
+      // So the pairing is asserted rather than defaulted. If it ever breaks, this throws in the
+      // harness — which is the right failure, because the alternative is an invariant silently
+      // measured with the wrong quantity, and that has already cost this file one false red.
+      if (result.driedOnTurn === null) {
+        throw new Error('lantern-run: ranDry without driedOnTurn — the two are set together');
+      }
+      driedAfterTurns = turnsSoFar + result.driedOnTurn;
     }
     turnsSoFar += result.turns;
   }

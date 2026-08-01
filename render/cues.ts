@@ -40,9 +40,20 @@
  * Everything is different below the stairs: a new grid, new creatures, ids reused for entirely
  * different actors. Comparing positions or HP across that boundary would produce a `playerMoved`
  * from the old entrance to the new one — a movement animation across a board that no longer exists —
- * and `damaged` cues for pairs of unrelated creatures that share an id. So a descent emits
- * `descended` and stops. `components/` gets one cue meaning *the board is replaced*, which is the
- * only honest thing to say about it.
+ * and `damaged` cues for pairs of unrelated creatures that share an id. So a descent emits **no
+ * diffed cue at all**: `playerMoved`, `damaged`, `died` and `fuelGained` are each a statement about
+ * two states, and across the stairs there are no two comparable states.
+ *
+ * `woke` is the one exception, and the reason the others are excluded is exactly what admits it.
+ * They are barred because a *diff* across the boundary is meaningless; `woke` is not derived by a
+ * diff on a descent. `descendTurn` runs §2's whole phase pipeline **on the new floor**
+ * (`game/systems/run.ts`), so arriving with the shutter open genuinely runs phase 3 and genuinely
+ * wakes what is in radius — and §4 measures one arrival in five as waking something. Because every
+ * creature on a freshly generated floor spawns dormant, *awake in `after`* **is** *woken this turn*,
+ * which is a **census of `after` alone** and never touches `before`. See `wakesOnArrival`.
+ *
+ * So a descent emits `descended` followed by the arrival's wakes. `components/` still gets one cue
+ * meaning *the board is replaced* first, which is the only honest thing to say about the board.
  */
 
 import { floorNumberOf, isRunning, type GameState } from '../game/core';
@@ -52,17 +63,35 @@ import type { Position } from '../game/map';
 import type { ActorId } from '../game/systems';
 
 /**
- * One thing that happened. Seven variants, and the bar for an eighth is that it is recoverable from
- * two `GameState`s and that a renderer would draw it differently from all seven.
+ * One thing that happened. Eight variants, and the bar for a ninth is that it is recoverable from
+ * two `GameState`s and that a renderer would draw it differently from all eight.
  */
 export type Cue =
   /** §2: the command ran no phases and changed nothing. The tap must still be acknowledged. */
   | { readonly kind: 'refused' }
-  /** §13: the board is replaced. Emitted alone; see the header. */
+  /** §13: the board is replaced. First of the turn's cues; see the header. */
   | { readonly kind: 'descended'; readonly toFloor: number }
   /** §9's free action. `to` is the setting the shutter now holds, not a toggle. */
   | { readonly kind: 'shutterChanged'; readonly to: ShutterState }
   | { readonly kind: 'playerMoved'; readonly from: Position; readonly to: Position }
+  /**
+   * §2 phase 3: a creature went dormant → awake. **One cue per creature**, and `at` is the tile it
+   * woke on. §4 (2026-07-31, #79) makes announcing this a rule rather than a presentation choice —
+   * opening the shutter wakes what the light touches, and that is the entire cost of light.
+   *
+   * **Why one-per-creature carrying a position, rather than `fuelGained`'s aggregate count.** The
+   * bar this file sets for a new kind is *a renderer would draw it differently*, and a count can
+   * only ever become **text**. A position can become a pulse on the tile that woke — which is the
+   * treatment most likely to fix the playtest finding behind #79 (*two Cinders woke and I did not
+   * notice*) without any sentence at all, and it is what lets #82's spatial promise about a flash's
+   * footprint be checked against a spatial receipt. The count is strictly recoverable from this
+   * shape as the list's length, so the aggregate carries less for the same cost.
+   *
+   * No perception leak: a creature woken in phase 3 is inside the lit radius with line of sight, and
+   * a creature woken by §3's dormant strike is orthogonally adjacent. `at` is never a tile the
+   * player could not already perceive.
+   */
+  | { readonly kind: 'woke'; readonly at: Position }
   /** §3: deterministic damage. `at` is where the actor stands **after** the turn resolved. */
   | {
       readonly kind: 'damaged';
@@ -77,7 +106,13 @@ export type Cue =
 
 /**
  * Every cue kind, in **emission order** — which is also the order the turn's story reads in: the
- * board changes, then the lamp, then the player, then the blows, then the bodies, then the spoils.
+ * board changes, then the lamp, then the player, then what the light woke, then the blows, then the
+ * bodies, then the spoils.
+ *
+ * `woke` sits between `playerMoved` and `damaged` because that is §2's phase order: phase 3 wakes,
+ * phase 4 swings. The narrative is *shutter or step → light → wake → blows*. §3's surviving dormant
+ * strike is the one case that wakes in phase 2 and would argue for a later slot, and it deliberately
+ * does not set the order — §4's change log records that branch as unreachable at M1's numbers.
  *
  * Exported so a component's switch can be checked for completeness by a test, and so the ordering is
  * a stated contract rather than the order the `if`s happen to appear in below.
@@ -87,6 +122,7 @@ export const CUE_KINDS: readonly Cue['kind'][] = [
   'descended',
   'shutterChanged',
   'playerMoved',
+  'woke',
   'damaged',
   'died',
   'fuelGained',
@@ -109,8 +145,12 @@ export function cuesFor(before: GameState, after: GameState): readonly Cue[] {
   // Contract point 6: a refusal returns the input state *by reference*. This is the whole test.
   if (after === before) return [{ kind: 'refused' }];
 
+  // A descent replaces the board, so nothing may be *diffed* across it — but §2's phases still ran,
+  // on the new floor, and the census below reads `after` alone. See the header and `wakesOnArrival`.
   const toFloor = floorNumberOf(after);
-  if (toFloor !== floorNumberOf(before)) return [{ kind: 'descended', toFloor }];
+  if (toFloor !== floorNumberOf(before)) {
+    return [{ kind: 'descended', toFloor }, ...wakesOnArrival(after)];
+  }
 
   const cues: Cue[] = [];
 
@@ -123,6 +163,7 @@ export function cuesFor(before: GameState, after: GameState): readonly Cue[] {
     cues.push({ kind: 'playerMoved', from: wasAt, to: nowAt });
   }
 
+  cues.push(...wakeCues(before, after));
   cues.push(...damageCues(before, after));
   cues.push(...deathCues(before, after));
 
@@ -132,6 +173,76 @@ export function cuesFor(before: GameState, after: GameState): readonly Cue[] {
   const gained = after.lantern.fuel - before.lantern.fuel;
   if (gained > 0) cues.push({ kind: 'fuelGained', amount: gained });
 
+  return cues;
+}
+
+/**
+ * Every creature awake in `state`, as a `woke` cue. **A census, not a diff — and only legal where
+ * the board is new.**
+ *
+ * The two callers are the two arrivals: `cuesFor`'s descent branch, and `session/`'s `beginRun`.
+ * Both are moments at which there is no comparable predecessor — the descent's `before` is a
+ * different floor whose ids belong to unrelated actors, and the opening has no `before` at all — and
+ * both genuinely run §2's phase 3, so something genuinely woke and the ordinary diff cannot see it.
+ *
+ * **The invariant this rests on:** `createActorWorld` (`game/entities/world.ts`) spawns every
+ * creature with `mind: { kind: 'dormant' }`, and `game/entities/world.test.ts` pins it. So on a
+ * floor that came into existence this turn, *awake* and *woken this turn* are the same set, and
+ * reading `after` alone gives the right answer without ever comparing across the boundary the
+ * header rules out.
+ *
+ * **If creatures ever stop spawning dormant — a floor seeded with a hunter already on your
+ * trail — this function is wrong and must become a diff**, at which point the descent branch needs a
+ * predecessor it does not currently have. That is the single fact to re-check before changing spawn
+ * state.
+ *
+ * **There is a safety net, and it is worth knowing where it is**, because both tests that hold it
+ * are framed as being about something else and neither mentions this function:
+ * `cues.test.ts`'s *reports nothing woken when the stairs are taken in the dark* and
+ * `session/run.test.ts`'s *has no cues when its light woke nothing*. Each asserts an arrival with
+ * creatures on it produces **no** `woke` cue; a creature that spawned awake would be announced by
+ * the census and both would go red on the same commit that changed the spawn. So this will not
+ * ship silently — but it will fail somewhere that does not name the cause, which is what this
+ * paragraph is for.
+ *
+ * Ascending actor id, because `world.actors` already is (ADR-0004: a cue list that reordered itself
+ * would make a Playwright assertion flake).
+ */
+export function wakesOnArrival(state: GameState): readonly Cue[] {
+  const cues: Cue[] = [];
+  for (const actor of state.world.actors) {
+    if (actor.kind !== 'creature' || actor.mind.kind !== 'awake') continue;
+    cues.push({ kind: 'woke', at: actor.at });
+  }
+  return cues;
+}
+
+/**
+ * §2 phase 3's transition: creatures present in **both** states whose mind went `dormant` → `awake`.
+ *
+ * A transition rather than a state, which is what makes re-lighting an already-awake creature
+ * silent — §4 is explicit that it must be, because a line that fired every turn a `C` stood in the
+ * light would speak on every turn of every fight, which is how a player learns to stop reading the
+ * line. The same shape gives §4's other clause for free: a creature that goes re-dormant and is
+ * woken again is a second `dormant` → `awake` transition and speaks again.
+ *
+ * A creature absent from `before` is skipped rather than reported. It cannot happen within a floor —
+ * nothing spawns mid-floor — and if it ever does, an id appearing from nowhere is not evidence that
+ * it woke. The arrival case is `wakesOnArrival`'s, deliberately, so that the "it is new, therefore
+ * it woke" inference is written down exactly once, next to the invariant that licenses it.
+ */
+function wakeCues(before: GameState, after: GameState): Cue[] {
+  const wasDormant = new Set<ActorId>();
+  for (const actor of before.world.actors) {
+    if (actor.kind === 'creature' && actor.mind.kind === 'dormant') wasDormant.add(actor.id);
+  }
+
+  const cues: Cue[] = [];
+  for (const actor of after.world.actors) {
+    if (actor.kind !== 'creature' || actor.mind.kind !== 'awake') continue;
+    if (!wasDormant.has(actor.id)) continue;
+    cues.push({ kind: 'woke', at: actor.at });
+  }
   return cues;
 }
 

@@ -56,3 +56,9 @@ app-example
 
 # playtest/inspection screenshots — take them, look at them, do not commit them
 shot-*.png
+
+# The `playtester` agent's scratch directory: the driver script it writes to drive the built app,
+# and the shots it takes. `shot-*.png` above covers the images and nothing covered the rest, so a
+# routine `git add -A` after the mandated playtest gate would commit a throwaway harness. Ignored
+# as a directory rather than by extension because what lands here is the agent's choice, not ours.
+.playtest/

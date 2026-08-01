@@ -76,12 +76,41 @@ describe('the opening run', () => {
     expect(scene.grid.cells.filter((cell) => cell.state === 'visible').length).toBeGreaterThan(4);
   });
 
-  it('has no cues, because nothing has happened yet', () => {
-    // The opening state has no predecessor, so there is no transition to describe. The two wrong
+  it('has no cues when its light woke nothing, because then nothing has happened yet', () => {
+    // The opening state has no predecessor, so there is no *transition* to describe. The two wrong
     // answers this pins against are throwing — `cuesOf` on a fresh run is what a component calls on
     // its very first render — and diffing against a fabricated null state, which would emit a
     // made-up story about a turn nobody played.
+    //
+    // `session` is a seed whose entrance room light finds nobody, which is the common case (§5 puts
+    // no creature in the entrance room) and is asserted here rather than assumed, so that this test
+    // failing means the *cue rule* changed rather than the floor generator.
+    expect(sceneOf(beginRun(SEED)).hud.shutter.state).toBe('open');
     expect(cuesOf(beginRun(SEED))).toEqual([]);
+  });
+
+  it('announces what the opening light woke, because phase 3 really ran (§4, #79)', () => {
+    // The argument "the opening has no predecessor, so it has nothing to say" is sound about
+    // diffs and wrong about this: §4 starts the lantern **open**, and `game/systems/run.ts`'s
+    // `beginRun` is `lightingAndWakingPhase(...)`, so the entrance room's light genuinely wakes what
+    // it touches before the player has pressed anything. §4 measures roughly one arrival in five as
+    // waking something, and under #83 that is a hunter the player was never told about.
+    //
+    // `open-1` is a seed where it happens. The assertion is against the state's own actor list
+    // rather than a literal tile, so it survives a generator change without going quietly vacuous —
+    // and the `toHaveLength` below is what stops it doing so.
+    const woke = cuesOf(beginRun('open-1'));
+    expect(woke).toHaveLength(1);
+    expect(kinds(woke)).toEqual(['woke']);
+  });
+
+  it('never reports a move, a blow or a floor change on the opening frame', () => {
+    // The census must not become "a diff against something". Over many seeds — including the ones
+    // that wake — the opening may say `woke` and may say nothing, and may never say anything else.
+    for (let i = 0; i < 40; i += 1) {
+      const cues = cuesOf(beginRun(`open-${i}`));
+      for (const kind of kinds(cues)) expect(kind, `open-${i}`).toBe('woke');
+    }
   });
 
   it('is a pure function of the seed', () => {

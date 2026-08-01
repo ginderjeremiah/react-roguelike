@@ -365,6 +365,55 @@ gamble the ramp exists to create, and it stays legible because the HUD shows the
 The second brake on strobing is not a fuel tax at all: **opening the shutter wakes things, and
 nothing ever un-wakes because you shuttered again.** A player who strobes wakes the floor.
 
+**A wake is announced, and it is announced with a number — *ruled 2026-07-31 (#79)*.**
+
+> **Every turn in which one or more creatures transition dormant → awake says so, in the turn line,
+> and says how many.** Nothing else that turn may take the line except player damage and player
+> death.
+
+This is a rule and not a presentation detail, which is why it lives here rather than being left to
+the `ui-engineer`. §4's whole containment claim is *"you know the price of opening the shutter, in
+creatures, before you pay it"* — a promise about the moment **before** the press. Nothing said what
+the player is owed **after** it, and the M1 exit playtest measured the consequence: seven turns, two
+Cinders woken, an empty line the whole way, and the player did not notice until one was adjacent.
+The wager was priced in a currency the game never printed a receipt for.
+
+Three clauses, each of which was a live way to get this wrong:
+
+- **The count is spoken.** Not because the player could not count `C`s — a woken creature is lit or
+  adjacent by construction, so it is always on screen — but because a flash reveals *a whole room at
+  once*, and a new glyph among twenty new glyphs is not a signal. The number is the part that cannot
+  be read off the board in the half-second a phone player gives it. It is also what makes the line
+  checkable against the `*` marks the player felt before pressing, which is the containment
+  guarantee's only observable form until #82.
+- **The wake line outranks the shutter line, so the turn line reports the *outcome* of the flash and
+  never the input to it.** Both fire on the same turn by construction and only one line fits. "The
+  shutter opens" restates the single most visible change in the game — the entire board's tint — on
+  the one turn the player pressed the control themselves. It is the least informative sentence
+  available at the most consequential moment. The useful consequence of the precedence is that on a
+  flash turn the shutter line now *means something*: it is what you see when the flash woke nothing.
+- **It covers arrival, not only the press.** Phase 3 runs on `descend` and on the opening of a run,
+  and §4 measures **one arrival in five as waking something**. An unannounced wake on arrival is the
+  worst instance of this bug, not an edge of it: the player has a new floor, a sense radius of 1, and
+  no reason to suspect anything. Silence there is what turns *"you sometimes arrive in sight of
+  something"* into an ambush.
+
+**Re-lighting an already-awake creature says nothing.** There is no transition, and a line that fired
+every turn a `C` stood in the light would speak on every turn of every fight — which is how a player
+learns to stop reading the line, and would cost us the one turn it matters. A creature that goes
+re-dormant and is woken *again* does speak again: after eight turns the player has been treating it
+as a sleeper, and it is a new hunter.
+
+**#83 is what makes this a precondition rather than a polish item.** While a woken creature parked,
+an unannounced wake cost the player a fact. Now that it pursues, an unannounced wake is an
+unannounced hunter — and a death you cannot retell is a Pillar 2 and Pillar 4 failure at once.
+**#79 ships before #83.**
+
+*Watch:* the line is wrong if it becomes wallpaper. The signal is a playtest that reports reading
+the turn line for damage and skipping it otherwise, or one in which the wake line appears on more
+than roughly one turn in six. Either means the announcement is competing with itself, and the fix is
+fewer things speaking, not louder copy.
+
 **Where a run starts, and what crosses the stairs.**
 
 **A run begins at the entrance with the lantern open and 80 fuel**, and the entrance room is already
@@ -668,7 +717,9 @@ automatic and available every single time, which is not a moment. It is now **"I
 anyway, and I kept a doorway between us for eight turns."** §5 puts 1–2 extra doorways on every floor
 and calls them escape routes; that is the sentence they were generated for.
 
-Case and shape carry dormancy, not colour (§11).
+Case and shape carry dormancy, not colour (§11). **Waking is announced in the turn line, with a
+count** — §4 has the rule, its precedence, and why it is a precondition for the behaviour above
+(#79).
 
 *Open:* every other creature. M3.
 
@@ -1030,3 +1081,4 @@ recorded at the moment we made it, is the part git cannot give us.
 | 2026-07-31 | **§12: ruled — the fallback is not spent, and its trigger has not fired** | #63's re-ruling, and **a reversal of the §12 row above**, which said "the trigger has fired while the conclusion has not". Both rows are dated today and only position says which is current, so: **this one is.** The earlier row read the trigger as fired because the wager is not tense *today*; the reversal is that §12's trigger names a playtest *saying the wager is not tense*, and neither said that — both said it is tense and rare. Recorded as a reversal rather than a correction because the earlier reading is defensible and the next person may prefer it. The first playtest's recommendation stands; none of its reasoning does. The trigger is *"the first playtest says the light wager is not tense"* and **neither playtest says that** — the exit playtest measured **8 of 8 commands as real decisions** with an awake creature inside three tiles, twice, and named three species of tense light moment (the containment read, fighting blind, the adaptation ramp). The wager is tense and **rare**, which is a frequency problem this fallback cannot fix. The strongest argument for spending it — *fuel is the least load-bearing part of the system and it is the part that is broken* — is right that the flash's price is not fuel and cannot be made to be (a kill pays 20 against a 4-fuel flash; closing that gap either prices out exploration or removes the reason to fight), and wrong that fuel can therefore go: **fuel's job is to make you fight, not to stop you flashing** (§1), and without it every fight is pure HP loss and the optimal line is engaging nothing — which deletes the one state both playtests found excellent. §12's fallback is also not "subtract fuel"; it is enemies with fixed patterns that force contact, which is a different enemy, generator and win condition. **Both levers #63 held open are rejected.** Charging a turn for the shutter loses on Pillar 3 (§2's argument is unchanged) and on aim — it prices tempo when the thing that needs pricing is waking. Cutting ember-sense below 4 loses because #82 measured the containment guarantee as **unexecutable on screen**: a playtester who had read §4 and knew the metric miscounted a column and woke a Cinder. You cannot tune away a permission check nobody can perform, and the cut would spend Pillar 2's strongest expression to do it |
 | 2026-07-31 | **§9: travel also stops when a creature you perceive changes tiles (*Proposed*; amends ADR-0009)** | Forced by the awake-creature ruling above, and cheap only because #65 has not started. A woken creature now walks toward you every turn, so under ADR-0009's three stop clauses a hunted player could tap a far tile and have `step()` resolve the eight tensest turns in the game for them — auto-travel automating the exact decisions §4 was rewritten to create, which is a worse version of the kill condition ADR-0009 already names. The clause keys on *a mark that is not where it was*, which satisfies ADR-0009's binding constraint that travel may never stop for a reason the player cannot see, and needs no identity — any mark moving is enough. It costs nothing across a floor of sleepers, because **a dormant creature never moves**, which is exactly the case travel exists for |
 | 2026-07-31 | **§3/§6: recorded that the dormant strike's "if the target survives, it wakes" clause is unreachable at M1's numbers** | Not a change — an honesty fix, and the second dead branch found this week (#80's `c` glyph is the first). 6 damage against 5 HP means a dormant strike against a Cinder is always lethal, so the *survive-and-wake* branch is dead. **The gradient §3 names is not** — it is the dormant kill (one strike, no damage) against the awake fight (two strikes, 2-4 damage), which is two points and unaffected. An earlier draft of this row said §3 describes a one-point gradient; that overstates it, and the correction matters because the next reader of this row might otherwise re-tune Cinder HP to fix a gradient that is not broken. The numbers are deliberately **not** moved to make the clause live: §2's phase order means a survivor declares on the turn it wakes and resolves on the next, so it only ever swings if it survives the strike *and* a full follow-up, which needs 10 HP, which turns an awake Cinder into a four-hit grind — Pillar 1's "attack until it dies", bought to make one sentence true. The clause is kept for creatures that do not exist yet (M3). Written down because an unreachable clause reads as a live branch, and the next person to tune Cinder HP needs to know which of the two things they are doing |
+| 2026-07-31 | **§4/§6: a wake is announced in the turn line, with a count, and it outranks the shutter line** | #79, from the M1 exit playtest: seven turns, two Cinders woken, the line under the board empty the whole way. §4 promised the player the price of a flash *in creatures* **before** the press ("everything a flash can wake, you can already feel") and said nothing about what they are owed **after** it — so the game's most consequential event was the only one it never acknowledged, which is §2's own standard applied to the wager instead of to a refused tap. Ruled here rather than left to the `ui-engineer` because two of the three clauses are design, not copy. **The count is spoken** — not to substitute for looking, since a woken creature is lit or adjacent by construction, but because a flash reveals a *whole room at once* and one new glyph among twenty is not a signal; the number is also the only executable form of the containment guarantee until #82 draws the footprint. **The wake line beats `shutterChanged`**, which competes for the same single line every flash turn: "The shutter opens" restates the board's entire tint change on the one turn the player pressed the control themselves, and demoting it means the turn line reports the flash's *outcome*, with the shutter line surviving as the sentence that means *you got away with it*. **It covers arrival** — phase 3 runs on `descend` and on `beginRun`, and §4 measures one arrival in five as waking something, where the player has a new floor, sense radius 1 and no reason to suspect anything. On a fresh floor every creature spawns dormant, so awake-in-`after` **is** woken-this-turn and no cross-floor diff is needed; if that spawn invariant ever moves, the census is wrong and must become a diff. Precedence is player death > player damage > **woke** > recency: player damage keeps the tier it won in #20 (three silent turns from death at 12 HP), and woke sitting directly under it resolves the §3 dormant-strike case with no special branch — a survivor's wake takes the line over `You strike for 6.`, which is right, since the strike was chosen and visible and the waking is the surprise. **Re-lighting an awake creature is silent**: no transition, and a line that fired every turn a `C` stood in the light would speak on every turn of every fight, which is how a player learns to stop reading the line. The runner-up shape was a single aggregated cue carrying only a count (`fuelGained`'s shape); it lost to one cue per creature carrying `at` (`damaged`/`died`'s shape) because `render/cues.ts`'s bar for a new kind is *a renderer would draw it differently*, and a count can only ever become text where a position can become a pulse on the tile that woke — the treatment most likely to fix the playtest's "I did not notice" without the line at all. The count comes free as the list's length, and `at` is what lets #82's spatial promise be checked against a spatial receipt rather than a scalar one |

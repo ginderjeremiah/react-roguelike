@@ -186,7 +186,7 @@ import {
   type GameState,
 } from '../game/core';
 import type { ShutterState } from '../game/fov';
-import { cuesFor, presentScene, type Cue, type Scene } from '../render';
+import { cuesFor, presentScene, wakesOnArrival, type Cue, type Scene } from '../render';
 
 /**
  * The key the run's insides sit behind. **Never exported, from here or from `index.ts`.**
@@ -202,7 +202,7 @@ type RunInternals = {
   readonly state: GameState;
   /** Presented from `state`, with the previous run's scene handed in for cell reuse. */
   readonly scene: Scene;
-  /** What the transition into `state` did. Empty on the opening run — see `NO_CUES`. */
+  /** What the transition into `state` did. Usually empty on the opening run — see `NO_CUES`. */
   readonly cues: readonly Cue[];
 };
 
@@ -278,13 +278,25 @@ function sealed(internals: RunInternals): Run {
 }
 
 /**
- * The opening run's cue list, shared by every `beginRun`.
+ * The empty cue list, shared by every opening that has nothing to say.
  *
- * **Empty is the honest answer, and it is not the same as "no cues yet".** A cue is a statement
- * about a transition (`render/cues.ts`), and the opening state has no predecessor — nothing has
- * happened, so there is nothing to say. The two tempting wrong answers are throwing (`cuesOf` on a
- * fresh run is an ordinary thing for a component to do on its first render) and diffing against a
- * fabricated null state, which would emit a made-up story about a turn nobody played.
+ * **Empty is not "no cues yet"; it is a claim, and it is the right claim about most things and the
+ * wrong one about exactly one.** A cue is a statement about a transition (`render/cues.ts`), and the
+ * opening state has no predecessor, so the two tempting wrong answers remain wrong: throwing
+ * (`cuesOf` on a fresh run is an ordinary thing for a component to do on its first render) and
+ * diffing against a fabricated null state, which would emit a made-up story about a turn nobody
+ * played.
+ *
+ * What an earlier draft of this comment got wrong — it asserted the opening has nothing to say at
+ * all — is that **the opening genuinely runs §2's phase 3**. `game/systems/run.ts`'s `beginRun`
+ * is `lightingAndWakingPhase(createLanternWorld(floor, 'open', …))`, and §4 starts the lantern
+ * **open**, so anything in the entrance room's lit radius really does wake before the player has
+ * touched anything. Reporting that is not inventing a turn; it is the one thing that did happen.
+ * §4 measures roughly one arrival in five as waking something, so this fires often enough to matter
+ * and rarely enough that it is not noise.
+ *
+ * So this stays as the shared value for the common opening — the one that wakes nothing — and
+ * `beginRun` below reaches for `wakesOnArrival` when the light found something.
  *
  * Shared rather than freshly allocated so that the identity is stable across renders, for the same
  * reason `game/core/state.ts` shares `RUNNING`. Immutable; the `readonly` element type is what stops
@@ -306,10 +318,18 @@ const NO_CUES: readonly Cue[] = [];
  * this moment (`render/index.ts`: fusing the two functions would make the opening board
  * unpresentable). Every cell is freshly allocated here, once, and every turn after this one reuses
  * what it can.
+ *
+ * **The opening frame can already have news.** §4 starts the lantern open and `createInitialState`
+ * runs phase 3 once, so the entrance room's light may have woken something before the player has
+ * pressed anything — and §4 (#79) requires that be said. `wakesOnArrival` is a census of the opening
+ * state rather than a diff against a fabricated predecessor; see its doc comment for the spawn
+ * invariant that makes the census equal the transition. When it wakes nothing — the common case —
+ * the shared `NO_CUES` is handed back, so the ordinary opening still allocates no array.
  */
 export function beginRun(seed: string): Run {
   const state = createInitialState(seed);
-  return sealed({ state, scene: presentScene(state), cues: NO_CUES });
+  const woke = wakesOnArrival(state);
+  return sealed({ state, scene: presentScene(state), cues: woke.length === 0 ? NO_CUES : woke });
 }
 
 /**
@@ -365,9 +385,10 @@ export function sceneOf(run: Run): Scene {
  * What just happened, as facts. Never a duration, never an easing, never a colour — `render/cues.ts`
  * owns that rule; this only hands the list over.
  *
- * Empty on the opening run, and empty is also a legal answer mid-run (a `wait` in an empty room
- * changes nothing worth animating). A component may ignore the whole list, which is precisely what
- * honouring §11's reduced-motion setting looks like.
+ * Usually empty on the opening run — the exception is an opening whose light woke something, which
+ * §4 requires be announced (see `beginRun`) — and empty is also a legal answer mid-run (a `wait` in
+ * an empty room changes nothing worth animating). A component may ignore the whole list, which is
+ * precisely what honouring §11's reduced-motion setting looks like.
  */
 export function cuesOf(run: Run): readonly Cue[] {
   return insideOf(run).cues;

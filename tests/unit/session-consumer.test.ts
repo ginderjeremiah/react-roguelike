@@ -91,6 +91,10 @@ function react(cues: readonly Cue[]): string[] {
         return `fade to ${cue.to}`;
       case 'playerMoved':
         return `slide ${cue.from.x},${cue.from.y} -> ${cue.to.x},${cue.to.y}`;
+      case 'woke':
+        // The reason #79 chose a position over a count: this is a treatment a scalar cue could not
+        // express, and it is on the tile the player has to look at.
+        return `pulse tile ${cue.at.x},${cue.at.y}`;
       case 'damaged':
         return `flash ${cue.who} for ${cue.amount}`;
       case 'died':

@@ -186,11 +186,11 @@ component, that logic belongs in `game/`.
 
 ```
 components/play/   the game screen's parts: board, board-cell, hud-bar, controls, status-line,
-                   run-summary, use-game-theme, and five pure modules — hit-test, cell-style,
-                   messages, summary-style, theme
-app/index.tsx      one screen: beginRun(SEED) in useState, sceneOf/cuesOf down, intents up, and the
+                   run-summary, use-game-theme, and six pure modules — hit-test, cell-style,
+                   messages, opening, summary-style, theme
+app/index.tsx      one screen: openRun(SEED) in useState, sceneOf/cuesOf down, intents up, and the
                    one branch that is not wiring a control — `scene.summary` swaps the bottom band
-                   for §13's end-of-run panel, whose RUN AGAIN is `setRun(beginRun(SEED))`
+                   for §13's end-of-run panel, whose RUN AGAIN is also `openRun(SEED)`
 hooks/             the Expo starter's survivors. use-color-scheme is real: use-game-theme reads it,
 constants/theme.ts so the game screen depends on this directory. Not dead code, not yet mapped
                    anywhere else, and easy to delete by mistake for exactly that reason
@@ -201,7 +201,17 @@ layer rule matches import specifiers by path segment, so `@/components/game/boar
 component reaching into the simulation. #57 decides whether to narrow the rule or document it; this
 paragraph exists so the next person does not spend the attempt.
 
-**The five pure modules are tested from `tests/unit/play-*.test.ts`, not colocated**, and the React
+**`openRun` is not a convenience wrapper and must not be inlined back.** It is `beginRun` plus the
+sentence that describes the run it just began, returned as one pair. A fresh run is **not** a blank
+slate — §4 opens the lantern and `createInitialState` runs §2's phase 3, so roughly one launch in ten
+already owes the player a wake line before a finger touches the screen (§4/#79). `app/index.tsx`
+previously called `beginRun` directly and initialised the status line to a literal `null`, which
+computed those cues and dropped them on the floor; the bug was invisible because the fixed seed
+(#47) is one of the nine in ten that wake nothing. The decision lives in `components/play/` rather
+than in the `.tsx` for a reason that generalises: **`app/index.tsx` imports `react-native`, so Vitest
+cannot load it, and anything decided inside it is unreachable from every test tier we have.**
+
+**The six pure modules are tested from `tests/unit/play-*.test.ts`, not colocated**, and the React
 is tested by Playwright — ADR-0005 says there is no component test runner. `hit-test.ts` is the one
 that matters: **every tap on the board goes through it** — the shutter and descend controls are
 plain `Pressable`s and do not — because `nativeEvent.locationX` is typed

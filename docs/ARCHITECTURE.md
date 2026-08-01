@@ -186,8 +186,8 @@ component, that logic belongs in `game/`.
 
 ```
 components/play/   the game screen's parts: board, board-cell, hud-bar, controls, status-line,
-                   run-summary, use-game-theme, and six pure modules — hit-test, cell-style,
-                   messages, opening, summary-style, theme
+                   run-summary, use-game-theme, and seven pure modules — hit-test, cell-style,
+                   messages, opening, status-style, summary-style, theme
 app/index.tsx      one screen: openRun(SEED) in useState, sceneOf/cuesOf down, intents up, and the
                    one branch that is not wiring a control — `scene.summary` swaps the bottom band
                    for §13's end-of-run panel, whose RUN AGAIN is also `openRun(SEED)`

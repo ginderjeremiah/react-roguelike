@@ -204,7 +204,7 @@ test('a run that ends in death: the summary reads, the board goes quiet, and you
   // The constant, not a copy of it — `tests/unit/play-messages.test.ts` is what stops it being
   // empty, which is the one value that would make the assertion above and this one agree vacuously.
   await expect(page.getByTestId('summary-note'), 'the refusal must be acknowledged').toHaveText(
-    RUN_OVER_MESSAGE,
+    RUN_OVER_MESSAGE.text,
   );
   await expect(page.getByTestId('summary-turns'), 'a finished run spends no turns').toHaveText(
     String(spent),

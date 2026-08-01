@@ -1,5 +1,9 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { COLOR_TOKENS, type ColorToken } from '@/render';
+import type { LineLevel } from '@/components/play/messages';
+import { statusStyle, TURN_LINE_FONT_SIZE } from '@/components/play/status-style';
 import { DARK_THEME, LIGHT_THEME, mixHex, type GameTheme } from '@/components/play/theme';
 
 /**
@@ -68,6 +72,8 @@ describe('the theme is a total mapping', () => {
         theme.meter.ok,
         theme.meter.low,
         theme.meter.critical,
+        theme.line.alarm,
+        theme.line.report,
       ];
       for (const colour of colours) expect(colour, name).toMatch(/^#[0-9a-f]{6}$/);
       expect(theme.lampStrength, name).toBeGreaterThan(0);
@@ -82,6 +88,30 @@ describe('the theme is a total mapping', () => {
     for (const [name, theme] of THEMES) {
       const values = COLOR_TOKENS.map((token) => theme.token[token]);
       expect(new Set(values).size, `${name}: ${values.join(' ')}`).toBe(COLOR_TOKENS.length);
+    }
+  });
+
+  it('never collapses the turn line’s two levels either (§10, #94)', () => {
+    // The same rule, extended to the one non-token pair that carries meaning. §10 ruled the
+    // `alarm`/`report` pair closed and said in as many words that "a theme may not map both to the
+    // same value" — which is the one edit that would satisfy every other assertion in this file
+    // while deleting the distinction #94 exists to create.
+    //
+    // The two named rejections are asserted as well, because both are things a future retune would
+    // do without noticing. `token.creature` is a *board* role — it means "a creature seen in light",
+    // it is wrong for `You take N.` and `The lantern goes out.`, and sharing the value would let a
+    // board retune silently move the chrome. And `textDim` may still *equal* `report` by value
+    // today, so what is pinned is the thing that must not be true of `alarm`.
+    for (const [name, theme] of THEMES) {
+      expect(theme.line.alarm, `${name}: the two levels must not be one colour`).not.toBe(
+        theme.line.report,
+      );
+      expect(theme.line.alarm, `${name}: alarm is chrome, not the creature glyph`).not.toBe(
+        theme.token.creature,
+      );
+      expect(theme.line.alarm, `${name}: an alarm cannot be the dim label colour`).not.toBe(
+        theme.textDim,
+      );
     }
   });
 
@@ -174,6 +204,127 @@ describe('the board is legible in both schemes', () => {
       expect(Math.abs(luminance(edge) - luminance(unlit)), name).toBeGreaterThan(
         Math.abs(luminance(oneIn) - luminance(edge)),
       );
+    }
+  });
+});
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
+ * §11's TEST FOR THE TURN LINE — TWO CHANNELS, ONE OF THEM NOT COLOUR, IN BOTH SCHEMES
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * GDD §11 forbids colour as the sole carrier of anything, and §10 (#94) applies that to the turn
+ * line's two emphasis levels **and rejects the usual escape hatch**: the tempting defence is that
+ * the sentences differ so the distinction survives greyscale, and it is rejected because it is the
+ * same defence that would justify changing nothing at all. A carrier that only works once you have
+ * read the sentence is not a carrier for a signal whose entire job is to be caught before you read
+ * it.
+ *
+ * So this is the assertion that must not be allowed to degrade into "the colours differ". It reads
+ * the **actual style objects** `StatusLine` paints with — `statusStyle` is the only thing in the
+ * component that varies with the level — rather than a table transcribed into the test, which would
+ * agree with itself forever.
+ */
+const LEVELS: readonly LineLevel[] = ['alarm', 'report'];
+
+/** The rest of the screen's type ramp, read out of the source rather than remembered. */
+const RAMP = (() => {
+  const read = (file: string) =>
+    fs.readFileSync(path.resolve(__dirname, '../../components/play', file), 'utf8');
+  const size = (source: string, block: string): number => {
+    const found = new RegExp(`${block}: \\{[^}]*fontSize: (\\d+)`, 's').exec(source);
+    if (found === null) throw new Error(`play-theme: no fontSize in \`${block}\` — update this test`);
+    return Number(found[1]);
+  };
+  const weight = (source: string, block: string): number => {
+    const found = new RegExp(`${block}: \\{[^}]*fontWeight: '(\\d+)'`, 's').exec(source);
+    if (found === null) throw new Error(`play-theme: no fontWeight in \`${block}\` — update this`);
+    return Number(found[1]);
+  };
+  const controls = read('controls.tsx');
+  const hud = read('hud-bar.tsx');
+  return {
+    /** `CLOSE SHUTTER`. The turn line may equal this size and must be at least this heavy. */
+    controlLabel: { size: size(controls, 'label'), weight: weight(controls, 'label') },
+    /** `then burning 1 per turn`. The turn line must rank strictly above every caption. */
+    controlHint: size(controls, 'hint'),
+    /** `FUEL`/`HP`. The only thing on screen allowed to be larger than the turn line. */
+    hudValue: size(hud, 'value'),
+  };
+})();
+
+describe('the turn line’s two levels are told apart without colour (§10/§11, #94)', () => {
+  it('differs in at least two channels, one of which is not colour, in both schemes', () => {
+    // THE §11 TEST. Computed over the style object's own keys, so a third channel added later is
+    // counted automatically and a channel *removed* later cannot quietly take the count to one.
+    for (const [name, theme] of THEMES) {
+      const alarm = statusStyle('alarm', theme);
+      const report = statusStyle('report', theme);
+
+      const differing = (Object.keys(alarm) as (keyof typeof alarm)[]).filter(
+        (key) => alarm[key] !== report[key],
+      );
+      expect(differing.length, `${name}: ${JSON.stringify({ alarm, report })}`).toBeGreaterThanOrEqual(2);
+      expect(
+        differing.filter((key) => key !== 'color'),
+        `${name}: colour is the only thing telling an alarm from a report`,
+      ).not.toHaveLength(0);
+    }
+  });
+
+  it('makes weight the non-colour carrier, at least as heavy as the control labels', () => {
+    // §10: "`alarm` is drawn strictly heavier than `report`, and at least as heavy as the control
+    // labels. It survives greyscale, every colourblindness, and both schemes." The control label is
+    // read out of `controls.tsx`, so a repaint that made `CLOSE SHUTTER` heavier than the wake line
+    // fails here instead of shipping.
+    for (const [name, theme] of THEMES) {
+      const alarm = Number(statusStyle('alarm', theme).fontWeight);
+      const report = Number(statusStyle('report', theme).fontWeight);
+      expect(alarm, `${name}: an alarm must be strictly heavier than a report`).toBeGreaterThan(report);
+      expect(alarm, `${name}: and at least as heavy as CLOSE SHUTTER`).toBeGreaterThanOrEqual(
+        RAMP.controlLabel.weight,
+      );
+    }
+  });
+
+  it('shares one raised size, above every caption and no larger than the HUD', () => {
+    // §10 ruled the ordinal position rather than a number: above every caption and sub-label, may
+    // equal the control-label size, and only the HUD's values may be larger. A **per-level** size is
+    // rejected — the row is fixed height so the board does not jump, and §11's text scaling
+    // multiplies whatever is chosen, which would land reflow risk on the message that must not
+    // reflow. So the two sizes must be equal *and* correctly placed in the ramp.
+    for (const [name, theme] of THEMES) {
+      const sizes = LEVELS.map((level) => statusStyle(level, theme).fontSize);
+      expect(new Set(sizes).size, `${name}: the two levels must share one size`).toBe(1);
+      expect(sizes[0], name).toBe(TURN_LINE_FONT_SIZE);
+    }
+    expect(TURN_LINE_FONT_SIZE, 'the turn line must rank above every caption').toBeGreaterThan(
+      RAMP.controlHint,
+    );
+    expect(TURN_LINE_FONT_SIZE, 'it may equal the control label, never exceed it').toBeLessThanOrEqual(
+      RAMP.controlLabel.size,
+    );
+    expect(TURN_LINE_FONT_SIZE, 'only the HUD values may be larger').toBeLessThan(RAMP.hudValue);
+  });
+
+  it('keeps both levels readable where they are actually drawn', () => {
+    // The row sits on the screen background, between the board and the panel the controls are on, so
+    // both surfaces are asked. 3:1 is the large-text/graphical bar and is what `textDim` is already
+    // held to above; the alarm is held higher because it is the line that has to be caught at a
+    // glance, which is the entire finding behind #94.
+    for (const [name, theme] of THEMES) {
+      for (const level of LEVELS) {
+        const colour = statusStyle(level, theme).color;
+        expect(contrast(colour, theme.background), `${name}/${level} on the page`).toBeGreaterThan(3);
+        expect(contrast(colour, theme.panel), `${name}/${level} on the panel`).toBeGreaterThan(3);
+      }
+      // And the loud one is the higher-contrast one, in both schemes — brighter than the report in
+      // the dark, darker than it on the page. That is the half of the colour difference that
+      // survives a greyscale screenshot, and it is a direction rather than a hue.
+      expect(
+        contrast(theme.line.alarm, theme.background),
+        `${name}: an alarm must not be quieter than a report`,
+      ).toBeGreaterThan(contrast(theme.line.report, theme.background));
     }
   });
 });

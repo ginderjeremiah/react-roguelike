@@ -107,7 +107,7 @@ describe('the summary fits a 390pt phone', () => {
     const band = PHONE_WIDTH - PANEL_PADDING - COLUMN_GAP;
     for (const [ending, summary] of SUMMARIES) {
       const seed = monoWidth(`seed  ${summary.seed}`, 11, 0.4);
-      expect(seed + monoWidth(RUN_OVER_MESSAGE, 11), `${ending} seed row`).toBeLessThanOrEqual(band);
+      expect(seed + monoWidth(RUN_OVER_MESSAGE.text, 11), `${ending} seed row`).toBeLessThanOrEqual(band);
     }
 
     // The fixtures above use short test seeds, so on their own this budget describes strings the
@@ -118,7 +118,7 @@ describe('the summary fits a 390pt phone', () => {
     // stops being an observation the moment the thing it measured is replaced.
     const longestPlausibleSeed = 'a'.repeat(24);
     const widest = monoWidth(`seed  ${longestPlausibleSeed}`, 11, 0.4);
-    expect(widest + monoWidth(RUN_OVER_MESSAGE, 11), 'longest plausible seed').toBeLessThanOrEqual(
+    expect(widest + monoWidth(RUN_OVER_MESSAGE.text, 11), 'longest plausible seed').toBeLessThanOrEqual(
       band,
     );
   });

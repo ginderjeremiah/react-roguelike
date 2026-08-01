@@ -146,7 +146,7 @@ test('tapping a distant tile spends no turn, and says why', async ({ page }) => 
   //
   // It is also the observable this spec never had. Everything below used to rest on a turn counter,
   // and a turn counter cannot tell a working refusal from a handler that was never called.
-  await expect(page.getByTestId('status-line')).toHaveText(TOO_FAR_MESSAGE);
+  await expect(page.getByTestId('status-line')).toHaveText(TOO_FAR_MESSAGE.text);
   expect(await playerTile(page)).toEqual(at);
 
   // ── THE POSITIVE CONTROL. Weaker than it was, and kept anyway. ───────────────────────────────
@@ -423,6 +423,54 @@ async function stepTowardId(page: Page, me: At, goal: At): Promise<string | null
 /** How close the flash is taken from. Manhattan 2 is well inside `LIT_RADIUS` (4), and not adjacent. */
 const FLASH_RANGE = 2;
 
+/**
+ * From a shuttered board: walk until ember-sense marks something within `FLASH_RANGE`, then open up.
+ * Returns what the line said afterwards.
+ *
+ * **Nothing here is a recorded route** — `support/drive.ts` explains why one dies silently at #47 —
+ * and nothing here can see the map. The walk is one greedy step at a time toward a `*` that is on
+ * screen, using only the four move targets §9 puts under a thumb; it has no memory, cannot go around
+ * anything, and gives up rather than searching. When it cannot close it falls back to `wander`'s own
+ * rule, pressing the target it has pressed least.
+ *
+ * Shared by the two tests below, which are about different halves of the same press: #79's is that
+ * the wake is *said*, #94's is that it is said *loudly*. Sharing the walk is what keeps them from
+ * being one test doing two jobs, and it is the only expensive part.
+ *
+ * @throws rather than returning an empty string if it never gets in range — a spec that flashed at
+ *   nothing would otherwise fail on an assertion about copy and send the reader to the wrong file.
+ */
+async function closeOnASleeperAndFlash(page: Page): Promise<string> {
+  const shutter = page.getByTestId('control-shutter');
+  const visits = new Map<string, number>();
+
+  for (let steps = 0; steps < 40; steps += 1) {
+    const me = await playerCell(page);
+    const mark = await nearestMark(page, me);
+
+    if (mark !== null && apart(me, mark) <= FLASH_RANGE) {
+      await press(page, shutter);
+      return ((await page.getByTestId('status-line').textContent()) ?? '').trim();
+    }
+
+    const closer = mark === null ? null : await stepTowardId(page, me, mark);
+    const targets = await page
+      .locator('[data-testid^="tap-move-"]')
+      .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-testid') ?? ''));
+    expect(targets.length, 'the board offered nowhere to step').toBeGreaterThan(0);
+
+    let target = closer;
+    if (target === null) {
+      target = targets[0];
+      for (const id of targets) if ((visits.get(id) ?? 0) < (visits.get(target) ?? 0)) target = id;
+    }
+    visits.set(target, (visits.get(target) ?? 0) + 1);
+    await pressTile(page, page.getByTestId(target));
+  }
+
+  throw new Error('game-screen: 40 steps in the dark without a mark inside flash range');
+}
+
 test('a wake reaches the line under the board, and says how many (§4, #79)', async ({ page }) => {
   test.slow();
   await boot(page);
@@ -466,32 +514,7 @@ test('a wake reaches the line under the board, and says how many (§4, #79)', as
   await press(page, shutter);
   await expect(page.getByTestId('hud-shutter')).toHaveText('SHUT');
 
-  const visits = new Map<string, number>();
-  let said = '';
-  for (let steps = 0; steps < 40; steps += 1) {
-    const me = await playerCell(page);
-    const mark = await nearestMark(page, me);
-
-    if (mark !== null && apart(me, mark) <= FLASH_RANGE) {
-      await press(page, shutter);
-      said = ((await line.textContent()) ?? '').trim();
-      break;
-    }
-
-    const closer = mark === null ? null : await stepTowardId(page, me, mark);
-    const targets = await page
-      .locator('[data-testid^="tap-move-"]')
-      .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-testid') ?? ''));
-    expect(targets.length, 'the board offered nowhere to step').toBeGreaterThan(0);
-
-    let target = closer;
-    if (target === null) {
-      target = targets[0];
-      for (const id of targets) if ((visits.get(id) ?? 0) < (visits.get(target) ?? 0)) target = id;
-    }
-    visits.set(target, (visits.get(target) ?? 0) + 1);
-    await pressTile(page, page.getByTestId(target));
-  }
+  const said = await closeOnASleeperAndFlash(page);
 
   // The exact sentence, not merely "something is written there". The count is the part §4 ruled
   // load-bearing — `Something wakes.` on a turn that woke two is the failure the rule names — and
@@ -502,6 +525,76 @@ test('a wake reaches the line under the board, and says how many (§4, #79)', as
   // very turn, so `The shutter opens. Light spills out.` is exactly what this line would read if
   // `woke` did not outrank `shutterChanged`.
   expect(WAKE_MESSAGES, `the status line read ${JSON.stringify(said)}`).toContain(said);
+});
+
+test('one control, two volumes: a flash that wakes is drawn louder than one that does not (§10, #94)', async ({
+  page,
+}) => {
+  test.slow();
+  await boot(page);
+
+  // ═══════════════════════════════════════════════════════════════════════════════════════════════
+  // THE CONTRAST IS THE ASSERTION. A WAKE BEING LOUD PROVES NOTHING IF EVERYTHING IS LOUD
+  // ═══════════════════════════════════════════════════════════════════════════════════════════════
+  //
+  // #94's finding was not that the wake line was missing — #79 shipped it — but that *you got away
+  // with it* and *you have company*, the two outcomes of the same press, were typographically
+  // identical. So this presses **the same control twice** and asks that the screen answer
+  // differently: closing it is a `report`, and the flash that wakes two Cinders is an `alarm`.
+  //
+  // The level is read off the DOM as an attribute rather than off computed styles, deliberately
+  // (`status-line.tsx`): this spec asserts §10's *rule*, and it must survive M4 repainting every
+  // colour and weight on the screen without going red for a reason nobody cares about.
+  const row = {
+    alarm: page.getByTestId('status-line-alarm'),
+    report: page.getByTestId('status-line-report'),
+    empty: page.getByTestId('status-line-empty'),
+  };
+  const board = page.getByTestId('board');
+  const shutter = page.getByTestId('control-shutter');
+
+  // A run that has said nothing yet is neither. `emberdepth`'s opening light finds nobody
+  // (`tests/unit/play-opening.test.ts` pins it by name), so the row starts empty — and an empty row
+  // is not a quiet claim, it is the absence of one.
+  await expect(row.empty).toHaveCount(1);
+  await expect(row.alarm).toHaveCount(0);
+  const resting = await board.boundingBox();
+
+  // ── PRESS ONE: the shutter closes. You did that on purpose; nothing is against you. ──────────
+  await press(page, shutter);
+  await expect(page.getByTestId('hud-shutter')).toHaveText('SHUT');
+  await expect(page.getByTestId('status-line'), 'the press must be acknowledged at all').not.toHaveText(
+    '',
+  );
+  await expect(row.report, 'a shutter receipt is a report').toHaveCount(1);
+  await expect(row.alarm, 'and nothing about it is an alarm').toHaveCount(0);
+  const reported = await board.boundingBox();
+
+  // ── PRESS TWO: the same control, and this time something wakes. ──────────────────────────────
+  const said = await closeOnASleeperAndFlash(page);
+  expect(WAKE_MESSAGES, `the status line read ${JSON.stringify(said)}`).toContain(said);
+  await expect(row.alarm, 'a wake is an alarm').toHaveCount(1);
+  await expect(row.report, 'and it replaces the report, rather than sitting beside it').toHaveCount(0);
+  const alarmed = await board.boundingBox();
+
+  // ── AND THE ROW NEVER MOVED THE THING THE PLAYER IS AIMING AT ────────────────────────────────
+  //
+  // §10 raised the turn line from 13px to 14px, inside a row whose height is a **fixed 34pt**
+  // (`status-line.tsx`, which carries the arithmetic: one 18pt line plus 8pt of padding is 26, so
+  // the bump has 8pt of slack and cannot resize the row). The point of the fixed height is that a
+  // message appearing — or getting louder — cannot resize the board underneath it. A draft of the
+  // implementation reserved *two* lines instead, and the overflow spec below caught it costing a
+  // point of desktop cell; do not restore that reading of this comment.
+  // `board.tsx` resolves a press by measuring where the board is, so a
+  // board that moved when the line changed would be #20's stale-origin bug arriving from a third
+  // direction. A one-pixel tolerance for sub-pixel layout, and no more.
+  for (const [when, box] of [
+    ['after a report', reported],
+    ['after an alarm', alarmed],
+  ] as const) {
+    expect(Math.abs(box!.y - resting!.y), `the board moved ${when}`).toBeLessThanOrEqual(1);
+    expect(Math.abs(box!.height - resting!.height), `the board resized ${when}`).toBeLessThanOrEqual(1);
+  }
 });
 
 test('at 0 fuel the shutter control shows itself dead rather than doing nothing', async ({

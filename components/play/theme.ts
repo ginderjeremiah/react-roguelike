@@ -13,7 +13,7 @@
  * **These numbers are provisional and are expected to move.** M4 owns colour and typography; what
  * this file owes the project until then is (a) a total mapping, so no token renders as transparent,
  * and (b) enough contrast that the first playtest is about the game rather than about squinting.
- * `tests/unit/game-theme.test.ts` holds both to account.
+ * `tests/unit/play-theme.test.ts` holds both to account.
  *
  * ## What this table may not do
  *
@@ -35,6 +35,7 @@
  */
 
 import type { ColorToken } from '@/render';
+import type { LineLevel } from './messages';
 
 /** Every colour the game screen uses. Tokens for the board; the rest for the frame around it. */
 export type GameTheme = {
@@ -52,6 +53,19 @@ export type GameTheme = {
   readonly border: string;
   /** §11: a meter's severity may drive colour **only** because the number is always beside it. */
   readonly meter: Readonly<Record<'ok' | 'low' | 'critical', string>>;
+  /**
+   * §10 (#94): the turn line's two emphasis levels. **A theme may not map both to one value.**
+   *
+   * Its own pair rather than `text`/`textDim`, and deliberately **not** `token.creature` as #94
+   * first proposed: that is a *board* role meaning "a creature seen in light", it is wrong for
+   * `You take N.` and `The lantern goes out.`, and reusing it would let a retune aimed at the board
+   * silently move the chrome. `report` sits where `textDim` sits today, which is allowed — what is
+   * ruled is that it stops *being* `textDim`, so M4 can move the two apart.
+   *
+   * Colour is the **second** carrier here and never the only one: `status-style.ts` draws an
+   * `alarm` strictly heavier as well, which is what survives greyscale (§11).
+   */
+  readonly line: Readonly<Record<LineLevel, string>>;
   /** The lamplight mixed into a lit cell's background, in proportion to `Cell.tint`. */
   readonly lamp: string;
   /** How much lamplight a fully lit cell gets, `0`..`1`. Tuning; see `cell-style.ts`. */
@@ -94,6 +108,11 @@ export const DARK_THEME: GameTheme = {
   panel: '#14110d',
   border: '#2c261e',
   meter: { ok: '#8fc98a', low: '#e0b04a', critical: '#e2593c' },
+  // An `alarm` is *brighter* than a `report` here, not merely a different hue: at 8.8:1 against the
+  // background it clears the report grey's 6.5:1, so the level survives a screenshot in greyscale
+  // even before the weight does. A warm red rather than the meters' amber, which in this game's
+  // vocabulary is fuel.
+  line: { alarm: '#ff8a6a', report: '#9a9083' },
   lamp: '#ffb648',
   lampStrength: 0.14,
   reach: '#e8e0d2',
@@ -128,6 +147,10 @@ export const LIGHT_THEME: GameTheme = {
   panel: '#efe7d8',
   border: '#c3b8a3',
   meter: { ok: '#2f6f38', low: '#8a5a10', critical: '#a8321c' },
+  // The same rule with the sign flipped, because the page is light: an `alarm` is the *darker*, and
+  // the higher-contrast, of the two (5.9:1 against the background against the report's 3.9:1). Same
+  // relationship in both schemes — an alarm always has more contrast than a report.
+  line: { alarm: '#8c1f0c', report: '#6a6154' },
   lamp: '#ffcf70',
   lampStrength: 0.45,
   reach: '#1d1a15',

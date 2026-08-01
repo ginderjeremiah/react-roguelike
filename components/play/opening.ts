@@ -35,13 +35,21 @@
  */
 
 import { beginRun, cuesOf, type Run } from '@/session';
-import { describeTurn } from './messages';
+import { describeTurn, type TurnLine } from './messages';
 
 /** A run that has just begun, and the line the screen owes it. `message` is `null` when silent. */
 export type OpenedRun = {
   readonly run: Run;
-  /** `describeTurn` of the opening cues — a wake sentence, or `null` on a quiet opening. */
-  readonly message: string | null;
+  /**
+   * `describeTurn` of the opening cues — a wake sentence, or `null` on a quiet opening.
+   *
+   * A `TurnLine`, so it carries §10's level like every other line the screen shows (#94). The
+   * opening is the one place where that level is not a branch: the only thing an opening frame can
+   * say is a wake, so a speaking opening is always an `alarm` and a silent one is `null`. It is
+   * still taken from `describeTurn` rather than written here, because "the opening says what the
+   * opening cues say" is the property this module exists to hold.
+   */
+  readonly message: TurnLine | null;
 };
 
 /**

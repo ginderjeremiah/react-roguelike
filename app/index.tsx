@@ -9,6 +9,7 @@ import {
   describeTurn,
   RUN_OVER_MESSAGE,
   TOO_FAR_MESSAGE,
+  type TurnLine,
 } from '@/components/play/messages';
 import { openRun } from '@/components/play/opening';
 import { RunSummaryPanel } from '@/components/play/run-summary';
@@ -113,7 +114,10 @@ export default function GameScreen() {
   // whole `generateFloor` — on **every render**, throwing the result away each time.
   const [opened] = useState(() => openRun(SEED));
   const [run, setRun] = useState<Run>(opened.run);
-  const [message, setMessage] = useState<string | null>(opened.message);
+  // A `TurnLine`, not a string: §10 (#94) makes the emphasis a property of the cue that won the
+  // line, so the sentence and its level travel together from `describeTurn` to the row that draws
+  // them and cannot be decided in two places.
+  const [message, setMessage] = useState<TurnLine | null>(opened.message);
   const [space, setSpace] = useState<BoardSpace>({ width: 0, height: 0 });
 
   const scene = sceneOf(run);
@@ -262,7 +266,7 @@ export default function GameScreen() {
             screen. The board above stays drawn: §13 keeps the final frame at the killing blow. */}
         {scene.summary === null ? (
           <>
-            <StatusLine message={message} theme={theme} />
+            <StatusLine line={message} theme={theme} />
             <Controls
               hud={scene.hud}
               onSetShutter={onSetShutter}
@@ -273,7 +277,11 @@ export default function GameScreen() {
         ) : (
           <RunSummaryPanel
             summary={scene.summary}
-            note={message}
+            // The text alone. #94's two emphasis levels are the *turn line's*, under the board —
+            // the summary is a different surface with its own hierarchy (`run-summary.tsx`), and
+            // handing it a level would be inviting it to grow a second, quieter copy of the ruling.
+            // Every line it can ever show is a refusal, which is a `report` regardless.
+            note={message?.text ?? null}
             onRestart={onRestart}
             theme={theme}
           />

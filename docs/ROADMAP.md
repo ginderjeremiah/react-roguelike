@@ -210,12 +210,27 @@ is the rule that enforces the seam being wrong about where the seam is, which is
 it would fire a tripwire that is measuring something else.
 
 **Exit criteria:** the `playtester` agent can complete a run start to finish on a phone-sized
-viewport — **both endings, death and the eighth descent** — and report that moving and fighting
-feel good, and that the flash-and-crawl decision is one it actually made rather than one the rules
-merely permit.
+viewport — **both endings, death and the eighth descent** — report that moving and fighting feel
+good, and **the concept checkpoint has been answered: §12's fallback is spent or explicitly not
+spent, with the evidence and the consequent design change recorded.**
 
-**Not met.** The screen exists and the first playtest has run, but a run cannot be finished and
-neither ending is drawn. #21 is the whole of what is missing.
+**Met, and the third clause was amended to get there — see
+[ADR-0011](decisions/0011-m1-exits-on-the-answer-not-the-outcome.md).** It used to read "…and that
+the flash-and-crawl decision is one it actually made rather than one the rules merely permit," which
+is **the same sentence as M2's exit criterion**. Holding M1 open on it meant M1 could not close until
+M2 was finished — two milestones with one name. A checkpoint that asks a question is passed by an
+*answer*, not by a particular answer.
+
+The exit playtest (#87, `main` at `3ea83fa`, three runs, both endings) signed the first two clauses
+without hedging and could not sign the old third: the decision was made about a dozen times in 359
+turns and felt tense about three of them, none after floor 3. **The answer to the checkpoint is
+therefore "not yet, and here is the rule that was wrong"** — §12's fallback is explicitly not spent
+(its trigger never fired; both playtests named tense light moments and complained about their
+*frequency*), and the consequent change is ruled in GDD §4/§6 and filed as #83.
+
+**M2 keeps the tension criterion, and it is now load-bearing in a way it was not.** It is the only
+place the wager is judged. If M2's playtest also cannot sign it, with #83 landed and measured, the
+checkpoint has been answered twice with "not yet" and *that* is what spends §12 — not a deadline.
 
 **Two instructions the playtest brief must carry, both because auto-travel is deliberately absent
 (ADR-0009).** Both were carried by the first brief and both did their job — keeping them here

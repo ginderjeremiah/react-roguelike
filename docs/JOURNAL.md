@@ -57,6 +57,75 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-07-31 — M1's exit playtest: the wager does not work, and the reason inverts twice (#87, #83)
+
+**Did:** Ran M1's exit playtest, got a `game-designer` ruling on #83/#63, amended M1's third exit
+criterion ([ADR-0011](decisions/0011-m1-exits-on-the-answer-not-the-outcome.md)), and rewrote GDD §3,
+§4, §6, §9 and §12. **M1 exits.** No code changed.
+
+**Why the criterion had to be amended before the milestone could close.** M1's third clause read
+*"the flash-and-crawl decision is one it actually made rather than one the rules merely permit"* —
+which is **the same sentence as M2's exit criterion**. Holding M1 open on it meant M1 could not close
+until M2 was finished. A checkpoint that asks a question is passed by an *answer*, not by a
+particular answer, so the clause now asks whether the checkpoint has been **answered**: fallback
+spent or explicitly not spent, with the evidence and the consequent change recorded. M2 keeps the
+tension criterion, which is its actual job.
+
+**Learned:** Three, and the first is a lesson about how we were wrong rather than about the game.
+
+**The same fact was diagnosed wrongly twice, in opposite directions, in one day.** The first playtest
+said dark dominates *because re-dormancy is unbuilt*. That was false — it shipped in #16, and a stale
+`(M2)` marker misled it. I corrected that and concluded the imbalance was real *with both
+counterweights present*. **Also wrong.** Re-dormancy is not a counterweight — it is the cause: a
+flash that wakes something is undone by walking away, and the retreat *profits*. Measured at net
+**+4 fuel** after paying for the whole round trip, and **fuel 23 → 60 with no damage taken** on floor
+8 with the run on the line.
+
+Then the ruling found the hole one layer further up again: **an awake creature that loses contact
+parks.** Re-dormancy is the refund; parking is what makes it collectable. `behaviour.ts` had flagged
+this itself — *"if the playtester reports that a searching Cinder is a statue, this is the function
+to change"* — and the playtester did, in different words. Cut re-dormancy alone and you still have a
+game where nothing ever comes for you.
+
+**The ruling is subtraction: a woken Cinder pursues.** It deletes two of `nextMind`'s five cases and
+adds no mechanic, no state, no UI, no glyph. What it buys is that four already-shipped rules stop
+being decoration — §5's loop doorways, §2's step-off-the-marked-tile, §4's adaptation ramp (which
+finally has teeth: the four turns after a flash become the turns when things can feel you and you
+cannot feel them), and §13's un-followable stairs.
+
+**The measurements everyone has been reasoning from are contaminated, and nobody noticed for four
+issues.** §4 says caches are invisible while shuttered. **The code pays on tile kind** and touch
+perceives them (#31/#41), so `DARK_PACIFIST` takes **119 of 121 caches** — dark play is receiving
+light's entire income stream, roughly 37 fuel a floor it should not have. **Every fuel figure in both
+playtest reports includes it.** The exit playtest's headline "80 → 122 at full HP without opening the
+lantern" is about 80 → 98 once §4's own rule is enforced. Separately, the corpus has **no never-flash
+fighter** — its model of competent play is strictly worse than a line a human found by accident,
+twice, so §4's numbers have been calibrated against the second-best strategy since #17.
+
+That is why no fuel number moved in this pass, and why the next step is build-then-measure rather
+than a tuning ruling.
+
+**The game already knows how to be good, and the measurement says exactly where.** With an awake
+creature inside three tiles the playtest scored **8 of 8 commands as real decisions**, twice, and
+called it the best five minutes of the build. Everything else scored **5 of 50**. The game is
+excellent when something is awake near you and empty otherwise — so the work is not "add tension",
+it is "make waking things matter and stop the walking".
+
+**Next:** M2, in the order the ruling specifies: **#79** (waking is announced — a precondition for
+#83, since being hunted by something you were never told you woke is worse than the bug it fixes),
+then **#31/#41** (enforce §4's own invisibility rule, which is what un-contaminates the corpus), then
+**#83** (pursuit), then a `HARVESTER` corpus style, and only then **#82**.
+
+**Watch:** **#82 shipped without #83 makes the game worse**, and that is the least obvious thing in
+the ruling. Drawing the radius-4 footprint turns the containment read into the clean binary the first
+playtest complained about — correct and desirable, but only once waking has a price. Order matters
+here in a way it usually does not.
+
+Also: **§9 gained a `Proposed` amendment to ADR-0009** — travel must also stop when a perceived
+creature *changes tiles*. Forced by pursuit: otherwise a hunted player taps a far tile and `step()`
+resolves the eight tensest turns for them. **#65 must not be built without it**, and ADR-0009 needs a
+superseding note that this pass could not write.
+
 ## 2026-07-31 — The third silent refusal, and the pattern behind all three (#60)
 
 **Did:** A tap on a non-adjacent tile now says `Too far to step.` instead of nothing. Found by the

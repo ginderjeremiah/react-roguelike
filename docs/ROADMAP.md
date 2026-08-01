@@ -6,11 +6,15 @@ half-built system waiting on the next milestone to mean anything.
 Kept in sync with GitHub milestones. Issues live there; this file explains the intent behind them.
 
 **Current milestone: M2 — The light loop.** M1 is **complete**: the simulation, both pure layers, the
-screen and the run loop are all built, and the exit playtest (#87) reached both endings on a phone.
-M1 closed on [ADR-0011](decisions/0011-m1-exits-on-the-answer-not-the-outcome.md) — the concept
-checkpoint was **answered**, not passed. **The answer was "not yet, and here is the rule that was
-wrong"**, so M2 opens with #83 and the build order the ruling specifies. Five M1 issues stay open
-(#12, #47, #69, #70, #87) and none gated the goal.
+screen and the run loop are all built, and the exit playtest (#87, now closed) reached both endings
+on a phone. M1 closed on [ADR-0011](decisions/0011-m1-exits-on-the-answer-not-the-outcome.md) — the
+concept checkpoint was **answered**, not passed. **The answer was "not yet, and here is the rule that
+was wrong"**, so M2 opens with the build order the #83 ruling specifies. Four M1 issues stay open
+(#12, #47, #69, #70), all sitting in the M2 GitHub milestone, and none gated the goal.
+
+**M2 has started, and its first code is #79** (PR #92, `bd4f577`): the turn a creature wakes now says
+so, with a count. That was step 1 of the ruling's build order — and **the order has changed since the
+ruling was written**, so read "The build order for the wager" under M2 below, not #83's issue body.
 
 ---
 
@@ -61,7 +65,8 @@ is layered on top.
 - [x] Death, winning, and a run-summary screen — #21. The run tally (kills, fuel burned, seed) went
       into `GameState` so a replay reproduces it; see the journal on why not `session/`. The last
       issue gating the exit, and the exit playtest followed it (#87)
-- [ ] Determinism rules applied to `game/**/*.test.ts` — #12
+- [ ] Determinism rules applied to `game/**/*.test.ts` — #12. Moved to the **Contract and tooling**
+      milestone with #48, its twin; still M1's leftover, still not gating anything
 - [x] A tap on a non-adjacent tile is silent — #60. Found by the first playtest; §2 requires feedback
       for a refusal and this is the first interaction a new player will attempt
 - [x] The HUD's ember-sense readout lies while the lantern is open — #61. Found by the first
@@ -88,7 +93,8 @@ and the summary screen has to render both.
 
 ### Where M1 actually stands
 
-*Re-counted at `6e20978` (#20 merged) from the tree, not adjusted from the previous count — the
+*Re-counted at `bd4f577` (#79 merged, so M2's first PR is in these figures) from the tree, not
+adjusted from the previous count — the
 number this section carried two revisions ago ("`game/` is 44 test files and 797 tests") was the
 **whole suite** mislabelled as `game/`, and it survived three PRs because a count with no stated
 scope cannot be checked. So: **every number below names what it covers and how it was produced.***
@@ -108,18 +114,19 @@ is why M1 closes without it.
 
 | Directory | Source modules | Test files | Tests |
 | --- | --- | --- | --- |
-| `game/` — generation, FOV, light, fuel, scheduler, combat, descent, endings | 45 | 42 | 774 |
-| `render/` — the presentation model (#19) + `taps.ts` (#20) | 8 + barrel | 8 | 138 |
-| `session/` — the run (#45) | 1 + barrel | 1 | 26 |
-| `components/play/` — board, cells, HUD, controls, hit test, theme (#20) | 10 | 0 colocated | — |
+| `game/` — generation, FOV, light, fuel, scheduler, combat, descent, endings | 45 | 42 | 786 |
+| `render/` — the presentation model (#19), `taps.ts` (#20), `cues.ts` (#21, #79) | 9 + barrel | 9 | 166 |
+| `session/` — the run (#45) | 1 + barrel | 1 | 28 |
+| `components/play/` — board, cells, HUD, controls, summary, hit test, theme, `opening` | 13 | 0 colocated | — |
 | `components/` (rest) + `app/` — two themed views; `_layout` and the game screen | 2 + 2 | 0 | — |
-| `tests/unit/` — contract gates, consumer probe, the four `play-*` suites, helpers | 6 helpers | 8 | 109 |
-| **Total (Vitest)** | | **59** | **1047** |
+| `tests/unit/` — contract gates, consumer probe, the six `play-*` suites, helpers | 6 helpers | 10 | 136 |
+| **Total (Vitest)** | | **62** | **1116** |
 
-`components/play/` has **no colocated tests**: its four pure modules are tested from
-`tests/unit/play-*.test.ts` (hit test, cell style, messages, theme) and its React is tested by
-Playwright, per ADR-0005's no-component-test-runner rule. E2E is **24 runs — 12 declarations across
-2 spec files, each run under both the `phone` and `desktop` projects**, up from 4 before #20.
+`components/play/` has **no colocated tests**: its **six** pure modules are tested from
+`tests/unit/play-*.test.ts` (hit test, cell style, messages, summary style, theme, opening) and its
+React is tested by Playwright, per ADR-0005's no-component-test-runner rule. E2E is **34 runs — 17
+declarations across 3 spec files, each run under both the `phone` and `desktop` projects**, up from 4
+before #20.
 
 **`platform/` still does not exist** — that is #47's, and #47 does not gate the exit. M1 ships a
 constant seed, so every run is the same run.
@@ -258,8 +265,14 @@ This was written as the milestone that determines whether the concept works. **I
 — the checkpoint moved up to M1's exit** (see M1's scope notes), because the simulation was finished
 a milestone early and the first playtest is the first honest judgement of it. §12's designated
 fallback (strip fuel, keep the positional tactics) is still what "change direction" means; it is
-just spent at M1's exit if it is spent at all. What M2 is *now* is where the wager is tuned until it
-is tense, having already been judged not-dead.
+just spent at M1's exit if it is spent at all. What M2 is *now* is where the wager is made tense,
+having already been judged not-dead.
+
+**And "tuned" is the wrong word for it, which this paragraph used to use.** The M1 exit playtest
+re-classified the problem as a **rule** one, not a tuning one — #83 deletes two cases of `nextMind`
+and moves no constant — and the ruling explicitly forbids moving a fuel number until #31/#41 land.
+M2's first two steps (#79, #94) change no simulation value either. Expect tuning to be the *end* of
+this milestone, not its method.
 
 - [x] Lantern fuel as the run clock — landed early, #17
 - [x] Dormant-in-darkness enemy behavior — landed early, #16
@@ -271,13 +284,22 @@ is tense, having already been judged not-dead.
       playtest reported it unimplemented and built a recommendation on that**, almost certainly after
       reading GDD §4's "**Awake-creature behaviour** (M2, ...)" marker, which was stale. §4 is fixed;
       this line exists so the mistake is not repeated from the roadmap instead
+- [x] **A wake is announced, in the turn line, with a count — #79 (PR #92).** M2's first code and
+      step 1 of the build order below, which made it a *precondition* rather than polish: once #83
+      lands, an unannounced wake is an unannounced hunter. It covers all three emission sites — the
+      ordinary transition, arrival by descent, and the opening frame of a run, which was built and
+      tested and reached no pixel until review caught it (#93). The announcement now **exists**;
+      whether it is *read* is #94, below. One seam it left untested is the lit descent, where `woke`
+      outranks `descended` — #96
 - [ ] Fuel economy and the risk/reward tuning around it — calibrated once in #17. **#63 is ruled**
       and **no fuel number may move yet**, because the corpus is measuring a different game than the
       one we designed: §4 says caches are invisible while shuttered, the code pays on tile kind, and
       `DARK_PACIFIST` takes **119 of 121 caches** — dark play receives light's entire income stream,
       ~37 fuel a floor. **Every fuel figure in both playtest reports inherits that.** #31/#41 first,
       then a never-flash fighter in the corpus, *then* numbers
-- [ ] Sound/haptic feedback for moving blind
+- [ ] Sound/haptic feedback for moving blind — **untouched.** #79 is adjacent and does not discharge
+      it: a wake is announced in *text*, which is neither sound nor haptic, and #94 is about the
+      pixels of that text. Nothing here has been built
 - [ ] Does a creature on a marked tile take the hit? — #28, a design ruling §6 is missing
 - [ ] Touch perceives ember caches, which §4 says are invisible while shuttered — #41
 - [ ] GDD §10's cell-state names vs the ones `render/` shipped — #46. Until this is ruled on, §10
@@ -286,6 +308,64 @@ is tense, having already been judged not-dead.
 - [ ] Auto-travel: implement `travel(to)` per [ADR-0009](decisions/0009-auto-travel-command-shape.md)
       — **#65**, filed because the gate below has been answered and the recommendation is build it.
       #32 was the design ruling and stays closed
+- [ ] **The wager is invisible before it is taken and illegible after it** — six issues from the two
+      playtests, none of them tuning and none of them mechanic, all M2 and none previously on this
+      roadmap: **#94** the wake line is the least emphatic text on screen (sequenced below), **#82**
+      you cannot see which contacts a flash would wake, **#80** the dormant glyph `c` can never be
+      drawn, **#81** the ember a kill drops is invisible in the dark beside you, **#84** neither your
+      damage nor a creature's health is ever shown, **#85** dying with a dry lantern near-misses
+      §13's "The lantern goes out." Also **#86**, the self-tap target eats half-cell misses. They are
+      one family: the exit criterion is a *felt* decision, and none of these change what the
+      simulation does
+
+### The build order for the wager, and where it stands
+
+The #83 ruling fixed an order and made two of its steps hard constraints. **It has changed once
+since**, so this list is authoritative and the ruling's issue body is not — the update is a comment
+on **#83**.
+
+1. ~~**#79** — a wake is announced, with a count.~~ **Done, PR #92.** The ruling's precondition 1:
+   being hunted by something you were never told you woke is worse than the bug #83 fixes.
+2. **#94** — give that announcement enough emphasis to be read first. *New, inserted by #79's own
+   playtest*, which answered the question #79 was built for with a **no**: *"on every flash turn I
+   noticed the red `C` first and read the line second, to confirm rather than to learn."* The line is
+   13px/400/`#9a9083`, the second-smallest text on screen, sharing its colour with a button caption,
+   ~1.3% of the area a flash changes, and **typographically identical to `The shutter opens. Light
+   spills out.`** — so at a phone glance, *that was free* and *you have company* differ only in which
+   dim grey letters are present. It is before #83 because today a missed wake costs a fact and after
+   #83 it costs a hunter. Colour and weight; cheap relative to what it protects.
+3. **#31/#41** — caches are invisible while shuttered, per §4. This is what un-contaminates the fuel
+   corpus, and **no fuel number moves before it.**
+4. **#83** — the ruling itself: a woken Cinder pursues.
+5. A **`HARVESTER`** style in `game/systems/economy.test.ts` — never flashes, routes to every
+   ember-sense contact, one-shots each dormant — which is what §4's invariant 4 is asserted against.
+6. **#82 last, unchanged and still explicitly last.** Shipping it before #83 makes the game *worse*:
+   drawing the radius-4 footprint turns the containment read into exactly the clean binary the first
+   playtest complained about. Correct and desirable, but only once waking has a price.
+
+**#89 is deliberately not in that list.** Re-dormancy is as silent as waking was, so a shuttered
+player cannot tell *it gave up* from *it is still coming*. It is not the inverse of #79 and must not
+be built as one — waking happens where the player is looking, re-dormancy by definition does not, so
+announcing it would tell the player something they have no in-fiction way to perceive. Rule it
+**after #83 has shipped and been played**: the pursuit has to be felt before anyone can say whether
+its ending should be legible.
+
+**Two measured facts from #79's playtest that bear directly on M2's exit criterion.** The first is
+buried in a comment on #83; the second is in no issue and no PR thread, so this roadmap is its only
+record.
+
+- **0 fuel is currently a dead zone.** §13 says it is not an ending, and with nothing hunting the
+  player a bot ran **143 turns at fuel 0 and HP 4**, empty status line every turn, with no way to
+  finish the run. That is not a separate bug; it is a direct measurement of the hole #83 exists to
+  close, and the strongest single argument that #83 is load-bearing rather than a nicety. **Check
+  after #83 lands that it actually closed it.**
+- **8 of 51 consecutive turns on `emberdepth` were real decisions**, with two unbroken autopilot
+  stretches of **15 and 22 turns**. Read that as an argument **for** #65 auto-travel, not against:
+  the stretches are forward travel across space a flash has already revealed, which is precisely the
+  case ADR-0009's stop rules collapse — see the auto-travel section below, where the same mistake
+  (evaluating travel against *backtracking*) is described. Compare the first playtest's 9-of-37;
+  whether the two counted a "decision" identically is not recorded, so treat the trend, not the
+  delta, as the finding.
 
 ### The first playtest's verdict on the wager, and one thing it got wrong
 
@@ -324,15 +404,26 @@ containment guarantee's use as a permission check without breaking its use as le
 observed and unfiled as its own thing: six rapid shutter taps burn 15 fuel with zero turns elapsed
 and no warning, so a fumbled double-tap costs 5 fuel.
 
-**Contract and tooling debt, parked here because it had nowhere else to go.** None of it is light-loop
-work and it should not be counted as M2 progress; it is here so that `gh issue list --milestone "M2:
-The light loop"` — the queue every session actually reads — does not hide it. If M2 starts and this
-list has grown, move it to its own milestone rather than carrying it further. **It has grown, from
-five to eight — #57, #58 and #62 joined — and M2 has not started** — so the next session that opens M2 should split it out
-rather than carry it, which is what the sentence above was written to trigger.
+**Contract and tooling debt — no longer parked here. The trigger fired and it has been split out.**
+This paragraph used to end *"if M2 starts and this list has grown, move it to its own milestone
+rather than carrying it further."* M2 started (#79, PR #92) and the list had grown again — five, then
+eight, then **thirteen** — so those thirteen were moved to a GitHub milestone named **Contract and
+tooling** (#95 was filed straight into it, making fourteen), and `gh issue list --milestone "M2: The
+light loop"` is now light-loop work only. The list stays written here because the *intent* behind
+each item is not in its issue body; the milestone is where they are queued.
+
+None of it gates any milestone exit. **Do not count it as M2 progress**, and do not let it grow back
+into M2 — anything of this shape filed from here on belongs in the new milestone on the day it is
+filed.
+
+**The count moved by five, not by the two filed this session.** #90 and #91 are new (both from #79),
+#12 came down from M1's list — and **#76 and #78 were already in the M2 milestone and had never
+reached this roadmap at all**, filed during #60/#61 and invisible here ever since. That is the exact
+drift this section was written to prevent, happening to this section: a list that claims to make the
+queue visible only does so if someone re-derives it from `gh issue list` rather than reading it.
 
 - [ ] Both contract gates are bypassable by naming a source file `*.test.ts` — #48. Same family as
-      #12; whoever does #12 is already in both files
+      #12, which moved with it; whoever does #12 is already in both files
 - [ ] `render/` and `session/` may import `platform/`, one import from a clock — #52. **Must be
       settled before or with the PR that creates `platform/` (#47)**, not after
 - [ ] `render/`'s barrel lets `components/` name `GameState` via `Parameters<>` — #53. Pre-existing
@@ -348,6 +439,28 @@ rather than carry it, which is what the sentence above was written to trigger.
       legitimate refusals
 - [ ] The worktree convention is written down nowhere, and its `node_modules` junction eats the main
       checkout under `rm -rf` — #62
+- [ ] Determinism rules are disabled inside `game/**/*.test.ts` — #12, moved here from M1's list
+- [ ] No `.gitattributes`, so an ordinary edit silently rewrote a whole file's line endings — #76
+- [ ] Prettier is unconfigured and reformatted three files during a four-comment edit — #78
+- [ ] Playwright's `reuseExistingServer` on a fixed port 3000 lets a worktree's E2E run test
+      **another checkout's bundle** — #90, from #79, where it cost an hour of chasing real code
+      against a stale build. **The dangerous direction is the false green**: a worktree whose change
+      never reached `dist/` reuses a working server from elsewhere and reports a required check
+      passing for a bundle nobody tested. CI is not exposed (one checkout, clean runner), which is
+      exactly why it will keep being rediscovered the expensive way
+- [ ] `ensure-worktree-node-modules.mjs` is defeated by a stub `node_modules` — #91. Vitest creates
+      `node_modules/.vite`, the guard sees a directory and concludes all is well, and `test:e2e` then
+      dies in precisely the case the guard exists to prevent
+- [ ] The playtester's documented procedure serves a `dist/` that can change underneath it — **#95**,
+      filed by this reconcile from a journal Watch note that had no issue. A concurrent build swapped
+      the seed mid-session while the port and bundle name stayed right. Worse here than in a spec: a
+      playtest's output is prose, so a report that observed the wrong simulation is simply wrong and
+      nothing in it says so
+
+**Left in M2 on purpose:** #67, #72 and #73 are the same *shape* (a gate that does not gate, a
+projection that widens by nothing, a journal that can be appended in the wrong place), but each rides
+on a document the light loop is actively editing, so they are more useful surfacing in the M2 queue
+than filed away. If the next session disagrees, move them — but move them deliberately.
 
 ### Auto-travel: the gate is answered, and the two arms disagree
 
@@ -365,6 +478,10 @@ needs.
 - **The Pillar 1 count is the number that decides it.** 9 of 37 turns were real decisions — 1 in 4.
   Collapse the locomotion and the same play becomes ~9 decisions in ~17 commands, **53%**. Same
   rules, same play, no other change.
+- **#79's playtest re-measured it and it got worse, not better:** **8 of 51 consecutive turns** on
+  `emberdepth`, with two unbroken autopilot stretches of **15 and 22 turns**. Two independent runs on
+  the same seed now put the ratio at or below 1 in 4, and the second is the stronger evidence because
+  those stretches are forward travel, which is the case the resolution below identifies.
 - **The "do not build it" arm also fired, on the disambiguating probe this roadmap wrote.** The probe
   was *did you want to go back and decide not to?* — and the answer was **no, not once, in six
   runs.** The single declined backtrack was declined for fuel and turns, which are costs the design
@@ -385,8 +502,14 @@ re-measurement now has two reasons — the same playtest reports invariant 3 alr
 
 **Exit criteria:** the playtester reports the light decision recurring naturally and being
 genuinely tense — and can point to specific turns where it mattered. Unchanged, and now the only
-thing M2 is really for. The contract-and-tooling list above is lodged here, not aimed at this — it
-does not count toward the exit.
+thing M2 is really for. The contract-and-tooling work is a separate milestone now and does not count
+toward this exit.
+
+**The playtest that judges this must be run after step 4 of the build order at the earliest**, and it
+has two numbers to bring back beyond the verdict: the fraction of woken creatures that reach adjacency
+at least once before re-dormanting (near 0 means the pursuit is theatre and #83 was wrong; near 1
+means the flash is a bill rather than a wager and the 8 comes down), and whether **0 fuel has stopped
+being a dead zone** — the 143-turn run recorded above is the before-measurement.
 
 ## M3 — Depth
 

@@ -57,6 +57,62 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-07-31 — Reconcile after #79: the roadmap was describing a build order that had already changed
+
+**Did:** Archivist pass over `main` at `bd4f577`. `docs/ROADMAP.md` only — GDD §4/§6 and
+`ARCHITECTURE.md` were amended inside PR #92 and were verified current, so they were not touched, and
+**the #79 entry below was not rewritten.** Also: created a **Contract and tooling** GitHub milestone
+and moved thirteen issues into it, and filed **#95** and **#96** from Watch notes that had no issues.
+
+**Why the milestone split happened now instead of being flagged for a fourth time.** The roadmap's
+contract-and-tooling paragraph has carried its own trigger since it was written: *if M2 starts and
+this list has grown, move it to its own milestone.* Both halves are now true — M2 started with #79,
+and the list grew from eight to thirteen. A trigger that is re-read and re-deferred each session is
+just a comment. `gh issue list --milestone "M2: The light loop"` returned **34** open issues, of which
+**11** had nothing to do with the light loop; the new milestone holds those 11 plus #90 and #91,
+which had no milestone at all. What is left in M2 is the wager and the screen it is played on. If
+that milestone starts collecting lint and CI work again, the split failed, and the reason will be
+that nobody was told about it at filing time — not that the milestone was wrong.
+
+**Learned — the drift was in the two places nobody re-derives.** Both worth naming because they are
+process defects, not typos:
+
+*A doc that records a decision does not know when the decision changes.* The roadmap correctly quoted
+#83's build order (#79 → #31/#41 → #83 → HARVESTER → #82). #79's own playtest inserted **#94** into
+that order, and the update was posted as a comment on #83 — where the roadmap, and anyone reading the
+issue body rather than its comments, would never see it. The roadmap now states the order and says
+explicitly that it, and not #83's body, is authoritative. **Expect this shape again:** any ruling this
+project restates in two places will diverge at the first amendment, and the amendment will be in
+whichever place is cheapest to write, which is a comment.
+
+*A list that exists to make a queue visible only works if someone re-derives it from the queue.*
+#76 and #78 were filed during #60/#61, went into the M2 milestone, and never reached the roadmap's
+contract list at all — so the list that was written specifically so that debt could not hide had two
+items hiding from it for four PRs. Found by diffing `gh issue list` against the file, which is the
+only way it could have been found.
+
+**Also corrected:** the header claimed five open M1 issues including **#87**, which is closed (it was
+the exit playtest, and closing it is what let M1 close); the "Where M1 actually stands" counts were a
+snapshot at `6e20978` and were four PRs stale (1047 tests → **1116**, 59 files → **62**, E2E 24 runs
+→ **34**), re-measured at `bd4f577`; and M2's intro described its own work as *tuning* two paragraphs
+above the section explaining that #83 was re-classified as a **rule** change and that no fuel number
+may move until #31/#41 land.
+
+**Recorded in the roadmap because they exist in no issue:** the two measured facts from #79's
+playtest. **0 fuel is a dead zone** — a bot ran 143 turns at fuel 0 and HP 4 with no way to finish —
+which is the before-measurement for #83 and now sits in M2's exit criteria as a thing to re-check.
+And **8 of 51 consecutive turns on `emberdepth` were real decisions**, with autopilot stretches of 15
+and 22 turns, which strengthens the case for #65 rather than weakening it. Note the second figure was
+reported in-session and is **not** in PR #92's thread or any issue, so the roadmap is now its only
+record; whether it counted a "decision" the same way as the first playtest's 9-of-37 is unknown and
+the roadmap says so.
+
+**Watch:** #94 is now sequenced before #83 in the roadmap and in a comment on #83, but **#83's issue
+body still describes the old order** and is the thing a session opening that issue reads first. If
+#83 is picked up before #94, that is why.
+
+---
+
 ## 2026-07-31 — The flash finally prints a receipt (#79)
 
 **Did:** Added an eighth cue, `woke`, so that the turn a creature wakes says so — with a count. First

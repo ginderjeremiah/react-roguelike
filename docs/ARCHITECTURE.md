@@ -211,8 +211,11 @@ computed those cues and dropped them on the floor; the bug was invisible because
 than in the `.tsx` for a reason that generalises: **`app/index.tsx` imports `react-native`, so Vitest
 cannot load it, and anything decided inside it is unreachable from every test tier we have.**
 
-**The six pure modules are tested from `tests/unit/play-*.test.ts`, not colocated**, and the React
-is tested by Playwright — ADR-0005 says there is no component test runner. `hit-test.ts` is the one
+**The seven pure modules are tested from `tests/unit/play-*.test.ts`, not colocated**, and the React
+is tested by Playwright — ADR-0005 says there is no component test runner. **Seven modules, six
+`play-*` suites**: `status-style.ts` (#94) is tested from `play-theme.test.ts`, because what its ramp
+has to satisfy is a claim about the *theme* — that `alarm` and `report` differ in two channels in both
+schemes. Do not read the file list as a suite list. `hit-test.ts` is the one
 that matters: **every tap on the board goes through it** — the shutter and descend controls are
 plain `Pressable`s and do not — because `nativeEvent.locationX` is typed
 `number` and is `undefined` on react-native-web (#58), and because `onLayout` on web is a

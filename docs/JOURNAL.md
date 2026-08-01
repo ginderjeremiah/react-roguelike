@@ -57,6 +57,129 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-08-01 — Reconcile after #94: a duplicate, a falsified issue, and two docs that disagree about what to build next
+
+**Did:** Archivist pass over `main` at `86eda1e`. Touched `ROADMAP.md`, `ARCHITECTURE.md` and one
+factual note in `GDD.md` §10. **The #94 entry below was not rewritten** — it was verified against §10,
+§11, §4's pointer and the change-log row, and all five are current, because they landed inside PR #101
+rather than being deferred to this pass. Issue work: closed **#100** as a duplicate of **#76**, posted
+the resolving evidence on **#98**, added the seed finding to **#96**, labelled **#102**, and added the
+branch-hygiene hazard to **#62**.
+
+**The brief for this pass was itself stale, and that is the most useful thing in this entry.** It
+asked me to fix the roadmap's "Contract and tooling debt" paragraph and its "M2 has not started"
+claim. **Both were already fixed** — by PR #97, the *previous* reconcile, one PR earlier. The
+briefing was written from a memory of the roadmap rather than from the roadmap. The lesson is not
+about that briefing: it is that **a reconcile pass must re-derive from the artefact, never from a
+description of the artefact**, which is the same rule the previous entry drew about `gh issue list`
+and this section keeps re-learning through a different door each time. The real drift was in three
+places nobody named.
+
+**Learned — #98's premise is false, and an already-passing E2E is what falsifies it.** #98 asks
+whether `RUN_OVER_MESSAGE` is unreachable, on the strength of two component doc comments that appear
+to contradict each other. They do not. `status-line.tsx` is right that a finished run never mounts it;
+`messages.ts` is right that the string is displayed. **Both are true because the message goes
+somewhere neither comment names:** `app/index.tsx` sets it and then hands it to `RunSummaryPanel`'s
+`note` prop, which draws it at `testID="summary-note"` — and `e2e/run-loop.spec.ts:206` has been
+asserting exactly that, by importing the constant rather than copying it, since #21. #98 asked for the
+drive-it-and-see; the drive already exists and is green. **What survives of #98 is the half added by
+comment**, which is a different and real defect: `The lantern goes out.` is levelled `alarm` and
+**cannot** be drawn, because `advance` nulls the line on any turn that produces a summary and a death
+always produces one. So `alarm` has three members on paper and two on screen. Recorded in GDD §10 as a
+note beside the table, because **#103's ruling explicitly turns on how many members the set has** and a
+designer reading §10 alone would count three.
+
+**Learned — the milestone split worked and the thing it was supposed to fix did not.** #100 (mixed
+line endings, no `.gitattributes`) was filed **straight into Contract and tooling**, which is the
+behaviour PR #97's split asked for. It is also a **duplicate of #76**, which has sat in that same
+milestone since #74, with a fuller definition of done. It was filed by an agent that hit the bug live
+during #94 and did not check whether it was known. **Filing into the right milestone is not the same
+as reading the milestone**, and the roadmap's tooling list — which exists precisely to make that queue
+readable — was not consulted either. What genuinely survives from #100 and is now on #76: **the
+mechanism has bitten twice** (PR #74 at 738 lines, PR #101 at ~900), and it bites in a predictable
+place — `Edit`/`Write` preserve a file's existing endings while a scripted rewrite normalises them, so
+the trigger is a mechanical change across many files, which is exactly when a script is the obvious
+tool.
+
+**Learned the hard way, in this very entry, and it is the sharpest finding in the PR.** The paragraph
+above originally carried a **third** claim: that #76's CRLF file list had gone stale, that
+`render/hud.test.ts` "is LF now", and that the offending set was *drifting silently as unrelated PRs
+touched it* — so there was "no state to converge on". **All of that was false, and the review caught
+it.** Re-derived at `86eda1e`:
+
+```bash
+git ls-files --eol | grep crlf     # ten files, not three
+```
+
+Ten, including two in `game/` and `eslint.config.js`, none of which any version of the list named.
+`render/hud.test.ts` **is** CRLF and always has been — `git log -- render/hud.test.ts` ends at
+`65f10f0`, so nothing has touched it since #76 was written. And the drift claim inverts: the CRLF
+counts at `65f10f0` / `bd4f577` / `86eda1e` are **9 / 10 / 10**, the same set throughout, and the one
+addition is `tests/unit/play-opening.test.ts` — a **new file** from #79, not a file that flipped. So
+there is a **stable set of ten** and it can simply be fixed. **#76's original body was accurate in
+full and did not need my correction.**
+
+**The irony is the lesson.** This is the entry that argues *re-derive from the artefact, never from a
+description of it* — and its own file list was copied from a description, of a description: an
+implementer's report became #100's body, #100's body became my comment on #76, and my comment became
+this paragraph. Nobody ran the command. **The rule that actually holds is that `git ls-files --eol` is
+the check — not a list in any issue body, including #76's.** A file list written into prose is a
+measurement with a timestamp nobody can see, and the fix is to cite the command rather than its
+output. Corrected on #76 (comment `5153280410`) and here.
+
+**Flagged and now settled: the journal and the roadmap disagreed about what to build next.** The #94
+entry below ended **"Next: #83"**. The roadmap's build order, and #83's own build-order-update comment
+which is where that order was actually decided, both put **#31/#41 third and #83 fourth**. A one-word
+disagreement that costs a whole PR if the wrong one is followed, so it was raised rather than guessed
+at — the archivist reconciles records and does not decide build order.
+
+**Ruled during this PR: the roadmap's list stands. Next is #31/#41, then #83.** Comment `5153249392`
+on **#83**, and the #94 entry's `Next:` line is corrected in place with the strike-through left
+visible. **The reasoning I could not have supplied is the part worth keeping**, because my own
+analysis pointed the other way: I noted that step 3 exists to un-contaminate the *fuel corpus* and
+that #83 moves no fuel number, and read that as "possibly harmless to reorder". That is the wrong
+frame. #83 does not move a fuel number but it **changes the game the corpus measures** — a pursuing
+Cinder changes how many turns a run spends and on what — so #31/#41 first buys **one** re-measurement
+against a clean baseline, and #83 first costs **two**, of which the second cannot attribute which
+change moved the number. *A step that moves no constant can still invalidate a measurement*, and that
+is the generalisable bit.
+
+**The durable fix is naming the authority, not fixing the two records.** This is the second time an
+ordering has drifted between records. So `ROADMAP.md`'s build-order list now says in one line that it
+outranks **both** #83's issue body **and** any `Next:` line in this journal, and it sits where a
+session reads first. Two records that disagree are a coin flip unless one of them is declared to win.
+
+**Learned — a count corrected in one place is a count corrected in one place.** PR #101's review
+caught `ARCHITECTURE.md` describing `components/play/` as "six pure modules" when `status-style.ts`
+made it seven, and fixed it. The **same file says "six" again eighty lines further down**, and
+`ROADMAP.md` said it a third time. The general shape is that a number appearing three times in two
+files is a number that will be right in one of them; the specific fix is that all three now say seven
+**and** explain the thing that makes seven look wrong — there are only six `play-*` suites, because
+`status-style` is tested from `play-theme.test.ts`. A reader checking the claim by listing the suites
+would otherwise "correct" it back.
+
+**Also re-measured at `86eda1e`, because the tree changed under the table:** Vitest is **1129 tests in
+62 files** (was 1116), `tests/unit/` is **149** (was 136), `components/play/` is **14 source modules**
+(was 13), and E2E is **36 runs — 18 declarations × 2 projects** (was 34/17), so a green CI log now
+reads **35 passed, 1 skipped**. `game/`, `render/` and `session/` are unchanged to the file, which is
+the cheapest available evidence that #94 was a presentation change.
+
+**Next:** **#31/#41** — caches are invisible while shuttered, per §4. Step 3 of the build order, and
+now unambiguous (comment `5153249392` on #83). It is what un-contaminates the fuel corpus, and
+therefore what unblocks every fuel number in M2 and the `HARVESTER` style at step 5. **#83 is fourth**,
+after it.
+
+**Watch:** the playtest-issue family in M2 ("the wager is invisible before it is taken and illegible
+after it") went from seven to **nine** this session and has never shrunk except by being built. **By
+issue creation time the three playtests contributed 6 → 1 → 2**, not three each — I wrote "roughly
+three per playtest" first, which is an average dressed as a trend, and review caught that the real
+shape points the *other* way. The M1 exit playtest found a backlog; the two since found 1 and 2, and
+both were narrow briefs about a single line rather than full sweeps. **So this is not evidence of a
+screen getting worse, and the honest reading is that we do not yet know**: the later counts are
+confounded by scope. The thing that would actually answer it is the next *broad* playtest — the one
+after #83 — and if that one comes back with six again, the family has stopped being a list of bugs
+and become a finding about the screen. Noted on the roadmap bullet in those terms.
+
 ## 2026-08-01 — The wake line is drawn like a wake line (#94)
 
 **Did:** Gave the turn line two emphasis levels, `alarm` and `report`, ruled in GDD §10 with a §11
@@ -173,8 +296,15 @@ collapses in place; board and control tops are stable across every level), but t
 caption vanishing at 5/5 sense shrinks the HUD, so the press that prints the turn line also slides the
 board. Filed as **#102**, and distinct from #69.
 
-**Next:** #83 — a woken Cinder pursues. That is what the last two PRs were sequenced to precede, and
-it is the ruling M1 exited on.
+**Next:** ~~#83 — a woken Cinder pursues.~~ **Corrected in PR #104: next is #31/#41, then #83 fourth.**
+This line was wrong — it was written from #83's prominence in the narrative rather than from
+`docs/ROADMAP.md`'s "The build order for the wager", **which is the authority** and says so of itself
+(it outranks #83's issue body, and it outranks a `Next:` line here). Left struck through rather than
+deleted because the mistake is the instructive part: #83 *is* what the last two PRs were sequenced to
+precede and *is* the ruling M1 exited on, and both of those are true without making it the next thing
+built. Ruling and full reasoning: comment `5153249392` on **#83**. The load-bearing half is that #83
+moves no fuel number but does change the game the corpus *measures*, so building it before #31/#41
+costs two re-measurements and the second cannot attribute which change moved the number.
 
 **Watch — two, and both are pre-registered cut signals rather than suspicions.** If a playtest reports
 the `alarm` level firing often enough to stop reading as one — §4's existing threshold is roughly one

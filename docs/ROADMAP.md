@@ -113,10 +113,14 @@ figures) from the tree, not adjusted from the previous count — the
 number this section carried four revisions ago ("`game/` is 44 test files and 797 tests") was the
 **whole suite** mislabelled as `game/`, and it survived three PRs because a count with no stated
 scope cannot be checked. So: **every number below names what it covers and how it was produced.***
-**Only `game/` and `render/` moved** (786 → 810 and 166 → 171). `session/`, `tests/unit/`,
-`components/` and the E2E count are byte-identical, because PR #106 changed no file outside `game/`
-and `render/` — which is the evidence that the cache rule is a simulation change with a one-line
-consequence in the presentation model, exactly as its journal entry claims.
+**Only the `game/` and `render/` rows moved** (786 → 810 and 166 → 171). `session/`, `tests/unit/`,
+`components/` and the E2E count are unchanged — **and an unchanged row is evidence about counts and
+about nothing else.** The first draft of this paragraph said the unmoved rows proved PR #106 touched
+no file outside `game/` and `render/`; review falsified it with one `git diff --name-only`. #106 also
+changed three helpers under `tests/unit/support/` — `scenario.ts`, `lantern-run.ts` and
+`run-script.ts` — which hold the row steady only because helpers carry no tests of their own. The one
+to know about is **`scenario.ts`**: its floor construction used to make a `cache` tile without adding
+it to `floor.caches`, so the contract every cache test is built on changed underneath them.
 
 **This table goes stale on every code PR and is repaired by the next docs pass — three for three.**
 The total was `1047` at both `9df602d` and `bd4f577` (#92), `1116` at `942136c` (#97, a docs PR) and
@@ -340,11 +344,13 @@ this milestone, not its method.
       finally measuring the game §4 describes. **Every fuel figure in both playtest reports still
       predates it and inherits the contamination.** What is left before numbers move is a never-flash
       *fighter* in the corpus (step 5, **#109**), which is what invariant 4 is actually asserted
-      against — and **#108** has now measured from play what that fighter will be asked to confirm:
-      caches are 25-50 fuel a floor and creature ember is **60-120 and free in the dark**. That is
-      the Watch §4 already carried, arriving early with numbers; it is **not** a contradiction of the
-      cache ruling, which said necessary-and-not-sufficient and named the never-flash fighter as the
-      case it does not reach. What it changes is urgency, not the rule
+      against — and **#108** has now put a number on what that fighter will be asked to confirm: a
+      floor **holds** 25-50 fuel in caches against **60-120 of creature ember, free in the dark**.
+      That is arithmetic on the constants rather than an observed take — the ceiling, not the haul,
+      which is exactly the difference #109 exists to close. It is the Watch §4 already carried,
+      arriving early with numbers, and it is **not** a contradiction of the cache ruling, which said
+      necessary-and-not-sufficient and named the never-flash fighter as the case it does not reach.
+      What it changes is urgency, not the rule
 - [ ] Sound/haptic feedback for moving blind — **untouched.** #79 is adjacent and does not discharge
       it: a wake is announced in *text*, which is neither sound nor haptic, and #94 is about the
       pixels of that text. Nothing here has been built

@@ -61,11 +61,15 @@ did — it is the only thing stopping a future session from repeating it.
 
 **Did:** Archivist pass over `main` at `0baacfd`. Touched `ROADMAP.md`, `GDD.md` (§4 twice, §10 once)
 and one line of `ARCHITECTURE.md`. **The #106 entry below was not rewritten** — it was checked against
-§4's ruling, the invariant-4 blockquote, the roadmap's step 3, and `messages.ts`, and all of it is
-current, because it landed inside PR #106 rather than being deferred to this pass. That is now the
-second reconcile in a row where the *previous* PR's own documentation needed nothing; the habit is
-holding. Issue work: milestoned **#107** and **#108** into M2 (both were filed with none), filed
-**#109** and **#110**, and confirmed **#105**'s closure carries its discharge.
+§4's ruling, the invariant-4 blockquote, the roadmap's step 3 and `messages.ts`, and every one of
+those held, because it landed inside PR #106 rather than being deferred to this pass. **One line of
+it is now wrong and stays wrong:** its `**Next:** #83 — step 4 of the build order` was true when
+written and is not, because this pass put #107 in front of #83. The roadmap calls that exact shape
+"a bug to fix" — the fix is this paragraph, not an edit down there, because the journal is
+append-only and a record of what we used to believe is the thing it exists to keep.
+
+Issue work: milestoned **#107** and **#108** into M2 (both were filed with none), filed **#109** and
+**#110**, and confirmed **#105**'s closure carries its discharge.
 
 **The build order gained step 3a — #107 before #83 — and it is the one judgement call in this pass.**
 The list declares itself the authority over every other record, and at `0baacfd` it disagreed with a
@@ -97,11 +101,15 @@ in the list rather than renumbered.
 **§4 contained a sentence #108 falsifies if you read it unscoped, and the fix is scope, not a
 retraction.** The cache ruling says the corpus measurement handed caches "to the one style the design
 says has none". Over the corpus that is true — every style in it is a pacifist or near it. In the
-game it is not: a never-flash **fighter** banks 20 a kill, measured at 60-120 fuel a floor against
-25-50 from caches. Both numbers re-derived from `game/map/generate.ts` and `game/content/`, not
-quoted from the report. §4 now carries the scope inline and the invariant-4 blockquote carries the
-2.5x gap with its arithmetic. **No ruling was touched**, and #108 is not a contradiction of the cache
-rule — it is §4's own Watch arriving early with numbers, which is what the #106 entry already said.
+game it is not: a never-flash **fighter** banks 20 a kill, and a floor *holds* 60-120 fuel of
+creature ember against 25-50 in caches. Both ranges are **arithmetic on the constants** in
+`game/map/generate.ts` and `game/content/`, re-derived here rather than quoted — which makes them a
+**ceiling**, not a haul, since the top of the range means killing everything on the floor. §4 and the
+roadmap now say so in those words, because my first draft of both wrote them as "measured in play"
+and the review caught it: this is a document that demands every number name how it was produced, and
+these two are the numbers the next tuning pass will reach for. Converting the ceiling into a haul is
+#109. **No ruling was touched**, and #108 is not a contradiction of the cache rule — it is §4's own
+Watch arriving early with numbers, which is what the #106 entry already said.
 
 **The count table in `ROADMAP.md` is stale after every code PR — three for three, and this is the
 process finding of the pass.** Totals through history: `1047` at `9df602d` (#71) *and* `bd4f577`
@@ -111,8 +119,12 @@ next code PR. The section's existing discipline — *every number names what it 
 produced* — was written after a **mislabelling** bug and does nothing about staleness, because the
 cost falls on a later session rather than on the PR that moved the number. Repaired again here
 (`game/` 786 → 810, `render/` 166 → 171, total 1129 → 1158; `session/`, `tests/unit/`,
-`components/` and the 36 E2E runs unmoved, which is itself the evidence that #106 was a
-`game/`+`render/` change).
+`components/` and the 36 E2E runs unmoved — **which is evidence about counts and nothing more.**
+This entry and the roadmap both first said the unmoved rows proved #106 changed nothing outside
+`game/` and `render/`; review falsified that in one command. It also changed three helpers under
+`tests/unit/support/`, which move no count because helpers carry no tests, and one of them —
+`scenario.ts` — changed the floor-construction contract under every cache test. **A count is not a
+file list, and I reached for it as one.**).
 Filed as **#110** with a recommendation: **delete the numbers** unless someone can name a decision
 they changed. Nobody should pay for this by hand a fourth time.
 
@@ -123,11 +135,17 @@ document for three PRs. #108's hand measurement is now the thing it has to confi
 
 **Verified and deliberately left alone.** `ARCHITECTURE.md`'s numbers all still hold at `0baacfd` —
 seven numbered points in `step.ts`'s contract, seven pure modules in `components/play/` inside
-fourteen files, four `Command` variants, five layers, and no `RULES_VERSION` value stated anywhere
-outside `replay.ts` (which is why the 3 → 4 bump needed no doc edit — "one number, one home" paid for
-itself). Its `game/fov/` line gained the second monotone plane and nothing else. **#96 is unchanged by
-#106** despite the brief's suspicion: it needs a seed whose *lit descent* wakes something, and
-`revealed` resets on descent, so nothing about the cache rule makes that seam reachable — the comment
+fourteen files, four `Command` variants, five layers, and **no document restating the current
+`RULES_VERSION` in a form a bump would falsify** — which is why 3 → 4 needed no doc edit. The
+numeral `4` does appear three times (`ROADMAP.md`'s cache line, `vision.ts`'s plane comment,
+`replay.test.ts`'s fixture pin) and all three name it as *what #31/#41 did*, which stays true at 5.
+The first draft of this sentence claimed the numeral appeared nowhere outside `replay.ts`, which a
+grep refutes; "one number, one home" is a claim about the canonical value, not about the digit.
+`ARCHITECTURE.md`'s `game/fov/` line gained the second monotone plane and nothing else.
+
+**#96 is unchanged by #106** despite the brief's suspicion: it needs a seed whose *lit descent* wakes
+something, and `revealed` resets on descent, so the cache rule makes that seam no more reachable than
+it was — the comment
 on #96 from #94's playtest is still the way in. **#99 has no milestone on purpose** (its body says so;
 it waits for #83) and is now named in the roadmap beside #89, because an un-milestoned issue is
 invisible to the one command `CLAUDE.md` tells every session to run. **#107 and #108 duplicate

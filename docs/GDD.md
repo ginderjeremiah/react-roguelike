@@ -509,9 +509,12 @@ floor, handed to the one style the design says has none.
 
 *Read that last clause as scoped to the corpus, which is what it was measured over.* Every style in
 the corpus is a pacifist or near it, so caches really were its whole income. A never-flash **fighter**
-is a different animal and always was: it banks 20 a kill, **measured in play at 60-120 fuel a floor
-(#108)** against 25-50 from caches. That style is what invariant 4 is for, and it is the case this
-ruling explicitly does not reach — see the blockquote at the end of this block.
+is a different animal and always was: it banks 20 a kill, and a floor **holds** 60-120 fuel of
+creature ember against 25-50 in caches (#108) — **arithmetic on the constants, not an observed
+take**, since reaching the top of that range means killing everything on the floor. That style is
+what invariant 4 is for, and it is the case this ruling explicitly does not reach — see the
+blockquote at the end of this block. **Whether a fighter actually banks it is #109's measurement**,
+not something §4 knows today.
 
 The ruling is that **the code is wrong and the document is right**:
 
@@ -623,14 +626,16 @@ play, is strictly worse than a line a human found by accident.
 > playtest reports predates this and still includes income darkness cannot have; re-measure before
 > quoting one.
 >
-> **How much is still open now has a number, from play rather than from the corpus (#108).** Caches
-> are `CACHE_SLOTS = 2` with `count = int(rng, 0, 1)` at `CACHE_FUEL = 25` — **25-50 a floor, gated
-> behind light**. Creatures are `min(2 + floor, 6)` at `CINDER.emberDrop = 20` — **60-120 a floor,
-> gated behind nothing**, and a dormant dies to one strike and never swings back. So the remaining
-> gap is roughly **2.5x**, and the same playtest found the good news the rule bought: clear-the-room-
-> dark-then-flash is now the best line on floor 1, at +18 fuel over never flashing. Both halves are
-> measurements, not rulings — **nothing in §4 is amended by them.** The corpus style that would let
-> invariant 4 be asserted rather than estimated is **#109**.
+> **How much is still open now has a number (#108), and its two halves have different provenance.**
+> **Arithmetic on the constants, not observation:** caches are `CACHE_SLOTS = 2` with
+> `count = int(rng, 0, 1)` at `CACHE_FUEL = 25` — **25-50 a floor, gated behind light**; creatures
+> are `min(2 + floor, 6)` at `CINDER.emberDrop = 20` — **60-120 a floor, gated behind nothing**, and
+> a dormant dies to one strike and never swings back. That is a **2.5x gap in what a floor holds**,
+> which is a ceiling: taking it means killing everything. **Measured in play, by hand:** clear the
+> room dark, *then* flash is now the best floor-1 line, at +18 fuel over never flashing — the first
+> measurement in this project where light wins anything. Neither half is a ruling and **nothing in §4
+> is amended by them.** Converting the ceiling into what a fighter actually banks is **#109**, which
+> is why invariant 4 is still estimated rather than asserted.
 
 **Awake-creature behaviour — *ruled 2026-07-31, not yet implemented (#83)*.** Specified here because
 §6 depends on it.

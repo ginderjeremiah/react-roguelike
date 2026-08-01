@@ -36,7 +36,17 @@ that a woken Cinder **pursues** — recorded in GDD §4/§6 and built under #83.
 
 ## The problem with the criterion itself
 
-**M1's third clause and M2's exit criterion are the same sentence.**
+**M1's third clause and M2's exit criterion overlap substantially enough that M1 cannot close before
+M2 does.**
+
+Not *the same sentence* — an earlier draft said that, and review pointed out the draft refutes itself
+by printing both underneath. M1 asks whether the decision was **made rather than merely permitted**;
+M2 asks whether it **recurs naturally and is genuinely tense**. Those differ, and on the exit
+playtest's own evidence — made about a dozen times, 8 of 8 commands as real decisions with something
+awake nearby — M1's literal clause was arguably already signable. The correction matters because this
+ADR is what the next criterion amendment will cite.
+
+What holds is the structural point:
 
 - M1: *the flash-and-crawl decision is one it actually made rather than one the rules merely permit*
 - M2: *the light decision recurring naturally and being genuinely tense*
@@ -83,8 +93,8 @@ win condition, and it does not fix frequency.
 
 ## Consequences
 
-- **M1 closes with four issues open** (#12, #47, #69, #70). None gates the goal; they move to M2 or
-  stay open against M1 as record.
+- **M1 closes with five issues open** (#12, #47, #69, #70, and #87 — the exit verdict itself). None
+  gates the goal; they move to M2 or stay open against M1 as record.
 - **M2's exit criterion is now load-bearing in a way it was not.** It is the only place the wager is
   judged, so it must not be softened the way this clause was — if M2's playtest says the decision is
   still not tense, that is the moment the fallback is genuinely live.
@@ -95,6 +105,14 @@ win condition, and it does not fix frequency.
   a real cost and is the reason this is an ADR rather than a roadmap edit. The mitigation is that the
   unproven thing is named, owned by a milestone, and has a filed build plan (#83, #79, #31/#41, #82,
   and a corpus style) rather than being a hope.
+- **The replacement clause is close to unfailable, and that is a genuine weakness rather than a
+  quibble.** Review put it plainly: "the checkpoint has been answered, with the evidence recorded" is
+  satisfied by a ruling of *any* quality. It is accepted here because the alternative — an exit
+  criterion that requires a particular answer — is what produced the collapse this ADR exists to fix,
+  and because the quality gate for a design ruling in this project is the `game-designer` and
+  `code-reviewer` pass, not the milestone. **But it means M1's exit is no longer a real check**, and
+  anyone citing this ADR to soften a future criterion should be made to argue the same trade rather
+  than inherit it.
 
 ## The signal that this was wrong
 

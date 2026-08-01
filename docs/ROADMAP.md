@@ -5,11 +5,12 @@ half-built system waiting on the next milestone to mean anything.
 
 Kept in sync with GitHub milestones. Issues live there; this file explains the intent behind them.
 
-**Current milestone: M1 — Playable core.** The simulation, both pure layers above it, and the screen
-are all built, and #21 closed the run loop. **Nothing is left to build: what gates the exit is the
-second `playtester` run** — both endings, on a phone. The open M1 issues (#12, #47, #69, #70)
-are real work that does not stand between the milestone and that playtest. See "Where M1 actually
-stands" below before picking up work.
+**Current milestone: M2 — The light loop.** M1 is **complete**: the simulation, both pure layers, the
+screen and the run loop are all built, and the exit playtest (#87) reached both endings on a phone.
+M1 closed on [ADR-0011](decisions/0011-m1-exits-on-the-answer-not-the-outcome.md) — the concept
+checkpoint was **answered**, not passed. **The answer was "not yet, and here is the rule that was
+wrong"**, so M2 opens with #83 and the build order the ruling specifies. Five M1 issues stay open
+(#12, #47, #69, #70, #87) and none gated the goal.
 
 ---
 
@@ -36,7 +37,7 @@ human involvement, and `docs/GDD.md` describes a game we are confident is worth 
 human involvement, and the GDD has survived a design review plus one measured correction
 (2026-08-04).
 
-## M1 — Playable core — *in progress*
+## M1 — Playable core — **complete**
 
 *Goal: you can move around a generated level, fight something, and die — or reach the bottom and
 win.*
@@ -58,9 +59,8 @@ is layered on top.
 - [x] Player movement and touch input — #20. Tap legality is `Scene.taps` in `render/`, so `session/`
       did not change and ADR-0009's `travel(to)` is one more `TapAction` case in M2
 - [x] Death, winning, and a run-summary screen — #21. The run tally (kills, fuel burned, seed) went
-      into `GameState` so a replay reproduces it; see the journal on why not `session/`. This was the
-      last issue gating the exit; **what remains before M1 closes is the second playtest, not more
-      building**
+      into `GameState` so a replay reproduces it; see the journal on why not `session/`. The last
+      issue gating the exit, and the exit playtest followed it (#87)
 - [ ] Determinism rules applied to `game/**/*.test.ts` — #12
 - [x] A tap on a non-adjacent tile is silent — #60. Found by the first playtest; §2 requires feedback
       for a refusal and this is the first interaction a new player will attempt
@@ -101,8 +101,10 @@ git ls-files <dir> | grep -E '\.test\.tsx?$' | wc -l
 npx playwright test --list      # E2E: declarations x 2 projects
 ```
 
-**Everything M1 set out to build exists except the ending.** There is a game on the screen and you
-can play it; you cannot yet finish a run and see what happened.
+**Everything M1 set out to build exists, endings included.** #21 closed the run loop; the exit
+playtest (#87) reached both endings on a phone at `3ea83fa`. What M1 did **not** settle is whether
+the light wager is tense — that is M2's, and [ADR-0011](decisions/0011-m1-exits-on-the-answer-not-the-outcome.md)
+is why M1 closes without it.
 
 | Directory | Source modules | Test files | Tests |
 | --- | --- | --- | --- |
@@ -269,9 +271,12 @@ is tense, having already been judged not-dead.
       playtest reported it unimplemented and built a recommendation on that**, almost certainly after
       reading GDD §4's "**Awake-creature behaviour** (M2, ...)" marker, which was stale. §4 is fixed;
       this line exists so the mistake is not repeated from the roadmap instead
-- [ ] Fuel economy and the risk/reward tuning around it — calibrated once in #17; **#31 invalidates
-      part of that calibration** and must land before the numbers are trusted. **#63 must be ruled
-      first** — it is the re-ruling the correction below forces. See the verdict
+- [ ] Fuel economy and the risk/reward tuning around it — calibrated once in #17. **#63 is ruled**
+      and **no fuel number may move yet**, because the corpus is measuring a different game than the
+      one we designed: §4 says caches are invisible while shuttered, the code pays on tile kind, and
+      `DARK_PACIFIST` takes **119 of 121 caches** — dark play receives light's entire income stream,
+      ~37 fuel a floor. **Every fuel figure in both playtest reports inherits that.** #31/#41 first,
+      then a never-flash fighter in the corpus, *then* numbers
 - [ ] Sound/haptic feedback for moving blind
 - [ ] Does a creature on a marked tile take the hit? — #28, a design ruling §6 is missing
 - [ ] Touch perceives ember caches, which §4 says are invisible while shuttered — #41
@@ -308,9 +313,10 @@ spending §12's fallback *because* §4's re-dormancy was unimplemented, so light
 than the design intends and the wager was being judged with one counterweight missing. **Re-dormancy
 is implemented** (see the checked bullet above), so that argument does not hold and its proposed
 sequence — *re-dormancy first, then re-tune, then re-measure* — collapses to **re-tune, then
-re-measure**. The recommendation may still be right on the classification alone. **#63** is the
-re-ruling, and until a `game-designer` closes it, **treat "do not spend the fallback" as unconfirmed
-rather than settled.**
+re-measure**. **#63 is now ruled** (this PR): the fallback is **not** spent, on new reasoning — its
+trigger names "the first playtest says the wager is not tense", and neither playtest says that; both
+named tense light moments and complained about their *frequency*. The classification changed too —
+#83 is a **rule** problem, not tuning.
 
 **Two levers it offered and did not decide**, both real trades: charging a turn for the shutter
 toggle (§2 argues against it on Pillar 3 grounds), and cutting ember-sense below 4, which breaks the

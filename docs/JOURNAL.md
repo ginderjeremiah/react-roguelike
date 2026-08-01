@@ -93,8 +93,8 @@ being decoration — §5's loop doorways, §2's step-off-the-marked-tile, §4's 
 finally has teeth: the four turns after a flash become the turns when things can feel you and you
 cannot feel them), and §13's un-followable stairs.
 
-**The measurements everyone has been reasoning from are contaminated, and nobody noticed for four
-issues.** §4 says caches are invisible while shuttered. **The code pays on tile kind** and touch
+**The measurements everyone has been reasoning from are contaminated — and it was written down at
+#30 and filed as #31/#41, which is worse than nobody noticing.** §4 says caches are invisible while shuttered. **The code pays on tile kind** and touch
 perceives them (#31/#41), so `DARK_PACIFIST` takes **119 of 121 caches** — dark play is receiving
 light's entire income stream, roughly 37 fuel a floor it should not have. **Every fuel figure in both
 playtest reports includes it.** The exit playtest's headline "80 → 122 at full HP without opening the
@@ -102,8 +102,10 @@ lantern" is about 80 → 98 once §4's own rule is enforced. Separately, the cor
 fighter** — its model of competent play is strictly worse than a line a human found by accident,
 twice, so §4's numbers have been calibrated against the second-best strategy since #17.
 
-That is why no fuel number moved in this pass, and why the next step is build-then-measure rather
-than a tuning ruling.
+What is new is that **the playtest fuel figures inherit it** — nobody connected the known corpus
+defect to the numbers two playtests were reasoning from. A defect that is filed is not a defect that
+is accounted for. That is why no fuel number moved in this pass, and why the next step is
+build-then-measure rather than a tuning ruling.
 
 **The game already knows how to be good, and the measurement says exactly where.** With an awake
 creature inside three tiles the playtest scored **8 of 8 commands as real decisions**, twice, and

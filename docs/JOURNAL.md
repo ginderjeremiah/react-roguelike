@@ -146,6 +146,33 @@ caught and reverted, but it is a live footgun for any agent editing these files 
 than with `Edit`, and it will eventually land in a PR as noise that hides a real change. Filed as
 **#100** (a `.gitattributes`), not fixed here.
 
+**Playtested, and the pre-registered numbers came back on the right side.** Six runs, 370 logged
+presses, 390×844 touch, dark primary with a full run in light. **The alarm level fired 16 times in 370
+presses — 1 turn in 23, against a cut signal of 1 in 6.** On five of five flashes that woke something,
+the line was read as *the frame changing* and the red `C` was found second — the exact reversal of the
+#79 playtest's complaint, and the mechanism was the one the ruling predicted: an ordinary dark step
+prints nothing, so an `alarm` landing on an empty row is a change in how much ink is on the screen.
+The A/B held too — a flash that woke nothing printed the grey shutter line *while an earlier wake's
+`C` was still on the board*, which under the old treatment was the same frame as a fresh wake and is
+now two clearly separated facts. **The verdict includes "#82's tile pulse is not needed for this",
+said plainly so nobody spends a milestone on it defensively** — which is the cut signal in §10 coming
+back negative rather than going unmeasured.
+
+**Three corrections the playtest forced, and one of them was in this PR's own description.** *The
+alarm set has three members and a player can only ever see two* — `app/index.tsx` blanks the turn line
+whenever a summary exists, and a player death always produces one, so `The lantern goes out.` is
+levelled `alarm` and can never reach a pixel. That is #80's undrawable-glyph shape, it is pre-existing
+rather than introduced here, and it is the same seam as #98, so it went there. The PR description
+claimed all three draw; it was corrected rather than left standing. Second: **`You take N.` fired five
+turns running with identical text** in the fight that killed the run, which is §4's *the line becomes
+wallpaper* Watch arriving through a different door — filed as **#103**, and the asymmetry that makes
+it worth a ruling is that a wake has *no other carrier* while damage taken has three already in frame
+(the HP readout, the danger outline on your own tile, the outlines on the creatures). Third: **the
+board jogs 6pt on every flash cycle** — not this change (the status row holds a fixed slot and
+collapses in place; board and control tops are stable across every level), but the `hud-sense-note`
+caption vanishing at 5/5 sense shrinks the HUD, so the press that prints the turn line also slides the
+board. Filed as **#102**, and distinct from #69.
+
 **Next:** #83 — a woken Cinder pursues. That is what the last two PRs were sequenced to precede, and
 it is the ruling M1 exited on.
 

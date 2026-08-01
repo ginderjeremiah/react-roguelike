@@ -200,7 +200,14 @@ designed yet.
   reading a log.
 - **The dormant strike: attacking a dormant creature deals double damage.** This is the mechanical
   payoff for playing dark and the answer to "what can I only do in darkness". If the target
-  survives, it wakes.
+  survives, it wakes — **and against a Cinder it cannot survive**: 6 against 5 HP. The clause is
+  reserved for creatures that do not exist yet (§6 has one, the rest is M3), and the numbers are
+  deliberately *not* moved to make it live. §2's phase order is the reason: the player acts in phase
+  1 and creatures in phase 4, so a survivor declares on the turn it wakes and resolves on the next —
+  it gets a swing in only if it survives the strike **and** a full follow-up attack, which needs 10
+  HP, which makes an awake Cinder a four-hit grind. That is Pillar 1's "attack until it dies", bought
+  to make one sentence true. **Written down because an unreachable clause reads as a live branch** —
+  the same defect as #80's undrawable `c` glyph, found the same week.
 - **No healing within a floor.** HP declines monotonically until you descend. This is what makes HP
   a real second resource rather than a refillable buffer.
 - **Descending restores 2 HP (tuning).** Creates the macro decision "clear this floor for fuel, or
@@ -420,33 +427,118 @@ rejected.
   unrecoverable in practice, which is the "unplayable rather than desperate" failure this rule
   exists to avoid.
 
-**The three tuning invariants** (these are design; the numbers above are not):
+**The four tuning invariants** (these are design; the numbers above are not):
 
 1. Avoiding all combat must be **unsustainable** — a pacifist run runs dry.
 2. Keeping the shutter open must be **unsustainable** — a floodlit run runs dry faster.
 3. A floor played well nets **slightly positive** fuel, so competence is rewarded and greed is the
    thing that kills you.
+4. **At comparable combat, a style that never opens the shutter must not out-earn one that flashes.**
+   Light has to have a product darkness cannot buy, or the wager has only one side.
 
-**Awake-creature behaviour** — **implemented in M1 by #16**, not M2; specified here because §6
-depends on it. An awake creature knows the player's tile while the shutter is open **or** while
-adjacent. Shuttered and not adjacent, it moves to your last known tile and then searches. After 8
-turns (tuning) with no light and no adjacency it returns to **dormant** — and becomes a legal
-dormant-strike target again. Darkness is therefore restorative: a botched flash is recoverable by
-skilled dark play, within one floor.
+   **The scoping clause is load-bearing and was added on review.** Stated unscoped, invariant 4
+   contradicts invariant 2, which asserts the *opposite* ordering as a required property —
+   `economy.test.ts` pins `expect(flashed).toBeLessThan(never)` and passes at 163 turns against 206,
+   with the comment that "the ordering is monotone in how much light the style buys". On a
+   pacifist pair that is the same axis, because income is caches only, so satisfying an unscoped
+   invariant 4 would mean deleting invariant 2's monotonicity assertion. The two are only compatible
+   between styles that fight comparably — which is what the `HARVESTER`-vs-`STALKER` comparison the
+   build plan calls for actually measures. **Invariant 4 is about fighters.**
 
-> **This paragraph said "(M2, ...)" until 2026-07-31 and it cost a playtest verdict.** The first
-> `playtester` run read the marker, concluded re-dormancy was unbuilt, and recommended not re-tuning
-> the wager on the grounds that it was being measured with a counterweight missing (#31). It is not
-> missing: `nextMind` in `game/entities/behaviour.ts` sleeps a creature at `TURNS_TO_REDORMANCY = 8`,
-> `behaviour.test.ts` pins both halves of "on the eighth turn and not before", and
-> `replay.test.ts`'s fixture walks it end to end. **#63 is the re-ruling.** The general lesson is
-> cheap to state and was expensive here: *a milestone marker left on an implemented rule reads as
-> "not built", and a playtester has no way to tell the difference.*
+**Invariant 4 is new, and the reason it was missing is the reason nothing caught the problem.**
+Invariants 1 and 2 are both about *avoiding* something, and **the degenerate line avoids nothing** —
+it fights everything on the floor and simply never opens the lantern. Two playtests found that line
+within two runs each; `game/systems/economy.test.ts`'s corpus does not contain it, so all three older
+invariants passed green for the entire time it was dominant. `STALKER`, the corpus's idea of competent
+play, is strictly worse than a line a human found by accident.
 
-*Watch:* re-dormancy is the mechanic most likely to degenerate. If the playtester reports retreating
-to a cleared room and pressing wait, it is broken. The fix is a distance requirement, not a fuel
-tax. **The first playtest did not report this** — but it also believed the mechanic was absent, so
-it is not evidence either way and the watch stays open.
+> **Until the corpus contains a never-flash *fighter*, no number in §4 should be moved.** The
+> instrument does not currently measure the thing being tuned, and a re-tune against it would
+> calibrate the game to the second-best strategy. Two further corrections have to land first — see the
+> change log for the ordering — because **invariant 4 is currently unsatisfiable through no fault of
+> the numbers**: §4 says caches are invisible while shuttered and `collectFuelUnderfoot` pays on the
+> tile kind regardless (#31, #41), so dark play is being handed light's entire income stream. A dark
+> pacifist takes 119 of 121 caches in the corpus. Every fuel figure in both playtest reports includes
+> income the design says darkness cannot have.
+
+**Awake-creature behaviour — *ruled 2026-07-31, not yet implemented (#83)*.** Specified here because
+§6 depends on it.
+
+> **Waking it is what tells it where you are, and it does not forget. A woken Cinder comes for you;
+> eight turns (tuning) after the last one in which it saw your light or stood next to you, it sleeps
+> where it stands.**
+
+- **Awake, it paths toward the player every turn**, shutter open or shut, adjacent or across the
+  floor. There is no last-known tile, no search, and no state in which it holds still.
+- **The eight-turn counter runs on *contact*, not on pursuit.** It resets on light or on adjacency
+  and increments otherwise — unchanged from the rule this replaces. So a creature that catches you
+  starts its eight over, and a creature you hold at arm's length in the dark sleeps on schedule.
+- **Re-dormancy survives, and becomes a payoff instead of a refund.** A creature that gives up is
+  asleep wherever it ended — usually near you — and is a legal dormant-strike target again. Darkness
+  is still restorative; it now restores you for **surviving** the consequence of a flash rather than
+  for walking away from it.
+- **You cannot shake it. You can outlast it, kill it, or take the stairs.** §13 already says the
+  stairs are the one escape nothing follows you down; this is the rule that makes that sentence worth
+  having.
+
+**Status is load-bearing here and the last stale marker in this block cost a milestone verdict.**
+`game/entities/behaviour.ts` still parks a woken creature at its last-known tile and waits. **The code
+is a ruling behind this section until #83 closes** — do not brief a playtest off this paragraph, and
+do not re-tune any number in §4 against a build that still parks.
+
+**Why this replaces a *Settled* rule.** The old rule sent a creature that lost contact to your
+last-known tile, where it waited indefinitely. The exit playtest measured the consequence and it was
+not a behaviour, it was a **procedure**: shutter, step out of adjacency, walk anywhere for eight
+turns, walk back, one-shot a dormant target. Measured, same seed: a flash that woke a Cinder on floor
+2 cost 16 turns of walking and paid 20, so **waking it was net +4 fuel *profitable* after paying for
+the entire retreat**; on floor 8, three flashes woke five Cinders at 10 HP and the situation resolved
+itself into `fuel 23 -> 60` with no damage taken. There was no decision inside the retreat and no way
+to fail it. Three things follow, and the third is the one that matters:
+
+1. **The flash's price was never fuel.** It is what wakes — and the price was refundable at a profit.
+2. **§3's "fleeing is hard, and that is a feature" was false.** You only had to break contact, not
+   outrun anything.
+3. **Nothing was ever coming, so several other rules had nothing to do.** §5's loop doorways
+   ("escape routes, and without them waking a room is a death sentence rather than a problem"), §2's
+   step-off-the-marked-tile, §4's own adaptation ramp, and §13's un-followable stairs were all
+   answers to a pressure the rules never applied. This ruling is what makes them load-bearing; it
+   adds no mechanic and no UI, and it deletes two of `nextMind`'s five cases.
+
+*Watch:* the new rule can fail in **either** direction and both are measurements rather than matters
+of taste. **Too weak:** a same-speed pursuer that starts four tiles off and never closes turns the
+eight turns into eight more steps of walking away — the autopilot this ruling exists to delete,
+wearing a `*`. **Too strong:** every wake becomes a forced fight, and the flash stops being a wager
+and becomes a bill. One number tells you which: **the fraction of woken creatures that reach adjacency
+at least once before re-dormanting.** Near 0 and the pursuit is theatre; near 1 and 8 is too long.
+
+**The 8 is the dial for the too-strong arm only, and §4 declines to name one for the other.** On the
+too-weak arm the 8 is not a fix: the player and a creature share `ACTION_COST`, so **a pursuer never
+closes on a player who keeps stepping away**, and raising the number lengthens the pursuit window
+rather than tightening it. It would buy adjacency only by giving the floor's geometry more chances to
+pin you — paid for in exactly the forced-walking turns this ruling exists to delete, which is
+word-for-word the argument that rejected the distance requirement three paragraphs above. **If the
+too-weak arm fires, the fix is something not currently named** (cadence, or geometry-aware pathing)
+and it needs its own ruling. Naming a dial that cannot move the outcome is how a session burns a
+cycle turning 8 into 12, re-measuring, and finding the adjacency fraction unmoved and the walking
+demonstrably worse. A distance requirement is not the dial either — see the change log.
+
+> **The watch this block used to carry has fired, and the history is worth keeping.** It read: *"re-
+> dormancy is the mechanic most likely to degenerate. If the playtester reports retreating to a
+> cleared room and pressing wait, it is broken. The fix is a distance requirement, not a fuel tax."*
+> The exit playtest reported it — not pressing wait, but walking in a circle, which is the same thing
+> at 1 fuel a turn. **The prediction was right and the prescribed fix was wrong**, and the reason is
+> the useful part: the watch assumed the degenerate case was the player re-dormanting something from
+> two tiles away, so distance was the natural brake. The measured case was already at distance, and a
+> distance requirement would only have made the retreat *longer* — more autopilot turns, which is the
+> cost this rule was already paying. **A watch can name the right symptom and the wrong organ.** The
+> block above is the replacement.
+>
+> Separately, this paragraph said **"(M2, ...)"** until 2026-07-31 while `nextMind` had shipped
+> re-dormancy in #16 under M1, and the stale marker cost a playtest verdict (#31, #63): a playtester
+> read it, concluded a counterweight was missing, and built a recommendation on top. *A milestone
+> marker left on an implemented rule reads as "not built", and nobody consuming this document can tell
+> the difference from the outside.* The block above now carries the opposite marker — ruled, not
+> built — and it will be just as wrong the day #83 lands if nobody moves it.
 
 *Open:* adjustable lit radius, thrown/placed light sources (parked as a candidate M3 item, §12),
 whether floors ever have ambient light. **The metric is no longer open** — it is Chebyshev for
@@ -558,16 +650,23 @@ identical floor.
 | Glyph | `c` dormant (seen in light) · `C` awake · `*` ember-sense contact (identity unknown) |
 | HP / attack | 5 / 2 (tuning) |
 | Drops | 20 ember (tuning) |
-| Dormant | Yes. Wakes when caught in the lit radius, or when attacked and survives. |
+| Dormant | Yes. Wakes when caught in the lit radius, or when attacked and survives — which a Cinder cannot do at these numbers (§3) |
 
-**Behaviour worth reading (Pillar 2):** the Cinder is drawn to light. Awake, it paths toward you
-while your shutter is open or while it is adjacent to you. Shuttered and non-adjacent, it paths to
-where it last saw your light, then searches; after 8 turns of no contact it goes dormant again.
+**Behaviour worth reading (Pillar 2) — *ruled 2026-07-31, not yet implemented (#83)*:** the Cinder is
+drawn to light, and light is what **wakes** it — and waking it is what tells it where you are. Awake,
+it paths toward you every turn, lit or shuttered, adjacent or across the floor. Eight turns after the
+last one in which it saw your light or stood next to you, it sleeps where it stands (§4 has the whole
+rule, the reason it replaced the previous one, and its watch).
 
-That single rule makes the lantern a **combat** control, not only an exploration one: shuttering
-mid-fight trades away the enemy's intent telegraph in exchange for the enemy losing you. "I
-shuttered the lantern and let it walk past me in the dark" is the retellable moment (Pillar 4), and
-it keeps the light decision alive *inside* a fight instead of settling it at the start.
+That single rule still makes the lantern a **combat** control rather than only an exploration one,
+but the trade it offers inside a fight is sharper than the one this section used to describe.
+**Shuttering no longer makes it lose you — it makes you lose its intent.** So the mid-fight decision
+is "do I want to see what it has committed to, at 4 fuel a turn, with everything else in the room
+waking up", not "do I want to disappear". The retellable moment (Pillar 4) moves with it. It was **"I
+shuttered the lantern and let it walk past me in the dark"** — which two playtests measured as free,
+automatic and available every single time, which is not a moment. It is now **"I shuttered, it came
+anyway, and I kept a doorway between us for eight turns."** §5 puts 1–2 extra doorways on every floor
+and calls them escape routes; that is the sentence they were generated for.
 
 Case and shape carry dormancy, not colour (§11).
 
@@ -610,9 +709,31 @@ Touch-first (Pillar 3):
     **travel can never enter unmapped space** — it is a *return* tool, not an exploration one — and
     the route is legible, because it is computed from the map the player is looking at.
   - **You stop for the living.** Travel stops after a step in which you perceive **more** creatures
-    than you did, a creature woke, or your HP went down; and before a step into an occupied tile,
-    because **travel never attacks**. **Terrain never interrupts** — the narrowing is argued in the
-    change log below.
+    than you did, **a creature you perceive changed tiles**, a creature woke, or your HP went down;
+    and before a step into an occupied tile, because **travel never attacks**. **Terrain never
+    interrupts** — the narrowing is argued in the change log below.
+  - **The moved-tile clause is new (*Proposed*), and #65 must not be built without it.** It amends
+    [ADR-0009](decisions/0009-auto-travel-command-shape.md), which has not yet been given a
+    superseding note. It is forced by §4's new awake-creature rule: a woken creature now walks toward
+    you every turn, so without this clause a hunted player taps a far tile and the simulation resolves
+    the eight tensest turns in the game on their behalf — auto-travel would automate the exact
+    decisions §4 was rewritten to create. With it, travel is unavailable precisely while something is
+    coming and unaffected across a floor of sleepers, because **a dormant creature never moves.** It
+    keys on a thing the player can see — *a mark that is not where it was* — which is the constraint
+    ADR-0009 put on every stop clause, and it needs no identity: any mark moving is enough.
+
+    **Scope it to creatures perceived both before and after the step.** Evaluated loosely as "the
+    set of perceived positions changed", it also fires when the *player* walks a creature out of
+    sense range — which re-introduces the losing-contact interrupt ADR-0009 deliberately rejected
+    ("an absence is the least legible interrupt trigger available"). Added on review; the clause was
+    written without it and would have shipped that way.
+
+    **And be honest about what this does: with pursuit, it does not interrupt travel while something
+    is coming — it disables it.** The clause fires on every step for the whole eight-turn window,
+    and whenever any awake creature sits inside ember-sense. That is the intent. But `ROADMAP.md`
+    names "it stops on nearly every step" as auto-travel's *kill* condition, so whoever builds #65
+    must know that this is by design and not the signal to kill it — the kill condition is about
+    stopping with nothing coming.
   - **Clause 1 is keyed to the *count* of perceived creatures, never to identity or to tiles.**
     Ember-sense gives position and nothing else (§4), so the player cannot tell one mark from
     another — and travel may not key on anything the player cannot see. "More marks than there were"
@@ -699,12 +820,35 @@ now spent — if it is spent — one milestone sooner than this section assumed.
 stolen regardless: combat should be positionally tight, and §2's commit-one-turn-ahead is that
 lesson.
 
-> **The first playtest has run, and the fallback is NOT spent.** Six runs, seed `emberdepth`,
-> reported on #31: the wager does not currently land *as* a wager — dark strictly dominates on floor
-> 1 (+26 fuel / 0 HP against −27 / −4) — but the playtester classified it **tuning, not mechanic**
-> and recommended keeping fuel. Its stated reason was wrong (it believed §4's re-dormancy was
-> unimplemented; it is not), so **#63 re-rules it**. Until #63 closes, this paragraph's trigger has
-> fired and its conclusion has not: do not strip fuel, and do not treat the fallback as dead either.
+> **Ruled 2026-07-31 on #63 and #83: the fallback is NOT spent.** Two playtests have run. The first
+> recommended keeping fuel for a reason that was false (it believed re-dormancy unimplemented); the
+> conclusion survives and the whole of the reasoning is replaced here.
+>
+> **This section's trigger is "the first playtest says the light wager is not tense". Neither playtest
+> says that.** What the exit playtest says is that the wager is tense **and rare**: with an awake
+> creature inside three tiles it measured **8 of 8 commands as real decisions**, twice, and called it
+> the best five minutes of the playtest; across a whole run the rate was ~19%, and the flash decision
+> was made about a dozen times in 359 turns and never after floor 3. Three of the four tense moments
+> it could name are the light system working — the containment read before a flash, fighting blind
+> with intent hidden, and the adaptation ramp. **That is a frequency problem, not a concept failure,
+> and this fallback is the wrong instrument for a frequency problem.**
+>
+> **The argument for spending it, and why it fails.** The playtester's case was *fuel is the least
+> load-bearing part of the system and it is the part that is broken*. Half of that is right and it is
+> the important half: **the flash's price is not fuel and cannot be made to be.** A kill pays 20 and a
+> flash costs 4, so pricing light in fuel means either raising the flash toward the value of a kill —
+> which prices exploration out of the game — or dropping the kill toward the cost of a flash, which
+> removes the reason to fight. **Fuel's job is not to stop you flashing; it is to make you fight**
+> (§1: "fuel comes from kills"). The other half is wrong, and it is fatal: strip fuel and *nothing
+> pays for a fight*, every fight is pure HP loss, and the optimal line becomes engaging nothing, ever
+> — which deletes the one state both playtests found excellent. Note also what this section actually
+> offers: not "subtract fuel" but **pure positional tactics with enemies whose fixed patterns force
+> contact**. That is a different enemy, a different level generator and a different win condition. It
+> is a rebuild, and nothing measured justifies one.
+>
+> **What was spent instead:** §4's awake-creature rule, replaced (#83), and §4's fourth invariant,
+> added. The two levers #63 held open — charging a turn for the shutter, and cutting ember-sense below
+> 4 — are both **rejected**; the change log gives the reasons.
 
 **Light as a ward — things hunt you in the dark, light repels them.** Rejected: it makes darkness a
 pure cost saving, which is precisely the flaw that nearly killed the original seed. A "pay money
@@ -879,5 +1023,10 @@ recorded at the moment we made it, is the part git cannot give us.
 | 2026-07-31 | **Correction: §4's awake-creature/re-dormancy block was labelled "(M2)" long after #16 shipped it in M1** | Not a design change — a status marker that had gone stale, and it cost a real verdict. The first `playtester` run read it, concluded re-dormancy was unbuilt, and recommended against re-tuning the wager on the grounds that light was being measured with one of its two counterweights missing (#31). It is built: `nextMind` sleeps a creature at `TURNS_TO_REDORMANCY = 8` turns without light or adjacency, `behaviour.test.ts` pins "on the eighth turn and not before", and `replay.test.ts`'s fixture walks it end to end and calls itself the only fixture in the repo that pins it. #63 re-rules the recommendation. The transferable lesson: **a milestone marker left on an implemented rule reads as "not built", and nobody consuming the GDD can tell the difference from the outside** |
 | 2026-07-31 | **§10's M1 glyph list gains `+` doorway, `<` entrance and the blank unknown cell, and says the ember glyph covers a drop as well** | Documentation catching up to `render/glyphs.ts`; no decision changed. §5 has had doorways and an entrance since #13 and the list never grew, so a playtester briefing themselves off §10 would meet two glyphs the document does not name — in a game whose central mechanic is not being able to see |
 | 2026-07-31 | **§9's auto-travel bullet: the playtest gate is answered and the recommendation is build it** | The build stays in M2 and every rule below the bullet is unchanged. Recorded because the *reason* §9 gave for deferring ("the friction has never been felt, nothing above `game/` exists") expired the day #20 shipped. The friction was felt, but not where the gate looked: it is forward travel across rooms one flash has already revealed, not backtracking — the roadmap's disambiguating probe for backtracking returned no, not once, in six runs. Full evidence on #32, split arms preserved in `ROADMAP.md` |
-| 2026-07-31 | **§12 records that the first playtest has run and that the fallback is not spent** | §12's trigger is "if the **first** playtest says the light wager is not tense". It ran and the wager is not tense today, so the trigger has fired while the conclusion has not — the playtester recommended keeping fuel, and the recommendation needs re-ruling (#63) because the reason it gave was false. Written into §12 rather than left in the roadmap because a future session reaching for the fallback will reach for this section |
+| 2026-07-31 | **§12 records that the first playtest has run and that the fallback is not spent** *(superseded the same day by the §12 row below — read that one)* | §12's trigger is "if the **first** playtest says the light wager is not tense". It ran and the wager is not tense today, so the trigger has fired while the conclusion has not — the playtester recommended keeping fuel, and the recommendation needs re-ruling (#63) because the reason it gave was false. Written into §12 rather than left in the roadmap because a future session reaching for the fallback will reach for this section |
 | 2026-07-31 | **New in §13: a constraint on what the ending copy may claim, and the win headline changes from *You reach the bottom.* to *The dark goes no deeper.*** | §13 disclaimed the summary screen ("what is drawn on top of it... is the run-loop work") and then said nothing about what that copy may assert — so the tone at the game's emotional peak became the property of whoever was holding the file, which is how this came up. **The rewrite is caused by #21, not inherited:** putting the verdict `> REACHED THE BOTTOM` above the old headline left two lines sharing a subject, reading as one thought said twice at the one moment a player has earned something. The death pair works because of a structure the win pair had lost — **the verdict names the player's fate, the headline is an image of the world** — so any fix keeping "you" as the subject would have been a reword rather than a second line. `The dark goes no deeper.` is §13's own settled fact ("there is no floor 9 and there is no boss; the eighth descent *is* the ending") stated as an image, and it answers the live question a player has on winning a roguelike with no boss: *is that it, or did I miss something?* Two constraints fall out and are now written down, because both were easy to trip: **it may name no number** (`LAST_FLOOR` is tuning, so "eight floors down" becomes a lie the first time it moves, in a string that cannot read state), and **it must hold in every legal state it can be shown in** — a win with a dry lantern is legal under §4, which kills the tempting mirror `The lantern still burns.` in exactly the most retellable runs. Meaning was never the open question: VISION's "the story is the run" plus Pillar 4 already settle that the bottom is where the run *stops*, not a destination with content in it — but it was settled distributively across three documents, which is why it read as unwritten. Rejected outright, recorded so they are not re-proposed: daylight, escape, climbing out, the ruin conquered, or something waiting at the bottom |
+| 2026-07-31 | **§4/§6: a woken Cinder no longer parks — it comes for you until eight turns pass with no light and no touch, then sleeps where it stands** | #83, from the M1 exit playtest. §4's own watch fired: *"if the playtester reports retreating to a cleared room and pressing wait, it is broken."* It reported walking in a circle instead, which is the same thing at 1 fuel a turn. Measured, same seed: a flash woke a Cinder on floor 2, the retreat cost 16 turns of walking and the kill paid 20, so **waking it was net +4 fuel *profitable* after paying for the whole retreat**; on floor 8, three flashes woke five Cinders with the run on the line at 10 HP and the situation resolved into `fuel 23 -> 60` with no damage taken. **Re-dormancy is not the counterweight to light, it is the cause** — the flash's price is what it wakes, and the price was refundable at a profit. The old rule's real defect was upstream of re-dormancy: an awake creature that lost contact *parked*, so breaking contact was free and §3's "fleeing is hard, and that is a feature" was simply false. This is subtraction, not addition — it deletes two of `nextMind`'s five cases (`lastSeen` pathing and the search-then-wait that `behaviour.ts` itself flagged as "a statue"), adds no mechanic, no state and no UI, and makes four existing rules load-bearing that had nothing to do: §5's loop doorways, §2's step-off-the-marked-tile, §4's adaptation ramp (which now creates the window where things can feel you and you cannot feel them) and §13's un-followable stairs. **The runner-up was cutting re-dormancy outright** — simpler, one constant deleted, and certain to kill the loop. It lost because it removes the loop without creating the pressure: a permanently-awake parked Cinder is furniture you route around, the decision rate does not move, and the flash's price becomes "one room is now annoying". It also deletes §4's "darkness is restorative" permanently, where this ruling makes it *earned*. **§4's own named fix, a distance requirement, was rejected**: the measured degenerate case was already at distance, so requiring more of it lengthens the retreat — more autopilot turns, which is the cost being paid. The 8 stays and is the dial **for the too-strong arm only** — see §4's watch for why it cannot fix the other one |
+| 2026-07-31 | **§4 gains a fourth tuning invariant: at comparable combat, a style that never opens the shutter must not out-earn one that flashes** | **The "at comparable combat" scoping is load-bearing and was added on review** — stated unscoped, invariant 4 contradicts invariant 2, which pins the *opposite* ordering as a required property (`expect(flashed).toBeLessThan(never)`, passing at 163 turns against 206). On a pacifist pair those are the same axis, so an unscoped invariant 4 could only be satisfied by deleting invariant 2. The two are compatible between styles that fight comparably, which is what the `HARVESTER`-vs-`STALKER` comparison measures. | Invariants 1 and 2 are both about *avoiding* something — combat, darkness — and **the degenerate line avoids nothing.** It fights every creature on the floor and simply never opens the lantern, so all three older invariants stayed green through two playtests that both found that line within two runs. The corpus's `STALKER`, its model of competent play, is strictly worse than a line a human found by accident, which means §4's numbers have been tuned against the second-best strategy since #17. Stated as an invariant rather than filed as a finding because the failure was structural: the instrument could not see the axis. **No §4 number moves until the corpus contains a never-flash fighter**, and invariant 4 is unsatisfiable before #31/#41 land regardless — `collectFuelUnderfoot` pays on tile kind, so dark play currently collects 119 of 121 caches that §4 says are invisible to it, and every fuel figure in both playtest reports includes income the design says darkness cannot have |
+| 2026-07-31 | **§12: ruled — the fallback is not spent, and its trigger has not fired** | #63's re-ruling, and **a reversal of the §12 row above**, which said "the trigger has fired while the conclusion has not". Both rows are dated today and only position says which is current, so: **this one is.** The earlier row read the trigger as fired because the wager is not tense *today*; the reversal is that §12's trigger names a playtest *saying the wager is not tense*, and neither said that — both said it is tense and rare. Recorded as a reversal rather than a correction because the earlier reading is defensible and the next person may prefer it. The first playtest's recommendation stands; none of its reasoning does. The trigger is *"the first playtest says the light wager is not tense"* and **neither playtest says that** — the exit playtest measured **8 of 8 commands as real decisions** with an awake creature inside three tiles, twice, and named three species of tense light moment (the containment read, fighting blind, the adaptation ramp). The wager is tense and **rare**, which is a frequency problem this fallback cannot fix. The strongest argument for spending it — *fuel is the least load-bearing part of the system and it is the part that is broken* — is right that the flash's price is not fuel and cannot be made to be (a kill pays 20 against a 4-fuel flash; closing that gap either prices out exploration or removes the reason to fight), and wrong that fuel can therefore go: **fuel's job is to make you fight, not to stop you flashing** (§1), and without it every fight is pure HP loss and the optimal line is engaging nothing — which deletes the one state both playtests found excellent. §12's fallback is also not "subtract fuel"; it is enemies with fixed patterns that force contact, which is a different enemy, generator and win condition. **Both levers #63 held open are rejected.** Charging a turn for the shutter loses on Pillar 3 (§2's argument is unchanged) and on aim — it prices tempo when the thing that needs pricing is waking. Cutting ember-sense below 4 loses because #82 measured the containment guarantee as **unexecutable on screen**: a playtester who had read §4 and knew the metric miscounted a column and woke a Cinder. You cannot tune away a permission check nobody can perform, and the cut would spend Pillar 2's strongest expression to do it |
+| 2026-07-31 | **§9: travel also stops when a creature you perceive changes tiles (*Proposed*; amends ADR-0009)** | Forced by the awake-creature ruling above, and cheap only because #65 has not started. A woken creature now walks toward you every turn, so under ADR-0009's three stop clauses a hunted player could tap a far tile and have `step()` resolve the eight tensest turns in the game for them — auto-travel automating the exact decisions §4 was rewritten to create, which is a worse version of the kill condition ADR-0009 already names. The clause keys on *a mark that is not where it was*, which satisfies ADR-0009's binding constraint that travel may never stop for a reason the player cannot see, and needs no identity — any mark moving is enough. It costs nothing across a floor of sleepers, because **a dormant creature never moves**, which is exactly the case travel exists for |
+| 2026-07-31 | **§3/§6: recorded that the dormant strike's "if the target survives, it wakes" clause is unreachable at M1's numbers** | Not a change — an honesty fix, and the second dead branch found this week (#80's `c` glyph is the first). 6 damage against 5 HP means a dormant strike against a Cinder is always lethal, so the *survive-and-wake* branch is dead. **The gradient §3 names is not** — it is the dormant kill (one strike, no damage) against the awake fight (two strikes, 2-4 damage), which is two points and unaffected. An earlier draft of this row said §3 describes a one-point gradient; that overstates it, and the correction matters because the next reader of this row might otherwise re-tune Cinder HP to fix a gradient that is not broken. The numbers are deliberately **not** moved to make the clause live: §2's phase order means a survivor declares on the turn it wakes and resolves on the next, so it only ever swings if it survives the strike *and* a full follow-up, which needs 10 HP, which turns an awake Cinder into a four-hit grind — Pillar 1's "attack until it dies", bought to make one sentence true. The clause is kept for creatures that do not exist yet (M3). Written down because an unreachable clause reads as a live branch, and the next person to tune Cinder HP needs to know which of the two things they are doing |

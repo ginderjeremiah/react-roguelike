@@ -52,3 +52,4 @@ Superseding, never editing: to reverse a decision, write a new ADR and mark the 
 | [0008](0008-benchmark-thresholds-as-ratios.md) | Benchmark thresholds are ratios, not milliseconds | Accepted |
 | [0009](0009-auto-travel-command-shape.md) | Auto-travel is one `travel(to)` command, deferred to M2 | Accepted |
 | [0010](0010-session-layer-owns-the-run.md) | A `session/` layer owns the run | Accepted |
+| [0011](0011-m1-exits-on-the-answer-not-the-outcome.md) | M1 exits on the concept checkpoint being *answered*, not on the wager being tense | Accepted |

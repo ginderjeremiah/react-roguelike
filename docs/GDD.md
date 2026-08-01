@@ -895,6 +895,17 @@ cheap:
   way when the line that would have replaced it is visibly louder. The same contrast lands free on
   the descend press — see the descent ruling below.
 
+> **As implemented, the `alarm` set has three members and a player can only ever see two.**
+> `app/index.tsx` blanks the turn line on any turn that produces a summary, and the player's death
+> always produces one, so `The lantern goes out.` is levelled `alarm` in `messages.ts` and **never
+> reaches a pixel.** That is #80's undrawable-branch shape, it predates #94, and it is tracked on
+> **#98** — the ruling above is not amended for it, because which level the sentence *deserves* does
+> not depend on whether today's screen draws it. Stated here because §10 is what a designer reads
+> before ruling **#103** (does `You take N.` earn `alarm`?), and that ruling explicitly turns on how
+> many members the set has: **on screen it is two, not three.** Note also that `The run is over.`, the
+> `report` in the last row, *is* drawn on a finished run — in the summary panel's note row, not in the
+> turn line — and `e2e/run-loop.spec.ts` already asserts it.
+
 **Emphasis is carried by weight and colour together, and the words do not count as a carrier.** §11
 forbids colour as the sole carrier, and the tempting defence is that the sentences differ so the
 distinction survives a greyscale screen. **Reject that**, because it is the same defence that would

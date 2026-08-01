@@ -15,9 +15,18 @@ was wrong"**, so M2 opens with the build order the #83 ruling specifies. Four M1
 determinism-gate debt (see the split below). So `gh issue list --milestone "M2: The light loop"`
 will not show you #12 — that is deliberate, not a lost issue.
 
-**M2 has started, and its first code is #79** (PR #92, `bd4f577`): the turn a creature wakes now says
-so, with a count. That was step 1 of the ruling's build order — and **the order has changed since the
-ruling was written**, so read "The build order for the wager" under M2 below, not #83's issue body.
+**M2 is two steps into a six-step build order.** #79 (PR #92) made a wake announce itself, with a
+count; #94 (PR #101) gave that announcement two emphasis levels so it is read first. Neither moved a
+simulation value. **The order has changed since the #83 ruling was written**, so read "The build order
+for the wager" under M2 below, not #83's issue body.
+
+> **Contradiction, unresolved, and it decides what happens next.** The build order below puts
+> **#31/#41 third and #83 fourth**, which is what #83's own build-order comment says. The journal's
+> #94 entry ends **"Next: #83"**, skipping step 3. Nothing has ruled which is right, and the archivist
+> is not the one to rule it. The strongest thing that can be said from the record: step 3's stated
+> purpose is to un-contaminate the *fuel corpus*, and #83 moves no fuel number — so the two are not
+> obviously in conflict, but the ordering was written deliberately and has not been amended. **Whoever
+> picks up M2 next: settle it on #83 before writing code**, and say so in a comment either way.
 
 ---
 
@@ -96,11 +105,14 @@ and the summary screen has to render both.
 
 ### Where M1 actually stands
 
-*Re-counted at `bd4f577` (#79 merged, so M2's first PR is in these figures) from the tree, not
-adjusted from the previous count — the
-number this section carried two revisions ago ("`game/` is 44 test files and 797 tests") was the
+*Re-counted at `86eda1e` (#79 and #94 both merged, so M2's first two PRs are in these figures) from
+the tree, not adjusted from the previous count — the
+number this section carried three revisions ago ("`game/` is 44 test files and 797 tests") was the
 **whole suite** mislabelled as `game/`, and it survived three PRs because a count with no stated
 scope cannot be checked. So: **every number below names what it covers and how it was produced.***
+**Only the rows #94 touched moved** — `components/play/`, `tests/unit/`, both totals and the E2E
+count. `game/`, `render/` and `session/` are byte-identical to the previous count because PR #101
+changed no file in any of them, which is itself the evidence that #94 was a presentation change.
 
 ```bash
 # source modules and test files, per directory, tracked files only
@@ -120,16 +132,18 @@ is why M1 closes without it.
 | `game/` — generation, FOV, light, fuel, scheduler, combat, descent, endings | 45 | 42 | 786 |
 | `render/` — the presentation model (#19), `taps.ts` (#20), `cues.ts` (#21, #79) | 9 + barrel | 9 | 166 |
 | `session/` — the run (#45) | 1 + barrel | 1 | 28 |
-| `components/play/` — board, cells, HUD, controls, summary, hit test, theme, `opening` | 13 | 0 colocated | — |
+| `components/play/` — board, cells, HUD, controls, summary, hit test, theme, `opening`, `status-style` | 14 | 0 colocated | — |
 | `components/` (rest) + `app/` — two themed views; `_layout` and the game screen | 2 + 2 | 0 | — |
-| `tests/unit/` — contract gates, consumer probe, the six `play-*` suites, helpers | 6 helpers | 10 | 136 |
-| **Total (Vitest)** | | **62** | **1116** |
+| `tests/unit/` — contract gates, consumer probe, the six `play-*` suites, helpers | 6 helpers | 10 | 149 |
+| **Total (Vitest)** | | **62** | **1129** |
 
-`components/play/` has **no colocated tests**: its **six** pure modules are tested from
-`tests/unit/play-*.test.ts` (hit test, cell style, messages, summary style, theme, opening) and its
-React is tested by Playwright, per ADR-0005's no-component-test-runner rule. E2E is **34 runs — 17
+`components/play/` has **no colocated tests**: its **seven** pure modules are tested from
+`tests/unit/play-*.test.ts` (hit test, cell style, messages, summary style, theme, opening — and
+`status-style` from the theme suite, which is why seven modules make six suites) and its
+React is tested by Playwright, per ADR-0005's no-component-test-runner rule. E2E is **36 runs — 18
 declarations across 3 spec files, each run under both the `phone` and `desktop` projects**, up from 4
-before #20. A green CI log reads **33 passed, 1 skipped**, not 34 passed: the win-the-run spec
+before #20 and 34 before #94. A green CI log reads **35 passed, 1 skipped**, not 36 passed: the
+win-the-run spec
 self-skips on `desktop` (it is a 30-second dive and the `phone` project already covers it). Stated
 because the next person to re-measure this will otherwise think the count is off by one.
 
@@ -298,6 +312,18 @@ this milestone, not its method.
       tested and reached no pixel until review caught it (#93). The announcement now **exists**;
       whether it is *read* is #94, below. One seam it left untested is the lit descent, where `woke`
       outranks `descended` — #96
+- [x] **The turn line has two emphasis levels, `alarm` and `report` — #94 (PR #101).** M2's second
+      code and step 2 of the build order, *inserted by #79's own playtest*, which answered the
+      question #79 was built for with a no. Ruled in GDD §10 with a §11 cross-reference: a wake,
+      damage taken and the player's death are `alarm`; every receipt and every refusal is a `report`;
+      the two must differ in two channels, one not colour. The level is a property of **the cue that
+      won the line**, never of the string — which is what keeps a component from growing a second copy
+      of the copy. **Measured and it worked**: 6 runs, 370 presses, `alarm` fired 16 times (1 turn in
+      23, against a cut signal of 1 in 6), and on 5 of 5 waking flashes the line was read as *the frame
+      changing* and the red `C` found second — the exact reversal of #79's complaint. **Three things it
+      left behind**, all filed: `The lantern goes out.` is levelled `alarm` and can never reach a pixel
+      (#98), `You take N.` fired five turns running with identical text (#103), and the board jogs 6pt
+      on every flash cycle for an unrelated reason (#102)
 - [ ] Fuel economy and the risk/reward tuning around it — calibrated once in #17. **#63 is ruled**
       and **no fuel number may move yet**, because the corpus is measuring a different game than the
       one we designed: §4 says caches are invisible while shuttered, the code pays on tile kind, and
@@ -326,15 +352,19 @@ this milestone, not its method.
 - [ ] Auto-travel: implement `travel(to)` per [ADR-0009](decisions/0009-auto-travel-command-shape.md)
       — **#65**, filed because the gate below has been answered and the recommendation is build it.
       #32 was the design ruling and stays closed
-- [ ] **The wager is invisible before it is taken and illegible after it** — **seven** issues from the
-      two playtests, none of them tuning and none of them mechanic, all M2 and none previously on this
-      roadmap: **#94** the wake line is the least emphatic text on screen (sequenced below), **#82**
+- [ ] **The wager is invisible before it is taken and illegible after it** — now **nine** issues from
+      **three** playtests, none of them tuning and none of them mechanic, all M2. One is closed:
+      ~~**#94** the wake line is the least emphatic text on screen~~ (done, PR #101). Open: **#82**
       you cannot see which contacts a flash would wake, **#80** the dormant glyph `c` can never be
       drawn, **#81** the ember a kill drops is invisible in the dark beside you, **#84** neither your
       damage nor a creature's health is ever shown, **#85** dying with a dry lantern near-misses
-      §13's "The lantern goes out." Also **#86**, the self-tap target eats half-cell misses. They are
+      §13's "The lantern goes out.", **#86** the self-tap target eats half-cell misses, and from #94's
+      playtest **#103** whether `You take N.` earns `alarm` when it has three carriers already in
+      frame, and **#102** the board jogs 6pt every flash cycle. They are
       one family: the exit criterion is a *felt* decision, and none of these change what the
-      simulation does
+      simulation does. **The family grows by roughly three per playtest and has never shrunk except by
+      being built** — worth watching, because at some point "the wager is illegible" stops being a
+      list of bugs and becomes a finding about the screen
 
 ### The build order for the wager, and where it stands
 
@@ -344,16 +374,19 @@ on **#83**.
 
 1. ~~**#79** — a wake is announced, with a count.~~ **Done, PR #92.** The ruling's precondition 1:
    being hunted by something you were never told you woke is worse than the bug #83 fixes.
-2. **#94** — give that announcement enough emphasis to be read first. *New, inserted by #79's own
-   playtest*, which answered the question #79 was built for with a **no**: *"on every flash turn I
-   noticed the red `C` first and read the line second, to confirm rather than to learn."* The line is
-   13px/400/`#9a9083`, the second-smallest text on screen, sharing its colour with a button caption,
-   ~1.3% of the area a flash changes, and **typographically identical to `The shutter opens. Light
-   spills out.`** — so at a phone glance, *that was free* and *you have company* differ only in which
-   dim grey letters are present. It is before #83 because today a missed wake costs a fact and after
-   #83 it costs a hunter. Colour and weight; cheap relative to what it protects.
+2. ~~**#94** — give that announcement enough emphasis to be read first.~~ **Done, PR #101.** Inserted
+   by #79's own playtest, which answered the question #79 was built for with a **no**: *"on every flash
+   turn I noticed the red `C` first and read the line second, to confirm rather than to learn."* The
+   old line was 13px/400/`#9a9083`, the second-smallest text on screen and **typographically identical
+   to `The shutter opens. Light spills out.`** — so at a phone glance, *that was free* and *you have
+   company* differed only in which dim grey letters were present. It was sequenced before #83 because
+   today a missed wake costs a fact and after #83 it costs a hunter. **Its own playtest says it
+   worked** (1 alarm in 23 turns; the line read first on 5 of 5 waking flashes) and adds one verdict
+   worth keeping: *#82's tile pulse is not needed for this*, said plainly so nobody spends step 6
+   defensively.
 3. **#31/#41** — caches are invisible while shuttered, per §4. This is what un-contaminates the fuel
-   corpus, and **no fuel number moves before it.**
+   corpus, and **no fuel number moves before it.** **Next by this list — but see the contradiction
+   flagged at the top of this file: the journal's #94 entry says #83 is next instead. Unresolved.**
 4. **#83** — the ruling itself: a woken Cinder pursues.
 5. A **`HARVESTER`** style in `game/systems/economy.test.ts` — never flashes, routes to every
    ember-sense contact, one-shots each dormant — which is what §4's invariant 4 is asserted against.
@@ -435,6 +468,15 @@ each item is not in its issue body; the milestone is where they are queued.
 None of it gates any milestone exit. **Do not count it as M2 progress**, and do not let it grow back
 into M2 — anything of this shape filed from here on belongs in the new milestone on the day it is
 filed.
+
+**The split survived its first cycle, with one caveat worth more than the split itself.** #94 produced
+exactly one tooling item and it was filed **straight into the new milestone** rather than into M2,
+which is the behaviour the paragraph above asks for. But it was **#100, a duplicate of #76** — already
+on the list below, same root cause, same fix — filed by an agent that had hit the bug live and did not
+check whether it was known. Closed as a duplicate, its new evidence (a second occurrence, and the
+current CRLF file list, which has changed since #76) moved onto #76. So the count stays at
+**fourteen**. **Filing into the right milestone is not the same as reading it**, and the second habit
+is the one that is missing.
 
 **The count moved by five, not by the two filed this session.** #90 and #91 are new (both from #79),
 #12 came down from M1's list — and **#76 and #78 were already in the M2 milestone and had never

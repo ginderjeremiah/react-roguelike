@@ -57,6 +57,126 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-08-01 — Reconcile after #106: the build order gained a step, and a table nobody updates
+
+**Did:** Archivist pass over `main` at `0baacfd`. Touched `ROADMAP.md`, `GDD.md` (§4 twice, §10 once)
+and one line of `ARCHITECTURE.md`. **The #106 entry below was not rewritten** — it was checked against
+§4's ruling, the invariant-4 blockquote, the roadmap's step 3 and `messages.ts`, and every one of
+those held, because it landed inside PR #106 rather than being deferred to this pass. **One line of
+it is now wrong and stays wrong:** its `**Next:** #83 — step 4 of the build order` was true when
+written and is not, because this pass put #107 in front of #83. The roadmap calls that exact shape
+"a bug to fix" — the fix is this paragraph, not an edit down there, because the journal is
+append-only and a record of what we used to believe is the thing it exists to keep.
+
+Issue work: milestoned **#107** and **#108** into M2 (both were filed with none), filed **#109** and
+**#110**, and confirmed **#105**'s closure carries its discharge.
+
+**The build order gained step 3a — #107 before #83 — and it is the one judgement call in this pass.**
+The list declares itself the authority over every other record, and at `0baacfd` it disagreed with a
+merged journal entry: the #106 entry argues #107 must land before #83, and the list said #83 was next.
+Resolved in favour of *inserting*, not in favour of the list, and the distinction from PR #104's
+precedent matters. There the disagreement was a `Next:` line naming a step the list already ordered
+differently — a conflict, and the list wins conflicts. Here the list simply does not contain the item,
+because #107 did not exist when the list was last written; that is an omission, and an omission is
+amended rather than out-voted. The substantive argument is #94's, one door along: #106's whole claim
+is that **light acquires caches**, and on the single turn where the acquisition and the light are the
+same press, `describeTurn` returns at the `woke` tier and the pickup is stated only by the fuel
+counter. Verified in the code, not taken from the report. **The precedence question itself is not
+ruled here and must not be** — a fourth tier, a compound, or a rule about what the shutter may pay for
+is the `game-designer`'s on #107.
+
+**Lettered `3a` rather than renumbered, deliberately.** `docs/JOURNAL.md`, the comment closing #105
+and M2's exit criterion all cite "step 4", "step 5" and "step 6" as bare numbers. Renumbering would
+silently redirect every one of them, and a citation that quietly changes referent is worse than an
+ugly label. Anyone extending the list: prefer a letter to a renumber for the same reason.
+
+**Two records use "step 6" to mean a step the list has never had.** The #106 entry ("the measurement
+without which step 6 tunes the wrong constant") and #105's closing comment ("re-derivation remains
+roadmap step 6") both mean **the fuel re-tune**. The list's step 6 is **#82**. Nothing is wrong with
+the sequencing — the re-tune is the M2 checklist bullet, gated on step 5 by §4's *no number moves
+until the corpus has a never-flash fighter* — but two documents were pointing at different things
+with the same name, which is exactly how a session builds #82 believing it was told to tune. Recorded
+in the list rather than renumbered.
+
+**§4 contained a sentence #108 falsifies if you read it unscoped, and the fix is scope, not a
+retraction.** The cache ruling says the corpus measurement handed caches "to the one style the design
+says has none". Over the corpus that is true — every style in it is a pacifist or near it. In the
+game it is not: a never-flash **fighter** banks 20 a kill, and a floor *holds* 60-120 fuel of
+creature ember against 25-50 in caches. Both ranges are **arithmetic on the constants** in
+`game/map/generate.ts` and `game/content/`, re-derived here rather than quoted — which makes them a
+**ceiling**, not a haul, since the top of the range means killing everything on the floor. §4 and the
+roadmap now say so in those words, because my first draft of both wrote them as "measured in play"
+and the review caught it: this is a document that demands every number name how it was produced, and
+these two are the numbers the next tuning pass will reach for. Converting the ceiling into a haul is
+#109. **No ruling was touched**, and #108 is not a contradiction of the cache rule — it is §4's own
+Watch arriving early with numbers, which is what the #106 entry already said.
+
+**The count table in `ROADMAP.md` is stale after every code PR — three for three, and this is the
+process finding of the pass.** Totals through history: `1047` at `9df602d` (#71) *and* `bd4f577`
+(#92); `1116` at `942136c` (#97, docs) *and* `86eda1e` (#101); `1129` at `8c475bc` (#104, docs) *and*
+`0baacfd` (#106); actual today **1158**. Every value was set by an archivist and invalidated by the
+next code PR. The section's existing discipline — *every number names what it covers and how it was
+produced* — was written after a **mislabelling** bug and does nothing about staleness, because the
+cost falls on a later session rather than on the PR that moved the number. Repaired again here
+(`game/` 786 → 810, `render/` 166 → 171, total 1129 → 1158; `session/`, `tests/unit/`,
+`components/` and the 36 E2E runs unmoved — **which is evidence about counts and nothing more.**
+This entry and the roadmap both first said the unmoved rows proved #106 changed nothing outside
+`game/` and `render/`; review falsified that in one command. It also changed three helpers under
+`tests/unit/support/`, which move no count because helpers carry no tests, and one of them —
+`scenario.ts` — changed the floor-construction contract under every cache test. **A count is not a
+file list, and I reached for it as one.**).
+Filed as **#110** with a recommendation: **delete the numbers** unless someone can name a decision
+they changed. Nobody should pay for this by hand a fourth time.
+
+**#109 exists because build-order step 5 was the only step with no issue.** The `HARVESTER` corpus
+style — never flashes, routes to every ember-sense contact, one-shots each dormant — is what §4's
+invariant 4 is asserted against and what gates every fuel number in the game. It had been a line in a
+document for three PRs. #108's hand measurement is now the thing it has to confirm or refute.
+
+**Verified and deliberately left alone.** `ARCHITECTURE.md`'s numbers all still hold at `0baacfd` —
+seven numbered points in `step.ts`'s contract, seven pure modules in `components/play/` inside
+fourteen files, four `Command` variants, five layers, and **no document restating the current
+`RULES_VERSION` in a form a bump would falsify** — which is why 3 → 4 needed no doc edit. That
+sentence took **two** drafts to get right, and both failures are the same one, so they are both kept
+here rather than tidied away.
+
+The first draft claimed the numeral appeared nowhere outside `replay.ts`, which a grep refutes:
+`ROADMAP.md`'s cache line and this file's #106 entry both write `4`. The second draft narrowed
+correctly and then offered false evidence for the true claim — that the numeral's other homes "all
+name it as *what #31/#41 did*, which stays true at 5". **`game/core/replay.test.ts` does not stay
+true at 5.** It holds three `version: 4` **literals** (`:951`, `:1073`, `:1267`), each the `version`
+field of a `PINNED_RECORD` handed to `replay()`, and `replay.ts:127` **throws** when
+`record.version !== RULES_VERSION`. Set it to 5 and all three pinned-run suites fail with *"recorded
+under rules version 4, this build implements 5"* before a single digest is compared. That is not a
+reference to history; it is a live pin, and `replay.test.ts:863` states the procedure the sentence
+denied — *re-pin, bump `RULES_VERSION`, add a `RULES_VERSION_LOG` line*.
+
+So the claim that survives is narrower and still does the work: **no *document* needs an edit when
+the version bumps.** `replay.test.ts` is code, and re-pinning it is the documented cost of a bump
+rather than drift. "One number, one home" is a claim about the canonical value, not about the digit.
+`ARCHITECTURE.md`'s `game/fov/` line gained the second monotone plane and nothing else.
+
+**#96 is unchanged by #106** despite the brief's suspicion: it needs a seed whose *lit descent* wakes
+something, and `revealed` resets on descent, so the cache rule makes that seam no more reachable than
+it was — the comment
+on #96 from #94's playtest is still the way in. **#99 has no milestone on purpose** (its body says so;
+it waits for #83) and is now named in the roadmap beside #89, because an un-milestoned issue is
+invisible to the one command `CLAUDE.md` tells every session to run. **#107 and #108 duplicate
+nothing** — checked against #81, #103, #75 and the closed #31/#63/#105.
+
+**Next:** #107 — get the precedence ruled by the `game-designer`, then build it — and then #83, step
+4, unchanged. The playtest that judges M2's exit criterion still runs after #83 at the earliest.
+
+**Watch:** the roadmap's illegibility family is now **ten issues from four playtests** and has never
+shrunk except by being built; the count is confounded by scope (three narrow briefs after one full
+sweep) and the measurement that settles it is the broad playtest after #83. And #110 aside, the
+*shape* to watch is that both of the last two reconciles found their most valuable finding in
+something nobody named in the brief — a numbers table nobody owns this time, three undocumented drifts
+last time. The briefs are written from the previous session's memory; the artefacts are written from
+the tree. Re-derive.
+
+---
+
 ## 2026-08-01 — A cache is terrain the lantern has to have shown you (#31, #41)
 
 **Did:** Built §4's cache rule, ruled the same day by the `game-designer` and written into the GDD

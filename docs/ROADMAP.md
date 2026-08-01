@@ -15,17 +15,21 @@ was wrong"**, so M2 opens with the build order the #83 ruling specifies. Four M1
 determinism-gate debt (see the split below). So `gh issue list --milestone "M2: The light loop"`
 will not show you #12 — that is deliberate, not a lost issue.
 
-**M2 is three steps into a six-step build order.** #79 (PR #92) made a wake announce itself, with a
+**M2 is three steps into a build order of six, and one more (step 3a) has been inserted since.**
+#79 (PR #92) made a wake announce itself, with a
 count; #94 (PR #101) gave that announcement two emphasis levels so it is read first; **#31/#41 made a
 cache terrain the lantern has to have shown you**, which is the first of the three to move a
 simulation value and the one that un-contaminates the fuel corpus. **The order has changed since the
 #83 ruling was written**, so read "The build order for the wager" under M2 below, not #83's issue body.
 
-**Next up is #83 — a woken Cinder pursues.** That is step 4 of the build order below. Step 3 landed on
+**Next up is #107, then #83 — a woken Cinder pursues.** Step 3 landed on
 2026-08-01 and its measurement is recorded there and in §4's invariant-4 blockquote: `DARK_PACIFIST`'s
 cache take went 119/121 → **0/121**, `STALKER`'s 121/121 → 114/121 and its net +8 → +7 a floor. The
 flashing style barely moved, which is the ruling's prediction rather than its falsifier, so the
-baseline #83 is measured against is now a clean one.
+baseline #83 is measured against is now a clean one. **Step 3 also introduced a regression in its own
+receipt** — a cache taken by the flash that lit it is announced by nothing (#107) — which is inserted
+below as **step 3a**, on its own playtest's argument and the same argument that inserted #94. #83 is
+still step 4 and the numbering below is unchanged, because other records cite these step numbers.
 
 ---
 
@@ -104,14 +108,25 @@ and the summary screen has to render both.
 
 ### Where M1 actually stands
 
-*Re-counted at `86eda1e` (#79 and #94 both merged, so M2's first two PRs are in these figures) from
-the tree, not adjusted from the previous count — the
-number this section carried three revisions ago ("`game/` is 44 test files and 797 tests") was the
+*Re-counted at `0baacfd` (#79, #94 and #31/#41 all merged, so M2's first three PRs are in these
+figures) from the tree, not adjusted from the previous count — the
+number this section carried four revisions ago ("`game/` is 44 test files and 797 tests") was the
 **whole suite** mislabelled as `game/`, and it survived three PRs because a count with no stated
 scope cannot be checked. So: **every number below names what it covers and how it was produced.***
-**Only the rows #94 touched moved** — `components/play/`, `tests/unit/`, both totals and the E2E
-count. `game/`, `render/` and `session/` are byte-identical to the previous count because PR #101
-changed no file in any of them, which is itself the evidence that #94 was a presentation change.
+**Only the `game/` and `render/` rows moved** (786 → 810 and 166 → 171). `session/`, `tests/unit/`,
+`components/` and the E2E count are unchanged — **and an unchanged row is evidence about counts and
+about nothing else.** The first draft of this paragraph said the unmoved rows proved PR #106 touched
+no file outside `game/` and `render/`; review falsified it with one `git diff --name-only`. #106 also
+changed three helpers under `tests/unit/support/` — `scenario.ts`, `lantern-run.ts` and
+`run-script.ts` — which hold the row steady only because helpers carry no tests of their own. The one
+to know about is **`scenario.ts`**: its floor construction used to make a `cache` tile without adding
+it to `floor.caches`, so the contract every cache test is built on changed underneath them.
+
+**This table goes stale on every code PR and is repaired by the next docs pass — three for three.**
+The total was `1047` at both `9df602d` and `bd4f577` (#92), `1116` at `942136c` (#97, a docs PR) and
+`86eda1e` (#101), `1129` at `8c475bc` (#104, a docs PR) and `0baacfd` (#106). No code PR has ever
+updated it. Tracked as **#110**; the options are automating it or deleting the numbers, and nobody
+should keep paying for it by hand a fourth time.
 
 ```bash
 # source modules and test files, per directory, tracked files only
@@ -128,13 +143,13 @@ is why M1 closes without it.
 
 | Directory | Source modules | Test files | Tests |
 | --- | --- | --- | --- |
-| `game/` — generation, FOV, light, fuel, scheduler, combat, descent, endings | 45 | 42 | 786 |
-| `render/` — the presentation model (#19), `taps.ts` (#20), `cues.ts` (#21, #79) | 9 + barrel | 9 | 166 |
+| `game/` — generation, FOV, light, fuel, scheduler, combat, descent, endings | 45 | 42 | 810 |
+| `render/` — the presentation model (#19), `taps.ts` (#20), `cues.ts` (#21, #79) | 9 + barrel | 9 | 171 |
 | `session/` — the run (#45) | 1 + barrel | 1 | 28 |
 | `components/play/` — board, cells, HUD, controls, summary, hit test, theme, `opening`, `status-style` | 14 | 0 colocated | — |
 | `components/` (rest) + `app/` — two themed views; `_layout` and the game screen | 2 + 2 | 0 | — |
 | `tests/unit/` — contract gates, consumer probe, the six `play-*` suites, helpers | 6 helpers | 10 | 149 |
-| **Total (Vitest)** | | **62** | **1129** |
+| **Total (Vitest)** | | **62** | **1158** |
 
 `components/play/` has **no colocated tests**: its **seven** pure modules are tested from
 `tests/unit/play-*.test.ts` (hit test, cell style, messages, summary style, theme, opening — and
@@ -328,7 +343,14 @@ this milestone, not its method.
       landed 2026-08-01 and `DARK_PACIFIST`'s take went **119 of 121 → 0 of 121**, so the corpus is
       finally measuring the game §4 describes. **Every fuel figure in both playtest reports still
       predates it and inherits the contamination.** What is left before numbers move is a never-flash
-      *fighter* in the corpus (step 5), which is what invariant 4 is actually asserted against
+      *fighter* in the corpus (step 5, **#109**), which is what invariant 4 is actually asserted
+      against — and **#108** has now put a number on what that fighter will be asked to confirm: a
+      floor **holds** 25-50 fuel in caches against **60-120 of creature ember, free in the dark**.
+      That is arithmetic on the constants rather than an observed take — the ceiling, not the haul,
+      which is exactly the difference #109 exists to close. It is the Watch §4 already carried,
+      arriving early with numbers, and it is **not** a contradiction of the cache ruling, which said
+      necessary-and-not-sufficient and named the never-flash fighter as the case it does not reach.
+      What it changes is urgency, not the rule
 - [ ] Sound/haptic feedback for moving blind — **untouched.** #79 is adjacent and does not discharge
       it: a wake is announced in *text*, which is neither sound nor haptic, and #94 is about the
       pixels of that text. Nothing here has been built
@@ -354,22 +376,23 @@ this milestone, not its method.
 - [ ] Auto-travel: implement `travel(to)` per [ADR-0009](decisions/0009-auto-travel-command-shape.md)
       — **#65**, filed because the gate below has been answered and the recommendation is build it.
       #32 was the design ruling and stays closed
-- [ ] **The wager is invisible before it is taken and illegible after it** — now **nine** issues from
-      **three** playtests, none of them tuning and none of them mechanic, all M2. One is closed:
+- [ ] **The wager is invisible before it is taken and illegible after it** — now **ten** issues from
+      **four** playtests, none of them tuning and none of them mechanic, all M2. One is closed:
       ~~**#94** the wake line is the least emphatic text on screen~~ (done, PR #101). Open: **#82**
       you cannot see which contacts a flash would wake, **#80** the dormant glyph `c` can never be
       drawn, **#81** the ember a kill drops is invisible in the dark beside you, **#84** neither your
       damage nor a creature's health is ever shown, **#85** dying with a dry lantern near-misses
-      §13's "The lantern goes out.", **#86** the self-tap target eats half-cell misses, and from #94's
+      §13's "The lantern goes out.", **#86** the self-tap target eats half-cell misses, from #94's
       playtest **#103** whether `You take N.` earns `alarm` when it has three carriers already in
-      frame, and **#102** the board jogs 6pt every flash cycle. They are
+      frame and **#102** the board jogs 6pt every flash cycle, and from #106's **#107** a cache the
+      flash paid for is announced by nothing. They are
       one family: the exit criterion is a *felt* decision, and none of these change what the
-      simulation does. **By creation time the three playtests contributed 6 → 1 → 2**, and the family
-      has never shrunk except by being built. Do **not** read that as a trend in either direction: the
-      M1 exit playtest was a full sweep and the two since were narrow briefs about a single line, so
-      the later counts are confounded by scope. **The measurement that would settle it is the next
-      broad playtest — the one after #83.** If it returns six again, "the wager is illegible" has
-      stopped being a list of bugs and become a finding about the screen
+      simulation does. **By creation time the four playtests contributed 6 → 1 → 2 → 1**, and the
+      family has never shrunk except by being built. Do **not** read that as a trend in either
+      direction: the M1 exit playtest was a full sweep and the three since were narrow briefs about a
+      single change, so the later counts are confounded by scope. **The measurement that would settle
+      it is the next broad playtest — the one after #83.** If it returns six again, "the wager is
+      illegible" has stopped being a list of bugs and become a finding about the screen
 
 ### The build order for the wager, and where it stands
 
@@ -406,12 +429,36 @@ on **#83**.
    #105's "a threshold in the harness is instrument calibration" applied to the quantity rather than
    to the threshold, and no assertion was loosened. And the *sequencing argument was confirmed by
    the outcome*: the measurement above is attributable to exactly one change.
-4. **#83** — the ruling itself: a woken Cinder pursues. ← **NEXT**
+
+**Step 3a — #107: a cache taken by the flash that lit it is announced by nothing. ← NEXT**
+**Inserted by the reconcile after #106, on that PR's own journal entry's argument**, and it is step 3's own
+regression: the pickup condition is *ever lit*, so a flash can now pay a cache and wake something on
+the same free action, and `describeTurn` returns at the `woke` tier before it ever reaches
+`fuelGained`. Verified in `components/play/messages.ts` at `0baacfd`. Sequenced here for the reason
+#94 was: step 3's entire claim is that **light acquires caches**, and on the one turn where the
+acquisition and the light are the same press, the price gets the line and the goods do not. It is
+also cheaper before #83 than after — once a flash produces a hunter, one more thing competes for the
+same row. **Lettered rather than renumbered on purpose**: `docs/JOURNAL.md`, the comment closing #105
+and the exit criterion below all cite "step 4"/"step 5"/"step 6", and renumbering would silently
+redirect them. **The precedence question itself is not ruled here** — a fourth tier, a compound line,
+or a rule that the shutter may not pay a cache underfoot is the `game-designer`'s call on #107, which
+is labelled `design` for that reason.
+
+4. **#83** — the ruling itself: a woken Cinder pursues.
 5. A **`HARVESTER`** style in `game/systems/economy.test.ts` — never flashes, routes to every
    ember-sense contact, one-shots each dormant — which is what §4's invariant 4 is asserted against.
+   **Filed as #109** by the reconcile after #106: it was the one step in this list with no issue behind it,
+   and #108 has since measured what it will be asked to confirm.
 6. **#82 last, unchanged and still explicitly last.** Shipping it before #83 makes the game *worse*:
    drawing the radius-4 footprint turns the containment read into exactly the clean binary the first
    playtest complained about. Correct and desirable, but only once waking has a price.
+
+**"Step 6" means #82 here and nothing else, and two other records use it to mean re-tuning.** The
+#106 journal entry ("the measurement without which step 6 tunes the wrong constant") and the comment
+closing #105 ("re-derivation remains roadmap step 6") both mean **the fuel-economy re-tune**, which
+has never been a numbered step in this list — it is the M2 checklist bullet above, gated on step 5
+by §4's *no number moves until the corpus contains a never-flash fighter*. Recorded rather than
+renumbered: this list is about what to *build*, and the re-tune is what happens once it is built.
 
 **#89 is deliberately not in that list.** Re-dormancy is as silent as waking was, so a shuttered
 player cannot tell *it gave up* from *it is still coming*. It is not the inverse of #79 and must not
@@ -419,6 +466,11 @@ be built as one — waking happens where the player is looking, re-dormancy by d
 announcing it would tell the player something they have no in-fiction way to perceive. Rule it
 **after #83 has shipped and been played**: the pursuit has to be felt before anyone can say whether
 its ending should be legible.
+
+**#99 is parked in the same way and for the same reason, and it is in no milestone** — a HUD readout
+of how many creatures are awake, split out of #94's ruling. Today it would count parked creatures,
+which is trivia; after #83 it counts things walking toward you. Recorded here because an issue with
+no milestone is invisible to `gh issue list --milestone`, and the un-milestoning was deliberate.
 
 **Two measured facts from #79's playtest that bear directly on M2's exit criterion.** The first is
 buried in a comment on #83; the second is in no issue and no PR thread, so this roadmap is its only
@@ -503,6 +555,11 @@ reached this roadmap at all**, filed during #60/#61 and invisible here ever sinc
 drift this section was written to prevent, happening to this section: a list that claims to make the
 queue visible only does so if someone re-derives it from `gh issue list` rather than reading it.
 
+**Fifteen after the reconcile following #106**, which filed **#110** — the count table in this file
+has gone stale after every code PR and been repaired by every docs PR, three for three. It went to
+this milestone because it is a process defect, which is what this milestone is for; #106's own two
+findings (#107, #108) are **not** of that shape and are in M2 where they belong.
+
 - [ ] Both contract gates are bypassable by naming a source file `*.test.ts` — #48. Same family as
       #12, which moved with it; whoever does #12 is already in both files
 - [ ] `render/` and `session/` may import `platform/`, one import from a clock — #52. **Must be
@@ -532,6 +589,9 @@ queue visible only does so if someone re-derives it from `gh issue list` rather 
 - [ ] `ensure-worktree-node-modules.mjs` is defeated by a stub `node_modules` — #91. Vitest creates
       `node_modules/.vite`, the guard sees a directory and concludes all is well, and `test:e2e` then
       dies in precisely the case the guard exists to prevent
+- [ ] The roadmap's count table goes stale on every code PR — **#110**, filed by the #106 reconcile
+      with the three-for-three evidence. Two options and they differ: automate the table, or delete
+      the numbers and keep the commands that produce them
 - [ ] The playtester's documented procedure serves a `dist/` that can change underneath it — **#95**,
       filed by this reconcile from a journal Watch note that had no issue. A concurrent build swapped
       the seed mid-session while the port and bundle name stayed right. Worse here than in a spec: a

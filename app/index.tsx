@@ -10,13 +10,13 @@ import {
   RUN_OVER_MESSAGE,
   TOO_FAR_MESSAGE,
 } from '@/components/play/messages';
+import { openRun } from '@/components/play/opening';
 import { RunSummaryPanel } from '@/components/play/run-summary';
 import { StatusLine } from '@/components/play/status-line';
 import { useGameTheme } from '@/components/play/use-game-theme';
 import { Fonts } from '@/constants/theme';
 import { tapAt } from '@/render';
 import {
-  beginRun,
   cuesOf,
   descend,
   move,
@@ -44,7 +44,14 @@ import {
  *     `blocksMovement` call in a `.tsx` is exactly the shape of mistake the seam exists to prevent.
  *   - Swap the bottom band when the run ends, on `scene.summary` — one field, computed in
  *     `render/summary.ts`, so "is this run over" is never a comparison written here.
- *   - Start another run: `setRun(beginRun(SEED))`. §13's loop, closed, with no reload.
+ *   - Start another run: `openRun(SEED)`. §13's loop, closed, with no reload.
+ *
+ * **`openRun` rather than `beginRun`, and that is a repair rather than a preference.** A fresh run
+ * is not a blank slate: §4 opens the lantern and `createInitialState` runs phase 3, so the opening
+ * frame can already owe the player a sentence (§4/#79). This file used to initialise `message` to a
+ * literal `null` and only ever assign it from a press handler, which computed the opening cues and
+ * dropped them. See `components/play/opening.ts` — the decision lives there, where a test can reach
+ * it, precisely because it went unnoticed here.
  *
  * The one decision that is genuinely local is what a tap that resolves to nothing looks like: §2
  * insists a dead tap be acknowledged, so **all three refusals that never reach `step` write a line**
@@ -96,8 +103,12 @@ type BoardSpace = { readonly width: number; readonly height: number };
 
 export default function GameScreen() {
   const theme = useGameTheme();
-  const [run, setRun] = useState<Run>(() => beginRun(SEED));
-  const [message, setMessage] = useState<string | null>(null);
+  // One `openRun` call feeds both pieces of state, so the board and the line under it are always
+  // describing the same run. Both initialisers are lazy, so the run is begun once and not on every
+  // render — and `opened` is read only during the first render, which is why it is not a ref.
+  const [opened] = useState(() => openRun(SEED));
+  const [run, setRun] = useState<Run>(opened.run);
+  const [message, setMessage] = useState<string | null>(opened.message);
   const [space, setSpace] = useState<BoardSpace>({ width: 0, height: 0 });
 
   const scene = sceneOf(run);
@@ -113,6 +124,10 @@ export default function GameScreen() {
    * which is the headline the summary is about to print two lines below in bold. One line, one
    * voice: the panel says how the run ended, and this line goes quiet so that whatever it says next
    * is about the *press*, not about the run.
+   *
+   * That exception is why a **restart** does not come through here even though it also produces a
+   * `Run`: `onRestart` uses `openRun`, which carries no rule about endings because a fresh run has
+   * no ending to suppress. The two are not interchangeable and were never meant to be.
    */
   const advance = useCallback((next: Run) => {
     setRun(next);
@@ -181,17 +196,26 @@ export default function GameScreen() {
   /**
    * §13's run loop, closed. A new run, in place, with no reload.
    *
-   * `beginRun` is pure and total (`session/run.ts`), so there is nothing to fail, nothing to await
-   * and nothing to tear down — the old `Run` is a value and dropping the reference is the whole of
-   * disposing of it. **Not `advance`**: `advance` describes a *turn*, and a fresh run has had none,
-   * so the line under the board is cleared rather than left carrying the last run's death.
+   * `openRun` is pure and total (it is `beginRun` plus a sentence), so there is nothing to fail,
+   * nothing to await and nothing to tear down — the old `Run` is a value and dropping the reference
+   * is the whole of disposing of it.
    *
-   * The seed is the same constant (#47), so the new run is the same floor 1. That is the deliberate
-   * state of the project and it is what the note at the bottom of the screen says.
+   * **Not `advance`, and no longer a blank line either.** `advance` describes a *turn* and carries a
+   * rule about the turn that ends a run, which a fresh run has no use for — that part of the old
+   * reasoning stands. What did not stand is the conclusion drawn from it: this used to
+   * `setMessage(null)` on the argument that "a fresh run has had none", and a fresh run **has**
+   * had phase 3 (§4 opens the lantern; `session/run.ts`'s `beginRun` says so at length). So the
+   * line does not carry the last run's death, and it does carry this run's opening — which is a
+   * wake sentence about one restart in ten, and empty on the rest.
+   *
+   * The seed is the same constant (#47), so the new run is the same floor 1 — and therefore the
+   * same opening line. That is the deliberate state of the project and it is what the note at the
+   * bottom of the screen says.
    */
   const onRestart = useCallback(() => {
-    setRun(beginRun(SEED));
-    setMessage(null);
+    const restarted = openRun(SEED);
+    setRun(restarted.run);
+    setMessage(restarted.message);
   }, []);
 
   const onBoardSpace = useCallback((event: LayoutChangeEvent) => {

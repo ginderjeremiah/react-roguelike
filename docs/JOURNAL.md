@@ -117,26 +117,81 @@ and dark play cover neither wake. Rather than weaken the assertion, added
 **throws if the flash wakes nothing**, so it cannot go quietly vacuous. Seed `flash` wakes two at once,
 so the plural path is reached by a real run rather than a hand-built pair.
 
+**Learned — review caught a whole emission site that was built, documented, tested and never
+rendered, and the reason it hid is worth more than the bug.** `session/beginRun` computed the opening
+census correctly; `app/index.tsx` never displayed it. `message` is only ever assigned inside
+`advance()`, which runs on a *press*, and `onRestart` re-clears it — so the cue reached `cuesOf()` and
+stopped. Everything upstream was right: the GDD rule, ~40 lines of doc comment arguing the case, a
+unit test asserting `beginRun` emits it. **Nothing connected it to a pixel**, and no test spanned the
+seam. The reviewer did not reason about it — it set the seed to one that wakes on the opening frame,
+built the app, booted it and read the empty status line, then measured **20 of 200 seeds** waking on
+arrival. `emberdepth` — the constant seed until #47 — is one of the 180 that do not, which is exactly
+why every gate was green.
+
+The general shape: **a test asserting a value is produced is not a test that the value is consumed**,
+and the layered architecture makes that gap invisible from either side. `session/`'s test was right,
+`components/`' test was right, and the wiring between them was untested because it belongs to neither.
+Also note the near-miss test — an E2E line asserting the status bar did *not* say "wake" before the
+walk — which **could not fail**, because the bar is empty at boot for every seed and every
+implementation. It was written as a precondition guard and was in fact the one assertion positioned to
+catch this. That is the third instance this project has recorded of a test that cannot fail (after
+#20's single-cue `damaged` sample and #80's undrawable glyph); the pattern each time is an assertion
+about *absence* in a place where absence is guaranteed by something other than the rule under test.
+
 **Watch — three, and the first is the one I would bet on biting.**
 
-The status line is `theme.textDim`, the dimmest text on screen, sitting directly above a full-width
-high-contrast `CLOSE SHUTTER` button; in dark mode it is grey on near-black. We have just ruled this
-the announcement of the most consequential event in the game and rendered it as the least emphatic
-text in the app. **The line alone may not fix the "I did not notice" it was written for** — verify
-with the playtester before believing #79 is closed in spirit rather than in letter. Not changed here
-because status-line weight affects every message and that is its own decision.
+The status line is too quiet for what we just made it carry, and **the playtest confirmed it rather
+than leaving it a suspicion**: *"the sentence alone is not enough — on every flash turn I noticed the
+red `C` first and read the line second, to confirm rather than to learn."* Measured at 390×844 dark:
+HUD values 17px/600/coloured, `CLOSE SHUTTER` 14px/700, **status line 13px/400/`#9a9083`** — the
+second-smallest text on the screen, sharing its exact colour with the shutter button's sub-caption.
+On a flash turn it is ~1.3% of the area that changed, it lives one turn, and §11 forbids motion. So
+the wake line and `The shutter opens. Light spills out.` are **typographically identical**, and at a
+phone glance the difference between *that was free* and *you have company* is which dim grey letters
+are present. Filed as **#94**, and it should land **before #83**, because #83 is what makes a missed
+wake fatal. Not fixed here: status-line weight affects every message and is its own decision.
+
+Worth being precise about what this does and does not mean. **The rule, the copy, the count and the
+precedence all held in play** — three flashes at the same two marks on `emberdepth` turns 7/11/13 read
+`shutter` → `Two things wake.` → `shutter`, which teaches line-of-sight, the wake, and
+re-lighting-is-silent in six turns with no tutorial. Losing the shutter sentence cost nothing (the
+tint, `LANTERN OPEN` and the burn rate all say it louder), and the demotion pays: a flash that wakes
+nothing now reads as *you got away with it*. What failed is only the volume knob. The count also buys
+less than §4 argues **today**, because the `C` is the only saturated red on the board and counting two
+takes a second — its real value is the case where the wake count ≠ the visible `C` count, which is
+rare now and becomes normal under #83. Keep it; do not expect it to be carrying the announcement yet.
 
 Second: on a descent that wakes something, `woke` outranks recency, so the line reads `Two things
 wake.` **instead of** `You climb down to floor 2.` That is intended — the floor number is in the HUD,
-the hunter is not — but `e2e/run-loop.spec.ts` asserts `/floor 2/` on that line and currently passes
-only because that seed's arrival happens to wake nobody. A generator change could turn that into a
-confusing red.
+the hunter is not. **No E2E currently takes a lit descent**, so nothing exercises it end to end.
+*(An earlier draft of this entry claimed `e2e/run-loop.spec.ts`'s `/floor 2/` assertion was a latent
+red that "passes only because that seed's arrival wakes nobody". That was wrong, and review caught
+it: the spec shuts the shutter before descending and drives `wander` with `relight: false`, so its
+arrival is dark **by construction**, not by luck — and `cues.test.ts` pins that a shuttered arrival
+wakes nothing on any seed. Corrected in place rather than left standing, because a fabricated
+fragility in the journal costs the next session either a wild goose chase or a "hardening" of a spec
+that is already deterministic.)*
 
 Third: `reuseExistingServer: true` against a fixed port 3000 means a `serve dist` left running in
 another worktree gets reused, so a spec can silently test **another checkout's bundle**. This cost the
 implementation an hour of chasing a failure that was real code being tested against a stale build, and
 with parallel worktrees it can just as easily produce a **false green**. Filed as #90. Related: the
 worktree `node_modules` guard is defeated by Vitest creating `node_modules/.vite` first — #91.
+
+Two more from the playtest, neither #79's doing and both worth carrying. **A wake on a lit descent
+eats the floor line** — `woke` outranks `descended`, so you never see `You climb down to floor 3.`;
+the HUD covers the number, but the one line you get on a wager you just took has no context. Left for
+the `game-designer` in #94 rather than decided here. And **0 fuel is currently a dead zone**: §13 says
+it is not an ending, and with nothing hunting you a run simply continues — one bot ran **143 turns at
+fuel 0 and HP 4** with an empty status line every turn and no way to finish. That is #83's to fix, and
+it is a good argument that #83 is load-bearing: pursuit is what makes that state lethal instead of
+inert.
+
+Also recorded, because it burned two agents in one session by two different mechanisms: **a playtest
+must verify the seed from the on-screen `seed-note`, not from the port or the bundle hash.** A
+concurrent process rebuilt `dist/` mid-session with a temporarily patched `SEED`, and the simulation
+changed underneath a run in progress while the port and bundle filename stayed correct. Snapshot
+`dist/` to a temp directory and serve from the snapshot. Same family as #90.
 
 **Next:** #31/#41 (caches are invisible while shuttered — what un-contaminates the fuel corpus), then
 **#83** itself, then a `HARVESTER` style in the economy corpus, then **#82 last**. That order is the

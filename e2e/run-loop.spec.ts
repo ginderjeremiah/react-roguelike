@@ -231,6 +231,11 @@ test('a run that ends in death: the summary reads, the board goes quiet, and you
   await expect(page.getByTestId('hud-hp')).toHaveText('12/12');
   await expect(page.getByTestId('hud-fuel')).toHaveText('80');
   await expect(page.getByTestId('control-shutter')).toHaveCount(1);
+  // Empty **because this seed's opening light finds nobody**, not because a fresh run is silent by
+  // rule. §4 opens the lantern and `beginRun` runs phase 3, so a restart carries whatever that woke
+  // (§4/#79) — about one seed in ten, measured in `tests/unit/play-opening.test.ts`. What this line
+  // pins here is the thing the restart *must* clear: the last run's death. `The lantern goes out.`
+  // was on this line one press ago, and RUN AGAIN must not leave it under a board with 12 HP on it.
   await expect(page.getByTestId('status-line')).toHaveText('');
   // The build note is back with the run it belongs to, and it is counting from zero again.
   await expect(page.getByTestId('seed-note')).toHaveCount(1);

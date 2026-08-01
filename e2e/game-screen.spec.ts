@@ -446,7 +446,19 @@ test('a wake reaches the line under the board, and says how many (§4, #79)', as
   // creature is still asleep when the flash lands and the wake under test is the flash's.
   const line = page.getByTestId('status-line');
   const shutter = page.getByTestId('control-shutter');
-  await expect(line).not.toHaveText(/wake/i);
+
+  // **This opening is silent because nothing woke, not because openings are silent.** §4 starts the
+  // lantern open and `beginRun` runs phase 3, so roughly one launch in ten already has a wake
+  // sentence on it before a finger touches the screen (`tests/unit/play-opening.test.ts` measures
+  // it); `emberdepth` is one of the other nine, which `session/run.test.ts` asserts by seed.
+  //
+  // So this is a real assertion in both directions now. It fails if the opening census ever starts
+  // reporting creatures the light did not wake — the census reads `after` alone, so an over-broad
+  // one has nothing to contradict it — and it is what makes the wake below attributable to the
+  // flash. It was **not** a real assertion when it was written: the screen dropped `beginRun`'s
+  // cues entirely, so this line was empty for every seed and every implementation, and it is
+  // exactly the assertion that should have caught that.
+  await expect(line).toHaveText('');
 
   await press(page, shutter);
   await expect(page.getByTestId('hud-shutter')).toHaveText('SHUT');

@@ -374,11 +374,17 @@ describe('waking (§2 phase 3, §4: the whole cost of light)', () => {
     expect(flashes[0].cues.filter((cue) => cue.kind === 'woke').length).toBeGreaterThan(1);
   });
 
-  it('agrees with the ordinary diff wherever both are defined', () => {
-    // `wakesOnArrival` is a census and `wakeCues` is a diff, and the argument that the census is
-    // legal is that on a board that came into existence this turn the two coincide. That claim is
-    // only checkable where a board is genuinely new — so it is checked on the opening state of
-    // several seeds, which is the other place the census is used (`session/run.ts`).
+  it('reports exactly the awake creatures of the state it is given, and nothing else', () => {
+    // Deliberately narrow, and named for what it does rather than for what the census *argument* is
+    // about. An earlier title claimed it "agrees with the ordinary diff", which it does not check:
+    // `wakeCues` is module-private and is never called here, so this is a restatement of
+    // `wakesOnArrival`'s own body plus the guarantee that it filters — no player, no dormant
+    // creature, no dead one — over real opening states rather than a hand-built world.
+    //
+    // The spawn invariant the census *rests* on is pinned elsewhere, by two tests framed as other
+    // things: `reports nothing woken when the stairs are taken in the dark` above, and
+    // `has no cues when its light woke nothing` in `session/run.test.ts`. Both go red the day a
+    // creature spawns awake, which is the day this function has to become a diff.
     for (const seed of ['open-1', 'open-17', 'open-20', 'session', 'cues']) {
       const state = createInitialState(seed);
       const awake = state.world.actors.filter(

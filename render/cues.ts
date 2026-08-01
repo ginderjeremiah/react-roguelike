@@ -194,7 +194,16 @@ export function cuesFor(before: GameState, after: GameState): readonly Cue[] {
  * **If creatures ever stop spawning dormant — a floor seeded with a hunter already on your
  * trail — this function is wrong and must become a diff**, at which point the descent branch needs a
  * predecessor it does not currently have. That is the single fact to re-check before changing spawn
- * state; it will not fail loudly on its own, it will simply announce a wake that did not happen.
+ * state.
+ *
+ * **There is a safety net, and it is worth knowing where it is**, because both tests that hold it
+ * are framed as being about something else and neither mentions this function:
+ * `cues.test.ts`'s *reports nothing woken when the stairs are taken in the dark* and
+ * `session/run.test.ts`'s *has no cues when its light woke nothing*. Each asserts an arrival with
+ * creatures on it produces **no** `woke` cue; a creature that spawned awake would be announced by
+ * the census and both would go red on the same commit that changed the spawn. So this will not
+ * ship silently — but it will fail somewhere that does not name the cause, which is what this
+ * paragraph is for.
  *
  * Ascending actor id, because `world.actors` already is (ADR-0004: a cue list that reordered itself
  * would make a Playwright assertion flake).

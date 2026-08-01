@@ -421,6 +421,11 @@ unannounced hunter — and a death you cannot retell is a Pillar 2 and Pillar 4 
 *How loudly the line is drawn is §10's, ruled in #94 — a wake is an `alarm`, and the shutter line it
 outranks is a `report`. Pointed at rather than restated, so the two cannot drift apart.*
 
+*One thing this precedence now outranks that it was never asked about: the cache rule below made a
+flash able to **pay** on the same free action it wakes on, so `You gather N ember.` is suppressed by
+the wake line. Recorded as an as-implemented note beside §10's table and open as **#107**; nothing in
+this block is amended for it.*
+
 *Watch:* the line is wrong if it becomes wallpaper. The signal is a playtest that reports reading
 the turn line for damage and skipping it otherwise, or one in which the wake line appears on more
 than roughly one turn in six. Either means the announcement is competing with itself, and the fix is
@@ -500,8 +505,15 @@ before that: *light finds supplies; dark finds enemies.* **Neither was enforced 
 `computeTouchField` returned the cache tile as a cache, §2 phase 3 folded that into permanent
 memory, and `collectFuelUnderfoot` paid on the tile kind. Measured over the economy corpus, a style
 that never opens the shutter took **119 of 121 caches** — light's whole income stream, ~37 fuel a
-floor, handed to the one style the design says has none. The ruling is that **the code is wrong and
-the document is right**:
+floor, handed to the one style the design says has none.
+
+*Read that last clause as scoped to the corpus, which is what it was measured over.* Every style in
+the corpus is a pacifist or near it, so caches really were its whole income. A never-flash **fighter**
+is a different animal and always was: it banks 20 a kill, **measured in play at 60-120 fuel a floor
+(#108)** against 25-50 from caches. That style is what invariant 4 is for, and it is the case this
+ruling explicitly does not reach — see the blockquote at the end of this block.
+
+The ruling is that **the code is wrong and the document is right**:
 
 > **A cache is terrain the lantern has to have shown you. Until it has, the tile is floor to you —
 > you feel it, you walk over it, and nothing happens. Once it has, it is yours whenever you stand on
@@ -610,6 +622,15 @@ play, is strictly worse than a line a human found by accident.
 > sufficient, and a never-flash *fighter* still banks 20 a kill. Every fuel figure in the two
 > playtest reports predates this and still includes income darkness cannot have; re-measure before
 > quoting one.
+>
+> **How much is still open now has a number, from play rather than from the corpus (#108).** Caches
+> are `CACHE_SLOTS = 2` with `count = int(rng, 0, 1)` at `CACHE_FUEL = 25` — **25-50 a floor, gated
+> behind light**. Creatures are `min(2 + floor, 6)` at `CINDER.emberDrop = 20` — **60-120 a floor,
+> gated behind nothing**, and a dormant dies to one strike and never swings back. So the remaining
+> gap is roughly **2.5x**, and the same playtest found the good news the rule bought: clear-the-room-
+> dark-then-flash is now the best line on floor 1, at +18 fuel over never flashing. Both halves are
+> measurements, not rulings — **nothing in §4 is amended by them.** The corpus style that would let
+> invariant 4 be asserted rather than estimated is **#109**.
 
 **Awake-creature behaviour — *ruled 2026-07-31, not yet implemented (#83)*.** Specified here because
 §6 depends on it.
@@ -1003,6 +1024,17 @@ cheap:
 > many members the set has: **on screen it is two, not three.** Note also that `The run is over.`, the
 > `report` in the last row, *is* drawn on a finished run — in the summary panel's note row, not in the
 > turn line — and `e2e/run-loop.spec.ts` already asserts it.
+
+> **A second as-implemented note, and this one is a collision the precedence could not have
+> anticipated: a cache the flash paid for is announced by nothing (#107).** §4's cache rule (#31/#41,
+> 2026-08-01) pays a cache once its tile has *ever* been lit, so opening the shutter while standing
+> on an unlit cache both takes it and wakes what the light reaches — one free action, two outcomes.
+> `woke` outranks recency and `You gather N ember.` lives in recency, so `describeTurn` returns
+> `Two things wake.` and the pickup is stated only by the fuel counter. The precedence was ruled when
+> a cache could be taken **only by stepping onto one**, and stepping wakes nothing, so `woke` and
+> `fuelGained` could not collide; they can now. **The ruling above is not amended for it** — whether
+> the answer is a fourth tier, a compound line, or a rule about what the shutter may pay for is
+> #107's, and it is sequenced as step 3a in `docs/ROADMAP.md`'s build order.
 
 **Emphasis is carried by weight and colour together, and the words do not count as a carrier.** §11
 forbids colour as the sole carrier, and the tempting defence is that the sentences differ so the

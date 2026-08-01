@@ -101,15 +101,27 @@ since #76 was written (`render/hud.test.ts` is now LF; `components/play/theme.ts
 `tests/unit/play-opening.test.ts` are the CRLF files today). A stale file list in an open issue is a
 small thing that makes the issue look already-done.
 
-**Flagged, not resolved: the journal and the roadmap disagree about what to build next.** The #94
-entry below ends **"Next: #83"**. The roadmap's build order, and #83's own build-order-update comment
-which is where that order was actually decided, both put **#31/#41 third and #83 fourth**. This is a
-one-word disagreement that costs a whole PR if the wrong one is followed, so it is called out at the
-top of `ROADMAP.md` and at step 3 of the list, and a comment on **#83** asks for the ruling. **I did
-not pick a side** — the archivist reconciles records and does not decide build order. The one thing
-the record does support: step 3's stated purpose is to un-contaminate the *fuel corpus*, and #83 moves
-no fuel number, so this may be a deliberate reordering that was never written down rather than a slip.
-Whoever picks it up should say which, in a comment, before writing code.
+**Flagged and now settled: the journal and the roadmap disagreed about what to build next.** The #94
+entry below ended **"Next: #83"**. The roadmap's build order, and #83's own build-order-update comment
+which is where that order was actually decided, both put **#31/#41 third and #83 fourth**. A one-word
+disagreement that costs a whole PR if the wrong one is followed, so it was raised rather than guessed
+at — the archivist reconciles records and does not decide build order.
+
+**Ruled during this PR: the roadmap's list stands. Next is #31/#41, then #83.** Comment `5153249392`
+on **#83**, and the #94 entry's `Next:` line is corrected in place with the strike-through left
+visible. **The reasoning I could not have supplied is the part worth keeping**, because my own
+analysis pointed the other way: I noted that step 3 exists to un-contaminate the *fuel corpus* and
+that #83 moves no fuel number, and read that as "possibly harmless to reorder". That is the wrong
+frame. #83 does not move a fuel number but it **changes the game the corpus measures** — a pursuing
+Cinder changes how many turns a run spends and on what — so #31/#41 first buys **one** re-measurement
+against a clean baseline, and #83 first costs **two**, of which the second cannot attribute which
+change moved the number. *A step that moves no constant can still invalidate a measurement*, and that
+is the generalisable bit.
+
+**The durable fix is naming the authority, not fixing the two records.** This is the second time an
+ordering has drifted between records. So `ROADMAP.md`'s build-order list now says in one line that it
+outranks **both** #83's issue body **and** any `Next:` line in this journal, and it sits where a
+session reads first. Two records that disagree are a coin flip unless one of them is declared to win.
 
 **Learned — a count corrected in one place is a count corrected in one place.** PR #101's review
 caught `ARCHITECTURE.md` describing `components/play/` as "six pure modules" when `status-style.ts`
@@ -126,9 +138,10 @@ would otherwise "correct" it back.
 reads **35 passed, 1 skipped**. `game/`, `render/` and `session/` are unchanged to the file, which is
 the cheapest available evidence that #94 was a presentation change.
 
-**Next:** step 3 of the build order — but read the contradiction above first. If it resolves to
-#31/#41, that is caches invisible while shuttered, which is what un-contaminates the fuel corpus and
-unblocks every fuel number in M2.
+**Next:** **#31/#41** — caches are invisible while shuttered, per §4. Step 3 of the build order, and
+now unambiguous (comment `5153249392` on #83). It is what un-contaminates the fuel corpus, and
+therefore what unblocks every fuel number in M2 and the `HARVESTER` style at step 5. **#83 is fourth**,
+after it.
 
 **Watch:** the playtest-issue family in M2 ("the wager is invisible before it is taken and illegible
 after it") went from seven to **nine** this session and has never shrunk except by being built. Three
@@ -252,8 +265,15 @@ collapses in place; board and control tops are stable across every level), but t
 caption vanishing at 5/5 sense shrinks the HUD, so the press that prints the turn line also slides the
 board. Filed as **#102**, and distinct from #69.
 
-**Next:** #83 — a woken Cinder pursues. That is what the last two PRs were sequenced to precede, and
-it is the ruling M1 exited on.
+**Next:** ~~#83 — a woken Cinder pursues.~~ **Corrected in PR #104: next is #31/#41, then #83 fourth.**
+This line was wrong — it was written from #83's prominence in the narrative rather than from
+`docs/ROADMAP.md`'s "The build order for the wager", **which is the authority** and says so of itself
+(it outranks #83's issue body, and it outranks a `Next:` line here). Left struck through rather than
+deleted because the mistake is the instructive part: #83 *is* what the last two PRs were sequenced to
+precede and *is* the ruling M1 exited on, and both of those are true without making it the next thing
+built. Ruling and full reasoning: comment `5153249392` on **#83**. The load-bearing half is that #83
+moves no fuel number but does change the game the corpus *measures*, so building it before #31/#41
+costs two re-measurements and the second cannot attribute which change moved the number.
 
 **Watch — two, and both are pre-registered cut signals rather than suspicions.** If a playtest reports
 the `alarm` level firing often enough to stop reading as one — §4's existing threshold is roughly one

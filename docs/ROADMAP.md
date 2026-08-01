@@ -20,13 +20,12 @@ count; #94 (PR #101) gave that announcement two emphasis levels so it is read fi
 simulation value. **The order has changed since the #83 ruling was written**, so read "The build order
 for the wager" under M2 below, not #83's issue body.
 
-> **Contradiction, unresolved, and it decides what happens next.** The build order below puts
-> **#31/#41 third and #83 fourth**, which is what #83's own build-order comment says. The journal's
-> #94 entry ends **"Next: #83"**, skipping step 3. Nothing has ruled which is right, and the archivist
-> is not the one to rule it. The strongest thing that can be said from the record: step 3's stated
-> purpose is to un-contaminate the *fuel corpus*, and #83 moves no fuel number — so the two are not
-> obviously in conflict, but the ordering was written deliberately and has not been amended. **Whoever
-> picks up M2 next: settle it on #83 before writing code**, and say so in a comment either way.
+**Next up is #31/#41 — caches invisible while shuttered — and then #83.** That is step 3 of the build
+order below, and it was **re-confirmed against a contradiction** during PR #104: the journal's #94
+entry ended `**Next:** #83`, skipping step 3. The list won. Ruling and reasoning are comment
+`5153249392` on **#83**; the short version is that #83 moves no fuel number but *does* change the game
+the corpus measures, so taking it first costs two re-measurements instead of one and the second cannot
+attribute which change moved the number.
 
 ---
 
@@ -372,6 +371,15 @@ The #83 ruling fixed an order and made two of its steps hard constraints. **It h
 since**, so this list is authoritative and the ruling's issue body is not — the update is a comment
 on **#83**.
 
+> **This numbered list is the authority on build order, and it outranks every other record — #83's
+> issue body, any `Next:` line in `docs/JOURNAL.md`, and any PR description.** If one of them
+> disagrees with this list, **this list wins and the other one is a bug to fix.** Stated because it
+> has now drifted twice: once when #83's body kept a superseded order (fixed by the comment on #83),
+> and once when #94's journal `Next:` said #83 while this list said #31/#41 (ruled in favour of the
+> list, comment `5153249392` on #83, corrected in PR #104). Two records that disagree are a coin flip
+> unless one is declared to win. **Amending the order is fine — do it *here*, in the same PR, and say
+> why.**
+
 1. ~~**#79** — a wake is announced, with a count.~~ **Done, PR #92.** The ruling's precondition 1:
    being hunted by something you were never told you woke is worse than the bug #83 fixes.
 2. ~~**#94** — give that announcement enough emphasis to be read first.~~ **Done, PR #101.** Inserted
@@ -385,8 +393,11 @@ on **#83**.
    worth keeping: *#82's tile pulse is not needed for this*, said plainly so nobody spends step 6
    defensively.
 3. **#31/#41** — caches are invisible while shuttered, per §4. This is what un-contaminates the fuel
-   corpus, and **no fuel number moves before it.** **Next by this list — but see the contradiction
-   flagged at the top of this file: the journal's #94 entry says #83 is next instead. Unresolved.**
+   corpus, and **no fuel number moves before it.** ← **NEXT**, confirmed against a contradiction in PR
+   #104 (the #94 journal entry said #83; the list won — comment `5153249392` on #83). **It is not
+   enough that #83 moves no fuel number:** it changes the game the corpus *measures*, so this first
+   buys one re-measurement against a clean baseline and the other order costs two, the second of which
+   cannot say which change moved the number.
 4. **#83** — the ruling itself: a woken Cinder pursues.
 5. A **`HARVESTER`** style in `game/systems/economy.test.ts` — never flashes, routes to every
    ember-sense contact, one-shots each dormant — which is what §4's invariant 4 is asserted against.

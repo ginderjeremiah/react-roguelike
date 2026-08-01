@@ -10,7 +10,10 @@ screen and the run loop are all built, and the exit playtest (#87, now closed) r
 on a phone. M1 closed on [ADR-0011](decisions/0011-m1-exits-on-the-answer-not-the-outcome.md) — the
 concept checkpoint was **answered**, not passed. **The answer was "not yet, and here is the rule that
 was wrong"**, so M2 opens with the build order the #83 ruling specifies. Four M1 issues stay open
-(#12, #47, #69, #70), all sitting in the M2 GitHub milestone, and none gated the goal.
+(#12, #47, #69, #70) and none gated the goal. **They are not all in the same place any more:** #47,
+#69 and #70 are in the M2 milestone; **#12 moved to Contract and tooling** with the rest of the
+determinism-gate debt (see the split below). So `gh issue list --milestone "M2: The light loop"`
+will not show you #12 — that is deliberate, not a lost issue.
 
 **M2 has started, and its first code is #79** (PR #92, `bd4f577`): the turn a creature wakes now says
 so, with a count. That was step 1 of the ruling's build order — and **the order has changed since the
@@ -126,7 +129,9 @@ is why M1 closes without it.
 `tests/unit/play-*.test.ts` (hit test, cell style, messages, summary style, theme, opening) and its
 React is tested by Playwright, per ADR-0005's no-component-test-runner rule. E2E is **34 runs — 17
 declarations across 3 spec files, each run under both the `phone` and `desktop` projects**, up from 4
-before #20.
+before #20. A green CI log reads **33 passed, 1 skipped**, not 34 passed: the win-the-run spec
+self-skips on `desktop` (it is a 30-second dive and the `phone` project already covers it). Stated
+because the next person to re-measure this will otherwise think the count is off by one.
 
 **`platform/` still does not exist** — that is #47's, and #47 does not gate the exit. M1 ships a
 constant seed, so every run is the same run.
@@ -205,8 +210,10 @@ gate stops being believed.
 Accept it: M1 is now "playable core **and** the layer stack it needs", which is bigger than the
 stated goal but is not padding — every part of it is on the shortest path to a screen. **What to
 watch is the tail it left**: #47, #48, #52 and #53 all say some version of "the seam is not quite
-where we said it was", and three of them are parked in M2, which is supposed to be a tuning
-milestone. Four is a normal amount of settling after a new layer. **If that set grows to six, or a
+where we said it was". **Only #47 is still in M2**; #48, #52 and #53 moved to Contract and tooling in
+the split below — which changes where they are queued and changes nothing about the observation,
+because the point was never the milestone. It is that four issues in a row disagree with the layer
+map. Four is a normal amount of settling after a new layer. **If that set grows to six, or a
 sixth layer gets proposed, the seam is still wrong** — and that is a design problem to solve once,
 not four more issues to work through.
 
@@ -305,11 +312,22 @@ this milestone, not its method.
 - [ ] GDD §10's cell-state names vs the ones `render/` shipped — #46. Until this is ruled on, §10
       and the code disagree; §10 carries a pointer so a playtester reading it is not misled
 - [ ] `litQuery`'s once-per-turn invariant has no test behind it — #35
+- [ ] `render/glyphs.ts`'s header claims §10 does not name two glyphs — it now does — **#68**. Same
+      family as #46 above; whoever rules on §10's cell-state names is already in both files
+- [ ] **Every refusal needs an acknowledgement, and every new one has forgotten it** — **#75**. Not
+      cosmetic and not really tooling: §2 says a tap that does nothing reads as a missed touch, and
+      *three* refusals never reach `step` so none has a cue to speak for it. Two of the three shipped
+      silent (#21, #60). This is the mechanism that stops a fourth, and it belongs beside the
+      legibility bullet above rather than in a tooling list
+      *(Both were open in M2 and mentioned nowhere in this file. Found by re-deriving `gh issue list`
+      against it **after** the pass that caught #76/#78 and the seven playtest issues had already
+      run — which is the point the Learned note in the journal makes: one sweep is not enough,
+      because the sweep is only as complete as the person doing it.)*
 - [ ] Auto-travel: implement `travel(to)` per [ADR-0009](decisions/0009-auto-travel-command-shape.md)
       — **#65**, filed because the gate below has been answered and the recommendation is build it.
       #32 was the design ruling and stays closed
-- [ ] **The wager is invisible before it is taken and illegible after it** — six issues from the two
-      playtests, none of them tuning and none of them mechanic, all M2 and none previously on this
+- [ ] **The wager is invisible before it is taken and illegible after it** — **seven** issues from the
+      two playtests, none of them tuning and none of them mechanic, all M2 and none previously on this
       roadmap: **#94** the wake line is the least emphatic text on screen (sequenced below), **#82**
       you cannot see which contacts a flash would wake, **#80** the dormant glyph `c` can never be
       drawn, **#81** the ember a kill drops is invisible in the dark beside you, **#84** neither your
@@ -393,7 +411,8 @@ spending §12's fallback *because* §4's re-dormancy was unimplemented, so light
 than the design intends and the wager was being judged with one counterweight missing. **Re-dormancy
 is implemented** (see the checked bullet above), so that argument does not hold and its proposed
 sequence — *re-dormancy first, then re-tune, then re-measure* — collapses to **re-tune, then
-re-measure**. **#63 is now ruled** (this PR): the fallback is **not** spent, on new reasoning — its
+re-measure**. **#63 is now ruled** (in PR #88, not in whichever PR you are reading this from): the
+fallback is **not** spent, on new reasoning — its
 trigger names "the first playtest says the wager is not tense", and neither playtest says that; both
 named tense light moments and complained about their *frequency*. The classification changed too —
 #83 is a **rule** problem, not tuning.
@@ -409,7 +428,8 @@ This paragraph used to end *"if M2 starts and this list has grown, move it to it
 rather than carrying it further."* M2 started (#79, PR #92) and the list had grown again — five, then
 eight, then **thirteen** — so those thirteen were moved to a GitHub milestone named **Contract and
 tooling** (#95 was filed straight into it, making fourteen), and `gh issue list --milestone "M2: The
-light loop"` is now light-loop work only. The list stays written here because the *intent* behind
+light loop"` is now **substantially** light-loop work — with three deliberate exceptions, #67, #72 and
+#73, kept in M2 for the reasons given below. The list stays written here because the *intent* behind
 each item is not in its issue body; the milestone is where they are queued.
 
 None of it gates any milestone exit. **Do not count it as M2 progress**, and do not let it grow back
@@ -478,10 +498,19 @@ needs.
 - **The Pillar 1 count is the number that decides it.** 9 of 37 turns were real decisions — 1 in 4.
   Collapse the locomotion and the same play becomes ~9 decisions in ~17 commands, **53%**. Same
   rules, same play, no other change.
-- **#79's playtest re-measured it and it got worse, not better:** **8 of 51 consecutive turns** on
-  `emberdepth`, with two unbroken autopilot stretches of **15 and 22 turns**. Two independent runs on
-  the same seed now put the ratio at or below 1 in 4, and the second is the stronger evidence because
-  those stretches are forward travel, which is the case the resolution below identifies.
+- **#79's playtest saw the same shape again — and the ratio it reported is _not_ comparable to the
+  one above.** It counted **8 of 51 consecutive turns** on `emberdepth`, with two unbroken autopilot
+  stretches of **15 and 22 turns**. **Do not read 8/51 against 9/37 as a regression.** Three reasons,
+  and any one of them is disqualifying: the two playtests are not recorded as having counted "a
+  decision" the same way; the second run was played against **#79's build**, where a flash announces
+  what it woke, which plausibly *creates* decisions the first run could not register; and it predates
+  #83, so every autopilot turn in it was genuinely safe in a way they will not be afterwards. It is
+  also **weaker evidence in provenance**: 9/37 has a full report on #31, whereas 8/51 survives only in
+  a comment on **#65** and in this file (see the header note where it is first recorded).
+  **What it does corroborate — and this is the part that matters — is the _shape_, independently:**
+  a 22-turn unbroken stretch of forward travel through already-revealed space, which is exactly the
+  case the resolution below identifies and a stronger instance of it than the 16-tap backtrack.
+  Re-measure the ratio **after #83**, not before.
 - **The "do not build it" arm also fired, on the disambiguating probe this roadmap wrote.** The probe
   was *did you want to go back and decide not to?* — and the answer was **no, not once, in six
   runs.** The single declined backtrack was declined for fuel and turns, which are costs the design

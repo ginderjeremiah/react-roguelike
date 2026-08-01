@@ -77,13 +77,21 @@ that nobody was told about it at filing time — not that the milestone was wron
 **Learned — the drift was in the two places nobody re-derives.** Both worth naming because they are
 process defects, not typos:
 
-*A doc that records a decision does not know when the decision changes.* The roadmap correctly quoted
-#83's build order (#79 → #31/#41 → #83 → HARVESTER → #82). #79's own playtest inserted **#94** into
-that order, and the update was posted as a comment on #83 — where the roadmap, and anyone reading the
-issue body rather than its comments, would never see it. The roadmap now states the order and says
-explicitly that it, and not #83's body, is authoritative. **Expect this shape again:** any ruling this
-project restates in two places will diverge at the first amendment, and the amendment will be in
-whichever place is cheapest to write, which is a comment.
+*A doc that points at a decision does not carry it, and a doc that carries it can go stale.* **This
+needs stating precisely, because the first draft of this entry got it backwards and review caught
+it.** The old roadmap did **not** quote #83's build order — it contained no `#79` and no `#82`
+anywhere, only a pointer at L12 saying "M2 opens with #83 and the build order the ruling specifies",
+which was itself wrong in a different way: the ruling's step 1 was **#79**, not #83. So the failure
+was not divergence. It was a pointer that had never been resolved, plus an amendment (#94's insertion,
+from #79's playtest) that landed as a **comment** on #83 where no pointer would ever reach it.
+
+**This PR is the first restatement**, which means it *creates* the two-places condition rather than
+fixing one. That is a deliberate trade — an unresolved pointer sent every session to a five-step order
+it then had to reconstruct — but the cost is real and it comes due at the next amendment. **Expect
+this shape:** any ruling restated in two places diverges at the first amendment, and the amendment
+lands wherever it is cheapest to write, which is a comment. The roadmap now says it is authoritative
+over the ruling's comments; that claim is only worth anything if the next person to amend the order
+edits the roadmap in the same PR.
 
 *A list that exists to make a queue visible only works if someone re-derives it from the queue.*
 #76 and #78 were filed during #60/#61, went into the M2 milestone, and never reached the roadmap's
@@ -107,9 +115,24 @@ reported in-session and is **not** in PR #92's thread or any issue, so the roadm
 record; whether it counted a "decision" the same way as the first playtest's 9-of-37 is unknown and
 the roadmap says so.
 
-**Watch:** #94 is now sequenced before #83 in the roadmap and in a comment on #83, but **#83's issue
-body still describes the old order** and is the thing a session opening that issue reads first. If
-#83 is picked up before #94, that is why.
+**Next:** **#94** — give the wake line enough emphasis to be read *first* rather than second. Then
+#31/#41, then **#83**, then a `HARVESTER` style in `game/systems/economy.test.ts`, then **#82 last**.
+
+**This `Next:` supersedes the one in the #79 entry directly below, and that is the whole reason it is
+written out in full.** That entry is append-only and correct as of when it was written, but its
+`Next:` predates #94's insertion and names #31/#41 as the immediate step. `CLAUDE.md` sends every
+session to *the last 2-3 entries*, so the newest entry's `Next:` is the one that is acted on — and an
+entry without one silently hands that role to a superseded list. Review caught this entry shipping
+without a `Next:` at all, which would have pointed the next session at exactly the mis-sequencing this
+pass exists to prevent. **Do not start #31/#41 before #94.**
+
+**Watch:** #94's position ahead of #83 lives in the roadmap and in the **last comment** on #83 — not
+in #83's body, which is the original playtest bug report and contains no build order at all. The
+superseded five-step order is in that issue's **first** comment (the PR #88 ruling). So
+`gh issue view 83 --comments` does present the corrected order last, and a session that reads only the
+body sees no order at all rather than a wrong one. An earlier draft of this Watch claimed the body
+held the old order; it does not, and a session acting on that would have gone looking in the wrong
+place.
 
 ---
 

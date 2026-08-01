@@ -136,11 +136,24 @@ document for three PRs. #108's hand measurement is now the thing it has to confi
 **Verified and deliberately left alone.** `ARCHITECTURE.md`'s numbers all still hold at `0baacfd` —
 seven numbered points in `step.ts`'s contract, seven pure modules in `components/play/` inside
 fourteen files, four `Command` variants, five layers, and **no document restating the current
-`RULES_VERSION` in a form a bump would falsify** — which is why 3 → 4 needed no doc edit. The
-numeral `4` does appear three times (`ROADMAP.md`'s cache line, `vision.ts`'s plane comment,
-`replay.test.ts`'s fixture pin) and all three name it as *what #31/#41 did*, which stays true at 5.
-The first draft of this sentence claimed the numeral appeared nowhere outside `replay.ts`, which a
-grep refutes; "one number, one home" is a claim about the canonical value, not about the digit.
+`RULES_VERSION` in a form a bump would falsify** — which is why 3 → 4 needed no doc edit. That
+sentence took **two** drafts to get right, and both failures are the same one, so they are both kept
+here rather than tidied away.
+
+The first draft claimed the numeral appeared nowhere outside `replay.ts`, which a grep refutes:
+`ROADMAP.md`'s cache line and this file's #106 entry both write `4`. The second draft narrowed
+correctly and then offered false evidence for the true claim — that the numeral's other homes "all
+name it as *what #31/#41 did*, which stays true at 5". **`game/core/replay.test.ts` does not stay
+true at 5.** It holds three `version: 4` **literals** (`:951`, `:1073`, `:1267`), each the `version`
+field of a `PINNED_RECORD` handed to `replay()`, and `replay.ts:127` **throws** when
+`record.version !== RULES_VERSION`. Set it to 5 and all three pinned-run suites fail with *"recorded
+under version 4… this build implements 5"* before a single digest is compared. That is not a
+reference to history; it is a live pin, and `replay.test.ts:863` states the procedure the sentence
+denied — *re-pin, bump `RULES_VERSION`, add a `RULES_VERSION_LOG` line*.
+
+So the claim that survives is narrower and still does the work: **no *document* needs an edit when
+the version bumps.** `replay.test.ts` is code, and re-pinning it is the documented cost of a bump
+rather than drift. "One number, one home" is a claim about the canonical value, not about the digit.
 `ARCHITECTURE.md`'s `game/fov/` line gained the second monotone plane and nothing else.
 
 **#96 is unchanged by #106** despite the brief's suspicion: it needs a seed whose *lit descent* wakes

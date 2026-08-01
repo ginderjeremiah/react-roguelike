@@ -630,7 +630,7 @@ play, is strictly worse than a line a human found by accident.
 > **Arithmetic on the constants, not observation:** caches are `CACHE_SLOTS = 2` with
 > `count = int(rng, 0, 1)` at `CACHE_FUEL = 25` — **25-50 a floor, gated behind light**; creatures
 > are `min(2 + floor, 6)` at `CINDER.emberDrop = 20` — **60-120 a floor, gated behind nothing**, and
-> a dormant dies to one strike and never swings back. That is a **2.5x gap in what a floor holds**,
+> a dormant dies to one strike and never swings back. That is a **2.4x gap in what a floor holds**,
 > which is a ceiling: taking it means killing everything. **Measured in play, by hand:** clear the
 > room dark, *then* flash is now the best floor-1 line, at +18 fuel over never flashing — the first
 > measurement in this project where light wins anything. Neither half is a ruling and **nothing in §4

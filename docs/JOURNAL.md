@@ -147,7 +147,7 @@ name it as *what #31/#41 did*, which stays true at 5". **`game/core/replay.test.
 true at 5.** It holds three `version: 4` **literals** (`:951`, `:1073`, `:1267`), each the `version`
 field of a `PINNED_RECORD` handed to `replay()`, and `replay.ts:127` **throws** when
 `record.version !== RULES_VERSION`. Set it to 5 and all three pinned-run suites fail with *"recorded
-under version 4… this build implements 5"* before a single digest is compared. That is not a
+under rules version 4, this build implements 5"* before a single digest is compared. That is not a
 reference to history; it is a live pin, and `replay.test.ts:863` states the procedure the sentence
 denied — *re-pin, bump `RULES_VERSION`, add a `RULES_VERSION_LOG` line*.
 

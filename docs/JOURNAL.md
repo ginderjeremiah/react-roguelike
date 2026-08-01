@@ -93,9 +93,10 @@ being decoration — §5's loop doorways, §2's step-off-the-marked-tile, §4's 
 finally has teeth: the four turns after a flash become the turns when things can feel you and you
 cannot feel them), and §13's un-followable stairs.
 
-**The measurements everyone has been reasoning from are contaminated — and it was written down at
-#30 and filed as #31/#41, which is worse than nobody noticing.** §4 says caches are invisible while shuttered. **The code pays on tile kind** and touch
-perceives them (#31/#41), so `DARK_PACIFIST` takes **119 of 121 caches** — dark play is receiving
+**The measurements everyone has been reasoning from are contaminated — and it was written down at #30
+and filed as #31/#41, which is worse than nobody noticing.** §4 says caches are invisible while
+shuttered. **The code pays on tile kind** and touch perceives them, so `DARK_PACIFIST` takes
+**119 of 121 caches** — independently re-derived in review — and dark play is receiving
 light's entire income stream, roughly 37 fuel a floor it should not have. **Every fuel figure in both
 playtest reports includes it.** The exit playtest's headline "80 → 122 at full HP without opening the
 lantern" is about 80 → 98 once §4's own rule is enforced. Separately, the corpus has **no never-flash

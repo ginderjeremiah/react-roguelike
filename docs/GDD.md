@@ -409,6 +409,9 @@ an unannounced wake cost the player a fact. Now that it pursues, an unannounced 
 unannounced hunter — and a death you cannot retell is a Pillar 2 and Pillar 4 failure at once.
 **#79 ships before #83.**
 
+*How loudly the line is drawn is §10's, ruled in #94 — a wake is an `alarm`, and the shutter line it
+outranks is a `report`. Pointed at rather than restated, so the two cannot drift apart.*
+
 *Watch:* the line is wrong if it becomes wallpaper. The signal is a playtest that reports reading
 the turn line for damage and skipping it otherwise, or one in which the wake line appears on more
 than roughly one turn in six. Either means the announcement is competing with itself, and the fix is
@@ -844,12 +847,136 @@ Four cell states must be distinguishable at a glance without colour: **lit**, **
 
 Palette, typography, and animation specified in M4.
 
+**The turn line has two levels of emphasis, and which messages sit in each is a rule — *ruled
+2026-08-01 (#94)*.**
+
+> **Every message the turn line can show is either an `alarm` or a `report`.** An `alarm` is a fact
+> that is *against* the player and that the board does not already state at full volume: a wake,
+> damage taken, the player's death. Everything else — every receipt for a press the player made, and
+> every refusal — is a `report`. **The two must differ in at least two channels, one of which is not
+> colour.**
+
+This is ruled here and not left to the `ui-engineer` for the same reason §4's wake announcement was:
+the failure it fixes is a design failure. §4 made the wake a rule and #79 built it, and the playtest
+of that build measured what the rule was worth in pixels. At 390×844 dark, the HUD's values are
+17px/600 and coloured, the shutter button's label is 14px/700, and the turn line is **13px/400 in the
+same grey as the button's sub-caption and the build note** — the second-smallest text on the screen.
+So `The shutter opens. Light spills out.` and `Two things wake.` — *you got away with it* and *you
+have company*, the two outcomes of one press — are **typographically identical**, and at the
+half-second a phone player gives the line the difference between them is which dim grey letters are
+present. A rule that fires correctly and cannot be read is not a rule the player has.
+
+The levels are named for the criterion, not for the volume, so that an assignment can be argued
+rather than bikeshedded. **`alarm`: something is now against you that was not before. `report`: here
+is what your press did.** In full, over every message the game can produce:
+
+| Message | Level | Why |
+| --- | --- | --- |
+| `Something wakes.` / `N things wake.` | **alarm** | A hunter exists that did not exist before, and under #83 it is walking toward you |
+| `You take N.` | **alarm** | At 12 HP and 2-4 a blow, three of these is the run (#20's finding) |
+| `The lantern goes out.` | **alarm** | The run ended |
+| `You strike for N.` | report | You chose it, you aimed it, and the target is on screen |
+| `It burns out.` | report | A `C` left the board and the fuel meter moved |
+| `You gather N ember.` | report | The FUEL readout is 17px and says it louder |
+| `The shutter opens. Light spills out.` / `The shutter closes.` | report | The board's entire tint says it louder — §4 already calls this the least informative sentence at the most consequential moment |
+| `You climb down to floor N.` | report | You pressed the control and the HUD's floor number confirms it |
+| `Nothing happens.` | report | §2's receipt for a tap. The world did not change |
+| `The way is blocked.` / `Too far to step.` / `The run is over.` | report | §9's and §13's refusals. Same — a receipt for a thumb |
+
+Two things fall out of that table and both are worth stating, because they are what make the levels
+cheap:
+
+- **The levels agree with §4's precedence order, exactly.** `player death > player damage > woke >
+  recency` — and the first three *are* the `alarm` set, while every message recency can reach is a
+  `report`. So a turn never pre-empts a louder line with a quieter one, and that is an invariant a
+  unit test can pin over the real-run corpus rather than a property we hope holds.
+- **`report` is not a consolation prize; it is what makes `alarm` mean something.** The shutter line
+  survived #79's demotion because *you got away with it* is a real sentence, and it only reads that
+  way when the line that would have replaced it is visibly louder. The same contrast lands free on
+  the descend press — see the descent ruling below.
+
+**Emphasis is carried by weight and colour together, and the words do not count as a carrier.** §11
+forbids colour as the sole carrier, and the tempting defence is that the sentences differ so the
+distinction survives a greyscale screen. **Reject that**, because it is the same defence that would
+justify changing nothing at all: §11's real test is whether the distinction survives *the way the
+element is actually read*, and the finding behind #94 is that this line is caught at a glance or not
+at all. A carrier that works only once you have read the sentence is not a second carrier for a
+signal whose entire job is to be caught before you read the sentence. So:
+
+- **Weight is the non-colour carrier.** `alarm` is drawn strictly heavier than `report`, and at least
+  as heavy as the control labels. It survives greyscale, every colourblindness, and both schemes.
+- **Colour is the second, and it gets its own tokens.** The theme grows a closed pair — `alarm` and
+  `report` — named separately from `text` and `textDim`, and **a theme may not map both to the same
+  value** (the same assertion `game-theme.test.ts` already makes of `ColorToken`). Not `token.creature`,
+  which the issue proposed: that is a *board* role meaning "a creature seen in light", it is wrong for
+  `You take N.` and `The lantern goes out.`, and reusing it would let a retune intended for the board
+  silently move the chrome. `report`'s **value** may stay where `textDim` is today; what is ruled is
+  that it stops *being* `textDim`, so the two can move apart when M4 looks at a screenshot.
+- **The two levels share one size, and the shared size goes up.** Ordinally: the turn line must rank
+  above every caption and control sub-label on the screen, may equal the control-label size, and only
+  the HUD's values may be larger. It is the one place the game speaks in sentences and it currently
+  sits between two captions, which is Pillar 3's "no text the size of a footnote" independent of any
+  of this. **A per-level size is rejected** — the line is a fixed height so that a message appearing
+  does not move the board, and §11's text scaling multiplies whatever we pick, so a larger `alarm`
+  makes reflow risk land on precisely the message that must not reflow.
+
+**No motion, and no persistence: an alarm lives exactly one turn.** The line's freedom from animation
+is an asset under §11 and it is not being spent. Persistence was the other free-of-motion option and
+it loses on a clean argument: **it protects the line only in the case that does not need protecting.**
+The player it is meant to help is the one tapping fast — and a tap produces a press, a press produces
+a line, and §2 requires even a refused press be acknowledged, so a persisting `alarm` is pre-empted on
+the very next tap. It survives only while the player is idle, and an idle player already had time to
+read. The tense makes it worse: `Two things wake.` is a sentence about *this* turn, so a line that
+outlives its turn re-asserts it falsely — carrying it forward would need a re-wording into a state
+readout (*two are awake*), which is a copy change made by the presentation layer, and if the game
+wants that fact continuously it belongs in the HUD beside the other continuous facts, not in the
+sentence row. **One turn is also positively right, not merely tolerable:** an ordinary dark step says
+nothing, so the row is usually empty, and an `alarm` appearing on an empty row is a change in how much
+ink is on the screen — which is the nearest thing to motion available to something that has none.
+
+**The descent keeps §4's precedence: on an arrival that wakes, the line is the wake and not the
+floor.** The complaint is fair on its face — one arrival in five wakes something, so `You climb down
+to floor N.` is withheld on exactly the arrivals that matter, and the player gets the outcome of a
+wager without its context. It is still the right call, three times over. The floor number is on the
+HUD in the largest type on the screen and the hunter is nowhere. A compound sentence would overturn
+§4's own cause-variant ruling — *the causal link is carried by **when** the line appears* — for a
+press that is at least as visible a cause as the flash that ruling was written about, and it would be
+the one message that reliably wraps at increased text scale, on the arrival where reading fast matters
+most. **And `messages.ts`'s argument against the dormant-strike compound does not apply here**, which
+is worth saying plainly: that argument is about *unreachability* — a special case for a branch that
+cannot fire is #80's undrawable glyph — and a branch measured at 20% of arrivals is not that. It
+survives on the other two reasons, not on that one. What actually closes the gap is the level: an
+arrival that wakes now draws in `alarm` and an arrival that does not draws `You climb down to floor N.`
+in `report`, so **the two outcomes of the descend press become distinguishable at a glance by the same
+ruling that separates the two outcomes of the flash press.** The level is what the compound was
+reaching for.
+
+**This must be checkable without a human looking at a screenshot**, which is a constraint on the shape
+and not only on the wording. The level is a property of *the cue that won the line*, never of the
+string — a component matching on text would be a second copy of the copy. So the turn's line carries
+its level with it, three tests hold the ruling, and each holds one thing: a pure unit test that every
+message lands in the level this table names and that any turn containing a `woke`, a player `damaged`
+or a player `died` cue yields an `alarm`; a component unit test that the two levels differ in at least
+two channels, one of them not colour, in **both** schemes (this is the §11 test); and an E2E that
+reads the level off the DOM as an attribute rather than off computed styles, so it asserts the rule
+and survives M4 repainting everything.
+
+*Watch:* two signals, with different fixes. If a playtest reports the `alarm` level firing often
+enough to stop reading as one — §4's Watch sets the threshold at roughly one turn in six — the fix is
+**fewer things speaking**, never a third level. And if a playtest still reports noticing the red `C`
+first and reading the line second, then the sentence is the wrong instrument for this job entirely,
+#82's tile pulse is the right one, and the response is to **revert this emphasis rather than escalate
+it** — not to reach for motion, which §11 has already priced.
+
 ## 11. Accessibility — *Requirements settled*
 
 Not deferred to the end as a checklist item; these constrain design from the start.
 
 - Colorblind-safe palette; **colour never the sole carrier of meaning.** This has already cut one
-  mechanic (brightness-encoded health in ember-sense, §4) and constrains intent markers (§2).
+  mechanic (brightness-encoded health in ember-sense, §4), constrains intent markers (§2), and forces
+  the turn line's two emphasis levels to differ in weight as well as colour (§10, #94) — where it also
+  settles that *the sentences differ* is **not** an admissible second carrier for something read at a
+  glance.
 - Text scaling respected.
 - Reduced-motion honored.
 - One-handed play on a phone.
@@ -1082,3 +1209,4 @@ recorded at the moment we made it, is the part git cannot give us.
 | 2026-07-31 | **§9: travel also stops when a creature you perceive changes tiles (*Proposed*; amends ADR-0009)** | Forced by the awake-creature ruling above, and cheap only because #65 has not started. A woken creature now walks toward you every turn, so under ADR-0009's three stop clauses a hunted player could tap a far tile and have `step()` resolve the eight tensest turns in the game for them — auto-travel automating the exact decisions §4 was rewritten to create, which is a worse version of the kill condition ADR-0009 already names. The clause keys on *a mark that is not where it was*, which satisfies ADR-0009's binding constraint that travel may never stop for a reason the player cannot see, and needs no identity — any mark moving is enough. It costs nothing across a floor of sleepers, because **a dormant creature never moves**, which is exactly the case travel exists for |
 | 2026-07-31 | **§3/§6: recorded that the dormant strike's "if the target survives, it wakes" clause is unreachable at M1's numbers** | Not a change — an honesty fix, and the second dead branch found this week (#80's `c` glyph is the first). 6 damage against 5 HP means a dormant strike against a Cinder is always lethal, so the *survive-and-wake* branch is dead. **The gradient §3 names is not** — it is the dormant kill (one strike, no damage) against the awake fight (two strikes, 2-4 damage), which is two points and unaffected. An earlier draft of this row said §3 describes a one-point gradient; that overstates it, and the correction matters because the next reader of this row might otherwise re-tune Cinder HP to fix a gradient that is not broken. The numbers are deliberately **not** moved to make the clause live: §2's phase order means a survivor declares on the turn it wakes and resolves on the next, so it only ever swings if it survives the strike *and* a full follow-up, which needs 10 HP, which turns an awake Cinder into a four-hit grind — Pillar 1's "attack until it dies", bought to make one sentence true. The clause is kept for creatures that do not exist yet (M3). Written down because an unreachable clause reads as a live branch, and the next person to tune Cinder HP needs to know which of the two things they are doing |
 | 2026-07-31 | **§4/§6: a wake is announced in the turn line, with a count, and it outranks the shutter line** | #79, from the M1 exit playtest: seven turns, two Cinders woken, the line under the board empty the whole way. §4 promised the player the price of a flash *in creatures* **before** the press ("everything a flash can wake, you can already feel") and said nothing about what they are owed **after** it — so the game's most consequential event was the only one it never acknowledged, which is §2's own standard applied to the wager instead of to a refused tap. Ruled here rather than left to the `ui-engineer` because two of the three clauses are design, not copy. **The count is spoken** — not to substitute for looking, since a woken creature is lit or adjacent by construction, but because a flash reveals a *whole room at once* and one new glyph among twenty is not a signal; the number is also the only executable form of the containment guarantee until #82 draws the footprint. **The wake line beats `shutterChanged`**, which competes for the same single line every flash turn: "The shutter opens" restates the board's entire tint change on the one turn the player pressed the control themselves, and demoting it means the turn line reports the flash's *outcome*, with the shutter line surviving as the sentence that means *you got away with it*. **It covers arrival** — phase 3 runs on `descend` and on `beginRun`, and §4 measures one arrival in five as waking something, where the player has a new floor, sense radius 1 and no reason to suspect anything. On a fresh floor every creature spawns dormant, so awake-in-`after` **is** woken-this-turn and no cross-floor diff is needed; if that spawn invariant ever moves, the census is wrong and must become a diff. Precedence is player death > player damage > **woke** > recency: player damage keeps the tier it won in #20 (three silent turns from death at 12 HP), and woke sitting directly under it resolves the §3 dormant-strike case with no special branch — a survivor's wake takes the line over `You strike for 6.`, which is right, since the strike was chosen and visible and the waking is the surprise. **Re-lighting an awake creature is silent**: no transition, and a line that fired every turn a `C` stood in the light would speak on every turn of every fight, which is how a player learns to stop reading the line. The runner-up shape was a single aggregated cue carrying only a count (`fuelGained`'s shape); it lost to one cue per creature carrying `at` (`damaged`/`died`'s shape) because `render/cues.ts`'s bar for a new kind is *a renderer would draw it differently*, and a count can only ever become text where a position can become a pulse on the tile that woke — the treatment most likely to fix the playtest's "I did not notice" without the line at all. The count comes free as the list's length, and `at` is what lets #82's spatial promise be checked against a spatial receipt rather than a scalar one |
+| 2026-08-01 | **§10: the turn line gets two emphasis levels, `alarm` and `report`, and which messages sit in each is a rule** | #94, from the playtest of #79. #79's rule, copy, count and precedence all held in play; what failed was the volume knob. Measured at 390×844 dark, the turn line is 13px/400 in the same grey as the shutter button's sub-caption and the build note — the second-smallest text on the screen — so `The shutter opens. Light spills out.` and `Two things wake.`, the two outcomes of one press, are **typographically identical**, and at the half-second a phone player gives the line the difference between *you got away with it* and *you have company* is which dim grey letters are present. A rule that fires correctly and cannot be read is not a rule the player has, which is why this is ruled rather than left to the `ui-engineer`. **Two levels, not three.** `alarm` is *something is now against you that was not before* — a wake, damage taken, the player's death; `report` is *here is what your press did*, which is everything else including every refusal. A third level below `report` for refusals was rejected because it has nowhere to go: `report` already sits one step above the captions and dropping under them is Pillar 3's footnote-sized text. A third level splitting *hunted* from *hit* was rejected because §4's precedence means those two never appear side by side, and a distinction the player can never contrast is a costume rather than a tier. The levels turn out to **agree with §4's precedence exactly** — `death > player damage > woke` *is* the `alarm` set and everything recency can reach is a `report` — so no turn ever pre-empts a louder line with a quieter one, and that is pinnable over the real-run corpus. **Weight and colour both carry it, and the words carry nothing.** The tempting §11 defence is that the sentences differ, so the distinction survives greyscale; it is rejected because it is the same defence that would justify doing nothing, and §11's real test is whether the distinction survives *how the element is read* — at a glance, which is a channel words do not reach. So weight is the non-colour carrier, and colour gets a closed `alarm`/`report` token pair that a theme may not collapse — not `token.creature` as proposed, which is a board role, is wrong for `You take N.`, and would let a board retune move the chrome. `report` may keep `textDim`'s value; what is ruled is that it stops *being* `textDim`. One shared size for both levels, raised to rank above every caption — a per-level size was rejected because the row is fixed-height so the board does not jump and §11's text scaling multiplies it, which puts reflow risk on exactly the message that must not reflow. **No persistence and no motion.** Persistence was the serious runner-up and it is free of motion, but it protects the line only in the case that does not need protecting: it exists for the player tapping fast, and a tap makes a press, a press makes a line, and §2 requires even a refused press be acknowledged — so it is pre-empted by the very next tap and survives only while the player is idle. It also lies by tense, since `Two things wake.` is a sentence about *this* turn, and carrying it forward would need a re-wording into a state readout, which is a copy change made by the presentation layer and belongs in the HUD if it is wanted at all. One turn is positively right: an ordinary dark step says nothing, so an `alarm` appearing on an empty row is a change in how much ink is on screen — the nearest thing to motion available to something that has none. **The descent keeps its precedence:** on an arrival that wakes, the line stays the wake. A compound was the runner-up and `messages.ts`'s standing argument against compounds does **not** defeat it — that argument is about *unreachability*, and 20% of arrivals is not unreachable — but it loses anyway on three: the floor number is on the HUD in the largest type on screen and the hunter is nowhere; a compound overturns §4's cause-variant ruling (*the causal link is carried by when the line appears*) for a press at least as visible as the flash that ruling was written about; and it is the one message that reliably wraps at increased text scale, on the arrival where reading fast matters most. The level closes the gap instead — a waking arrival draws `alarm`, a quiet one draws `You climb down to floor N.` in `report` — so the descend press gets the same glanceable contrast the flash press does, which is what the compound was reaching for. **Checkable by construction:** the level is a property of the cue that won the line, never of the string, so a pure unit test pins the assignment, a component test pins that the two levels differ in two channels in both schemes, and an E2E reads the level off the DOM as an attribute rather than off computed styles. Cut signals in §10: `alarm` firing more than ~1 turn in 6 means fewer things should speak, not a third level; a playtest still reporting the `C` read first and the line second means the sentence is the wrong instrument and #82's pulse is the right one, and the response is to revert this rather than escalate it |

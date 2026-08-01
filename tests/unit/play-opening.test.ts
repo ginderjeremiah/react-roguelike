@@ -49,7 +49,10 @@ describe('the line a run already owes on its opening frame (§4, #79)', () => {
     const opened = openRun(WAKING_SEED);
 
     expect(cuesOf(opened.run).map((cue) => cue.kind)).toEqual(['woke']);
-    expect(opened.message).toBe(wakeMessage(1));
+    // The level comes along with it (§10, #94). The opening is the one frame whose only possible
+    // sentence is a wake, so a speaking opening is always an `alarm` — and it is drawn as one from
+    // the very first paint, which is the whole point of `openRun` returning the line at all.
+    expect(opened.message).toEqual({ text: wakeMessage(1), level: 'alarm' });
   });
 
   it('is silent on an opening that woke nothing, which is most of them', () => {
@@ -75,13 +78,16 @@ describe('the line a run already owes on its opening frame (§4, #79)', () => {
     // reachable without instrumenting `beginRun`, so it lives in `opening.ts`'s header as a design
     // constraint rather than here as an assertion that cannot fail.
     const opened = openRun(WAKING_SEED);
-    expect(opened.message).toBe(describeTurn(cuesOf(opened.run)));
+    expect(opened.message).toEqual(describeTurn(cuesOf(opened.run)));
     expect(sceneOf(opened.run).hud.floor.number).toBe(1);
   });
 
   it('is pure: the same seed opens the same run with the same line, twice', () => {
     for (const seed of [WAKING_SEED, QUIET_SEED, '']) {
-      expect(openRun(seed).message, seed).toBe(openRun(seed).message);
+      // `toEqual`, because a line is a `{ text, level }` pair rather than a string (#94) — two
+      // calls produce two objects, and reference equality would have made this pass for the wrong
+      // reason on the `null` cases and fail on the speaking one.
+      expect(openRun(seed).message, seed).toEqual(openRun(seed).message);
     }
   });
 
@@ -102,7 +108,13 @@ describe('the line a run already owes on its opening frame (§4, #79)', () => {
     // And every one of them says a wake sentence — never a move, a blow or a floor change, which
     // would mean the opening had started being diffed against something.
     const sentences = [1, 2, 3, 4, 5, 6].map(wakeMessage);
-    for (const seed of speaking) expect(sentences, seed).toContain(openRun(seed).message);
+    for (const seed of speaking) {
+      const line = openRun(seed).message;
+      expect(sentences, seed).toContain(line!.text);
+      // And every one of them is an `alarm`: an opening that woke something is the one frame where
+      // the player has already been given company without pressing anything (§10, #94).
+      expect(line!.level, seed).toBe('alarm');
+    }
   });
 });
 
@@ -145,7 +157,7 @@ describe('the screen uses it — for the first run and for RUN AGAIN alike', () 
     // The defect verbatim was `useState<string | null>(null)`: a run begun, its cues computed by
     // nobody, and the line under the board starting blank on a turn that owed the player a sentence.
     expect(CODE, 'the first render takes its line from the run it opened').toMatch(
-      /useState<string \| null>\(\s*opened\.message\s*\)/,
+      /useState<TurnLine \| null>\(\s*opened\.message\s*\)/,
     );
     expect(CODE, 'and the run on screen is that same run').toMatch(
       /useState<Run>\(\s*opened\.run\s*\)/,

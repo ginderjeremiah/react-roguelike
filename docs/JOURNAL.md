@@ -57,6 +57,113 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-08-01 — The wake line is drawn like a wake line (#94)
+
+**Did:** Gave the turn line two emphasis levels, `alarm` and `report`, ruled in GDD §10 with a §11
+cross-reference. A wake, damage taken and the player's death draw at 14px/700 in a dedicated colour;
+everything else — every refusal, both shutter lines, the descent line, the spoils — stays quiet. Step
+2 of the build order the #83 ruling fixed, and #79's own Watch note is what filed it. PR pending.
+
+**Why this was worth a milestone slot.** #79 made announcing a wake a *rule* and built it, and the
+playtest of that build reported the rule holding and the pixels failing: at 390×844 the line was
+13px/400 in **the same grey as the shutter button's sub-caption and the build note** — the
+second-smallest text on the screen. So `The shutter opens. Light spills out.` and `Two things wake.`
+— *you got away with it* and *you have company*, the two outcomes of one press — were
+**typographically identical**, and at the half-second a phone player gives the line the difference
+between them was which dim grey letters were present. A rule that fires correctly and cannot be read
+is not a rule the player has. Under #83 a woken creature *pursues*, so a missed wake becomes a
+missed hunter, which is why this was sequenced ahead of it rather than filed as polish.
+
+**The load-bearing design call was rejecting an argument, not choosing a treatment.** §11 forbids
+colour as the sole carrier, and the tempting defence is that *the sentences differ*, so the
+distinction survives greyscale. That was **rejected**, and it is the ruling's spine: it is the same
+defence that would justify changing nothing at all. §11's real test is whether a distinction survives
+*how the element is actually read*, and #94's whole finding is that this line is caught at a glance or
+not at all — a carrier that works only once you have read the sentence is not a carrier for a signal
+whose entire job is to be caught before you read it. So weight is the non-colour carrier and colour is
+the second, never the only.
+
+**Three other things were decided against, and each was the more obvious option.**
+
+*Not `token.creature`.* The issue proposed colouring the wake line the same red as the `C` it is
+about, which is a genuinely appealing tie between sentence and glyph. It loses because it is a
+**board role** — it means "a creature seen in light" — so it is wrong for `You take N.` and `The
+lantern goes out.`, and reusing it would let a retune aimed at the board silently move the chrome. The
+theme grew its own closed `line: { alarm, report }` pair instead, which a theme may not collapse.
+
+*Not persistence.* It was the serious runner-up and it is free of motion, which made it tempting under
+§11. It **protects the line only in the case that does not need protecting**: it exists for the player
+tapping fast, and a tap makes a press, a press makes a line — §2 requires even a *refused* press be
+acknowledged — so a persisting `alarm` is pre-empted by the very next tap and survives only while the
+player is idle, and an idle player already had time to read. It also lies by tense, since `Two things
+wake.` is a sentence about *this* turn. One turn is positively right, not merely tolerable: an
+ordinary dark step says nothing, so an `alarm` landing on an otherwise empty row is a change in how
+much ink is on the screen — the nearest thing to motion available to something that has none.
+
+*Not a compound on the descent.* #79's Watch left this one open: `woke` outranks `descended`, so on
+one arrival in five `You climb down to floor 3.` is withheld on exactly the arrivals that matter.
+Worth recording that **`messages.ts`'s standing argument against compound sentences does not defeat
+it** — that argument is about *unreachability* (a special case for a branch that cannot fire is #80's
+undrawable glyph), and 20% of arrivals is not that. The compound loses on three other counts, and the
+level is what actually closes the gap: a waking arrival now draws `alarm` and a quiet one draws the
+floor line in `report`, so **the descend press gets the same glanceable contrast the flash press
+does**. The level is what the compound was reaching for.
+
+**Learned — the free invariant, and why it is the test that matters.** The levels turn out to agree
+with §4's precedence *exactly*: `player death > player damage > woke` **is** the `alarm` set, and
+every message recency can reach is a `report`. That is not a coincidence to note and move on from — it
+means no turn can ever pre-empt a louder line with a quieter one, and it is pinnable over the real-run
+corpus rather than over hand-built cue lists. Which matters, because hand-built cue arrays are
+precisely what let #20's single-`damaged` bug and #79's aggregate-count bug hide. The precedence test
+replays `diveToTheBottom`, `standUntilDead` and `walkInTheDarkThenFlash` through `session/`'s four
+intents, asserts in both directions, and carries a non-vacuity guard.
+
+**Learned — a 10-point reservation on a phone cost a point of board on the desktop.** The first
+implementation reserved two lines (`minHeight: 44`) so a wrap could never move the board. The existing
+overflow spec caught it: on the **desktop** viewport the board is height-bound rather than
+width-bound, so those 10pt took the cell from 30pt to 29. Reverted to 34 and the measurement is now in
+the comment — the longest sentence the game can produce is 36 mono characters, ~313pt inside 362pt at
+390 wide, so nothing wraps at the default text size and board geometry is byte-identical to before the
+change. §11's text scaling can still wrap it, and then the row grows rather than clipping, which is
+the right failure of the two. The general shape: **the phone is the design target but it is not the
+constrained viewport for every dimension**, and a change that is obviously safe on one is not
+obviously safe on the other.
+
+**Learned — the E2E assertion that earns its place is the contrast, not the case.** "A wake line is an
+`alarm`" cannot fail if *everything* is an `alarm`. The spec presses the same control twice — a
+shutter close that reports, then a walk-and-flash that alarms — and asserts each level present and the
+other absent. This is the fourth time this project has recorded a test that could not fail (after
+#20's single-cue `damaged` sample, #80's undrawable glyph and #79's absence-at-boot guard), and the
+one-line rule that keeps falling out is: **an assertion about one state is not a test of a
+distinction.** The empty row also got its own `status-line-empty` id rather than being called a
+`report`, specifically so "a report is on screen" means something — a row with nothing on it is the
+absence of a claim, not a quiet one.
+
+**Learned — the repo has mixed line endings and `core.autocrlf=false`.** `theme.ts`,
+`game-screen.spec.ts` and `play-opening.test.ts` are CRLF in `HEAD`; the rest are LF. Scripted edits
+normalised several files mid-implementation and produced a spurious ~900-line whitespace diff. It was
+caught and reverted, but it is a live footgun for any agent editing these files with a script rather
+than with `Edit`, and it will eventually land in a PR as noise that hides a real change. Filed as
+**#100** (a `.gitattributes`), not fixed here.
+
+**Next:** #83 — a woken Cinder pursues. That is what the last two PRs were sequenced to precede, and
+it is the ruling M1 exited on.
+
+**Watch — two, and both are pre-registered cut signals rather than suspicions.** If a playtest reports
+the `alarm` level firing often enough to stop reading as one — §4's existing threshold is roughly one
+turn in six — the fix is **fewer things speaking, never a third level**. And if a playtest *still*
+reports noticing the red `C` first and reading the line second, then the sentence is the wrong
+instrument for this job entirely, **#82's tile pulse is the right one, and the response is to revert
+this emphasis rather than escalate it** — and not to reach for motion, which §11 has already priced.
+Both are written into §10 so the next session does not have to re-derive them from a playtest report.
+
+Third, smaller: `alarm`'s two values (`#ff8a6a` dark, `#8c1f0c` light) are provisional like everything
+else in `theme.ts` — M4 owns colour. What is *not* provisional is the relationship the tests pin: an
+`alarm` always has more contrast against the background than a `report`, which is why the obvious
+picks were wrong. `meter.critical` (`#e2593c`) and `token.creature` (`#ea6647`) both sit at **lower**
+contrast than the report grey in dark mode, so an alarm painted in either would have been a *quieter*
+line than the one it outranks.
+
 ## 2026-07-31 — Reconcile after #79: the roadmap was describing a build order that had already changed
 
 **Did:** Archivist pass over `main` at `bd4f577`. `docs/ROADMAP.md` only — GDD §4/§6 and

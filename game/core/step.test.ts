@@ -16,6 +16,10 @@ import {
   ADAPTATION_FLOOR,
   computeLitField,
   computeTouchField,
+  hasBeenLit,
+  hasTile,
+  revealByLight,
+  tileSetOf,
   tileSetsEqual,
   type ShutterState,
 } from '../fov';
@@ -86,6 +90,29 @@ function sceneState(
 
 function playerAt(state: GameState): Position {
   return playerOf(state.world).at;
+}
+
+/** A player one step west of an ember cache, shuttered. The subject of §4's cache rule (#31/#41). */
+const CACHE_SCENE = ['#####', '#@♦.#', '#####'];
+
+/**
+ * The same scene, but the lantern has already lit `at` — a room flashed earlier and shuttered
+ * again, which is the state §4's *ever lit* reading is about and the one no sequence of commands
+ * can produce inside a 5×3 corridor.
+ *
+ * Built by folding a lit field into `vision.revealed` through the real `revealByLight`, rather than
+ * by writing flags, so a test cannot reveal a tile in a way the simulation could not.
+ */
+function cacheAlreadyFound(lines: readonly string[], at: Position): GameState {
+  const state = sceneState(lines);
+  const grid = state.world.floor.grid;
+  return {
+    ...state,
+    lantern: {
+      ...state.lantern,
+      vision: revealByLight(state.lantern.vision, tileSetOf(grid, [at])),
+    },
+  };
 }
 
 /** The same state with a wounded player. §3 forbids healing, so this cannot be arranged by play. */
@@ -295,19 +322,33 @@ describe("step — 'move'", () => {
     expect(step(edge, { kind: 'move', dir: 'north' })).toBe(edge);
   });
 
-  it('collects an ember cache by walking onto it', () => {
+  it('collects an ember cache the lantern found, by walking onto it', () => {
     // Phase 5 runs on a move, and the tile stops being a cache. Included here rather than only in
     // `light.test.ts` because collection is the one thing in the game that *mutates the generated
     // floor*, and `Floor` lives inside `GameState` precisely so that mutation is replayed.
-    const built = scenario(['#####', '#@♦.#', '#####']);
-    const withCache: GameState = {
-      ...sceneState(['#####', '#@♦.#', '#####']),
-      world: { ...built.world, floor: { ...built.world.floor, caches: [{ x: 2, y: 1 }] } },
-    };
-    const after = step(withCache, { kind: 'move', dir: 'east' });
-    expect(after.lantern.fuel).toBe(withCache.lantern.fuel - FUEL_BURN_SHUTTERED + CACHE_FUEL);
+    const found = cacheAlreadyFound(CACHE_SCENE, { x: 2, y: 1 });
+    const after = step(found, { kind: 'move', dir: 'east' });
+    expect(after.lantern.fuel).toBe(found.lantern.fuel - FUEL_BURN_SHUTTERED + CACHE_FUEL);
     expect(tileAt(after.world.floor.grid, 2, 1).kind).toBe('floor');
     expect(after.world.floor.caches).toEqual([]);
+  });
+
+  it('walks over a cache the lantern never found and takes nothing at all', () => {
+    // §4's cache rule, at this tier (#31/#41): the same command, the same tile, the same shuttered
+    // lantern — and the only difference is whether the lantern has ever lit that tile. The state
+    // after is a *floor* with a cache still on it, which is what makes the pair above and below a
+    // controlled comparison rather than two unrelated assertions.
+    const unlit = sceneState(CACHE_SCENE);
+    const after = step(unlit, { kind: 'move', dir: 'east' });
+
+    expect(playerAt(after)).toEqual({ x: 2, y: 1 }); // the move itself is perfectly legal
+    expect(after.lantern.fuel).toBe(unlit.lantern.fuel - FUEL_BURN_SHUTTERED);
+    expect(tileAt(after.world.floor.grid, 2, 1).kind).toBe('cache');
+    expect(after.world.floor.caches).toEqual([{ x: 2, y: 1 }]);
+    // ...and the tile is remembered rather than left blank, which is the other half of the ruling:
+    // a permanent hole at exactly the cache tile would be a better cache detector than the glyph.
+    expect(hasTile(after.lantern.vision.remembered, 2, 1)).toBe(true);
+    expect(hasBeenLit(after.lantern.vision, 2, 1)).toBe(false);
   });
 });
 
@@ -729,11 +770,7 @@ describe('the run tally (§13’s summary numbers)', () => {
     // Phase 5's income is not a discount on phase 2's cost. The turn below *gains* 24 net fuel, so a
     // meter reading the turn's fuel difference would book a burn of -24 and a summary would show a
     // number that goes backwards when the run goes well.
-    const built = scenario(['#####', '#@♦.#', '#####']);
-    const withCache: GameState = {
-      ...sceneState(['#####', '#@♦.#', '#####']),
-      world: { ...built.world, floor: { ...built.world.floor, caches: [{ x: 2, y: 1 }] } },
-    };
+    const withCache = cacheAlreadyFound(CACHE_SCENE, { x: 2, y: 1 });
     const after = step(withCache, { kind: 'move', dir: 'east' });
     expect(after.lantern.fuel).toBeGreaterThan(withCache.lantern.fuel); // the reserve went up...
     expect(after.fuelBurned).toBe(FUEL_BURN_SHUTTERED); // ...and the burn is still one turn's worth

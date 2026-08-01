@@ -6,6 +6,7 @@ import {
   atTheStairs,
   diveToTheBottom,
   standUntilDead,
+  takeACacheTheLanternFound,
   walkInTheDarkThenFlash,
 } from '@/tests/unit/support/run-script';
 import { awaken } from '@/tests/unit/support/scenario';
@@ -16,7 +17,7 @@ import { CUE_KINDS, cuesFor, wakesOnArrival, type Cue } from './cues';
  * recovered by comparing the state before a command with the state after it. That is what caps the
  * vocabulary and what makes these tests possible at this tier — no clock, no Reanimated, no DOM.
  *
- * The corpus is three real runs, walked one command at a time, because a cue is a statement about a
+ * The corpus is four real runs, walked one command at a time, because a cue is a statement about a
  * *transition* and a hand-built pair of states is not one.
  *
  * The third run was added with `woke` (#79) and is not a formality. `diveToTheBottom` shutters on
@@ -25,11 +26,18 @@ import { CUE_KINDS, cuesFor, wakesOnArrival, type Cue } from './cues';
  * the lit run's creatures were woken by the opening state's phase 3, before the first command. So
  * the completeness test below went red the moment `woke` was declared, which is exactly what it is
  * for, and the answer was to add the missing play pattern rather than to weaken the assertion.
+ *
+ * **The fourth was added by #31/#41, and by the same mechanism.** `fuelGained` used to come from the
+ * dive: a shuttered crawl walked over caches and was paid for it. §4's cache rule ended that — a
+ * cache pays only once the lantern has lit its tile — so the dark dive now collects nothing and the
+ * completeness test went red again. The answer was again a play pattern, not a weaker assertion:
+ * `takeACacheTheLanternFound` crawls to a cache, flashes it, shuts, and hauls it home in the dark.
  */
 
 const DIVE = diveToTheBottom('cues', 3);
 const DEATH = standUntilDead('grave', 3);
 const FLASH = walkInTheDarkThenFlash('flash');
+const HAUL = takeACacheTheLanternFound('haul');
 
 /** Every (before, after, cues) triple of a run. */
 function transitions(record: { seed: string; commands: readonly Command[] }) {
@@ -45,7 +53,8 @@ function transitions(record: { seed: string; commands: readonly Command[] }) {
 const DARK = transitions(DIVE);
 const LIT = transitions(DEATH);
 const APPROACH = transitions(FLASH);
-const ALL = [...DARK, ...LIT, ...APPROACH];
+const PROSPECT = transitions(HAUL);
+const ALL = [...DARK, ...LIT, ...APPROACH, ...PROSPECT];
 
 function kinds(cues: readonly Cue[]): string[] {
   return cues.map((cue) => cue.kind);

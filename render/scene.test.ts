@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { runStates, step, type GameState } from '@/game/core';
 import { creatureById, withActor, withHp } from '@/game/entities';
-import { EMBER_SENSE_RADIUS, hasTile } from '@/game/fov';
+import { EMBER_SENSE_RADIUS, hasBeenLit, hasTile } from '@/game/fov';
 import { chebyshevDistance, FLOOR_HEIGHT, FLOOR_WIDTH } from '@/game/map';
 import { awaken } from '@/tests/unit/support/scenario';
 import { scenarioState, stateFrom } from '@/tests/unit/support/presentation';
@@ -20,7 +20,8 @@ import { cellAt, presentScene, type Scene } from './scene';
  *
  *   - **Real runs** (`darkDive`, `litDeath`) drive the actual `step()` over generated floors and
  *     produce hundreds of states across eight floors, in both vision states, with kills, deaths,
- *     caches, descents and a dry lantern in them. Everything phrased as *this must be true of every
+ *     caches walked over in the dark, descents and a dry lantern in them. Everything phrased as
+ *     *this must be true of every
  *     cell of every state* is asserted here, because a property that holds only on a hand-built
  *     3×7 room is a property about that room.
  *   - **Scenarios** construct the exact situation a rule is about — a creature at distance three
@@ -377,12 +378,106 @@ describe('ember on the ground (GDD §4: items are invisible while shuttered)', (
   it('hides a drop you are standing next to in the dark', () => {
     // §4's table: "Items / ember caches | Visible in the lit radius | **Invisible**". The tile is
     // perceived — it is one step away and touch reaches it — so this is not a knowledge question. It
-    // is that you cannot see ember by feeling the floor, and finding fuel is what light is *for*
-    // (§4's "a flash buys a room" arithmetic falls apart if the dark finds caches too).
+    // is that you cannot see ember by feeling the floor, and finding fuel is what light is *for*.
+    //
+    // A *drop* is hidden by the shutter's current position, and that is the whole of the rule for
+    // it: this layer draws it only while `lamplit`. A **cache** is a different rule keyed on a
+    // different thing — see the block below — and the two are deliberately not merged.
     const cell = cellAt(presentScene(withEmber('shuttered')).grid, 2, 1);
     expect(cell.state).toBe('visible');
     expect(cell.glyph).not.toBe(GLYPHS.ember);
     expect(cell.fg).not.toBe('ember');
+  });
+});
+
+describe('an ember cache is terrain the lantern has to have shown you (GDD §4, #31/#41)', () => {
+  /**
+   * A cache one step east of the player and a plain floor tile one step west, so both are inside
+   * the touch radius and the two cells can be compared. The corridor is small enough that one flash
+   * lights all of it.
+   */
+  const SCENE = ['#####', '#.@♦#', '#####'];
+  const AT = { x: 3, y: 1 };
+  /** The control cell: ordinary floor, equally close, equally perceived. */
+  const PLAIN = { x: 1, y: 1 };
+
+  /** Crawled past in the dark: the tile is perceived, and the lantern has never lit it. */
+  const crawled = () => scenarioState(SCENE, { shutter: 'shuttered' }).state;
+  /** Flashed: §2 phase 3 has folded the lit field into `vision.revealed`. */
+  const flashed = () => scenarioState(SCENE, { shutter: 'open' }).state;
+
+  it('draws the floor glyph on a cache the dark has only felt', () => {
+    // #41, and the reason this is a `render/` test as well as a `game/` one: the divergence used to
+    // be *known* here and deliberately not fixed here. Now the layer indexes nothing — it asks
+    // `perceivedTileAt` — so the `♦` is absent because the simulation says the tile is floor.
+    const cell = cellAt(presentScene(crawled()).grid, AT.x, AT.y);
+    expect(cell.glyph).toBe(GLYPHS.floor);
+    expect(cell.fg).toBe('floor');
+    expect(cell.glyph).not.toBe(GLYPHS.ember);
+  });
+
+  it('does not leave a hole where the cache is', () => {
+    // The clause the ruling spends most of its words on. A blank cell in the middle of ground the
+    // player has crawled is a **perfect** cache detector, because nothing else on the board is ever
+    // skipped — so the leak would run the other way and be worse. The comparison is against the
+    // neighbouring plain floor tile: the two must be indistinguishable in every channel this layer
+    // has, or the disguise is not a disguise.
+    const board = presentScene(crawled()).grid;
+    const disguised = cellAt(board, AT.x, AT.y);
+    const plain = cellAt(board, PLAIN.x, PLAIN.y);
+
+    expect(disguised.state).toBe('visible');
+    expect(disguised.state).toBe(plain.state);
+    expect(disguised.glyph).toBe(plain.glyph);
+    expect(disguised.fg).toBe(plain.fg);
+    expect(disguised.opacity).toBe(plain.opacity);
+    expect(disguised.bg).toBe(plain.bg);
+  });
+
+  it('draws the ♦ once the lantern has lit it', () => {
+    // The positive control for both tests above: without it they pass on a board that never draws a
+    // cache at all, which is precisely what a `glyphForTile` returning floor for `cache` would do.
+    const cell = cellAt(presentScene(flashed()).grid, AT.x, AT.y);
+    expect(cell.glyph).toBe(GLYPHS.ember);
+    expect(cell.fg).toBe('ember');
+  });
+
+  it('keeps the ♦ on the board after the shutter closes again', () => {
+    // §4's *ever lit* reading, on screen. Driven through the real `setShutter` command rather than
+    // by editing a lantern, because the claim is about what the player sees one press later: the
+    // room goes dark, the tile drops to `remembered`, and the cache is still marked. A renderer
+    // keyed on `lamplit` — which is how the ember *drop* works, one block up — would blink it out.
+    const shut = step(flashed(), { kind: 'setShutter', to: 'shuttered' });
+    const cell = cellAt(presentScene(shut).grid, AT.x, AT.y);
+
+    expect(shut.lantern.vision.shutter).toBe('shuttered');
+    expect(cell.state).toBe('visible'); // touch reaches it — it is one step away
+    expect(cell.glyph).toBe(GLYPHS.ember);
+    expect(cell.fg).toBe('ember');
+  });
+
+  it('never draws a ♦ on a tile the lantern has not lit, over two whole runs', () => {
+    // The property over the corpus, which is what stops the four scenarios above being four facts
+    // about a 5×3 corridor. `darkDive` crosses three floors shuttered and walks over caches; every
+    // one of those tiles is remembered, and not one of them may carry the glyph.
+    let disguised = 0;
+    for (const state of CORPUS) {
+      const grid = state.world.floor.grid;
+      const board = presentScene(state).grid;
+      for (let index = 0; index < grid.tiles.length; index += 1) {
+        if (grid.tiles[index].kind !== 'cache') continue;
+        const at = { x: index % grid.width, y: Math.floor(index / grid.width) };
+        const lit = hasBeenLit(state.lantern.vision, at.x, at.y);
+        const cell = cellAt(board, at.x, at.y);
+        if (lit) continue;
+        expect(cell.glyph, `cache at (${at.x}, ${at.y}) drawn unlit`).not.toBe(GLYPHS.ember);
+        expect(cell.fg).not.toBe('ember');
+        // Non-vacuity, counted rather than assumed: this loop must actually have met a cache the
+        // player had felt but never lit, or it is asserting about tiles nobody has been near.
+        if (hasTile(state.lantern.vision.remembered, at.x, at.y)) disguised += 1;
+      }
+    }
+    expect(disguised, 'no run in the corpus ever felt an unlit cache').toBeGreaterThan(0);
   });
 });
 

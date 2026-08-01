@@ -19,6 +19,14 @@
  * even given a grid to consult. Conflating them is how the wall-piercing rule gets broken by
  * accident, and it is the rule that answers "why would I ever shutter the lantern".
  *
+ * ## Two monotone planes, not one
+ *
+ * `vision.remembered` is every tile ever *perceived*; `vision.revealed` is every tile the lantern
+ * ever *lit*, and is a subset of it. The second exists for one rule — §4's "a cache is terrain the
+ * lantern has to have shown you" (#31/#41) — and `vision.ts` carries the ruling. If you are adding
+ * a third plane, read that block first: it argues at length why this one is not a map of known tile
+ * kinds, and the argument is what bounds the shape.
+ *
  * ## The property this module rests on
  *
  * **When `senseRadius >= 4`, every lit tile is inside the sensed region** — everything a flash can
@@ -29,7 +37,12 @@
 
 export { computeSensedField, senseCreatures } from './embersense';
 export { computeLitField } from './light';
-export { perceive, type CreatureSense, type TurnPerception } from './perceive';
+export {
+  perceive,
+  rememberPerception,
+  type CreatureSense,
+  type TurnPerception,
+} from './perceive';
 export { shadowcast } from './shadowcast';
 export {
   emptyTileSet,
@@ -52,9 +65,12 @@ export {
   createVision,
   DARK_TOUCH_RADIUS,
   EMBER_SENSE_RADIUS,
+  hasBeenLit,
   LIT_RADIUS,
   openShutter,
+  perceivedTileAt,
   remember,
+  revealByLight,
   setShutter,
   tileKnowledge,
   TURNS_TO_FULL_ADAPTATION,

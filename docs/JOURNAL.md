@@ -57,6 +57,87 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-08-01 — A cache is terrain the lantern has to have shown you (#31, #41)
+
+**Did:** Built §4's cache rule, ruled the same day by the `game-designer` and written into the GDD
+before this branch started. Two halves, one bit. **Perception (#41):** touch reports an unlit cache
+tile as ordinary `floor`, and the tile still enters remembered terrain. **Collection (#31):**
+`collectFuelUnderfoot` pays a cache only once its tile has *ever* been lit. `Vision` gains
+`revealed`, a second monotone `TileSet` holding every tile the lantern has lit; `RULES_VERSION` → 4
+with a log line, and the two stored fixtures re-pinned (only the new field moved, which is the
+evidence that nothing else changed). A third pinned fixture was added because **no stored run took a
+cache** — `takeACacheTheLanternFound` crawls to one in the dark, flashes it, shuts, and hauls it home.
+
+**Why the plane lives in `Vision` and not beside it.** It is the same shape and the same lifetime as
+`remembered` — monotone, per floor, reset by `arriveOnFloor` — and every consumer that reads one is
+holding the other. The designer's cost estimate said "one more monotone per-tile channel in
+`Vision`"; there was nothing to gain by disagreeing. The two folds are *not* aliased and there is a
+test that says so, because a `remember` that grew both would compile and would hand a shuttered crawl
+every cache on the floor.
+
+**Why `render/` learned nothing.** #41's own note said the fix could not live in the renderer, and it
+does not: `game/fov/vision.ts` exports `perceivedTileAt(grid, vision, x, y)` and `scene.ts` calls it
+where it used to write `grid.tiles[index]`. One substitution covers the glyph *and* the colour token,
+because `terrainColorOf` is downstream of the same tile. The header note pointing at #41 is deleted.
+
+**Why phase 3 does not read the shutter.** `TurnPerception` gained `terrainFrom: 'light' | 'touch'`
+and `rememberPerception` switches on it. The alternative — `light.ts` branching on
+`vision.shutter` — is correct today and is a second site that knows which column of §4's table
+produces the lit field. One place decides; the phase reads the answer.
+
+**Measured, and it is the predicted finding rather than the falsifier.** Same corpus, before → after:
+
+| style | cache take | cache income/floor | median net/floor | turns to dry |
+| --- | --- | --- | --- | --- |
+| `STALKER` | 121/121 → **114/121** | 37.8 → 35.6 | +8 → **+7** | never → never |
+| `FLOODLIT` | 121/121 → 96/121 | 37.8 → 30.0 | −56 → −62 | 34 |
+| `PACIFIST` | 117/121 → 11/121 | 36.6 → 3.4 | −80 → −109 | 65 |
+| `DARK_PACIFIST` | 119/121 → **0/121** | 37.2 → **0.0** | −71 → −110 | 206 → **80** |
+
+`STALKER` barely moved — the ruling's prediction — so the intervention is aimed where it was
+pointed and **not** at §5's leaf-room bias, which was the named falsifier. #105's worry did not
+materialise: invariant 3's `net > 0` is still green at +7, so **no threshold was loosened and no game
+constant moved.** The two pacifists' collapse to ~9% is not a third finding — they dry on floor 1 and
+`canOpen` is false at 0 fuel, so they are dark crawlers for seven of their eight floors.
+
+**Learned — the harness measurement that broke was a *label*, not a threshold.** Invariant 2's
+`flashed < never` went red, and the honest-looking reading was "the ruling inverted the ordering".
+It had not. `driedAfterTurns` summed **whole floors** — its own docstring admitted it and said to use
+it for ordering only — and the moment every pacifist style dried on floor 1 it became the *length of
+floor 1*, so it was ranking styles by how far they wandered. Recording the turn fuel actually hits 0
+restores the ordering (26 floodlit < 65 flashing < 80 dark) with the assertion untouched. That is
+#105's principle applied one level deeper than #105 anticipated: the instrument to calibrate was the
+quantity, not the bound. **A test that goes red is not evidence about the code until you have checked
+that the number under it still means what its name says.**
+
+**Learned — two of the three pinned replay fixtures have `revealed === remembered`,** because one
+ends with the shutter open and the other spends its dark half retracing lit ground. Only the new
+fixture separates them (69 vs 61). A digest field that is accidentally equal to its neighbour pins
+nothing, so the third fixture is the only place a bug growing the wrong plane is visible, and both
+the digest comment and `state-shape.test.ts` now say so out loud.
+
+**Learned — `tests/unit/support/scenario.ts` built floors the generator cannot produce:** a `♦`
+became a `cache` tile but `floor.caches` was left `[]`, so every cache test rebuilt the floor by hand.
+`generate.test.ts` asserts the two agree on real floors. Fixed at the source.
+
+**Verified by planting five mutants**, each killed: collection ignoring the plane (4 tests), touch
+growing the plane (11), no disguise in `perceivedTileAt` (6), the plane carried across a descent (3),
+and — the one the ruling explicitly warns about — `computeTouchField` *skipping* the cache tile, which
+is the cheap wrong fix and leaves a permanent hole where the cache is (9, including the four-neighbour
+guarantee and the dry-crawl route in `economy.test.ts`).
+
+**Next:** #83 — a woken Cinder pursues. Step 4 of the build order; the corpus baseline it will be
+measured against is now clean, which is the whole reason this was sequenced first.
+
+**Watch:** invariant 4 is **not** discharged. The ruling said necessary-and-not-sufficient and the
+numbers agree — a never-flash *fighter* still banks 20 a kill and is not in the corpus. That is step
+5 (`HARVESTER`), and it is what says whether `CACHE_FUEL` or `CINDER.emberDrop` owe anything. Also:
+`STALKER` loses 7 caches, all on floors it crossed without lighting that room, so `CACHE_FUEL` is now
+a dial whose effect on the flashing style is real but small — expect to need the leaf-room bias
+(§5 step 8) in the conversation when step 6 arrives.
+
+---
+
 ## 2026-08-01 — Reconcile after #94: a duplicate, a falsified issue, and two docs that disagree about what to build next
 
 **Did:** Archivist pass over `main` at `86eda1e`. Touched `ROADMAP.md`, `ARCHITECTURE.md` and one

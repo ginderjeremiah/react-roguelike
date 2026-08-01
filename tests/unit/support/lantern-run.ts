@@ -34,8 +34,9 @@
  *     economy look far kinder than it is.
  *   - **Creatures**: this turn's `perceive` — seen in the lit region, or felt through walls within
  *     the *current* ember-sense radius. Never the actor list.
- *   - **Caches**: only once the tile has been perceived, which is what §4's "caches require light to
- *     find" costs.
+ *   - **Caches**: only once the **lantern** has lit the tile (`hasBeenLit`), which is §4's "a cache
+ *     is terrain the lantern has to have shown you" (#31/#41). Perceiving the tile by touch is not
+ *     enough and never was: under the rule the script would be routing to a `·`.
  *
  * ## What they are not
  *
@@ -69,6 +70,7 @@ import {
 } from '@/game/entities';
 import {
   EMBER_SENSE_RADIUS,
+  hasBeenLit,
   hasTile,
   perceive,
   tileSetPositions,
@@ -143,12 +145,14 @@ export const FLOODLIT_PACIFIST: Style = {
 /**
  * Outside the 2×2: the cheapest crawl the rules permit, and the floor under every fuel curve.
  *
- * It is **not** blind to caches, despite §4 saying it should be. A shuttered crawler still reads
- * the Chebyshev-1 touch field into `vision.remembered`, so frontier exploration maps the whole
- * floor and passes within one tile of nearly every cache; and `collectFuelUnderfoot` pays on the
- * tile kind, never on whether the tile was lit. Measured in review: 119 of 121 caches collected.
- * See issue #31 — this is a missing rule, not a harness artefact (forcing the script to only
- * *route* to caches while lit still takes 89 of 121 by walking over them).
+ * **It is blind to caches, and that is now the rules rather than the script.** It used to take 119
+ * of the 121 caches in this corpus: a shuttered crawler reads the Chebyshev-1 touch field into
+ * `vision.remembered`, so frontier exploration maps the whole floor and walks within one tile of
+ * nearly everything, and `collectFuelUnderfoot` paid on the tile kind. §4 said the opposite the
+ * whole time, and #31/#41 enforced it — a cache pays only where the lantern has lit its tile, and
+ * this style never opens the shutter. Every floor it plays here arrives shuttered (`arriveOn`), so
+ * its `revealed` plane stays empty and its cache income is exactly **zero**, not merely small. In a
+ * real run it would keep floor 1's entrance room, which `beginRun` lights before the first command.
  */
 export const DARK_PACIFIST: Style = { name: 'dark-pacifist', fights: false, light: 'never' };
 
@@ -171,6 +175,15 @@ export type FloorResult = {
   readonly litTurns: number;
   readonly kills: number;
   readonly cachesTaken: number;
+  /**
+   * Caches on the floor when the player arrived — §5 places 1-2.
+   *
+   * The denominator for "what fraction of a floor's caches did this style take", which is the
+   * measurement §4's cache rule (#31/#41) is judged on and which cannot be recovered from
+   * `cachesTaken` alone: a style that takes 1 of 1 and a style that takes 1 of 2 report the same
+   * number and mean opposite things.
+   */
+  readonly cachesOnFloor: number;
   readonly fuelBefore: number;
   readonly fuelAfter: number;
   /** Fuel added by kills and caches — counted from the events, not inferred from the total. */
@@ -191,6 +204,14 @@ export type FloorResult = {
   readonly reachedStairs: boolean;
   /** The lantern hit 0 at some point on this floor. */
   readonly ranDry: boolean;
+  /**
+   * Turns played on **this floor** before the lantern first hit 0, or `null` if it never did.
+   *
+   * Recorded at the moment, not reconstructed from the floor's totals: a floor is played to the
+   * stairs or to `TURN_CAP_PER_FLOOR` whichever comes first, so a run that dries on turn 12 still
+   * accrues the rest of the floor and the floor's `turns` says nothing about when it happened.
+   */
+  readonly driedOnTurn: number | null;
 };
 
 export type RunResult = {
@@ -200,13 +221,14 @@ export type RunResult = {
   /** 1-based floor on which fuel first reached 0, or `null` if the run never ran dry. */
   readonly driedOnFloor: number | null;
   /**
-   * Turns played through the END of the floor on which fuel first reached 0, or `null`.
+   * Turns played before the lantern first reached 0, or `null` if it never did.
    *
-   * Not "turns before the lantern died" — an earlier label said that and it was wrong. Floors are
-   * played to completion or to `TURN_CAP_PER_FLOOR`, so a run that dries early still accrues the
-   * rest of that floor, and a capped floor contributes the cap rather than a measurement. Use it
-   * for *ordering* styles, which is what the invariant-2 comparison does; do not read it as a
-   * duration.
+   * **This is now the moment, not the end of the floor containing it.** An earlier version summed
+   * whole floors, which was labelled "turns before the lantern died", was not, and was documented
+   * as safe for *ordering* only. That caveat stopped being safe the day #31/#41 landed: every
+   * pacifist style now dries on floor 1, so the old number was the length of floor 1 and separated
+   * the styles by how long they wandered rather than by how long they stayed solvent. `driedOnTurn`
+   * is recorded at the moment fuel hits 0, so this is a duration and can be read as one.
    */
   readonly driedAfterTurns: number | null;
 };
@@ -242,7 +264,7 @@ export function playRun(seed: string, style: Style, floors: number, startFuel?: 
     fuel = result.fuelAfter;
     if (driedOnFloor === null && result.ranDry) {
       driedOnFloor = floorNumber;
-      driedAfterTurns = turnsSoFar + result.turns;
+      driedAfterTurns = turnsSoFar + (result.driedOnTurn ?? result.turns);
     }
     turnsSoFar += result.turns;
   }
@@ -269,6 +291,7 @@ export function playFloor(start: LanternWorld, style: Style): FloorResult {
   let kills = 0;
   let cachesTaken = 0;
   let ranDry = isDry(start.lantern);
+  let driedOnTurn: number | null = ranDry ? 0 : null;
   let reachedStairs = false;
 
   while (turns < TURN_CAP_PER_FLOOR && commands < TURN_CAP_PER_FLOOR * 2) {
@@ -301,7 +324,10 @@ export function playFloor(start: LanternWorld, style: Style): FloorResult {
     kills += killedNow;
     cachesTaken += cachesNow;
     income += killedNow * CINDER.emberDrop + cachesNow * CACHE_FUEL;
-    if (isDry(state.lantern)) ranDry = true;
+    if (isDry(state.lantern)) {
+      if (!ranDry) driedOnTurn = turns;
+      ranDry = true;
+    }
   }
 
   return {
@@ -312,6 +338,7 @@ export function playFloor(start: LanternWorld, style: Style): FloorResult {
     litTurns,
     kills,
     cachesTaken,
+    cachesOnFloor: start.world.floor.caches.length,
     fuelBefore: start.lantern.fuel,
     fuelAfter: state.lantern.fuel,
     income,
@@ -320,6 +347,7 @@ export function playFloor(start: LanternWorld, style: Style): FloorResult {
     demand,
     reachedStairs,
     ranDry,
+    driedOnTurn,
   };
 }
 
@@ -479,10 +507,16 @@ function unknownNearby(grid: Grid, known: TileSet, at: Position): number {
   return count;
 }
 
-/** Caches on tiles the player has actually seen. Unseen ones are, by §4, invisible. */
+/**
+ * Caches the **lantern** has shown the player. Anything else is a `·` they have walked over (§4,
+ * #31/#41) and routing to one would be the script using knowledge the player does not have.
+ *
+ * Keyed on `hasBeenLit` rather than on `remembered` — the two differ by exactly the caches a
+ * shuttered crawl feels underfoot, which is the entire subject of the ruling.
+ */
 function knownCaches(state: LanternWorld): Position[] {
-  const known = state.lantern.vision.remembered;
-  return state.world.floor.caches.filter((cache) => hasTile(known, cache.x, cache.y));
+  const vision = state.lantern.vision;
+  return state.world.floor.caches.filter((cache) => hasBeenLit(vision, cache.x, cache.y));
 }
 
 function knownStairs(grid: Grid, known: TileSet): Position | null {

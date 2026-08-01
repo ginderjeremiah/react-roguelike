@@ -13,7 +13,7 @@
  *
  * | Carries | Does not |
  * | --- | --- |
- * | Fuel — the reserve is run-long (§4) | **Remembered terrain.** Memory is of a place, and you have never been to this one — so `remembered` is a *fresh* `TileSet`, sized to the new grid |
+ * | Fuel — the reserve is run-long (§4) | **Remembered terrain**, and with it **what the lantern has revealed** (§4's cache rule). Memory is of a place, and you have never been to this one — so `remembered` and `revealed` are both *fresh* `TileSet`s, sized to the new grid |
  * | Shutter state — walking downstairs does not touch a setting on a lamp you are holding | Ember on the ground you did not pick up. Fuel you did not collect is fuel you did not earn |
  * | Ember-sense radius. The ramp is triggered by the *act* of shuttering (§4); descending is not shuttering | The creatures, all of them. A new floor's are dormant, and re-dormancy is per creature |
  * | HP, plus §3's +2 (`restoreOnDescent`, the only function in the game that raises HP) | |
@@ -123,8 +123,10 @@ export function arriveOnFloor(previous: LanternWorld, floor: Floor): LanternWorl
   // The eyes cross; the map does not. Only the adaptation ramp is carried onto the new floor's
   // vision, because that is the one §13 field `createVision` cannot know: it starts every sense
   // radius at the adaptation *floor* (§4), and §13 says descending is not shuttering. `remembered`
-  // is left as the fresh `TileSet` `createVision` built — sized to the *new* grid, where the old
-  // floor's would index every tile a row out if grid sizes ever varied.
+  // and `revealed` are left as the fresh `TileSet`s `createVision` built — sized to the *new* grid,
+  // where the old floor's would index every tile a row out if grid sizes ever varied. A cache lit
+  // upstairs is not a cache you have found down here, and a plane carried across would pay out on
+  // whatever the new generator happened to put on that index.
   //
   // Spread-then-override rather than a field-by-field literal, for the same reason the world is
   // rebuilt rather than edited: a field added to `Vision` later defaults to the new floor's value,

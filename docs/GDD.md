@@ -662,7 +662,14 @@ because §6 depends on it.
 > where it stands.**
 
 - **Awake, it paths toward the player every turn**, shutter open or shut, adjacent or across the
-  floor. There is no last-known tile, no search, and no state in which it holds still.
+  floor. There is no last-known tile, no search, and no state in which it holds still **by
+  decision**. It can still fail to move — every improving step blocked by another creature, or the
+  player walled off from it entirely — and it waits that turn out. **That is not the parked state
+  this rule deleted**, and the difference is the counter: a creature with nowhere to step is still
+  counting down to sleep, where the old case 5 held position *and* had reached its goal, so waiting
+  was the plan rather than the absence of one. Named because "no state in which it holds still" is
+  the sentence an implementation would have to violate, and it is better to say which violation is
+  legal than to have someone discover the two `wait` branches and think the rule was not followed.
 - **The eight-turn counter runs on *contact*, not on pursuit.** It resets on light or on adjacency
   and increments otherwise — unchanged from the rule this replaces. So a creature that catches you
   starts its eight over, and a creature you hold at arm's length in the dark sleeps on schedule.

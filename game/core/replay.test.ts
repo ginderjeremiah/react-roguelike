@@ -1049,9 +1049,12 @@ describe('pinned run — the whole combat loop, ending in a death', () => {
    *      which then climbs back to 5 over the four turns that follow (§4).
    *   2. **commands 2-10** — nine turns of retreat, north out of the entrance room and then west
    *      the whole length of the corridor at y=11. **The Cinder follows the whole way** — (8, 8)
-   *      through the doorway at (9, 10) and along the corridor to (5, 11), eight tiles, two behind
-   *      the player and never adjacent. `turnsSinceContact` climbs 1..7 and it goes dormant at
-   *      command 10, **where the chase left it** rather than where the light was. This is the only
+   *      through the doorway at (9, 10) and along the corridor to (5, 11), eight tiles, **three
+   *      behind the player at every frame** and never adjacent — which is §4's too-weak arm in
+   *      miniature: same `ACTION_COST`, so a pursuer never closes on someone who keeps stepping
+   *      away, and the gap is constant rather than shrinking. `turnsSinceContact` climbs 1..7 and
+   *      it goes dormant at command 10, **where the chase left it** rather than where the light
+   *      was. This is the only
    *      fixture in the repo that pins either pursuit (§4, #83) or re-dormancy.
    *   3. **commands 11-13** — walk back east and bump the sleeper. §3's dormant strike: 3 x 2
    *      against 5 HP kills it outright, and phase 5 drops its ember where it stood. **At single
@@ -1072,13 +1075,23 @@ describe('pinned run — the whole combat loop, ending in a death', () => {
    *
    * ## Re-recorded for `RULES_VERSION` 5 (#83), not merely re-pinned
    *
-   * The version-4 log did step 2 as ten turns of shuffling one tile west and east in the corner of
-   * the entrance room, because under the old rules breaking contact was enough and standing
-   * anywhere would do. Under pursuit that shuffle is not a retreat: the Cinder walked straight up
-   * to the player and the run became a stand-up fight with **no re-dormancy, no sleeper to strike
-   * and no death** — it ended with the player alive at 2 HP. Re-pinning the digest onto that would
-   * have silently deleted three of the six things this fixture exists for, which is precisely the
-   * "update the expected values" failure the version policy in `replay.ts` is written against.
+   * The version-4 log did step 2 as two steps south and then eight turns alternating west and east
+   * in the corner of the entrance room, because under the old rules breaking contact was enough and
+   * standing anywhere would do. Under pursuit that shuffle is not a retreat: the Cinder walked
+   * straight up to the player and the run became a stand-up fight with **no re-dormancy, no sleeper
+   * to strike and no death** — replayed under these rules it ends with the player alive at 2 HP and
+   * `status: running`. Re-pinning the digest onto that would have deleted three of the six things
+   * this fixture exists for, which is precisely the "update the expected values" failure the version
+   * policy in `replay.ts` is written against.
+   *
+   * **It would not have been *silent*, and the distinction is worth keeping** — an earlier draft of
+   * this comment said it would. The digest is a `toEqual` on one final frame, so it would have gone
+   * green; the sibling test below is what fails, on four separate assertions including `nothing ever
+   * returned to dormant (§6)`. So the guard that caught this was the **trajectory** test, not the
+   * pin. Read that as an argument for what a fixture should carry: a digest tells you a run changed,
+   * and only a property assertion tells you *what stopped happening*. The temptation a version bump
+   * creates is to refresh the digest and move on, and the digest is exactly the half that cannot
+   * object.
    *
    * So step 2 was re-recorded as an actual retreat — the same intent, played against the new rules
    * — and every property the fixture pinned before is pinned again, with pursuit added to the list.

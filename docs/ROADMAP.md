@@ -661,9 +661,13 @@ has gone stale after every code PR and been repaired by every docs PR, three for
 this milestone because it is a process defect, which is what this milestone is for; #106's own two
 findings (#107, #108) are **not** of that shape and are in M2 where they belong.
 
-**Sixteen after #119**, which filed **#120** straight into this milestone — the second time in a row
-the "file it here on the day" rule was followed without prompting. Same family as #90/#91 and
-strictly worse than either: a guard that still passes while guarding nothing.
+**Seventeen at the reconcile after #119, and only one of the two is new.** #119 filed **#120**
+straight into this milestone — the second time in a row the "file it here on the day" rule was
+followed without prompting, and it is the same family as #90/#91: a guard that still passes while
+guarding nothing. The other is **#112**, filed by `code-reviewer` on PR #111 and **never listed
+here** until now, which is the #76/#78 failure repeating for the fourth time. **Re-derive this list
+from `gh issue list --milestone "Contract and tooling"` rather than reading it** — every count in this
+paragraph has been wrong at least once, and always in the same direction.
 
 - [ ] Both contract gates are bypassable by naming a source file `*.test.ts` — #48. Same family as
       #12, which moved with it; whoever does #12 is already in both files
@@ -697,6 +701,11 @@ strictly worse than either: a guard that still passes while guarding nothing.
 - [ ] The roadmap's count table goes stale on every code PR — **#110**, filed by the #106 reconcile
       with the three-for-three evidence. Two options and they differ: automate the table, or delete
       the numbers and keep the commands that produce them
+- [ ] The journal is append-only and this file blesses rewriting a merged entry in place — **#112**,
+      two remedies applied to the same situation on consecutive PRs (#104 struck a stale `Next:`
+      through in place; #111 refused to touch the entry and corrected it from above). It matters to
+      whoever runs the next reconcile, which is why it is worth more than its size: **the rule is
+      currently whichever record you read last**
 - [ ] `.gitignore` covers `.playtest/` but the playtester writes to `.scratch/` — **#120**, from
       #119, where `git status` showed `?? .scratch/` after the mandated playtest gate. The ignore
       rule's own comment predicts this failure exactly ("a routine `git add -A` after the mandated

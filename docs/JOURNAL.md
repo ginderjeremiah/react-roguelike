@@ -60,7 +60,7 @@ did — it is the only thing stopping a future session from repeating it.
 ## 2026-08-02 — Reconcile after #119: a measurement that cannot answer its own question
 
 **Did:** Archivist pass over `main` at `2890e06`. `GDD.md` §4 (the watch) and §6; `ROADMAP.md` in
-nine places. **The in-PR doc work was not redone** — the §4/§6 markers, the §4 change-log row, step 4
+eleven places. **The in-PR doc work was not redone** — the §4/§6 markers, the §4 change-log row, step 4
 marked done, the header rewrite and the count table were checked and are correct. The table was
 re-derived from the tree rather than trusted: `game/` **811**, `render/` **171**, `session/` **28**,
 `tests/unit/` **157**, **1167** total, **38** E2E (19 declarations × 2 projects). All six match.
@@ -88,13 +88,26 @@ markers have the "the PR that changes the code owes the edit" rule. The instrume
 **no mechanism stops the next metric from outliving its validity**, and unlike the other two it
 cannot be automated, because only a measurement can falsify a measurement.
 
-**Learned — the reconcile is not triggered by anything, and it cost three issues.** PR #113 (#107)
+**Learned — the reconcile is not triggered by anything, and it cost four issues.** PR #113 (#107)
 merged **without** a docs pass; the next PR was #119. So #115, #116, #117 and #118 — all from #113's
 playtest — never reached `ROADMAP.md`, and three of the four were in **no milestone at all**, which
 the roadmap itself says makes an issue invisible to `gh issue list --milestone`. The "wager is
 illegible" family therefore read **ten from four playtests** when it was thirteen from six. Fixed,
 but the mechanism is untouched: the convention is one reconcile per code PR and nothing enforces it,
 so the roadmap's queue-visibility claims are only as good as the last person who remembered.
+
+**And the same sweep found a fifth: #112 has been in Contract and tooling since PR #111 and had never
+been listed there.** The roadmap's count read fifteen, then sixteen with #120; it is **seventeen**.
+That list has now been wrong the same way four times (#76/#78, then #12, then #112) and always by
+*undercounting* — so the list is a summary of the milestone and never a substitute for it. **The only
+check that works is re-deriving from `gh issue list --milestone`, which is what caught this**, and
+the roadmap now says so at the count rather than in a paragraph further down.
+
+**Worth knowing for the next reconcile: #112 is unresolved and it is about *this* job.** The journal
+is append-only; the roadmap approvingly cites a PR that struck a merged entry through in place. Two
+remedies, one situation. This pass appended and touched no existing entry — consistent with #111 and
+not with #104 — but that is a choice, not a rule, and it will be made differently again until #112
+rules.
 
 **The family's own measurement came back, and it is a 0.** The bullet said: *"the measurement that
 would settle it is the next broad playtest — the one after #83… if it returns six again, 'the wager

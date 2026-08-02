@@ -92,10 +92,23 @@ already anticipated and rejected once. Ruling it again is, on its face, moving t
 
 It loses on the specific evidence rather than on principle. The trip-wire's premise was that #83
 would either make the wager tense or prove it cannot be made tense. Neither happened: #83 measurably
-fixed the thing it was aimed at (the retreat exploit is no longer optimal — 17 turns and −9 fuel
-against 9 turns and +6; 0 fuel went from 143 inert turns to lethal in 6) and revealed that the
-*diagnosis* had been one layer short. The fallback exists for a concept that does not work, not for a
-project that has now twice found the wrong layer of a working one.
+fixed a thing it was aimed at, and revealed that the *diagnosis* had been one layer short. The
+fallback exists for a concept that does not work, not for a project that has now twice found the
+wrong layer of a working one.
+
+**One qualification on that evidence, because a first draft of this ADR used the same measurement two
+ways that cannot both hold.** The A/B from PR #119 — walking away 17 turns and −9 fuel against
+standing's 9 turns and +6 — was cited here as *"the retreat exploit is no longer optimal"*, while GDD
+§4 cites the same save point as leaving a sleeper worth 20 ember. Both cannot be read as the whole
+ledger. **The reading that survives, and it is the one GDD §4 now states:** the A/B was run to the
+moment each line *resolved*, and the walk-away line resolved with the creature asleep and alive, so
+**the −9 excludes a refund that was still available.** With it, walking away is roughly +11 for about
+four more turns of walking, against standing's +6 and 2 HP. **So the optimum moved much less than the
+A/B alone suggests, and this ADR does not lean on it.** What it leans on instead is the one #83 result
+that is unambiguous and was measured end to end: **0 fuel went from 143 inert turns with no way to
+finish to a dead run in 6.** That is a total reversal, it is not a partial ledger, and it is enough to
+carry *"#83 fixed a thing it was aimed at"* on its own. Recorded rather than quietly reworded, because
+the weaker reading is the honest one and the next session should inherit it.
 
 It also loses on what it costs to be wrong. Spending §12 is not a tuning pass — §12 itself says so,
 and #63's ruling says so at length: it is a different enemy, a different generator and a different
@@ -132,6 +145,7 @@ above is two named arms and a bound rather than a ruling on one playtest.
 
 ## The signal that this was wrong
 
-The playtest after #123 names no tense turn, or reports the lantern being opened only when lost. Then
+The next **broad** playtest after #123 names no tense turn, or reports the lantern being opened only
+when lost. Then
 the fallback is spent, on the terms above, with no further evidence required — and this ADR was a
 milestone's delay bought for nothing.

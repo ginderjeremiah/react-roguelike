@@ -109,13 +109,36 @@ if §2 breaks is not an instrument; it is a standing invitation to break §2 in 
 is a sharper failure than the one it replaces: the old metric was set by the *player*, this one is
 set by the *rules*. Both are unfalsifiable, for opposite reasons.
 
-What replaces it is two arms with two signals, because pretending one number covered both is what
-went wrong the first time. **Too weak: the count of creatures a run woke and then banked ember from
-at no HP cost — it must be zero, and one instance falsifies the ruling.** Assertable over
-`economy.test.ts`'s corpus *and* observable by a playtester. **Too strong: a playtest reporting the
-lantern opened only when lost** — VISION's own failure condition, and the arm that spends §12 rather
-than a constant. Neither is a number the player can set: they ask *what did the wake cost*, which is
-a question about the rules, not about where the player put their feet.
+**And then I did it again, one paragraph later, and review caught it.** The first replacement was two
+arms, and its too-weak arm was *the count of creatures a run woke and then banked ember from at no HP
+cost — must be zero, one instance falsifies*. The `code-reviewer` proved that is **zero by
+arithmetic**: `creatures.ts` gives the Cinder 5 HP, `player.ts` gives the player attack 3, so a woken
+Cinder needs two strikes — and by this ruling's own proof you are adjacent at your decision point
+only *after* it has declared on your tile, so the first strike always eats 2 damage. **Every woken
+kill costs exactly 2 HP in every reachable state of this build.** So #123 had been handed, as "the
+assertion that matters most", a corpus assertion that cannot fail.
+
+**Three metrics, three ways of being unfalsifiable: set by the *player*, set by the *rules*, set by
+the *numbers*.** Writing the principle down did not stop me applying it to someone else's proposal
+and not to my own, in adjacent paragraphs. The transferable test §4 now carries: **name the state of
+the world in which this number comes back different — if you cannot, it is a guard, not a
+measurement.** And the specific lesson, which is the part that generalises: *the author of a metric
+is the worst-placed person to check whether it can move.* Check it against `game/content/`.
+
+**The fix was to stop looking for a fourth number.** §4 now watches **one** arm — too strong, a
+playtest reporting the lantern opened only when lost — and states that **the too-weak arm is
+structurally closed**: #83's version of it was *the wake has no consequence*, and after deleting
+re-dormancy that cannot happen. A thing that cannot happen does not need a number watching for it,
+and inventing one is how a fourth dead metric gets left in place. The zero-count claim survives
+**relabelled as a regression guard** — there to fail *later* if #109's re-tune or a creature with
+≤3 HP reopens a free-kill route. Alongside it, an explicitly non-triggering **band** to observe: HP
+spent on woken creatures per floor, against the +2 a descent returns. The exchange rate is fixed by
+the numbers; **how many wakes a run chooses to pay for is not**, which is why that one can move.
+
+**One claim withdrawn as false rather than softened:** "assertable over `economy.test.ts`'s corpus".
+That file and `lantern-run.ts` record per-floor fuel income, demand and dry-out turns, with **no
+per-creature wake or HP attribution** — so the guard is not buildable without instrumentation, and
+§4 now says #123 owns it or the guard is not an acceptance criterion at all.
 
 **§12's trip-wire: ruled that it did not fire.** The roadmap said that if M2's playtest also could
 not sign the criterion, with #83 landed and measured, that spends §12. All three conditions held, so
@@ -157,12 +180,24 @@ re-recorded once, for #83; read its header before touching it.
 
 **Watch:** **this ruling is unbuilt and unplayed, and it is a bigger swing than #83.** #83 changed
 what a woken creature does; this changes how long the consequence lasts, permanently, and it removes
-the only recovery the design offered. The costs are stated in §4 rather than discovered later —
-darkness stops being restorative; a waking arrival (one floor in five) loses the answer §4 used to
-hand it; **invariant 4's gap widens**, because a flashing style now pays HP for every creature it
-lights while a never-flash fighter still one-shots everything it meets, which makes `CACHE_FUEL` more
-load-bearing and adds a question to #109; and **auto-travel is disabled for the rest of a floor
-rather than for eight turns**, which #65 must be built knowing.
+the only recovery the design offered.
+
+**The largest cost was the one the first draft did not list, and review supplied it: HP is the only
+resource with no in-floor recovery** (§3 — no healing within a floor, +2 on descent, max 12). This
+ruling redenominates the flash's price in it, so every wake is now ≥2 HP or the stairs. The
+demonstration was already in §4's own history: *"on floor 8, three flashes woke five Cinders at 10 HP
+and the situation resolved into fuel 23 → 60 with no damage taken."* **Under this ruling that same
+situation is ≥10 HP of forced fighting at 10 HP — a dead run.** A run can light and resolve roughly
+**13 creatures across eight floors** against ~34 met. That is a far sharper statement of the
+too-strong arm than anything the ruling originally wrote, it was already measured, and §4 now leads
+its cost list with it.
+
+The rest, stated in §4 rather than discovered later: darkness stops being restorative; a waking
+arrival (one floor in five) loses the answer §4 used to hand it; **invariant 4's gap widens**, because
+a flashing style now pays HP for every creature it lights while a never-flash fighter still one-shots
+everything it meets, which makes `CACHE_FUEL` more load-bearing and adds a question to #109; and
+**auto-travel is disabled for the rest of a floor rather than for eight turns**, which #65 must be
+built knowing.
 
 The arm to watch hardest is **too strong**. If every wake becomes a forced fight, the flash stops
 being a wager and becomes a bill — and unlike #83, there is no constant left to turn down, because

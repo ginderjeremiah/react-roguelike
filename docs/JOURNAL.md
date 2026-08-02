@@ -57,6 +57,87 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-08-01 — #107: the flash's receipt prints the goods as well as the price
+
+**Did:** Build-order **step 3a**, closing **#107**. A turn that both wakes and pays now says both, on
+one line, in two sentences — `Two things wake. You gather 21 ember.` — at the wake's own `alarm`.
+`components/play/messages.ts` only; `game/`, `render/` and `session/` are untouched, because the cue
+vocabulary was already sufficient and this was copy and precedence from the start. The
+`game-designer`'s ruling is in GDD §4 (two blocks), §10 (the level table plus a new ruling block) and
+the change log; `docs/ROADMAP.md`'s step 3a is marked done and no longer says the precedence is
+unruled.
+
+**Why:** #31/#41 made the pickup condition *ever lit* while the shutter stayed a **free action**, so
+opening the shutter on an unlit cache underfoot lights the tile and pays it on the same press — and
+that press wakes what the light touches, by construction, because the flash is what lit the tile.
+`woke` outranks recency and `You gather N ember.` lives in recency, so the turn read `Two things
+wake.`, the `♦` was never drawn for a frame, and the only evidence a cache had existed was `FUEL 66 →
+87`. **The old precedence argument in `describeTurn` was never wrong; its premise expired** — every
+line of it reasons about `woke` against `shutterChanged`, and it was written when a cache could be
+taken only by *stepping onto* one, which wakes nothing. That is now said in the docstring rather than
+deleted, because the superseded reasoning is the part a future session cannot reconstruct.
+
+**No fourth tier, and that is the load-bearing half of the ruling.** A tier list is a total order over
+which *single* fact gets said, and this turn has two, so reordering only moves the silence from the
+goods to the price — and the only ordering that fixes #107 (`fuelGained` above `woke`) inverts §4's
+own accounting and gets *worse* under #83, where the suppressed sentence stops being a fact and
+becomes a hunter. The rule change — *the shutter may not pay a cache underfoot* — lost in §4 for
+rebuilding the step-off-step-back autopilot the *ever lit* clause exists to prevent; it is recorded
+there as rejected so it is not re-proposed.
+
+**Implementation note worth carrying:** the second clause is read from `describeCue({kind:
+'fuelGained'})` rather than re-written, and the level is still `{ ...one, text }` off the winning
+`woke` cue. So there is one copy of the receipt's wording, and #94's constraint — *the level is never
+decided by matching on text* — is untouched. There is deliberately **no compounding mechanism**: one
+pair, one `withReceipt` helper, and the next pair would be a ruling rather than a config change.
+
+**Learned:** the real-run corpus invariant (`woke` ∨ player `damaged` ∨ player `died` → `alarm`) was
+the binding constraint on the ruling and it did not change shape — but it also **did not catch a
+mutation that levelled the compound a `report`**, because none of the three corpus runs contains a
+turn with both a `woke` and a `fuelGained`. The invariant is real; its corpus is not yet wide enough
+to exercise this turn shape. That is why #107's repro is replayed through `session/` as its own unit
+test, with the seed passed explicitly, rather than being left to Playwright.
+
+**Also learned:** the old "fits the line at its longest" test was baselined against `The shutter
+opens. Light spills out.` at 36 characters, so the compound would have failed it *for the right
+reason at the wrong threshold*. It is replaced by §10's measured budget of **41** — asserted over
+every reachable count (1..6) and amount, with the longest line **derived** by enumerating the copy
+rather than transcribed, so a reworded sentence moves the number instead of going stale. The longest
+producible line today is `Three things wake. You gather 41 ember.` at 39; the descend compound #94
+rejected is 43 and wraps.
+
+**Learned — #50's mechanism, caught live and in one hop.** This PR was first written dated
+**2026-08-02**, in eight places across three docs. The real date is **2026-08-01**, and every other
+ruling this session — #94's, #31/#41's — is correctly dated 08-01. The route is exactly the one #50
+describes and is worth writing down because it took **two** agents and neither was careless: the
+`game-designer` put 2026-08-02 on the ruling, and the `ui-engineer` then dated the journal entry to
+match, saying so explicitly — *"the environment reports today as 2026-08-01; I matched the tree, not
+the clock."* That is the honest, wrong call, and it is honest-and-wrong for a reason worth naming:
+**matching the tree is normally right.** It is how you avoid contradicting a merged record. It only
+fails when the tree is the thing that is wrong, and there is no way to tell those apart from inside
+the file — which is the whole argument for #50, restated by an instance of it.
+
+Corrected to 08-01 everywhere in this PR. The pre-existing 2026-08-02 rows in §4's change log are
+**not** touched: they belong to the fabricated-date era the journal's header note describes, #50 owns
+reconciling them, and repairing half a table silently is worse than leaving it legibly broken.
+Sharper rule than "read a clock", since both agents technically had one: **a new date must come from
+the clock even when a neighbouring record disagrees — and if it disagrees, that is a finding, not a
+formatting question.**
+
+**Next:** **#83 — a woken Cinder pursues**, which is step 4 and the ruling the whole build order
+exists to reach.
+
+**Watch:** three signals with three different fixes, all in §10's Watch. If a playtest reports reading
+only the first sentence and being surprised by the fuel anyway, the words are the wrong instrument and
+the answer is a spatial beat — an `at` on `fuelGained` plus #82's pulse, filed then and not before.
+If the line wraps at the default text size on any supported viewport, the 41-character budget is wrong
+and **the second clause is what gets cut**, never the wake. And once #83 lands, if a playtest reports
+missing the hunter on compound turns specifically — with plain wake turns as the control — the second
+clause is stealing the glance and it goes. Separately: the E2E for this is the **one recorded route**
+in the suite, which `support/drive.ts` warns dies silently at #47. Every waypoint is asserted so it
+fails loudly instead, and the unit-tier replay of the same route passes its seed explicitly, so the
+rule survives even if the spec has to be re-recorded.
+
 ## 2026-08-01 — Reconcile after #106: the build order gained a step, and a table nobody updates
 
 **Did:** Archivist pass over `main` at `0baacfd`. Touched `ROADMAP.md`, `GDD.md` (§4 twice, §10 once)

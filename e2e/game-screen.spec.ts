@@ -7,6 +7,7 @@ import {
   playerTile,
   press,
   pressAt,
+  pressCell,
   pressTile,
   pressWithin,
   touch,
@@ -595,6 +596,138 @@ test('one control, two volumes: a flash that wakes is drawn louder than one that
     expect(Math.abs(box!.y - resting!.y), `the board moved ${when}`).toBeLessThanOrEqual(1);
     expect(Math.abs(box!.height - resting!.height), `the board resized ${when}`).toBeLessThanOrEqual(1);
   }
+});
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
+ * #107's REPRO, PRESSED — the one route in this suite, and why it is allowed to be one
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * Everything else here walks greedily or wanders, because `support/drive.ts` records that a recorded
+ * route dies **silently** the day #47 replaces the fixed seed — as "the control never appeared".
+ * This test is the exception, and it is deliberate: #107 is a defect about **one turn shape**, and
+ * the shape only exists where an unlit cache is under your feet at the moment the flash lands. A
+ * wanderer cannot find that, and a spec that searched for it would be routing.
+ *
+ * The route below is the issue's own, pressed cell by cell on seed `emberdepth`. What makes it safe
+ * rather than silent is that **every waypoint is asserted**: where the player ends up, the fuel, the
+ * turn count. If floor generation ever moves, this fails naming the tile it expected, not by quietly
+ * flashing at nothing. `tests/unit/play-messages.test.ts` replays the same route through `session/`
+ * with the seed passed explicitly, so the *rule* survives #47 even if this spec has to be re-recorded.
+ */
+type Cell = readonly [number, number];
+
+/**
+ * Thirteen steps in the dark from the opening tile onto an unlit cache at (9,7).
+ *
+ * Walking onto it pays **nothing** — that is #31/#41 working, not a bug — so the cache is still
+ * there when the shutter opens.
+ */
+const ONTO_THE_CACHE: readonly Cell[] = [
+  [2, 2], [3, 2], [4, 2], [4, 3], [5, 3], [6, 3], [7, 3],
+  [8, 3], [8, 4], [8, 5], [8, 6], [9, 6], [9, 7],
+];
+
+/**
+ * The same walk, detouring to kill both Cinders in the dark before standing on the cache.
+ *
+ * §3's dormant strike one-shots a sleeper, so each creature takes one press to kill and one more to
+ * step onto the tile it was holding. This is the **control**: the identical flash, on the identical
+ * tile, with nothing left to wake.
+ */
+const KILL_THEM_FIRST: readonly Cell[] = [
+  [2, 2], [3, 2], [4, 2], [4, 3], [5, 3], [6, 3], [7, 3],
+  [8, 3], [8, 4], [8, 5], [8, 6], [9, 6],
+  [10, 6], [10, 6], [9, 6], [9, 7], [8, 7], [8, 7], [9, 7],
+];
+
+/**
+ * The two sentences, written out rather than imported, and that is the point of this tier.
+ *
+ * `play-messages.test.ts` derives every expectation from the code that produces it, which is right
+ * for a unit test and useless here: an E2E that asked `describeTurn` what to expect would agree with
+ * a `describeTurn` that had dropped the receipt again. So these are transcribed from #107 — the line
+ * the issue observed, and the line its control observed — and they can fail in both directions.
+ */
+const COMPOUND = 'Two things wake. You gather 21 ember.';
+const RECEIPT_ALONE = 'You gather 21 ember.';
+
+async function walk(page: Page, route: readonly Cell[]): Promise<void> {
+  for (const [x, y] of route) await pressCell(page, x, y);
+}
+
+test('a cache the flash paid for is announced, on the same line as the wake it caused (§10, #107)', async ({
+  page,
+}) => {
+  test.slow();
+
+  // ═══════════════════════════════════════════════════════════════════════════════════════════════
+  // THE PRESS THAT PRINTED THE PRICE AND NOT THE GOODS
+  // ═══════════════════════════════════════════════════════════════════════════════════════════════
+  //
+  // §4's cache rule (#31/#41) pays a cache once its tile has *ever* been lit, and the shutter is a
+  // free action — so opening it while standing on an unlit cache lights the tile and pays it on the
+  // same press, and that press wakes what the light touches, because the flash is what lit the tile.
+  // `woke` outranks recency, so the turn read `Two things wake.` and the pickup was announced by
+  // nothing: the `♦` is never drawn for a frame, and the only evidence was `FUEL 66 → 87`.
+  await boot(page);
+  const line = page.getByTestId('status-line');
+  const shutter = page.getByTestId('control-shutter');
+  const row = {
+    alarm: page.getByTestId('status-line-alarm'),
+    report: page.getByTestId('status-line-report'),
+  };
+
+  await press(page, shutter);
+  await expect(page.getByTestId('hud-shutter')).toHaveText('SHUT');
+  await walk(page, ONTO_THE_CACHE);
+
+  // Every waypoint asserted, so a route that stopped working says so instead of flashing at nothing.
+  // The empty line is a real claim as well as a landmark: the last press was an ordinary step in the
+  // dark, and standing on an unlit cache paid nothing and said nothing — which is #31/#41 working.
+  expect(await playerCell(page), 'the walk did not end on the cache tile').toEqual({ x: 9, y: 7 });
+  await expect(page.getByTestId('hud-fuel')).toHaveText('66');
+  expect(await turn(page)).toBe(13);
+  await expect(line, 'the dark pickup must pay nothing and say nothing').toHaveText('');
+
+  await press(page, shutter);
+
+  // BOTH sentences, in order, on one row. Before #107 this read `Two things wake.` and the 21 fuel
+  // arrived from a source the player never saw: no glyph, no body, one net number on the meter.
+  await expect(line).toHaveText(COMPOUND);
+  await expect(page.getByTestId('hud-fuel')).toHaveText('87');
+
+  // And it is an `alarm` — read off the DOM as an attribute rather than out of computed styles, so
+  // this asserts §10's rule and survives M4 repainting the screen. A compound levelled off the
+  // *receipt* would draw as a `report` and quietly demote a wake, which is #94's defect arriving
+  // through #107's fix.
+  await expect(row.alarm, 'a wake is an alarm even when it brought spoils').toHaveCount(1);
+  await expect(row.report).toHaveCount(0);
+
+  // ═══════════════════════════════════════════════════════════════════════════════════════════════
+  // THE CONTROL. #94's LESSON: A COMPOUND THAT ALWAYS APPEARS PROVES NOTHING ABOUT THE WAKE
+  // ═══════════════════════════════════════════════════════════════════════════════════════════════
+  //
+  // Same seed, same cache, same press — with the two Cinders killed in the dark first, so the flash
+  // wakes nothing. The receipt must now stand alone, and quietly. Without this the assertions above
+  // pass just as well against an implementation that appends the receipt to everything, or against
+  // one that draws every flash as an alarm.
+  await boot(page);
+  await press(page, shutter);
+  await expect(page.getByTestId('hud-shutter')).toHaveText('SHUT');
+  await walk(page, KILL_THEM_FIRST);
+
+  expect(await playerCell(page), 'the control walk did not end on the cache tile').toEqual({
+    x: 9,
+    y: 7,
+  });
+  // Two kills at 19 net each on top of the 66 above: the detour is real and both Cinders are dead.
+  await expect(page.getByTestId('hud-fuel')).toHaveText('100');
+
+  await press(page, shutter);
+  await expect(line).toHaveText(RECEIPT_ALONE);
+  await expect(row.report, 'a pickup nobody woke for is a report').toHaveCount(1);
+  await expect(row.alarm).toHaveCount(0);
 });
 
 test('at 0 fuel the shutter control shows itself dead rather than doing nothing', async ({

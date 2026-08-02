@@ -1,5 +1,5 @@
 /**
- * What a Cinder decides to do, and when it wakes or goes back to sleep. GDD §4 and §6.
+ * What a Cinder decides to do, and when it wakes. GDD §4 and §6.
  *
  * ═══════════════════════════════════════════════════════════════════════════════════════════════
  * DECLARING IS NOT DOING
@@ -26,25 +26,22 @@
  *
  * ## The behaviour, from §4 and §6
  *
- * > Waking it is what tells it where you are, and it does not forget. A woken Cinder comes for you;
- * > eight turns (tuning) after the last one in which it saw your light or stood next to you, it
- * > sleeps where it stands.
+ * > Waking it is what tells it where you are, and it does not forget. A woken Cinder comes for you,
+ * > and it does not stop. You kill it or you take the stairs.
  *
- * Three cases, in order:
+ * Two cases:
  *
- *   1. settle the counter  → `0` on contact, otherwise one more than last turn
- *   2. counter at 8        → return to dormant, and leave the schedule
- *   3. otherwise           → adjacent: attack the player's tile · not adjacent: step toward it
+ *   1. adjacent      → attack the player's tile
+ *   2. not adjacent  → step toward it
  *
- * **Case 3 does not look at contact**, and that is the whole rule in one line: an awake creature
- * paths toward the player every turn, lit or shuttered, near or far. There is no last-known tile, no
- * search, and no state in which it holds still. `stepToward` returning `null` — walled off, or every
- * improving step occupied — still yields a wait, but that is "no legal step this turn" rather than a
- * hold-still state: the counter keeps running underneath it and the creature sleeps on schedule.
+ * **Neither case looks at light**, and that is the whole rule in one line: an awake creature paths
+ * toward the player every turn, lit or shuttered, near or far, for the rest of the floor. There is
+ * no last-known tile, no search, no clock, and no state in which it holds still. `stepToward`
+ * returning `null` — walled off, or every improving step occupied — still yields a wait, but that is
+ * "no legal step this turn" rather than a hold-still state, and the creature is still awake and
+ * still coming the moment a step opens up.
  *
- * The counter is the one thing that still runs on *contact* rather than on pursuit (§4, explicitly).
- * So a creature that catches you starts its eight over, and one you hold at arm's length in the dark
- * falls asleep — wherever the chase left it, as a fresh dormant-strike target.
+ * The one thing this function still refuses to do is walk to a corpse; see `pursue`.
  *
  * ═══════════════════════════════════════════════════════════════════════════════════════════════
  * SUPERSEDED — the rule this replaced, and why it is recorded rather than deleted (#83)
@@ -77,45 +74,69 @@
  * The prediction was right and its scope was one case too narrow. See GDD §4, which also records the
  * two fixes that were considered and rejected (a distance requirement; cutting re-dormancy outright).
  * ═══════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
+ * SUPERSEDED (2) — the clock this file used to run, and why #83 kept it and #121 deleted it
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * The block above is #83's and describes the *parking*. This one is #121's and describes the
+ * *clock*. Both are kept; the file carries two layers of superseded reasoning because the rule was
+ * corrected twice, and the second correction is a reversal of a decision the first one made
+ * deliberately.
+ *
+ * Until 2026-08-02 this function had a third case in front of the two that remain:
+ *
+ *   1. settle the counter  → `0` on contact, otherwise one more than last turn
+ *   2. counter at 8        → return to dormant, and leave the schedule
+ *
+ * `TURNS_TO_REDORMANCY = 8` (tuning) was the constant, `Mind.turnsSinceContact` the field that
+ * carried it, and *contact* — adjacency **or** the player's light, in the deleted `contact.ts` —
+ * was what reset it. **`LightQuery` existed for that one question**, which is why deleting the
+ * clock deletes the entity layer's whole notion of light along with it: nothing left in
+ * `game/entities/` asks whether a tile is lit. §2 phase 3's waking still does, and it always did it
+ * from the lit radius rather than from `hasContact` (`systems/actors.ts` says why: adjacency waking
+ * a sleeper would delete the dormant strike), so the query moved to `game/systems/light.ts`, which
+ * is where the real one was always built.
+ *
+ * **#83 kept the clock on purpose and its reason was good.** Cutting it outright was #83's runner-up
+ * and lost on one sentence: *"a permanently-awake parked Cinder is furniture you route around; the
+ * decision rate does not move"*, plus the cost that darkness stops being restorative. #83 then
+ * deleted parking, which falsified the first half of its own argument — a permanently-awake
+ * *pursuing* Cinder is the opposite of furniture — and the exit playtest measured the second half as
+ * a refund of a price that had never been charged.
+ *
+ * **What #121 measured, and why the deletion is upstream of behaviour.** The post-#83 playtest found
+ * 0 damage across ~30 turns of active flight, and the ruling is that this can never be fixed by
+ * making the creature better: under §2 a creature's action is fixed before the player's command and
+ * resolved after it, and an attack names a *tile*, so from adjacency a creature can name its own
+ * four neighbours while the player chooses their own four — and those sets intersect only in the
+ * tile the player is standing on and leaving. Cadence, geometry-aware pathing and attacks of
+ * opportunity are all rejected in GDD §4's *Why a pursuer will never hit a moving player*, two of
+ * them on Pillar 2. The defect was never the chase: **fleeing was also *doing something*.** Eight
+ * turns of walking converted a hunter back into a sleeper and pursuit delivered it to the player's
+ * feet, so declining a fight was a profitable strategy rather than a delay.
+ *
+ * So the clock is gone and a woken creature is awake for the rest of the floor. The consequences are
+ * recorded in §4 rather than here, but two belong next to the code: **darkness is no longer
+ * restorative** — the dark gives you sleepers you never woke and nothing else — and **the dormant
+ * strike is now the reward for never having lit something**, because a creature you woke can only
+ * ever be killed awake.
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
  */
 
 import type { Position } from '../map';
-import { ACTION_COST, addActor, hasActor, removeActor, type ActorId } from '../systems/schedule';
+import { ACTION_COST, addActor, hasActor, type ActorId } from '../systems/schedule';
 import {
-  DORMANT,
   isAdjacent,
   isAlive,
   WAIT,
+  type AwakeMind,
   type CreatureActor,
   type Intent,
-  type Mind,
   type PlayerActor,
 } from './actor';
 import { stepToward } from './pathing';
-import { hasContact, type LightQuery } from './contact';
 import { playerOf, withActor, withSchedule, type ActorWorld } from './world';
-
-/**
- * §4/§6: "after 8 turns (tuning) with no light and no adjacency it returns to dormant." Counted at
- * declaration, so it is 8 of the creature's own turns.
- *
- * **(tuning)**, and now the game's single most important number — it is the entire length of the
- * consequence of a flash. §4 holds it at 8 and names the measurement that would move it: *the
- * fraction of woken creatures that reach adjacency at least once before re-dormanting.* Near 1 and
- * the 8 is too long.
- *
- * **It is a dial for one arm of the watch only.** If pursuit turns out to be too weak — a pursuer
- * that starts four tiles off and never closes, because the player and a creature share
- * `ACTION_COST` — raising this number lengthens the chase instead of tightening it, and buys
- * adjacency only in walking turns. §4 says the fix there is something not yet named (cadence, or
- * geometry-aware pathing) and needs its own ruling.
- *
- * The watch this docblock used to quote — *"the fix is a distance requirement, not a fuel tax"* —
- * **has fired and its prescription was rejected** (§4, and the superseded block in this file's
- * header): the measured degenerate case was already at distance, so requiring more of it would only
- * have lengthened the retreat it was meant to stop.
- */
-export const TURNS_TO_REDORMANCY = 8;
 
 /** A step toward `goal`, or a wait if there is no legal step. */
 function moveOrWait(world: ActorWorld, creature: CreatureActor, goal: Position): Intent {
@@ -125,42 +146,37 @@ function moveOrWait(world: ActorWorld, creature: CreatureActor, goal: Position):
 
 /**
  * The mind this creature should hold after declaring — the whole of §6's behaviour, as a pure
- * function of the world, the creature, and what it can perceive.
+ * function of the world and the creature.
  *
- * Pure and returning a `Mind` rather than a world, so that the decision can be tested directly
- * against a hand-built situation without a schedule, and so that the scheduling consequences of
- * falling asleep live in exactly one place (`setMind`).
+ * Pure and returning a mind rather than a world, so that the decision can be tested directly against
+ * a hand-built situation without a schedule, and so that the scheduling consequence of a declaration
+ * lives in exactly one place (`setMind`).
+ *
+ * **It returns an `AwakeMind`, not a `Mind`, and that narrowing is the whole of #123.** There is no
+ * longer any path from awake back to dormant: a creature woken on a floor stays awake until it dies
+ * or the player takes the stairs. Widening this return type is what re-introducing the clock would
+ * look like, and it is a change nobody can make by accident.
  *
  * Called on a dormant creature too — that is what waking *is*, since an awake creature must hold an
- * intent (see `Mind`). A creature woken by light or by a strike therefore always has contact, so it
- * starts its clock at zero and declares against the player like any other awake creature.
+ * intent (see `Mind`). A creature woken by light or by a strike declares against the player like any
+ * other awake creature.
  *
- * **A dead player is the one case §4's ruling does not name.** `hasContact` already answers `false`
- * for one, deliberately, so that "creatures must not spend the intervening turns attacking a corpse"
- * (`contact.ts`) — but unconditional pursuit would have them *walk to* it instead, which routes
- * around that guard rather than honouring it. `turn.ts` halts the actor sweep on the killing blow, so
- * this is close to unreachable; "close to" is not a rule, so the declaration is gated and the
- * creature waits out its clock over the body.
+ * **A dead player is the one case §4's ruling does not name**, and it is the reason `pursue` has a
+ * gate rather than two lines. `turn.ts` halts the actor sweep on the killing blow, so this is close
+ * to unreachable; "close to" is not a rule, so the declaration is gated and the creature stands over
+ * the body instead of swinging at it or walking to it.
  */
-export function nextMind(
-  world: ActorWorld,
-  creature: CreatureActor,
-  light: LightQuery,
-): Mind {
-  const player = playerOf(world);
-
-  const turnsSinceContact = hasContact(world, creature, light)
-    ? 0
-    : (creature.mind.kind === 'awake' ? creature.mind.turnsSinceContact : 0) + 1;
-
-  if (turnsSinceContact >= TURNS_TO_REDORMANCY) return DORMANT;
-
-  return { kind: 'awake', intent: pursue(world, creature, player), turnsSinceContact };
+export function nextMind(world: ActorWorld, creature: CreatureActor): AwakeMind {
+  return { kind: 'awake', intent: pursue(world, creature, playerOf(world)) };
 }
 
 /**
- * §4: adjacent, it swings; otherwise it closes. Contact does not enter into it — a corpse is the
- * only thing that stops it, and only because `contact.ts` already refuses to see one.
+ * §4: adjacent, it swings; otherwise it closes. Nothing else enters into it — not light, not
+ * distance, not how long it has been awake. A corpse is the only thing that stops it.
+ *
+ * The dead-player gate was #83's and survives #123 unchanged. Without it, "creatures must not spend
+ * the intervening turns attacking a corpse" would be honoured by the attack branch and routed around
+ * by the movement branch, which is worse than not having the rule.
  */
 function pursue(world: ActorWorld, creature: CreatureActor, player: PlayerActor): Intent {
   if (!isAlive(player)) return WAIT;
@@ -169,28 +185,25 @@ function pursue(world: ActorWorld, creature: CreatureActor, player: PlayerActor)
 }
 
 /**
- * Write a creature's new mind into the world and reconcile the schedule to it.
+ * Write a creature's newly declared mind into the world and put it in the schedule if it is not
+ * already there.
  *
- * The reconciliation is the invariant from `world.ts` — *scheduled ⟺ alive and (player or awake)* —
- * enforced in one place rather than remembered at each of the three call sites that change a mind.
+ * This is one half of the invariant from `world.ts` — *scheduled ⟺ alive and (player or awake)* —
+ * and since #123 it is the only half that can fire: nothing takes a creature from awake to dormant,
+ * so nothing ever has to remove one from the queue for falling asleep. The other direction lives
+ * where it always did, in `resolveAttack`'s kill-time unschedule.
+ *
  * Waking joins the queue at `now + ACTION_COST`, which is what makes §2 phase 3 true: a creature
  * woken by the light you just opened **declares this turn and acts next turn**, never in phase 4 of
  * the turn it woke.
  */
-function setMind(world: ActorWorld, creature: CreatureActor, mind: Mind): ActorWorld {
+function setMind(world: ActorWorld, creature: CreatureActor, mind: AwakeMind): ActorWorld {
   const updated = withActor(world, { ...creature, mind });
-  const scheduled = hasActor(updated.schedule, creature.id);
-
-  if (mind.kind === 'awake' && !scheduled) {
-    return withSchedule(
-      updated,
-      addActor(updated.schedule, creature.id, updated.schedule.now + ACTION_COST),
-    );
-  }
-  if (mind.kind === 'dormant' && scheduled) {
-    return withSchedule(updated, removeActor(updated.schedule, creature.id));
-  }
-  return updated;
+  if (hasActor(updated.schedule, creature.id)) return updated;
+  return withSchedule(
+    updated,
+    addActor(updated.schedule, creature.id, updated.schedule.now + ACTION_COST),
+  );
 }
 
 /**
@@ -202,13 +215,9 @@ function setMind(world: ActorWorld, creature: CreatureActor, mind: Mind): ActorW
  * intent, or standing in the light next to one would re-declare its plan every turn and quietly
  * make it reactive.
  */
-export function wakeCreature(
-  world: ActorWorld,
-  creature: CreatureActor,
-  light: LightQuery,
-): ActorWorld {
+export function wakeCreature(world: ActorWorld, creature: CreatureActor): ActorWorld {
   if (!isAlive(creature) || creature.mind.kind === 'awake') return world;
-  return setMind(world, creature, nextMind(world, creature, light));
+  return setMind(world, creature, nextMind(world, creature));
 }
 
 /**
@@ -219,12 +228,8 @@ export function wakeCreature(
  * of the world is what guarantees the declaration is made from the state *after* resolution, which
  * is what §2 says ("then declares its next action from the state at that moment").
  */
-export function commitNextIntent(
-  world: ActorWorld,
-  id: ActorId,
-  light: LightQuery,
-): ActorWorld {
+export function commitNextIntent(world: ActorWorld, id: ActorId): ActorWorld {
   const creature = world.actors.find((actor) => actor.id === id);
   if (creature === undefined || creature.kind !== 'creature' || !isAlive(creature)) return world;
-  return setMind(world, creature, nextMind(world, creature, light));
+  return setMind(world, creature, nextMind(world, creature));
 }

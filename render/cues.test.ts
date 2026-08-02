@@ -315,44 +315,54 @@ describe('waking (§2 phase 3, §4: the whole cost of light)', () => {
     expect(current.lantern.vision.shutter).toBe('open');
   });
 
-  it('speaks again for a creature that went re-dormant and was woken a second time', () => {
-    // §4's other clause, and the reason the diff is on the *transition* rather than on a
-    // "has it ever been announced" flag: after eight turns of no contact the creature is a sleeper
-    // again, the player has been treating it as one, and it is a new hunter when it wakes.
+  it('speaks again for a second sleeper the first flash never reached', () => {
+    // ═══ PREMISE REWRITTEN BY #123; THE ASSERTION IS THE ONE IT ALWAYS HAD ═══
     //
-    // Played out for real: flash, shutter, and then **keep walking**, because since #83 a woken
-    // creature follows. Standing still would end in a fight rather than in re-dormancy — the player
-    // and a creature share `ACTION_COST`, so retreating step for step is the only way to hold it at
-    // arm's length until §6's `TURNS_TO_REDORMANCY` runs out. It trails four tiles back the whole
-    // way and never touches the player, so contact never resumes and it sleeps where the chase
-    // stopped: near the player, not on the tile the flash happened on.
+    // This used to be *"speaks again for a creature that went re-dormant and was woken a second
+    // time"*: eight turns of no contact made the hunter a sleeper again, and the second flash
+    // announced it as a new one. **A creature now wakes exactly once per floor**, so that premise
+    // cannot be constructed — but the clause it was testing is not about one creature, it is about
+    // the line still working later in a floor. Two flashes, two different sleepers, and the same
+    // assertion: the second flash speaks.
+    //
+    // It is the same argument for the diff being on the *transition* rather than on a per-floor
+    // "the wake line has been said" flag, and the negative half is asserted in the same run — the
+    // creature woken by the first flash is still awake and inside the second one's radius, and it
+    // must stay silent.
     const { state, scenario } = scenarioState(
-      ['##################', '#..........@..c..#', '##################'],
+      ['##################', '#c.........@..c..#', '##################'],
       { shutter: 'shuttered', perceive: false },
     );
-    const id = scenario.ids[0];
+    // Ids run row-major, so `ids[0]` is the far sleeper at (1, 1) and `ids[1]` is the near one the
+    // first flash reaches. Ten tiles apart, which is well outside `LIT_RADIUS` from the start.
+    const first = scenario.ids[1];
 
-    const first = step(state, { kind: 'setShutter', to: 'open' });
-    expect(cuesFor(state, first)).toContainEqual({ kind: 'woke', at: { x: 14, y: 1 } });
+    const flash = step(state, { kind: 'setShutter', to: 'open' });
+    expect(cuesFor(state, flash)).toContainEqual({ kind: 'woke', at: { x: 14, y: 1 } });
+    expect(creatureById(flash.world, first).mind.kind).toBe('awake');
 
-    let current = step(first, { kind: 'setShutter', to: 'shuttered' });
-    for (let turn = 0; turn < 12 && creatureById(current.world, id).mind.kind === 'awake'; turn += 1) {
+    // Shutter, and walk west while it chases. It never catches the player — same `ACTION_COST` —
+    // and, since #123, it never falls asleep either, so no `woke` may be said about it again.
+    let current = step(flash, { kind: 'setShutter', to: 'shuttered' });
+    for (let turn = 0; turn < 6; turn += 1) {
       const before = current;
       current = step(before, { kind: 'move', dir: 'west' });
       expect(kinds(cuesFor(before, current)), `turn ${turn}`).not.toContain('woke');
     }
-
-    // The premise: it really did fall asleep, in the dark, without ever reaching the player — and
-    // it did the chasing, so it is asleep eight tiles from where it was announced.
-    expect(creatureById(current.world, id).mind.kind).toBe('dormant');
-    expect(creatureById(current.world, id).at).toEqual({ x: 6, y: 1 });
+    expect(creatureById(current.world, first).mind.kind).toBe('awake');
     expect(playerOf(current.world).hp).toBe(playerOf(state.world).hp);
 
+    // The player is now at (5, 1) with the chaser at (8, 1) — both of them close enough to the
+    // second sleeper for one flash to cover the pair.
+    const chaserAt = creatureById(current.world, first).at;
     const again = step(current, { kind: 'setShutter', to: 'open' });
-    expect(cuesFor(current, again)).toContainEqual({
-      kind: 'woke',
-      at: creatureById(again.world, id).at,
-    });
+    const woke = cuesFor(current, again).filter((cue) => cue.kind === 'woke');
+
+    // The assertion this test has always carried: a later flash still announces what it wakes.
+    expect(woke).toEqual([{ kind: 'woke', at: { x: 1, y: 1 } }]);
+    // ...and says nothing about the one already coming, which is standing inside the same light.
+    expect(woke.some((cue) => cue.at.x === chaserAt.x && cue.at.y === chaserAt.y)).toBe(false);
+    expect(Math.abs(chaserAt.x - playerOf(again.world).at.x)).toBeLessThanOrEqual(4);
   });
 
   it('never reports a creature the light did not reach', () => {

@@ -57,8 +57,11 @@ import { resolveTurn } from './turn';
  * THE ASSERTION THIS FILE EXISTS FOR IS THE SYMMETRY ONE
  * ═══════════════════════════════════════════════════════════════════════════════════════════════
  *
- * `game/entities/` asks "is the player's light visible **from this tile**" — a creature's-eye
- * question — and `light.ts` answers it out of the player's-eye lit field. Those are the same set
+ * `LightQuery` asks "is the player's light visible **from this tile**" — a creature's-eye question,
+ * because §2 phase 3 wakes a sleeper from what *it* can see — and `light.ts` answers it out of the
+ * player's-eye lit field. (The question used to be asked from `game/entities/contact.ts`, and moved
+ * here with #123 when the entity layer stopped needing it; the asymmetry hazard is unchanged, which
+ * is why this block is.) Those are the same set
  * only because `shadowcast.ts` is symmetric, which is a choice that can be undone by a one-line
  * "generous FOV" tweak two milestones from now. The journal's own example of a bug worth writing
  * down is exactly this one: "enemies could see the player through walls the player couldn't see
@@ -105,10 +108,10 @@ function flip(state: LanternWorld): LanternWorld {
   return setShutterTurn(state, state.lantern.vision.shutter === 'open' ? 'shuttered' : 'open');
 }
 
-describe('the light query handed to game/entities/', () => {
+describe('the light query §2 phase 3 is resolved against', () => {
   it('answers false from everywhere while shuttered, including the tile you stand on', () => {
     // Darkness is the mechanic. A query that answered `true` while shuttered would delete the
-    // game's central decision rather than change a number (`entities/contact.ts`).
+    // game's central decision rather than change a number (`LightQuery`, in this file).
     const scene = parseScene(ROOM);
     const at = origin(scene);
     const light = lanternLight(scene.grid, lanternOn(scene.grid, 'shuttered'), at);
@@ -276,7 +279,7 @@ function turn(state: LanternWorld, to?: Position): LanternWorld {
       if (to === undefined) return charged;
       return {
         lantern: charged.lantern,
-        world: bump(charged.world, PLAYER_ID, to, lanternLight(charged.world.floor.grid, charged.lantern, playerOf(charged.world).at)),
+        world: bump(charged.world, PLAYER_ID, to),
       };
     }),
   );
@@ -286,8 +289,9 @@ function turn(state: LanternWorld, to?: Position): LanternWorld {
  * The single creature's awake mind, or a failure that says what it actually was.
  *
  * A helper rather than a chain of `&&`s in the assertion: a boolean chain collapses "the creature is
- * dormant" and "its contact counter is wrong" into the same `expected false to be 0`, which is how a
- * test ends up passing for the wrong reason after an unrelated change moves a creature out of range.
+ * dormant" and "it declared the wrong thing" into the same `expected false to be true`, which is how
+ * a test ends up passing for the wrong reason after an unrelated change moves a creature out of
+ * range.
  */
 function awakeMind(world: ActorWorld): Extract<Mind, { kind: 'awake' }> {
   const creature = world.actors.find((actor) => actor.kind === 'creature');
@@ -325,8 +329,7 @@ describe('phase 3: lighting and waking', () => {
       // It declared a real action *against the player*, not a placeholder wait: the Cinder is at
       // (4, 1) and the player at (1, 1), so the only declaration that counts is the step west. A
       // move to any other tile would be a creature that woke and wandered.
-      expect(woken[0].mind.intent).toEqual({ kind: 'move', to: { x: 3, y: 1 } });
-      expect(woken[0].mind.turnsSinceContact).toBe(0);
+      expect(woken[0].mind).toEqual({ kind: 'awake', intent: { kind: 'move', to: { x: 3, y: 1 } } });
     }
   });
 
@@ -355,16 +358,16 @@ describe('phase 3: lighting and waking', () => {
     expect(state.world.actors.filter(isAwake)).toHaveLength(1);
   });
 
-  it('centres phase 4 light on the PLAYER, not on some fixed tile', () => {
+  it('centres the waking light on the PLAYER, not on some fixed tile', () => {
     /**
-     * Found in review, and it is the same shape as the FOV suite's square grids: the test below
-     * uses `scenario()`, which sets `floor.entrance` to the `@` glyph — so in every ascii fixture
-     * `floor.entrance === playerOf(world).at`, and the player never moves during it. A phase-4
-     * query built from `floor.entrance` instead of the player's position is therefore
-     * indistinguishable, and it passed all 712 tests while genuinely changing behaviour.
+     * Found in review, and it is the same shape as the FOV suite's square grids: most tests here
+     * use `scenario()`, which sets `floor.entrance` to the `@` glyph — so in every ascii fixture
+     * `floor.entrance === playerOf(world).at`, and the player never moves during it. A query built
+     * from `floor.entrance` instead of the player's position is therefore indistinguishable, and it
+     * passed all 712 tests while genuinely changing behaviour.
      *
-     * Here the player walks two tiles off the entrance before the creature re-declares, so the two
-     * origins are four tiles apart and disagree about whether the creature is lit.
+     * Here the player walks two tiles off the entrance, so the two origins are four tiles apart and
+     * disagree about whether the creature is lit.
      *
      *   #############
      *   #@.....c....#   entrance (1,1) · creature (7,1)
@@ -372,67 +375,45 @@ describe('phase 3: lighting and waking', () => {
      *
      * Chebyshev 4 from the entrance reaches x=5 — the creature is out of it. From the player's
      * tile after two steps, (3,1), it reaches x=7 — the creature is in it.
+     *
+     * **Retargeted from phase 4 to phase 3 by #123**, which is where the question now lives: a
+     * declaration no longer consults the lantern at all, so `lightingAndWakingPhase` is the only
+     * place left that can get the origin wrong. The claim is unchanged and the mutant it kills is
+     * unchanged; only the phase that would carry it has moved.
      */
     const OFF_ENTRANCE = ['#############', '#@.....c....#', '#############'];
 
     let state = lit(OFF_ENTRANCE, 'open', 400);
     expect(state.world.floor.entrance).toEqual({ x: 1, y: 1 });
+    // Nothing is awake yet: from the entrance the creature is three tiles outside the lit radius.
+    expect(state.world.actors.filter(isAwake)).toHaveLength(0);
 
-    // Two paid steps to the right. The creature comes into the player's light and wakes.
+    // One paid step right leaves it still unlit from either origin — the negative control, which is
+    // what stops "it woke eventually" from being the whole of the assertion.
     state = turn(state, { x: 2, y: 1 });
+    expect(state.world.actors.filter(isAwake)).toHaveLength(0);
+
+    // The second step puts the creature inside Chebyshev 4 of the *player* and nowhere near the
+    // entrance's radius. A query centred on the entrance leaves it asleep here.
     state = turn(state, { x: 3, y: 1 });
     expect(playerOf(state.world).at).toEqual({ x: 3, y: 1 });
     expect(playerOf(state.world).at).not.toEqual(state.world.floor.entrance);
-
-    // It woke in phase 3, which uses the correct query in both versions — so nothing is proved yet.
-    // One more turn, with the player standing still, is the one where the creature *re-declares*
-    // in phase 4. That declaration is the only thing the mutated query touches.
-    const beforeDeclare = awakeMind(state.world).turnsSinceContact;
-    expect(beforeDeclare).toBe(0);
-
-    state = turn(state);
-
-    // The creature is lit from the player's tile and NOT from the entrance, so contact retained
-    // through a phase-4 declaration can only have come from a query centred on the player.
-    expect(playerOf(state.world).at).toEqual({ x: 3, y: 1 });
-    // `turnsSinceContact` is the *whole* observable since #83: an awake creature now paths toward
-    // the player whether or not it has contact, so its declared intent says nothing about which
-    // tile the light was measured from and only the counter does.
-    expect(awakeMind(state.world).turnsSinceContact).toBe(0);
+    expect(awakeMind(state.world).intent).toEqual({ kind: 'move', to: { x: 6, y: 1 } });
   });
 
-  it('lets a creature declaring in phase 4 see the light phase 3 just recomputed', () => {
-    // Found by mutation testing: replacing the light query the *actor* phase is given with a
-    // permanently-dark one left the whole suite green. Phase 3 wakes creatures with the right query,
-    // so the first declaration looked correct; every declaration after it silently behaved as though
-    // the shutter were shut. §4: "an awake creature knows the player's tile while the shutter is open
-    // **or** while adjacent" — under that mutant the light half is gone and only adjacency remains,
-    // which deletes §6's "the Cinder is drawn to light" one turn after it wakes.
-    //
-    // The observable is `turnsSinceContact`, which `nextMind` sets to 0 on contact and increments
-    // without it. The creature is four tiles away, so adjacency cannot be supplying the contact.
-    const SEEN_FROM_ACROSS_THE_ROOM = ['#######', '#@...c#', '#######'];
-
-    // Turn one only exercises phase 3: the creature wakes and joins the queue for *next* turn.
-    let state = turn(lit(SEEN_FROM_ACROSS_THE_ROOM, 'open', 200));
-    expect(awakeMind(state.world).turnsSinceContact).toBe(0);
-
-    // Turn two is the one that matters — the creature resolves and then re-declares, in phase 4.
-    // It has closed a tile and is three steps away, so adjacency cannot be the contact.
-    state = turn(state);
-    // The counter is the only thing left to read: since #83 a creature paths toward the player with
-    // or without contact, so the declared intent is the same under the mutant and cannot be the
-    // observable here.
-    expect(awakeMind(state.world).turnsSinceContact).toBe(0);
-
-    // The contrast, without which the assertions above pass for a creature that simply never loses
-    // contact: shutter the lantern between the two turns and the same creature at the same distance
-    // is out of contact immediately.
-    let dark = turn(lit(SEEN_FROM_ACROSS_THE_ROOM, 'open', 200));
-    dark = { world: dark.world, lantern: createLantern(dark.world.floor.grid, 'shuttered', 200) };
-    dark = turn(dark);
-    expect(awakeMind(dark.world).turnsSinceContact).toBe(1);
-  });
+  // ═══ DELETED BY #123, and recorded rather than quietly dropped ═══
+  //
+  // There used to be a test here called `lets a creature declaring in phase 4 see the light phase 3
+  // just recomputed`. It was found by mutation testing — replacing the light query the *actor*
+  // phase was handed with a permanently-dark one left the whole suite green — and its observable
+  // was `Mind.turnsSinceContact`, the re-dormancy clock.
+  //
+  // #123 deleted the clock, and with it the last reason phase 4 was handed a lighting at all:
+  // `actorPhase` takes no `LightQuery` any more, so the mutant it killed can no longer be written.
+  // The test is not rewritten into something that passes, because there is nothing left for it to
+  // assert: a declaration is `attack the tile the player is on if adjacent, otherwise step toward
+  // it`, and no lighting can change it. The one rule that still reads the lantern is phase 3's
+  // waking, and the test above is what pins its origin.
 
   it('folds this turn’s terrain into permanent memory, per vision state', () => {
     const shuttered = lightingAndWakingPhase(lit(ROOM_WITH_SLEEPERS, 'shuttered'));

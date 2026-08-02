@@ -223,8 +223,14 @@ export function wakesOnArrival(state: GameState): readonly Cue[] {
  * A transition rather than a state, which is what makes re-lighting an already-awake creature
  * silent — §4 is explicit that it must be, because a line that fired every turn a `C` stood in the
  * light would speak on every turn of every fight, which is how a player learns to stop reading the
- * line. The same shape gives §4's other clause for free: a creature that goes re-dormant and is
- * woken again is a second `dormant` → `awake` transition and speaks again.
+ * line.
+ *
+ * **Since #123 a creature wakes at most once per floor**, because nothing ever goes back to sleep.
+ * This function is unchanged by that and deliberately so: the transition shape is what makes the
+ * silence above true, and it happens to make "wakes announced over a floor" monotone rather than a
+ * count that can climb twice for the same creature (which is what makes #99 a readout rather than a
+ * second opinion). A `hasEverBeenAnnounced` flag would have produced the same output here and would
+ * have had to be deleted with the clock.
  *
  * A creature absent from `before` is skipped rather than reported. It cannot happen within a floor —
  * nothing spawns mid-floor — and if it ever does, an id appearing from nowhere is not evidence that

@@ -57,6 +57,106 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-08-02 — #123: the clock is deleted, and the guard nobody expected to fail failed on its first run
+
+**Did:** Built **#123**, build-order **step 4a** — the ruling from #121. `TURNS_TO_REDORMANCY`, the
+`DORMANT` return in `nextMind`, `Mind.turnsSinceContact`, and `game/entities/contact.ts` in full
+(including `LightQuery`) are gone. A woken Cinder is awake for the rest of the floor. `RULES_VERSION`
+5 → 6. GDD §4/§6 markers flipped to implemented; roadmap step 4a marked done.
+
+**Two structural wins beyond the deletion.** `nextMind` now returns `AwakeMind`, not `Mind` — so *"a
+woken Cinder never returns to dormant"* is enforced by the **compiler**, and reintroducing the clock
+is a signature change rather than an added branch. And `LightQuery` **moved to `game/systems/light.ts`**,
+where the real one was always constructed: `wakeInLight` is now the only rule in the simulation that
+consults the lantern, and the entity layer no longer knows what light is. `contact.ts`'s original
+header argued light should be injected because light did not exist yet; light exists now, and the
+injection outlived its reason.
+
+**Learned — the regression guard was not a dead metric, and it went red on its first run.** This is
+the important entry.
+
+The chain: §4's watch metric was rejected as player-set. The playtest's substitute was rejected as
+rules-pinned. My replacement was rejected as numbers-pinned, on review's arithmetic — Cinder 5 HP
+against player attack 3 is two strikes, and you are adjacent at your decision point only after the
+creature declared on your tile, so the first strike always eats 2. **Every woken kill costs exactly 2
+HP.** On that basis §4 declared the too-weak arm *structurally closed* and demoted the zero-count
+claim to a regression guard for some hypothetical later edit.
+
+#123 built the instrumentation and ran it: **`STALKER` 56 of 386 woken kills cost 0 HP (14.5%);
+`FLOODLIT` 22 of 247 (8.9%).**
+
+**The mechanism was written down in this repository, in `light.ts`, since M1**: *"a creature woken
+during a free action sees two player commands before its declared action resolves."* A free action
+skips phase 4, so the clock does not advance; a creature woken in phase 3 of a flash is scheduled at
+`now + ACTION_COST` while `now` stays put, so it is not due next command either. **Nobody had
+multiplied that by §3. Two player commands is two strikes, and two strikes is exactly a Cinder.**
+Flash while standing next to a sleeper and it dies for 4 fuel and no HP. Filed as **#125**; not fixed
+here, because every fix is a rule change and that is the `game-designer`'s.
+
+**The proof was sound and its premise was incomplete.** It reasoned from §3's damage numbers and §2's
+commit-one-turn-ahead rule, and never asked whether a creature always *gets* its turn. §4's own test —
+*name the state of the world in which this number comes back different* — was applied by three
+different readers and answered "there is none", and the state existed anyway. **Arithmetic over the
+rules is not measurement over the build.** That is the sharpest thing this session produced and it
+cost nothing but the willingness to build the instrument before believing the proof.
+
+It also means **the demotion was wrong in the right direction**: had the guard been deleted as
+unfalsifiable — which was on the table and which I argued for — the free-kill route would have stayed
+invisible, and §4 would still assert that a wake always costs something. It was kept only because
+review suggested keeping it as a guard rather than dropping it.
+
+**Learned — §4's "structurally closed" claim is narrowed rather than restated, and the judgement is
+handed to #125.** The engineer's correction note originally read *"the arm is still not one to watch
+in play"*, which is a design judgement written by the PR that found the defect — the wrong author.
+§4 now says what is measured: **closed for a wake the player pays the clock for, open for a wake
+bought with a free action**, one in seven currently free at will, and **nobody may cite that
+paragraph as authority that a wake always costs something** until #125 rules.
+
+**Learned — the guard is carried as a characterisation test that fails in both directions.** Asserting
+§4's guard would be red; deleting it and printing a number would be worse, because this file's own
+rule is that a counter which is only printed can be set to zero without a test going red. So it
+asserts the gap is **real** (nobody can quietly claim the arithmetic holds) *and* that it is the
+**exception** (#125 getting worse is red). **It goes red the day #125 is fixed**, and that is the
+handover: delete the block, enable §4's one-line guard, nothing else moves.
+
+**The `ember-z` fixture lost a property it existed for, and the loss is recorded rather than
+absorbed.** *"A creature returned to dormant"* is now impossible. The assertion is **inverted** to
+`wentDormant === 0` on a log that spends 27 creature-steps out of contact — which would have driven
+the old clock to expiry three times — and two properties were added in its place:
+`felledWithoutEverBeingLit === 1` (the only free kill is on the creature the run never lit) and the
+death arithmetic, 12 HP in four landed turns. Re-recorded rather than re-pinned, per #83's lesson:
+replayed under the new rules the old log ends `running`, player alive at 10 HP, with no dormant
+strike, no second wake and no death.
+
+**Verified:** `npm run verify` green (1165 tests — down 2, both deletions of behaviour that no longer
+exists). `build:web` + `test:e2e` green, 37 passed 1 skipped. **Mutation:** reintroducing the clock
+fails **17 tests across 6 files**, and the narrowed return type makes it a typecheck failure before
+any test runs. Economy corpus re-measured, **no number moved**: `STALKER` net fuel/floor +7 → +10,
+turns-to-dry unchanged at 26/65/80, every existing assertion still holding with margin. The corpus
+player is immortal, so it does not feel the HP price at all — the fuel movement is entirely fewer
+turns walking back to a parked sleeper.
+
+**Next:** **#125** — a design ruling on whether the free action's grace turn should exist. It now
+gates §4's honesty (the paragraph above cannot be cited until it lands) and it is upstream of #109,
+because a free-kill route is exactly what invariant 4 is asserted against. After that, **#109**, the
+`HARVESTER` style, still step 5 and still the gate on every fuel number.
+
+**Watch:** **the ruling is now built but still unplayed**, and the too-strong arm is the one to watch
+— if every wake becomes a forced fight the flash stops being a wager and becomes a bill, and unlike
+#83 there is no constant left to turn down, because this deleted the only one. The next **broad**
+playtest is the one that judges §12, per ADR-0012, and its bar is PR #119's six lines across three
+seeds; a narrow follow-up brief may not spend §12.
+
+Two things it must bring back: whether the HP price binds (§4's band — **reported with the policy
+that produced it, or not reported**, since a bare per-floor figure from a cautious playtester says
+only that the playtester was cautious), and whether #125's free kill is something a player actually
+finds. 14.5% of a scripted corpus's woken kills is not the same claim as *a human notices flashing
+next to sleepers is free*.
+
+**Also watch:** the harness reports line endings were silently rewritten to CRLF by scripted edits
+during this PR and normalised back. A whole-file ending flip shows as a ~3800-line diff on `GDD.md`
+and would read as "big docs change" in review. That is #76's territory and it is still open.
+
 ## 2026-08-02 — #121 ruled: a pursuer can never hit a mover, so the clock goes instead
 
 **Did:** Ruled **#121**, design only — no game code, no tests. GDD §4 gains the ruling and a new

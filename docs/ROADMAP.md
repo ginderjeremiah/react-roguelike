@@ -15,7 +15,7 @@ was wrong"**, so M2 opens with the build order the #83 ruling specifies. Four M1
 determinism-gate debt (see the split below). So `gh issue list --milestone "M2: The light loop"`
 will not show you #12 — that is deliberate, not a lost issue.
 
-**M2 is four steps into a build order of six, plus 3a (done) and 4a (ruled, not built).**
+**M2 is four steps into a build order of six, plus 3a and 4a (both done).**
 #79 (PR #92) made a wake announce itself, with a
 count; #94 (PR #101) gave that announcement two emphasis levels so it is read first; **#31/#41 made a
 cache terrain the lantern has to have shown you**, which un-contaminates the fuel corpus; #107 made a
@@ -31,7 +31,7 @@ rather than what it says about itself. `RULES_VERSION` 4 → 5. **It was half th
 step 4a below is: #83 replaced the parking and left the clock, and the clock is where the refund
 lived.
 
-**#121 is ruled, and the ruling is the next thing to build: step 4a, `#123` — delete re-dormancy.**
+**#121 is ruled and built: step 4a, `#123` — re-dormancy is deleted.**
 The playtest of #83 found that a pursuer cannot hit a player who keeps moving (0 damage across ~30
 turns of active flight), and the ruling is that it never will: under §2 a creature's action is fixed
 before your command and resolved after it, so **a player who moves cannot be hit at any creature
@@ -141,7 +141,8 @@ is layered on top.
 - [x] Auto-travel's command shape — settled by [ADR-0009](decisions/0009-auto-travel-command-shape.md);
       **the build moved to M2**, and #32 with it
 - [x] Rename the two colliding `Perception` types — #36; now `TurnPerception` (`game/fov/`) and
-      `LightQuery` (`game/entities/`)
+      `LightQuery`, which lived in `game/entities/` until #123 deleted the rule that asked it and
+      moved it down to `game/systems/light.ts`
 
 **A run can be won, which this roadmap never said.** GDD §13 settled it in #18: the run ends by
 death *or* by taking the stairs on floor 8 (`LAST_FLOOR`). There is no floor 9 and no boss. The
@@ -395,7 +396,7 @@ this milestone, not its method.
       playtest reported it unimplemented and built a recommendation on that**, almost certainly after
       reading GDD §4's "**Awake-creature behaviour** (M2, ...)" marker, which was stale. §4 is fixed;
       this line exists so the mistake is not repeated from the roadmap instead.
-      **And it is now being deleted — #121, ruled 2026-08-02, build issue #123 — so this bullet is
+      **And it is now deleted — #121 ruled and #123 built, both 2026-08-02 — so this bullet is
       kept as history and not as a feature.** Read it as *the mechanic that two rulings were spent
       on before anyone questioned whether it should exist*: it was believed missing (#31), then found
       built and blamed for the wrong thing (#63), then had its cause corrected upstream (#83), and is
@@ -441,8 +442,8 @@ this milestone, not its method.
       and HP 4 before — and the adjacency fraction returned **0.89 and does not discriminate**,
       because the player sets it (0 of 4 walking, 1.0 standing). **§4's too-weak arm fired instead:
       0 damage in ~30 turns of active flight.** That is **#121**, now ruled — see the bullet below
-- [ ] **Re-dormancy is deleted: a woken Cinder is awake for the rest of the floor — #121 ruled
-      2026-08-02, build issue #123, build-order step 4a.** The ruling is that the too-weak arm cannot
+- [x] **Re-dormancy is deleted: a woken Cinder is awake for the rest of the floor — #121 ruled
+      2026-08-02, built by #123 the same day, build-order step 4a.** The ruling is that the too-weak arm cannot
       be closed by creature behaviour at all: under §2 an attack names a tile a turn in advance and
       resolves after the player's command, so **a mover with one legal move cannot be hit at any
       creature speed** — and as implemented the threat is a *single* tile (`pursue()` names only the
@@ -461,9 +462,17 @@ this milestone, not its method.
       than made quietly: it lost on *"a permanently-awake **parked** Cinder is furniture"*, and #83
       itself deleted parking. **Its largest cost is stated in §4 and is not the deletion: HP is the
       only resource with no in-floor recovery, and this rule redenominates the flash's price into it
-      at exactly 2 HP a wake** — about 13 woken kills a run against the **42** a run meets. **Carries
-      per-creature wake/HP instrumentation** for §4's regression guard; see step 4a below for why that
-      is scope and not a nice-to-have
+      at exactly 2 HP a wake** — about 13 woken kills a run against the **42** a run meets. **Built
+      2026-08-02:** `RULES_VERSION` 5 → 6, all three stored fixtures re-recorded (the combat one's log
+      rewritten, not re-pinned — *a creature returned to dormant* was one of the six properties it
+      existed for and is now impossible, so the assertion is inverted), `nextMind` returns an awake
+      mind **by type**, and no number moved. **The per-creature wake/HP instrumentation was carried,
+      and it found [#125](../../issues/125):** §4's regression guard came back **red** — 56 of 386
+      woken kills in the `STALKER` corpus cost 0 HP, because a free action does not advance the clock
+      and a creature woken by a flash is therefore not due for two player commands, which is exactly
+      the two strikes a Cinder takes. §4's *"every woken Cinder costs exactly 2 HP"* is wrong about
+      about one woken kill in seven. Not a regression — it predates #83 — and the fix is a rule change,
+      so it is #125's to rule. `economy.test.ts` carries a characterisation test in the guard's place
 - [ ] Fuel economy and the risk/reward tuning around it — calibrated once in #17. **#63 is ruled**
       and **no fuel number may move yet.** The first of the two reasons is now discharged: #31/#41
       landed 2026-08-01 and `DARK_PACIFIST`'s take went **119 of 121 → 0 of 121**, so the corpus is
@@ -611,7 +620,7 @@ New pin: the longest line the game can produce is ≤ **41** characters.
    settle the ruling: the metric the ruling named turns out to be one the player sets, and the
    too-weak arm fired. **#121** is the consequence and is M2's blocker.
 
-**Step 4a — #123: delete re-dormancy. Ruled on #121, 2026-08-02; not built.** **Lettered rather than
+**Step 4a — #123: delete re-dormancy. Ruled on #121 and built, 2026-08-02.** **Lettered rather than
 renumbered, for the same reason step 3a was**: `docs/JOURNAL.md`, the comment closing #105 and M2's
 exit criterion all cite "step 5"/"step 6", and renumbering would silently redirect them. It is step 4a
 and not step 5 because it is the second half of step 4 — #83 replaced the *parking* and left the
@@ -624,16 +633,30 @@ pays HP for every creature it lights while a never-flash fighter still one-shots
 `HARVESTER`'s brief gains that question. **No number moves in step 4a**, including §3's combat
 numbers, for the same attribution reason.
 
-**One thing step 4a carries that is not a deletion, and it must not be dropped as scope: per-creature
-wake and HP instrumentation.** GDD §4 keeps *no run may bank ember from a creature it woke without
-paying HP for it* as a **regression guard** — true by arithmetic today, and there to fail later if
-#109's re-tune or a creature with 3 HP or less reopens a free-kill route. **Nothing can assert it
-today.** `game/systems/economy.test.ts` and `tests/unit/support/lantern-run.ts` record per-floor fuel
-income, demand and dry-out turns and have **no per-creature attribution at all**, so the guard needs a
-run instrumented to record, per creature, whether it was ever woken and what HP the player spent
-between its wake and its death. **If that is not built, the guard is not an acceptance criterion and
-must not be listed as one** — a green assertion over a corpus that cannot see the quantity is worse
-than no assertion.
+**One thing step 4a carried that is not a deletion: per-creature wake and HP instrumentation — and it
+is the reason this step is worth reading twice.** GDD §4 keeps *no run may bank ember from a creature
+it woke without paying HP for it* as a **regression guard**, believed true by arithmetic and there to
+fail later if #109's re-tune or a creature with 3 HP or less reopened a free-kill route. Nothing in
+`game/systems/economy.test.ts` or `tests/unit/support/lantern-run.ts` could assert it — per-floor fuel
+income, demand and dry-out turns, and no per-creature attribution at all — so §4 made the guard
+conditional on #123 building the instrument, and said that without it the guard must not be listed as
+an acceptance criterion.
+
+**#123 built it and the guard came back red.** 56 of `STALKER`'s 386 woken kills and 22 of
+`FLOODLIT`'s 247 cost the player nothing, and the cause is [#125](../../issues/125): a free action
+skips phase 4 and therefore does not advance the clock, so a creature woken by a *flash* is not due
+for two more player commands — and two commands is two strikes, and two strikes is exactly a 5 HP
+Cinder against a 3 damage player. **Flash next to a sleeper and it dies for 4 fuel and no HP.**
+`game/systems/light.ts` had recorded the scheduling consequence in plain English since M1 and nobody
+had multiplied it by §3's damage. It predates #123 and #83 alike; re-dormancy hid it, because the
+dominant free kill was the one on a creature that had gone back to sleep.
+
+**The transferable part is the conditional, and it is worth keeping the shape of it.** A quantity was
+declared zero by argument, relabelled a guard on the strength of the argument, and never measured
+because the measurement did not exist. The rule that no criterion may be claimed until the thing that
+would falsify it can be observed is the only reason this was found — and it fired in the direction
+nobody expected. #125 owns the fix, which is a rule change; `economy.test.ts` carries a
+characterisation test in the guard's place, and it goes red the day #125 closes.
 
 5. A **`HARVESTER`** style in `game/systems/economy.test.ts` — never flashes, routes to every
    ember-sense contact, one-shots each dormant — which is what §4's invariant 4 is asserted against.
@@ -925,8 +948,12 @@ free kills on woken creatures as a verdict.** Set by the player, pinned by the r
 the numbers respectively — three ways of being unfalsifiable, and GDD §4 records all three with the
 question that separates a watch from a guard: **name the state of the world in which this number comes
 back different.** The third one survives in §4 as a **regression guard** for a later re-tune, and it
-needs per-creature wake and HP instrumentation that does not exist yet — **#123 owns that or the guard
-is not built.**
+needed per-creature wake and HP instrumentation that did not exist — **#123 owned that or the guard
+was not built.** #123 built it, ran it, and **the guard failed**: 56 of `STALKER`'s 386 woken kills
+cost 0 HP, because a free action does not advance the clock and a creature woken by a flash is not due
+for two player commands. That is [#125](../../issues/125), it predates #83, and it means *"free kills
+on woken creatures"* was never pinned by the numbers at all — the third way of being unfalsifiable
+was itself unverified. Still not a verdict to run a playtest on; now a defect with an issue.
 
 **Both numbers the block asked for came back.** **0 fuel has stopped being a dead zone**: dead in 6
 turns from fuel 0 with two hunters, against the 143 inert turns recorded above. That is a total

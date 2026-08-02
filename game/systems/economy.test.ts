@@ -11,13 +11,20 @@ import {
   type RunResult,
   type Style,
 } from '@/tests/unit/support/lantern-run';
-import { STARTING_FUEL } from '../content';
-import { isAlive, PLAYER_ID, playerOf } from '../entities';
+import { scenario } from '@/tests/unit/support/scenario';
+import { CINDER, PLAYER_ATTACK, PLAYER_MAX_HP, STARTING_FUEL } from '../content';
+import { creatureById, isAlive, PLAYER_ID, playerOf } from '../entities';
 import { ADAPTATION_FLOOR, EMBER_SENSE_RADIUS, perceive } from '../fov';
 import { generateFloor } from '../map';
 import { createRng } from '../rng';
-import { canOpen, toggleShutter } from './lantern';
-import { createLanternWorld, lanternPhases, type LanternWorld } from './light';
+import { canOpen, createLantern, toggleShutter } from './lantern';
+import {
+  createLanternWorld,
+  lanternPhases,
+  moveCommand,
+  setShutterTurn,
+  type LanternWorld,
+} from './light';
 import { resolveTurn } from './turn';
 import { chargeActor } from './schedule';
 
@@ -344,6 +351,152 @@ describe('§4 invariant 3: a floor played well nets slightly positive', () => {
     console.log(`stalker: ${median(ends)} fuel after ${FLOORS} floors (started with ${STARTING_FUEL})`);
     expect(median(ends)).toBeGreaterThan(0);
     expect(median(ends)).toBeLessThan(STARTING_FUEL * 4);
+  });
+});
+
+// --- §4's regression guard (#121, #123) ----------------------------------------------------------
+
+describe('§4’s regression guard cannot be enabled yet, and this is the size of the gap (#125)', () => {
+  /**
+   * ═══════════════════════════════════════════════════════════════════════════════════════════════
+   * THE GUARD #123 WAS ASKED FOR, THE INSTRUMENT IT NEEDED, AND WHAT THE INSTRUMENT FOUND
+   * ═══════════════════════════════════════════════════════════════════════════════════════════════
+   *
+   * §4 keeps a **regression guard**: *"No run may bank ember from a creature it woke without paying
+   * HP for it."* It is labelled a guard rather than a watch because §4 believes it is zero by
+   * arithmetic — 5 HP against 3 damage is two strikes, and by #121's proof the player is adjacent at
+   * their own decision point only once the creature has already declared on their tile, so the first
+   * strike always eats 2. §4 and the roadmap both say the guard must not be listed as an acceptance
+   * criterion unless the per-creature instrumentation behind it is built.
+   *
+   * **#123 built the instrumentation** (`WokenKill` / `WakeLedger` in
+   * `tests/unit/support/lantern-run.ts`) **and the guard came back red.** Measured here: 56 of
+   * `STALKER`'s 386 woken kills and 22 of `FLOODLIT`'s 247 cost the player **nothing**.
+   *
+   * The mechanism is **#125**, and it is not a #123 regression — it predates it and #83 alike:
+   * a free action skips phase 4, so the clock does not advance, so a creature woken in phase 3 of a
+   * free command is not due on the next command either. `light.ts` already writes this down — *"a
+   * creature woken during a free action sees two player commands before its declared action
+   * resolves"* — and nobody had multiplied it by §3's damage. Two player commands is two strikes,
+   * and two strikes is exactly a Cinder. **Flash while standing next to a sleeper and it dies for
+   * 4 fuel and no HP.**
+   *
+   * ## So this is a characterisation test, and it says so
+   *
+   * Asserting §4's guard here would be red. Deleting it and printing a number would be worse — this
+   * file's own rule is that a counter which is only printed is a counter that can be set to zero
+   * without a test going red. So the gap is asserted instead, in both directions:
+   *
+   *   - it is **real** (there is at least one free woken kill), so nobody can quietly claim §4's
+   *     arithmetic holds; and
+   *   - it is the **exception** (well under a quarter of woken kills), so #125 getting worse is red.
+   *
+   * **When #125 is fixed this test goes red on its first assertion**, and that is the handover:
+   * whoever fixes it deletes this block and replaces it with §4's guard, which is one line —
+   * `expect(kill.hpSpentWhileAwake).toBeGreaterThan(0)` over `wokenKills`. Nothing else has to move.
+   *
+   * ## What the attribution can and cannot see
+   *
+   * `hpSpentWhileAwake` over-credits when two hunters overlap — §2 has a creature mark a *tile* and
+   * two adjacent creatures mark the same one, so nothing in the state says which of them swung. The
+   * error runs one way: a free kill in a crowd reports a cost it did not incur, which makes the
+   * measured 56 a **lower bound** on the real number. See `WokenKill`.
+   * ═══════════════════════════════════════════════════════════════════════════════════════════════
+   */
+  const wokenKills = (results: RunResult[]) =>
+    floorsOf(results).flatMap((floor) => [...floor.wokenKills]);
+
+  it('is measuring a corpus that actually wakes things and then kills them', () => {
+    // The positive control, and it comes first because everything below is satisfied by a corpus in
+    // which no creature is ever both woken and killed — which is precisely what the pre-#123 rules
+    // produced, since a creature that was woken and then outwaited died **dormant** and would not
+    // appear in this list at all.
+    const woken = wokenKills(stalker);
+    const onSleepers = floorsOf(stalker).reduce(
+      (total, floor) => total + floor.kills - floor.wokenKills.length,
+      0,
+    );
+    console.log(
+      `stalker kills — ${woken.length} on creatures it woke, ${onSleepers} on sleepers it never ` +
+        `lit; HP per woken kill: median ${median(woken.map((kill) => kill.hpSpentWhileAwake))}, ` +
+        `free ${woken.filter((kill) => kill.hpSpentWhileAwake === 0).length}`,
+    );
+    expect(woken.length).toBeGreaterThan(SEEDS * FLOORS); // more than one a floor
+    // ...and the split is real: a flashing fighter still gets free kills on what it never lit, which
+    // is §4's "the dormant strike is the reward for never having lit it". If this were 0, a reopened
+    // free-kill route on a *woken* creature would be indistinguishable from ordinary dark play.
+    expect(onSleepers).toBeGreaterThan(0);
+    // The rule the whole of #123 is about, at the corpus tier: **nothing goes back to sleep**, so a
+    // creature that was ever awake and then died is a creature that died awake. Before #123 the
+    // dominant free kill was exactly the other thing — outwait it, then strike the sleeper — and
+    // those kills would land in `onSleepers` rather than in `woken`.
+    expect(woken.length).toBeGreaterThan(onSleepers * 5);
+  });
+
+  it('still has free woken kills, all of them the #125 window, and they are the exception', () => {
+    for (const [name, results] of [
+      ['stalker', stalker],
+      ['floodlit', floodlit],
+    ] as const) {
+      const woken = wokenKills(results);
+      const free = woken.filter((kill) => kill.hpSpentWhileAwake === 0);
+      console.log(
+        `${name}: ${free.length}/${woken.length} woken kills cost 0 HP (#125); ` +
+          `they die ${Math.min(...free.map((k) => k.commandsAwake))}-` +
+          `${Math.max(...free.map((k) => k.commandsAwake))} commands after waking`,
+      );
+
+      // **#125 exists.** Delete this block and enable §4's guard when it does not.
+      expect(free.length, `${name}: §4's guard now holds — enable it and delete this test`)
+        .toBeGreaterThan(0);
+      // ...and it is a corner, not the shape of the game. If a re-tune or a rules change made free
+      // kills the ordinary case — a creature with 3 HP or less, or a `PLAYER_ATTACK` that one-shots
+      // an awake Cinder — this is what goes red, which is the guard's job done by the only assertion
+      // that can currently do it.
+      expect(free.length * 4, `${name}: free woken kills have stopped being the exception`)
+        .toBeLessThan(woken.length);
+      // Every free kill happens in the first handful of commands after the wake — the grace turn
+      // window, not a stand-up fight. A free kill on a creature that has been awake for twenty
+      // commands would be a different bug and is not this one.
+      for (const kill of free) {
+        expect(kill.commandsAwake, `${name}: creature ${kill.id} was killed free long after waking`)
+          .toBeLessThanOrEqual(8);
+      }
+    }
+  });
+
+  it('reproduces #125 from a hand-built situation, so the corpus number has a mechanism', () => {
+    // A corpus statistic with no explanation is a number nobody can act on. This is the whole route
+    // in four commands, and it is what the issue quotes.
+    //
+    // Shuttered, standing next to a sleeper. The flash is **free** (§2), so `now` does not move: the
+    // Cinder wakes, declares an attack on the player's tile, and is scheduled at `now + ACTION_COST`
+    // — one instant the turn loop never reaches, because the next command starts at the old `now`.
+    // Two strikes at 3 damage kill it before it is ever due.
+    const built = scenario(['#####', '#@c.#', '#####']);
+    let state: LanternWorld = {
+      world: built.world,
+      lantern: createLantern(built.world.floor.grid, 'shuttered', STARTING_FUEL),
+    };
+    const strike = (): LanternWorld =>
+      resolveTurn(state, lanternPhases('costsATurn', moveCommand(built.at('c'))));
+
+    state = setShutterTurn(state, 'open');
+    const declared = creatureById(state.world, built.ids[0]).mind;
+    expect(declared).toEqual({ kind: 'awake', intent: { kind: 'attack', at: built.at('@') } });
+    // The tell: the clock has not moved, and the creature it just woke is due at an instant in the
+    // future that the next command will step straight over.
+    expect(state.world.schedule.now).toBe(0);
+
+    state = strike();
+    expect(creatureById(state.world, built.ids[0]).hp).toBe(CINDER.maxHp - PLAYER_ATTACK);
+    state = strike();
+
+    expect(state.world.actors.some((actor) => actor.id === built.ids[0])).toBe(false);
+    // ...and the player is untouched, holding an ember it paid 4 fuel and no HP for. §4 says this
+    // costs 2. It does not.
+    expect(playerOf(state.world).hp).toBe(PLAYER_MAX_HP);
+    expect(state.world.embers).toEqual([{ at: built.at('c'), amount: CINDER.emberDrop }]);
   });
 });
 

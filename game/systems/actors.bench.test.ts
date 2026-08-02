@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { playTurn } from '@/tests/unit/support/scenario';
-import { createActorWorld, type ActorWorld, type LightQuery } from '../entities';
+import { createActorWorld, type ActorWorld } from '../entities';
 import { generateFloor } from '../map';
 import { createRng } from '../rng';
+import type { LightQuery } from './light';
 
 /**
  * ARCHITECTURE.md gives one turn a **2ms** budget on a mid-range phone and says to add a benchmark

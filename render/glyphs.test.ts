@@ -52,7 +52,7 @@ describe('the glyph set (GDD §10)', () => {
       expect([...glyph], name).toHaveLength(1);
     }
     expect([...glyphForCreature(creature({ kind: 'dormant' }))]).toHaveLength(1);
-    expect([...glyphForCreature(creature({ kind: 'awake', intent: { kind: 'wait' }, turnsSinceContact: 0 }))]).toHaveLength(1);
+    expect([...glyphForCreature(creature({ kind: 'awake', intent: { kind: 'wait' } }))]).toHaveLength(1);
   });
 
   it('gives every tile kind its own glyph, and no two the same', () => {
@@ -79,7 +79,7 @@ describe('creature glyphs (GDD §6, §11)', () => {
   it('come from the creature table, so dormancy is carried by case rather than by colour', () => {
     const dormant = glyphForCreature(creature({ kind: 'dormant' }));
     const awake = glyphForCreature(
-      creature({ kind: 'awake', intent: { kind: 'wait' }, turnsSinceContact: 0 }),
+      creature({ kind: 'awake', intent: { kind: 'wait' } }),
     );
 
     expect(dormant).toBe(CINDER.glyphDormant);

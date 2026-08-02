@@ -46,12 +46,15 @@ import {
   scheduleLens,
   wakeCreature,
   type ActorWorld,
-  type LightQuery,
 } from '../entities';
 import { assertNever } from '../core/assert';
 import { resolveAttack, resolveMove } from './combat';
 import type { ActorId } from './schedule';
 import { runActorPhase, type TurnPhase } from './turn';
+// Type-only, and therefore erased: `light.ts` imports the values in this file, so a value import
+// back the other way would be a real cycle. `LightQuery` lives there because that is where the lit
+// field is computed, and `wakeInLight` below is its only consumer in the rules.
+import type { LightQuery } from './light';
 
 /**
  * Whether the command being resolved costs the player a turn. No default, on purpose — see the
@@ -66,11 +69,7 @@ export type TurnCost = 'costsATurn' | 'free';
  * the player left hits nothing. All three cost the same turn, which is what makes baiting worth
  * doing (§2).
  */
-function resolveDeclaredAction(
-  world: ActorWorld,
-  id: ActorId,
-  light: LightQuery,
-): ActorWorld {
+function resolveDeclaredAction(world: ActorWorld, id: ActorId): ActorWorld {
   const creature = actorById(world, id);
   if (creature.kind !== 'creature') {
     throw new Error(`systems: actor ${id} is not a creature`);
@@ -83,7 +82,7 @@ function resolveDeclaredAction(
     case 'move':
       return resolveMove(world, id, intent.to);
     case 'attack':
-      return resolveAttack(world, id, intent.at, light);
+      return resolveAttack(world, id, intent.at);
     default:
       return assertNever(intent, 'resolveDeclaredAction');
   }
@@ -99,7 +98,7 @@ function resolveDeclaredAction(
  * @throws if handed a dead or dormant actor. Neither is ever in the schedule (see `world.ts`), so
  *   this is the tripwire for that invariant having broken somewhere upstream.
  */
-export function actOnce(world: ActorWorld, id: ActorId, light: LightQuery): ActorWorld {
+export function actOnce(world: ActorWorld, id: ActorId): ActorWorld {
   const actor = actorById(world, id);
 
   if (actor.kind === 'player') {
@@ -115,8 +114,8 @@ export function actOnce(world: ActorWorld, id: ActorId, light: LightQuery): Acto
     throw new Error(`systems: dormant creature ${id} was given a turn`);
   }
 
-  const resolved = resolveDeclaredAction(world, id, light);
-  return commitNextIntent(resolved, id, light);
+  const resolved = resolveDeclaredAction(world, id);
+  return commitNextIntent(resolved, id);
 }
 
 /**
@@ -143,18 +142,12 @@ export function isRunOver(world: ActorWorld): boolean {
  * three due Cinders would still watch the other two take their turns, and the state a summary
  * screen renders would be three turns after the blow that ended the run.
  */
-export function actorPhase(cost: TurnCost, light: LightQuery): TurnPhase<ActorWorld> {
+export function actorPhase(cost: TurnCost): TurnPhase<ActorWorld> {
   switch (cost) {
     case 'free':
       return (world) => world;
     case 'costsATurn':
-      return (world) =>
-        runActorPhase(
-          world,
-          scheduleLens,
-          (current, id) => actOnce(current, id, light),
-          isRunOver,
-        );
+      return (world) => runActorPhase(world, scheduleLens, actOnce, isRunOver);
     default:
       return assertNever(cost, 'actorPhase');
   }
@@ -165,10 +158,14 @@ export function actorPhase(cost: TurnCost, light: LightQuery): TurnPhase<ActorWo
  * immediately declares."
  *
  * **Light wakes things; proximity does not.** §4's table is explicit — lit: "every dormant creature
- * in the radius wakes"; dark: "nothing wakes". So this asks the injected light query and nothing
- * else, and in particular it does *not* ask `hasContact`, which also counts adjacency. Adjacency
- * waking a sleeper would delete the dormant strike, which is the only free kill in the game and the
- * entire reason to play dark (§1).
+ * in the radius wakes"; dark: "nothing wakes". So this asks the light query and nothing else. It
+ * never asked the deleted `hasContact`, which also counted adjacency, and that was the reason
+ * waking survived #123 untouched: adjacency waking a sleeper would delete the dormant strike, which
+ * is the only free kill in the game and the entire reason to play dark (§1).
+ *
+ * **Since #123 this is the only rule in the simulation that consults the lantern at all** — a
+ * declaration does not, and a strike does not. If this parameter ever goes away, so does
+ * `LightQuery`.
  *
  * Iterates `world.actors`, which is held in ascending id order, so two creatures woken by the same
  * flash join the schedule in id order rather than in whatever order they were found.
@@ -190,7 +187,7 @@ export function wakeInLight(world: ActorWorld, light: LightQuery): ActorWorld {
     const actor = actorById(current, listed.id);
     if (actor.kind !== 'creature' || !isAlive(actor) || isAwake(actor)) continue;
     if (!light.isPlayerLightVisibleFrom(actor.at)) continue;
-    current = wakeCreature(current, actor, light);
+    current = wakeCreature(current, actor);
   }
   return current;
 }

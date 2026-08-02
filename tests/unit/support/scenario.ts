@@ -50,7 +50,6 @@ import {
   withActor,
   type ActorWorld,
   type Intent,
-  type LightQuery,
 } from '@/game/entities';
 import {
   ACTION_COST,
@@ -64,6 +63,7 @@ import {
   resolveTurn,
   wakeInLight,
   type ActorId,
+  type LightQuery,
   type TurnCost,
 } from '@/game/systems';
 
@@ -170,17 +170,9 @@ export function scenario(lines: readonly string[]): Scenario {
  * chosen X being part of the setup, or the test passes for the wrong reason when that behaviour
  * changes.
  */
-export function awaken(
-  world: ActorWorld,
-  id: ActorId,
-  intent: Intent,
-  turnsSinceContact = 0,
-): ActorWorld {
+export function awaken(world: ActorWorld, id: ActorId, intent: Intent): ActorWorld {
   const creature = creatureById(world, id);
-  const updated = withActor(world, {
-    ...creature,
-    mind: { kind: 'awake', intent, turnsSinceContact },
-  });
+  const updated = withActor(world, { ...creature, mind: { kind: 'awake', intent } });
   if (hasActor(updated.schedule, id)) return updated;
   return {
     ...updated,
@@ -222,6 +214,10 @@ export type PlayerAction =
  * the same discipline `turn.ts` used when it refused to stub them internally. Everything else is the
  * real thing, in the real GDD §2 order, so a test that drives this is testing the game's turn and
  * not a convenient approximation of it.
+ *
+ * `light` now feeds **one** phase — §2 phase 3's waking — because since #123 that is the only rule
+ * in the simulation that asks what the lantern is doing. It used to be threaded into the command
+ * phase and the actor phase as well.
  */
 export function playTurn(
   world: ActorWorld,
@@ -237,11 +233,11 @@ export function playTurn(
       // Charged before the action resolves, exactly as `runActorPhase` charges a creature before
       // its action resolves — so a kill made by this action stays out of the queue.
       const charged = { ...current, schedule: chargeActor(current.schedule, PLAYER_ID) };
-      return action.kind === 'wait' ? charged : bump(charged, PLAYER_ID, action.to, light);
+      return action.kind === 'wait' ? charged : bump(charged, PLAYER_ID, action.to);
     },
     fuelBurn: identity,
     lightingAndWaking: (current) => wakeInLight(current, light),
-    actors: actorPhase(cost, light),
+    actors: actorPhase(cost),
     deaths: resolveDeaths,
     darkAdaptation: identity,
   });

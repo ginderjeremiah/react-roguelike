@@ -14,9 +14,13 @@
  * ordering the whole simulation's determinism rests on), `turn.ts` owns the GDD §2 phase order and
  * the scheduling half of the actor phase, `combat.ts` owns deterministic damage and death,
  * `actors.ts` owns the rules half of phases 3 and 4 — waking, and resolve-then-declare — `lantern.ts`
- * owns fuel and the shutter, `light.ts` joins them (it answers `game/entities/`'s injected light
- * query out of `game/fov/`'s lit field, and supplies five of the six phases plus every player
- * command), and `run.ts` owns what spans floors: where a run starts and what a descent carries.
+ * owns fuel and the shutter, `light.ts` joins them (it owns `LightQuery` and answers it out of
+ * `game/fov/`'s lit field, and supplies five of the six phases plus every player command), and
+ * `run.ts` owns what spans floors: where a run starts and what a descent carries.
+ *
+ * **`LightQuery` moved here from `game/entities/contact.ts` in #123**, along with the deletion of
+ * the re-dormancy clock that was its only reader down there. Nothing in `game/entities/` knows what
+ * a shutter is any more; §2 phase 3's `wakeInLight` is the one rule that asks.
  *
  * ## What `game/core/` supplies, and what it must not
  *
@@ -49,6 +53,7 @@ export {
   setShutterTurn,
   waitCommand,
   type LanternWorld,
+  type LightQuery,
 } from './light';
 
 export { arriveOnFloor, beginRun, descendCommand, descendTurn, isOnStairs } from './run';

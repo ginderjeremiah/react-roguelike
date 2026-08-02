@@ -88,10 +88,21 @@ markers have the "the PR that changes the code owes the edit" rule. The instrume
 **no mechanism stops the next metric from outliving its validity**, and unlike the other two it
 cannot be automated, because only a measurement can falsify a measurement.
 
-**Learned — the reconcile is not triggered by anything, and it cost four issues.** PR #113 (#107)
-merged **without** a docs pass; the next PR was #119. So #115, #116, #117 and #118 — all from #113's
-playtest — never reached `ROADMAP.md`, and three of the four were in **no milestone at all**, which
-the roadmap itself says makes an issue invisible to `gh issue list --milestone`. The "wager is
+**Learned — the reconcile is not triggered by anything, and it cost four issues.** The first draft of
+this paragraph said PR #113 (#107) "merged **without** a docs pass". **That is false**, and it is
+corrected here rather than quietly, because it accuses a PR of a working-agreement violation it did
+not commit: `8f29dc3` touches `GDD.md` +154, `JOURNAL.md` +121 and `ROADMAP.md` +47.
+
+What actually happened is narrower and harder to fix. #113's playtest filed **#115/#116/#117 at
+01:33–01:34Z and #118 at 01:42Z**, against a merge at **01:41:44Z** — so its docs were written before
+three of those issues existed and merged within a minute of the fourth. The in-PR pass could not have
+listed them, and **no reconcile ran between #113 and #119** to catch them afterwards. So #115, #116,
+#117 and #118 never reached `ROADMAP.md`, and three of the four were in **no milestone at all**,
+which the roadmap itself says makes an issue invisible to `gh issue list --milestone`.
+
+**The defect is the gap *between* PRs, not the PR** — which is worse news, because the in-PR docs
+rule is the one thing this project does enforce, and it structurally cannot catch an issue filed by
+the PR's own review gates at the moment of merge. The "wager is
 illegible" family therefore read **ten from four playtests** when it was thirteen from six. Fixed,
 but the mechanism is untouched: the convention is one reconcile per code PR and nothing enforces it,
 so the roadmap's queue-visibility claims are only as good as the last person who remembered.

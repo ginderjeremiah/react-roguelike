@@ -369,6 +369,16 @@ this milestone, not its method.
       tested and reached no pixel until review caught it (#93). The announcement now **exists**;
       whether it is *read* is #94, below. One seam it left untested is the lit descent, where `woke`
       outranks `descended` — #96
+- [ ] **The real-run corpus never collects fuel, so every assertion about the receipt line is
+      unexercised by a real run — #114.** Filed by `code-reviewer` on PR #113 and, like #115–#118,
+      it never reached this file until the reconcile after #119 — **found by the review of that
+      reconcile**, which is the fifth issue from #113's cycle and the one the sweep for the other
+      four still missed. Wider than the gap #113 disclosed: not just that no run has a turn with
+      both a `woke` and a `fuelGained`, but that two of the three replays produce **zero**
+      `fuelGained` cues at all. So the corpus invariant that guards #94's levelling and #107's
+      compound is real and its evidence base does not reach the turn shape it was written for.
+      Belongs beside #96 above — both are "the seam this shipped is not covered by anything that
+      replays a real run"
 - [x] **The turn line has two emphasis levels, `alarm` and `report` — #94 (PR #101).** M2's second
       code and step 2 of the build order, *inserted by #79's own playtest*, which answered the
       question #79 was built for with a no. Ruled in GDD §10 with a §11 cross-reference: a wake,
@@ -446,8 +456,14 @@ this milestone, not its method.
       ember.` prints the turn's *net* delta so the same cache reads 21 and 25, and **#118** a kill you
       make while taking damage is not spoken. They are
       one family: the exit criterion is a *felt* decision, and none of these change what the
-      simulation does. **Those last three reached this list only in the reconcile after #119** — PR
-      #113 (#107) merged without a docs pass and the family sat one playtest behind for two PRs;
+      simulation does. **Those last three reached this list only in the reconcile after #119**, and
+      the reason is a timing one rather than a skipped step — **PR #113 (#107) did carry a docs pass**
+      (`8f29dc3` touches `GDD.md` +154, `JOURNAL.md` +121 and this file +47). Its playtest filed
+      #115/#116/#117 at 01:33–01:34Z and #118 at 01:42Z against a merge at **01:41:44Z**, so the
+      docs in that PR were written before the issues existed, and **no reconcile ran between #113 and
+      #119** to catch them after. Stated precisely because the first draft of this paragraph said
+      #113 "merged without a docs pass", which is false and reads as a working-agreement violation by
+      a PR that did the work. The defect is real and is the *gap between* PRs, not the PR;
       #116/#117 were also in no milestone at all and this reconcile put them in M2. (**#115**, the
       turn line wrapping at 320 wide, came from the same playtest and is *not* counted here: its root
       is that this project has never named a minimum supported viewport, which is a missing decision
@@ -457,7 +473,7 @@ this milestone, not its method.
       It said: *"the measurement that would settle it is the next broad playtest — the one after
       #83"*, and *"if it returns six again, 'the wager is illegible' has stopped being a list of bugs
       and become a finding about the screen."* That playtest ran on PR #119, was genuinely broad
-      (6 lines of play, 3 seeds, ~88 turns, unlike the four narrow briefs before it whose counts are
+      (6 lines of play across 3 seeds, unlike the four narrow briefs before it whose counts are
       confounded by scope) — and **filed nothing new into this family.** Two caveats and no more: it
       re-hit **#85** live, and the sharpest legibility hole it named is **#99** (the *lit* player has
       no awareness channel at all), which is an existing issue rather than a new one. Its other two

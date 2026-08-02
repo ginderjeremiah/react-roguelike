@@ -472,12 +472,23 @@ describe('a wake that also paid says both, on one line (§10, #107)', () => {
   it('fits the row at its longest, over every count and every amount (41 characters)', () => {
     // §10's budget, and the concrete difference between this compound and the descend compound #94
     // rejected: `Three things wake. You gather 41 ember.` is 39 and fits, and
-    // `You climb down to floor 8. Something wakes.` is 43 and wraps at 100%.
+    // `You climb down to floor 8. Something wakes.` is 43 — long enough to be at risk on a narrow
+    // phone, which is one of three reasons #94 refused it and not the load-bearing one.
+    //
+    // **41 is deliberately conservative and is not the measured capacity.** Measured in the shipped
+    // build at 390 wide, mono resolves to ~7.7pt/char against ~362pt of row, so ~47 characters
+    // actually fit — and more on a wider device. The budget is set below that on purpose: the
+    // resolved font is a *stack* (`SFMono-Regular, Menlo, …, monospace`), so the advance width is
+    // device-dependent and a number derived from one browser is not a rule. Do not "correct" this
+    // upward to the measured figure; the headroom is the point.
     //
     // The longest line is **derived from the code**, over both dimensions that vary, so this tracks
     // the copy instead of a screenshot: reword the wake or the receipt and this number moves with it.
-    // A wrap is not cosmetic — the row is a fixed 34pt so a second line clips, and at increased text
-    // scale it grows instead and moves the board a press is being aimed at (`board.tsx`).
+    // A wrap is not cosmetic — `status-line.tsx` sets `minHeight: 34` with `numberOfLines={2}`, so a
+    // second line does not clip, it **grows the row**, and the board a press is being aimed at moves
+    // under the thumb (`board.tsx` resolves a press by measuring where the board is). Growing rather
+    // than clipping is the right failure of the two, which is why the row is written that way — but
+    // it is still a failure, and it is why this budget exists rather than a wrap being tolerated.
     const longest = everyLineTheGameCanShow().reduce((a, b) => (b.length > a.length ? b : a));
     expect(longest.length, `the longest line is ${JSON.stringify(longest)}`).toBeLessThanOrEqual(
       LINE_BUDGET,

@@ -29,17 +29,24 @@ contact still governs. It is subtraction — two cases and the `Awareness` union
 no state, no UI — and it is the first step in this build order to change what the simulation *does*
 rather than what it says about itself. `RULES_VERSION` 4 → 5.
 
-**Next up is #109 — the `HARVESTER` style, step 5 — and it is now the gate on everything numeric.**
-The four legibility steps are done, so the wager is finally *stated* on screen and *priced* in the
-simulation; what is still missing is the corpus that says whether the price is right. No fuel number
-may move until it exists.
+**Next in the build order is #109 — the `HARVESTER` style, step 5 — and it is now the gate on
+everything numeric.** The four legibility steps are done, so the wager is finally *stated* on screen
+and *priced* in the simulation; what is still missing is the corpus that says whether the price is
+right. No fuel number may move until it exists. **#121 is not a build step and outranks it for the
+milestone**: it is a design ruling, and it is what stands between M2 and its exit criterion.
 
-**What #83 does _not_ yet have is its measurement**, and the ruling is explicit that the measurement
-is what decides whether it was correct: **the fraction of woken creatures that reach adjacency at
-least once before re-dormanting.** Near 0 and the pursuit is theatre; near 1 and the 8 is too long.
-That number is a playtest number, so **it is not settled by the PR that shipped the rule** — see the
-exit-criteria note at the end of this section, which is where the broad playtest after #83 is
-specified.
+**#83 has been played, its verdict is split, and #121 is now what stands between M2 and its exit.**
+The broad playtest the exit criteria call for ran on PR #119. **What the ruling bought:** the retreat
+exploit is no longer optimal — measured A/B from one save point, walking away is 17 turns and −9 fuel
+against 9 turns and **+6** for standing, so M1's +4-profit retreat is now a loss — and **0 fuel has
+stopped being a dead zone** (dead in 6 turns, against 143 inert turns before). **What it did not
+buy:** a pursuer **cannot hit a player who keeps moving** — 0 damage across ~30 turns of active
+flight — so §3's *fleeing is hard, and that is a feature* is still false and §4's **too-weak** arm has
+fired. That is **#121**; §4 declines to name a dial for that arm, so it needs its own ruling.
+
+**Do not re-run §4's named measurement as a verdict.** It returned **0.89**, which reads as the
+*opposite* arm, because the player sets it — see the boxed warning in GDD §4's watch and the exit
+criteria at the end of this section.
 
 ---
 
@@ -154,6 +161,11 @@ git ls-files <dir> | grep -E '\.test\.tsx?$' | wc -l
 # tests: npx vitest run, per-file counts bucketed by top-level directory
 npx playwright test --list      # E2E: declarations x 2 projects
 ```
+
+**The table is measured at `2890e06`** (PR #119) and was re-derived from the tree by the reconcile
+after it: `game/` 811, `render/` 171, `session/` 28, `tests/unit/` 157, **1167** total, **38** E2E.
+The prose above about *which rows moved* describes the `0baacfd` re-count and has not been re-derived
+since — so read the table as current and the deltas as history.
 
 **Everything M1 set out to build exists, endings included.** #21 closed the run loop; the exit
 playtest (#87) reached both endings on a phone at `3ea83fa`. What M1 did **not** settle is whether
@@ -295,6 +307,18 @@ therefore "not yet, and here is the rule that was wrong"** — §12's fallback i
 place the wager is judged. If M2's playtest also cannot sign it, with #83 landed and measured, the
 checkpoint has been answered twice with "not yet" and *that* is what spends §12 — not a deadline.
 
+> **That sentence is now live and somebody has to rule on it.** #83 is landed and measured, a
+> playtest ran after it (PR #119), and it **could not sign** M2's exit criterion. Read literally,
+> the trip-wire above has fired. **The reconcile after #119 does not rule that it has**, for one
+> reason worth stating: the verdict was not *"not tense"* — it named a genuine retellable moment and
+> specific tense turns, and the complaint is that the tension is **declinable** (#121). That is a
+> different answer from M1's, and it arrives with a named, unbuilt fix rather than a dead end. It is
+> also the **earliest** permissible judging playtest (step 4 of six), not the last one M2 gets.
+> **Whether this counts as the second "not yet" is a `game-designer` call**, it is recorded on #121,
+> and it must be made before anyone reads M2's exit criterion as merely pending. §12's fallback is
+> still **not** spent, and nobody should treat it as spent — but nobody should treat the question as
+> unasked either.
+
 **Two instructions the playtest brief must carry, both because auto-travel is deliberately absent
 (ADR-0009).** Both were carried by the first brief and both did their job — keeping them here
 because the *exit* playtest still needs them, unless auto-travel has landed by then:
@@ -345,6 +369,16 @@ this milestone, not its method.
       tested and reached no pixel until review caught it (#93). The announcement now **exists**;
       whether it is *read* is #94, below. One seam it left untested is the lit descent, where `woke`
       outranks `descended` — #96
+- [ ] **The real-run corpus never collects fuel, so every assertion about the receipt line is
+      unexercised by a real run — #114.** Filed by `code-reviewer` on PR #113 and, like #115–#118,
+      it never reached this file until the reconcile after #119 — **found by the review of that
+      reconcile**, which is the fifth issue from #113's cycle and the one the sweep for the other
+      four still missed. Wider than the gap #113 disclosed: not just that no run has a turn with
+      both a `woke` and a `fuelGained`, but that two of the three replays produce **zero**
+      `fuelGained` cues at all. So the corpus invariant that guards #94's levelling and #107's
+      compound is real and its evidence base does not reach the turn shape it was written for.
+      Belongs beside #96 above — both are "the seam this shipped is not covered by anything that
+      replays a real run"
 - [x] **The turn line has two emphasis levels, `alarm` and `report` — #94 (PR #101).** M2's second
       code and step 2 of the build order, *inserted by #79's own playtest*, which answered the
       question #79 was built for with a no. Ruled in GDD §10 with a §11 cross-reference: a wake,
@@ -364,10 +398,11 @@ this milestone, not its method.
       ruled:** `nextMind` 5 cases → 3, and `Mind.awareness` deleted with the cases that read it. The
       four rules §4 said this would make load-bearing — §5's loop doorways, §2's step-off-the-marked-
       tile, §4's adaptation ramp, §13's un-followable stairs — now have something to do. **The rule
-      is built; the verdict on it is not in.** §4's watch can fire in either direction and the number
-      that says which is a playtest number (see the exit criteria). Two things to check when it runs:
-      whether **0 fuel has stopped being a dead zone** (before-measurement: 143 turns at fuel 0 and
-      HP 4 with no way to finish), and the adjacency fraction itself
+      is built, and PR #119's playtest has judged it.** Both checks came back: **0 fuel is no longer
+      a dead zone** — dead in 6 turns from fuel 0 with two hunters, against 143 inert turns at fuel 0
+      and HP 4 before — and the adjacency fraction returned **0.89 and does not discriminate**,
+      because the player sets it (0 of 4 walking, 1.0 standing). **§4's too-weak arm fired instead:
+      0 damage in ~30 turns of active flight.** That is **#121**
 - [ ] Fuel economy and the risk/reward tuning around it — calibrated once in #17. **#63 is ruled**
       and **no fuel number may move yet.** The first of the two reasons is now discharged: #31/#41
       landed 2026-08-01 and `DARK_PACIFIST`'s take went **119 of 121 → 0 of 121**, so the corpus is
@@ -406,24 +441,44 @@ this milestone, not its method.
 - [ ] Auto-travel: implement `travel(to)` per [ADR-0009](decisions/0009-auto-travel-command-shape.md)
       — **#65**, filed because the gate below has been answered and the recommendation is build it.
       #32 was the design ruling and stays closed
-- [ ] **The wager is invisible before it is taken and illegible after it** — now **ten** issues from
-      **four** playtests, none of them tuning and none of them mechanic, all M2. Two are closed:
+- [ ] **The wager is invisible before it is taken and illegible after it** — now **thirteen** issues
+      from **six** playtests, none of them tuning and none of them mechanic, all M2. Two are closed:
       ~~**#94** the wake line is the least emphatic text on screen~~ (done, PR #101) and ~~**#107** a
       cache the flash paid for is announced by nothing~~ (done, 2026-08-01 — the wake line now
       carries the turn's fuel receipt as a second sentence). Open: **#82**
       you cannot see which contacts a flash would wake, **#80** the dormant glyph `c` can never be
       drawn, **#81** the ember a kill drops is invisible in the dark beside you, **#84** neither your
       damage nor a creature's health is ever shown, **#85** dying with a dry lantern near-misses
-      §13's "The lantern goes out.", **#86** the self-tap target eats half-cell misses, and from #94's
+      §13's "The lantern goes out.", **#86** the self-tap target eats half-cell misses, from #94's
       playtest **#103** whether `You take N.` earns `alarm` when it has three carriers already in
-      frame and **#102** the board jogs 6pt every flash cycle. They are
+      frame and **#102** the board jogs 6pt every flash cycle, and from **#107's playtest** **#116**
+      the compound line is additive in reading order but not on screen, **#117** `You gather N
+      ember.` prints the turn's *net* delta so the same cache reads 21 and 25, and **#118** a kill you
+      make while taking damage is not spoken. They are
       one family: the exit criterion is a *felt* decision, and none of these change what the
-      simulation does. **By creation time the four playtests contributed 6 → 1 → 2 → 1**, and the
-      family has never shrunk except by being built. Do **not** read that as a trend in either
-      direction: the M1 exit playtest was a full sweep and the three since were narrow briefs about a
-      single change, so the later counts are confounded by scope. **The measurement that would settle
-      it is the next broad playtest — the one after #83.** If it returns six again, "the wager is
-      illegible" has stopped being a list of bugs and become a finding about the screen
+      simulation does. **Those last three reached this list only in the reconcile after #119**, and
+      the reason is a timing one rather than a skipped step — **PR #113 (#107) did carry a docs pass**
+      (`8f29dc3` touches `GDD.md` +154, `JOURNAL.md` +121 and this file +47). Its playtest filed
+      #115/#116/#117 at 01:33–01:34Z and #118 at 01:42Z against a merge at **01:41:44Z**, so the
+      docs in that PR were written before the issues existed, and **no reconcile ran between #113 and
+      #119** to catch them after. Stated precisely because the first draft of this paragraph said
+      #113 "merged without a docs pass", which is false and reads as a working-agreement violation by
+      a PR that did the work. The defect is real and is the *gap between* PRs, not the PR;
+      #116/#117 were also in no milestone at all and this reconcile put them in M2. (**#115**, the
+      turn line wrapping at 320 wide, came from the same playtest and is *not* counted here: its root
+      is that this project has never named a minimum supported viewport, which is a missing decision
+      rather than a legibility defect. It is in M2 too, as the place the wrap is felt.)
+      **By creation time the six playtests contributed 6 → 1 → 2 → 1 → 3 → 0**, and the family has
+      never shrunk except by being built. **The final 0 is the measurement this bullet asked for.**
+      It said: *"the measurement that would settle it is the next broad playtest — the one after
+      #83"*, and *"if it returns six again, 'the wager is illegible' has stopped being a list of bugs
+      and become a finding about the screen."* That playtest ran on PR #119, was genuinely broad
+      (6 lines of play across 3 seeds, unlike the four narrow briefs before it whose counts are
+      confounded by scope) — and **filed nothing new into this family.** Two caveats and no more: it
+      re-hit **#85** live, and the sharpest legibility hole it named is **#99** (the *lit* player has
+      no awareness channel at all), which is an existing issue rather than a new one. Its other two
+      findings are outside this family by construction — **#121** is a mechanic and **#120** is
+      tooling
 
 ### The build order for the wager, and where it stands
 
@@ -490,8 +545,10 @@ New pin: the longest line the game can produce is ≤ **41** characters.
    re-pinned**: its old log's "retreat" was a one-tile shuffle that only worked because breaking
    contact used to be enough, and under pursuit it became a stand-up fight with no re-dormancy, no
    sleeper and no death — so re-pinning the digest would have deleted three of the six properties
-   that fixture exists for. **The measurement the ruling asks for is still outstanding** and is a
-   playtest number, not a test assertion; the post-#83 playtest below is where it comes from.
+   that fixture exists for. **The post-#83 playtest has since run** (PR #119) and returned both of
+   the exit criteria's numbers — see the exit criteria at the end of this section. It did **not**
+   settle the ruling: the metric the ruling named turns out to be one the player sets, and the
+   too-weak arm fired. **#121** is the consequence and is M2's blocker.
 5. A **`HARVESTER`** style in `game/systems/economy.test.ts` — never flashes, routes to every
    ember-sense contact, one-shots each dormant — which is what §4's invariant 4 is asserted against.
    **Filed as #109** by the reconcile after #106: it was the one step in this list with no issue behind it,
@@ -507,27 +564,40 @@ has never been a numbered step in this list — it is the M2 checklist bullet ab
 by §4's *no number moves until the corpus contains a never-flash fighter*. Recorded rather than
 renumbered: this list is about what to *build*, and the re-tune is what happens once it is built.
 
-**#89 is deliberately not in that list.** Re-dormancy is as silent as waking was, so a shuttered
-player cannot tell *it gave up* from *it is still coming*. It is not the inverse of #79 and must not
-be built as one — waking happens where the player is looking, re-dormancy by definition does not, so
-announcing it would tell the player something they have no in-fiction way to perceive. Rule it
-**after #83 has shipped and been played**: the pursuit has to be felt before anyone can say whether
-its ending should be legible.
+**#89 is deliberately not in that list, and its parked question is now answered — against building
+it.** Re-dormancy is as silent as waking was, so a shuttered player cannot tell *it gave up* from *it
+is still coming*. It is not the inverse of #79 and must not be built as one — waking happens where
+the player is looking, re-dormancy by definition does not, so announcing it would tell the player
+something they have no in-fiction way to perceive. The parking condition was *"rule it after #83 has
+shipped and been played"*; that happened on PR #119, and the finding is that **an ember-sense mark
+that stops moving already is re-dormancy announcing itself** — in the fiction, through a channel the
+shuttered player is already reading, and it worked every time the playtester used it. **The issue
+stays open for the counter-argument, not because the question is unanswered**; closing it is a
+`game-designer` call. The hole the finding exposes is a different one and belongs to #99.
 
-**#99 is parked in the same way and for the same reason, and it is in no milestone** — a HUD readout
-of how many creatures are awake, split out of #94's ruling. Today it would count parked creatures,
-which is trivia; after #83 it counts things walking toward you. Recorded here because an issue with
-no milestone is invisible to `gh issue list --milestone`, and the un-milestoning was deliberate.
+**#99's parking reason is discharged, and this reconcile moved it into M2.** A HUD readout of how
+many creatures are awake, split out of #94's ruling. It was parked as *"today it would count parked
+creatures, which is trivia; after #83 it counts things walking toward you"* — #83 shipped, and PR
+#119's playtest found a sharper argument than that one: **ember-sense is sealed while the shutter is
+open, so the player who chose light gets one `Something wakes.` and then nothing at all.** One run
+carried two hunters for ~10 turns blind and lost 8 HP in three. The player who paid fuel for
+information is the one flying blind, which is backwards. **The deliberate un-milestoning no longer
+holds** — an issue in no milestone is invisible to `gh issue list --milestone`, and the reason it was
+kept out has expired — so it is in M2 and its stale `blocked` label (it was blocked on #83) is gone.
+**Whether to build it is still unruled**, and it interacts with #121: how legible a hunter must be
+depends on what a hunter can do to you.
 
 **Two measured facts from #79's playtest that bear directly on M2's exit criterion.** The first is
 buried in a comment on #83; the second is in no issue and no PR thread, so this roadmap is its only
 record.
 
-- **0 fuel is currently a dead zone.** §13 says it is not an ending, and with nothing hunting the
-  player a bot ran **143 turns at fuel 0 and HP 4**, empty status line every turn, with no way to
-  finish the run. That is not a separate bug; it is a direct measurement of the hole #83 exists to
-  close, and the strongest single argument that #83 is load-bearing rather than a nicety. **Check
-  after #83 lands that it actually closed it.**
+- **0 fuel *was* a dead zone, and #83 closed it — checked, as this bullet asked.** §13 says it is not
+  an ending, and with nothing hunting the player a bot ran **143 turns at fuel 0 and HP 4**, empty
+  status line every turn, with no way to finish the run. **After #83 (PR #119's playtest): a reckless
+  run hit 0 fuel at turn 20 with two Cinders hunting and was dead by turn 26** — HP 12 → 10 → 8 → 4 →
+  dead. 143 inert turns to 6 lethal ones is a total reversal, and it is the strongest single evidence
+  the ruling was right. Left here as a matched before/after pair rather than deleted: it is the only
+  place in this repository where the two halves sit together
 - **8 of 51 consecutive turns on `emberdepth` were real decisions**, with two unbroken autopilot
   stretches of **15 and 22 turns**. Read that as an argument **for** #65 auto-travel, not against:
   the stretches are forward travel across space a flash has already revealed, which is precisely the
@@ -607,6 +677,14 @@ has gone stale after every code PR and been repaired by every docs PR, three for
 this milestone because it is a process defect, which is what this milestone is for; #106's own two
 findings (#107, #108) are **not** of that shape and are in M2 where they belong.
 
+**Seventeen at the reconcile after #119, and only one of the two is new.** #119 filed **#120**
+straight into this milestone — the second time in a row the "file it here on the day" rule was
+followed without prompting, and it is the same family as #90/#91: a guard that still passes while
+guarding nothing. The other is **#112**, filed by `code-reviewer` on PR #111 and **never listed
+here** until now, which is the #76/#78 failure repeating for the fourth time. **Re-derive this list
+from `gh issue list --milestone "Contract and tooling"` rather than reading it** — every count in this
+paragraph has been wrong at least once, and always in the same direction.
+
 - [ ] Both contract gates are bypassable by naming a source file `*.test.ts` — #48. Same family as
       #12, which moved with it; whoever does #12 is already in both files
 - [ ] `render/` and `session/` may import `platform/`, one import from a clock — #52. **Must be
@@ -639,6 +717,17 @@ findings (#107, #108) are **not** of that shape and are in M2 where they belong.
 - [ ] The roadmap's count table goes stale on every code PR — **#110**, filed by the #106 reconcile
       with the three-for-three evidence. Two options and they differ: automate the table, or delete
       the numbers and keep the commands that produce them
+- [ ] The journal is append-only and this file blesses rewriting a merged entry in place — **#112**,
+      two remedies applied to the same situation on consecutive PRs (#104 struck a stale `Next:`
+      through in place; #111 refused to touch the entry and corrected it from above). It matters to
+      whoever runs the next reconcile, which is why it is worth more than its size: **the rule is
+      currently whichever record you read last**
+- [ ] `.gitignore` covers `.playtest/` but the playtester writes to `.scratch/` — **#120**, from
+      #119, where `git status` showed `?? .scratch/` after the mandated playtest gate. The ignore
+      rule's own comment predicts this failure exactly ("a routine `git add -A` after the mandated
+      playtest gate would commit a throwaway harness"); it is simply pointed at a directory nothing
+      uses. Quiet in the dangerous direction — a committed throwaway driver reads like a deliberate
+      test file to the next session
 - [ ] The playtester's documented procedure serves a `dist/` that can change underneath it — **#95**,
       filed by this reconcile from a journal Watch note that had no issue. A concurrent build swapped
       the seed mid-session while the port and bundle name stayed right. Worse here than in a spec: a
@@ -679,6 +768,14 @@ needs.
   a 22-turn unbroken stretch of forward travel through already-revealed space, which is exactly the
   case the resolution below identifies and a stronger instance of it than the 16-tap backtrack.
   Re-measure the ratio **after #83**, not before.
+- **Re-measured after #83, as asked — PR #119's playtest, 6 lines across 3 seeds.** **8 of 48 sampled
+  turns (17%) were real decisions; 8 of 21 (38%) excluding traversal of already-mapped space**, per
+  the standing instruction in M1's brief. Traversal was **107 presses to turn 88, longest unbroken
+  run 13**. The shape survives pursuit: the stretches got shorter (13, against 22) and did not go
+  away. **One caveat that belongs to the metric, not to #65:** two flash decisions sit outside the
+  count entirely because the shutter is a **free action** and costs no turn — so **the game's best
+  decision is structurally invisible to a per-turn Pillar 1 ratio.** Anyone quoting these numbers
+  should quote that with them; it biases every count in this section downward by an unknown amount
 - **The "do not build it" arm also fired, on the disambiguating probe this roadmap wrote.** The probe
   was *did you want to go back and decide not to?* — and the answer was **no, not once, in six
   runs.** The single declined backtrack was declined for fuel and turns, which are costs the design
@@ -702,11 +799,22 @@ genuinely tense — and can point to specific turns where it mattered. Unchanged
 thing M2 is really for. The contract-and-tooling work is a separate milestone now and does not count
 toward this exit.
 
-**The playtest that judges this must be run after step 4 of the build order at the earliest**, and it
-has two numbers to bring back beyond the verdict: the fraction of woken creatures that reach adjacency
-at least once before re-dormanting (near 0 means the pursuit is theatre and #83 was wrong; near 1
-means the flash is a bill rather than a wager and the 8 comes down), and whether **0 fuel has stopped
-being a dead zone** — the 143-turn run recorded above is the before-measurement.
+**That playtest has been run — after step 4, as this block required, on PR #119 — and it cannot sign
+the criterion yet.** It *can* point to specific turns, and it named a genuine retellable moment
+(`ashfall-nine` floor 2: a doorway held for eight turns, 2 HP for 38 ember). **But the tension is
+elective.** It exists when the player chooses to stand and evaporates the moment they decline,
+because a pursuer cannot hit a player who keeps walking. A wager you can decline for free is not a
+wager — which is the same sentence M1's exit playtest wrote about the old rule, arrived at by a
+different route. **#121 is what now stands between M2 and this exit.**
+
+**Both numbers the block asked for came back.** **0 fuel has stopped being a dead zone**: dead in 6
+turns from fuel 0 with two hunters, against the 143 inert turns recorded above. That is a total
+reversal and the strongest single evidence #83 was right. **The adjacency fraction is the defective
+one**: it returned **0.89**, which by its own sentence reads *the 8 comes down*, and the truth is the
+other arm — it is a property of the player's policy (0 of 4 in every line where the player walked,
+1.0 in every line where they stood). **Do not re-run it as a verdict.** GDD §4's watch now carries
+the warning, and #121 owns the replacement — *unavoidable hits*, damage taken while actively fleeing,
+measured at 0 across ~30 turns.
 
 ## M3 — Depth
 

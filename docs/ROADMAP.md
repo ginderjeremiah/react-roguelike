@@ -49,7 +49,7 @@ GDD §4 (*Awake-creature behaviour*), with §3's *fleeing is hard* deleted rathe
 **The ruling redenominates the flash's price into HP, which is the only resource with no in-floor
 recovery** (§3: no healing within a floor, +2 a descent, 12 max). The exchange rate is arithmetic and
 not tuning: **every woken Cinder costs exactly 2 HP or the stairs**, so a run can light and resolve
-about **13 creatures across eight floors** against roughly 34 it will meet. That is the wager
+about **13 creatures across eight floors** against the **42** it will meet. That is the wager
 acquiring a currency, and it is also how this rule kills people — §4's own floor-8 history (*three
 flashes, five Cinders, 10 HP, resolved for no damage*) becomes a dead run.
 
@@ -461,7 +461,7 @@ this milestone, not its method.
       than made quietly: it lost on *"a permanently-awake **parked** Cinder is furniture"*, and #83
       itself deleted parking. **Its largest cost is stated in §4 and is not the deletion: HP is the
       only resource with no in-floor recovery, and this rule redenominates the flash's price into it
-      at exactly 2 HP a wake** — about 13 woken kills a run against ~34 creatures met. **Carries
+      at exactly 2 HP a wake** — about 13 woken kills a run against the **42** a run meets. **Carries
       per-creature wake/HP instrumentation** for §4's regression guard; see step 4a below for why that
       is scope and not a nice-to-have
 - [ ] Fuel economy and the risk/reward tuning around it — calibrated once in #17. **#63 is ruled**

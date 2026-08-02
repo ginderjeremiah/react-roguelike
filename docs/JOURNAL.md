@@ -188,7 +188,8 @@ ruling redenominates the flash's price in it, so every wake is now ≥2 HP or th
 demonstration was already in §4's own history: *"on floor 8, three flashes woke five Cinders at 10 HP
 and the situation resolved into fuel 23 → 60 with no damage taken."* **Under this ruling that same
 situation is ≥10 HP of forced fighting at 10 HP — a dead run.** A run can light and resolve roughly
-**13 creatures across eight floors** against ~34 met. That is a far sharper statement of the
+**13 creatures across eight floors** against the **42** a run meets (`min(2 + floor, 6)` summed over
+floors 1-8; an earlier draft said 34 and review caught it by doing the sum). That is a far sharper statement of the
 too-strong arm than anything the ruling originally wrote, it was already measured, and §4 now leads
 its cost list with it.
 

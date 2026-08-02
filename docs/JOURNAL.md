@@ -57,6 +57,155 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-08-02 — #121 ruled: a pursuer can never hit a mover, so the clock goes instead
+
+**Did:** Ruled **#121**, design only — no game code, no tests. GDD §4 gains the ruling and a new
+*Why a pursuer will never hit a moving player* section; §3's "fleeing is harder" clause is **deleted**
+rather than pointed at; §6, §9, §12 and §13 follow; §4's boxed warning about the defective metric is
+deleted and replaced by a two-armed watch. [ADR-0012](decisions/0012-the-fallback-trigger-is-a-verdict-not-a-signature.md)
+records the §12 call. Build issue is **#123**, build-order **step 4a**, sequenced ahead of #109.
+
+**The ruling: delete re-dormancy.** A woken Cinder is awake for the rest of the floor. You kill it or
+you take the stairs.
+
+**Why — and this is the part worth reading, because it says the question was malformed.** #121 asked
+which of three fixes should let a pursuer hit a fleeing player. The answer is **none, because it
+cannot be done.** Under §2 a creature's action is fixed before your command and resolved after it,
+and an attack names a **tile**. So you are hit only if the tile you *chose* was already named. From
+orthogonal adjacency a creature can name its own four neighbours and you can choose your own four,
+and **those sets intersect only in the tile you are standing on** — which you are leaving. A creature
+behind you cannot name a tile in front of you without first reaching it, and it never can, because
+you share `ACTION_COST`.
+
+So the true rule of this combat system, which nobody had written down in fourteen milestoned issues
+of combat work: **movement is safety and action is exposure — you can only be hit on a turn you spent
+doing something else.** That rule is good and it is why §3's *positioning matters more than stats* is
+true. The defect #121 found is not that rule. It is that **fleeing was also *doing something***:
+eight turns of walking converted a hunter into a sleeper, and pursuit *delivered it to your feet*, so
+declining a fight was not a delay — it was a profitable strategy. #83 moved the optimum without
+removing the option, because it left the option intact and made it **cheaper to collect**.
+
+**Learned — three directions were offered and all three were rejected, which is the useful outcome.**
+Cadence loses on **Pillar 2, not on feel**: a faster creature that still declares a turn ahead
+changes nothing, and one that acts twice between commands declares *after* your move and resolves
+*before* your next, so the marked tile appears and resolves inside a turn you never got — undodgeable,
+and a breach of §2's load-bearing clause. Geometry-aware pathing loses on **reach**: predicting where
+you are going does not let a creature name a tile it cannot touch. And attacks-of-opportunity were
+rejected **explicitly rather than by omission**, as #121 asked: they do not make the marked tile
+dangerous, they make it a **lie**, converting §2's one defensive move into the thing that gets you
+hit. `commit.test.ts` keeps existing.
+
+**This is the same edit #83 rejected three days earlier, and the reversal is recorded rather than
+made quietly.** #83's runner-up was "cut re-dormancy outright", and it lost on one sentence: *"a
+permanently-awake **parked** Cinder is furniture you route around."* Every word of that is about
+parking — which #83 then deleted. Its second argument survives and is **paid**: darkness stops being
+restorative, permanently.
+
+**Learned — a measurement must not name a quantity the design has already decided.** The playtest
+proposed replacing §4's defective metric with *unavoidable hits* (damage taken while fleeing),
+measured at 0. It is a real improvement — the player cannot fake it — and it was **rejected anyway**,
+because the section above proves the rules pin it to 0 by construction. A metric that can only move
+if §2 breaks is not an instrument; it is a standing invitation to break §2 in order to move it. That
+is a sharper failure than the one it replaces: the old metric was set by the *player*, this one is
+set by the *rules*. Both are unfalsifiable, for opposite reasons.
+
+**And then I did it again, one paragraph later, and review caught it.** The first replacement was two
+arms, and its too-weak arm was *the count of creatures a run woke and then banked ember from at no HP
+cost — must be zero, one instance falsifies*. The `code-reviewer` proved that is **zero by
+arithmetic**: `creatures.ts` gives the Cinder 5 HP, `player.ts` gives the player attack 3, so a woken
+Cinder needs two strikes — and by this ruling's own proof you are adjacent at your decision point
+only *after* it has declared on your tile, so the first strike always eats 2 damage. **Every woken
+kill costs exactly 2 HP in every reachable state of this build.** So #123 had been handed, as "the
+assertion that matters most", a corpus assertion that cannot fail.
+
+**Three metrics, three ways of being unfalsifiable: set by the *player*, set by the *rules*, set by
+the *numbers*.** Writing the principle down did not stop me applying it to someone else's proposal
+and not to my own, in adjacent paragraphs. The transferable test §4 now carries: **name the state of
+the world in which this number comes back different — if you cannot, it is a guard, not a
+measurement.** And the specific lesson, which is the part that generalises: *the author of a metric
+is the worst-placed person to check whether it can move.* Check it against `game/content/`.
+
+**The fix was to stop looking for a fourth number.** §4 now watches **one** arm — too strong, a
+playtest reporting the lantern opened only when lost — and states that **the too-weak arm is
+structurally closed**: #83's version of it was *the wake has no consequence*, and after deleting
+re-dormancy that cannot happen. A thing that cannot happen does not need a number watching for it,
+and inventing one is how a fourth dead metric gets left in place. The zero-count claim survives
+**relabelled as a regression guard** — there to fail *later* if #109's re-tune or a creature with
+≤3 HP reopens a free-kill route. Alongside it, an explicitly non-triggering **band** to observe: HP
+spent on woken creatures per floor, against the +2 a descent returns. The exchange rate is fixed by
+the numbers; **how many wakes a run chooses to pay for is not**, which is why that one can move.
+
+**One claim withdrawn as false rather than softened:** "assertable over `economy.test.ts`'s corpus".
+That file and `lantern-run.ts` record per-floor fuel income, demand and dry-out turns, with **no
+per-creature wake or HP attribution** — so the guard is not buildable without instrumentation, and
+§4 now says #123 owns it or the guard is not an acceptance criterion at all.
+
+**§12's trip-wire: ruled that it did not fire.** The roadmap said that if M2's playtest also could
+not sign the criterion, with #83 landed and measured, that spends §12. All three conditions held, so
+read literally it had fired. The ruling is that *"cannot sign the criterion"* and *"says the wager is
+not tense"* are different findings and only the second is §12's trigger — **a fallback that fires on
+any unsigned criterion fires on every unfinished milestone**, which is the deadline the roadmap's own
+sentence says it is not. Three verdicts exist and they are not the same: *tense and rare* (M1),
+*tense and declinable* (#119), and *not tense*, which nobody has returned.
+
+**And because a trip-wire that survives its own firing condition is one nobody will ever trip, it was
+restated** — that is the part that is not a defence. Two named arms (a playtest that cannot name a
+tense turn; a playtest reporting the lantern opened only when lost) and a bound: **the next broad
+playtest after #123 is the one that judges it.**
+
+**Learned — the ruling assumed its build issue would be #122, and #122 was already the reconcile PR.**
+Issues and pull requests share one number space on GitHub, so a ruling written to cite its own
+not-yet-filed build issue guessed wrong, in **eighteen places** across three files. Caught by filing
+the issue first and grepping, which is now the order to do it in: **file, then cite.** Cheap here
+because nothing had merged; it would have been eighteen wrong cross-references in the permanent record
+otherwise.
+
+**Learned — two load-bearing citations attributed the M1 exit playtest's number to #119's.** The
+claim *"8 of 8 commands as real decisions with an awake creature inside three tiles"* is real and is
+the right evidence for "a pursuing Cinder is not furniture" — but it belongs to the **M1 exit
+playtest** (against 5 of 50 everywhere else), and it was cited twice as though #119's playtest had
+measured it. #119 measured 8 of 48, or 8 of 21 excluding traversal — a whole-run rate, a different
+quantity, and the roadmap already warns that decision counts from different playtests are not
+comparable. The argument survives on the correctly-attributed figure and is now stated with the
+attribution in-line, because the failure mode here is not a wrong number, it is a **right number
+under the wrong name** — which is harder to catch and travels further.
+
+**Next:** **#123 — delete re-dormancy**, build-order step 4a, ahead of #109. It is subtraction on
+#83's scale: `TURNS_TO_REDORMANCY`, `turnsSinceContact`, one case of `nextMind`, and — because
+nothing else in `game/entities/` asks — the whole *contact* concept and the injected `LightQuery`
+behind it, so the entity layer stops needing to know what light is. Expect a `RULES_VERSION` bump and
+a fixture re-record: `replay.test.ts`'s combat fixture pins *"a creature returned to dormant"* as one
+of the six properties it exists for, and that property becomes **impossible**. It was already
+re-recorded once, for #83; read its header before touching it.
+
+**Watch:** **this ruling is unbuilt and unplayed, and it is a bigger swing than #83.** #83 changed
+what a woken creature does; this changes how long the consequence lasts, permanently, and it removes
+the only recovery the design offered.
+
+**The largest cost was the one the first draft did not list, and review supplied it: HP is the only
+resource with no in-floor recovery** (§3 — no healing within a floor, +2 on descent, max 12). This
+ruling redenominates the flash's price in it, so every wake is now ≥2 HP or the stairs. The
+demonstration was already in §4's own history: *"on floor 8, three flashes woke five Cinders at 10 HP
+and the situation resolved into fuel 23 → 60 with no damage taken."* **Under this ruling that same
+situation is ≥10 HP of forced fighting at 10 HP — a dead run.** A run can light and resolve roughly
+**13 creatures across eight floors** against the **42** a run meets (`min(2 + floor, 6)` summed over
+floors 1-8; an earlier draft said 34 and review caught it by doing the sum). That is a far sharper statement of the
+too-strong arm than anything the ruling originally wrote, it was already measured, and §4 now leads
+its cost list with it.
+
+The rest, stated in §4 rather than discovered later: darkness stops being restorative; a waking
+arrival (one floor in five) loses the answer §4 used to hand it; **invariant 4's gap widens**, because
+a flashing style now pays HP for every creature it lights while a never-flash fighter still one-shots
+everything it meets, which makes `CACHE_FUEL` more load-bearing and adds a question to #109; and
+**auto-travel is disabled for the rest of a floor rather than for eight turns**, which #65 must be
+built knowing.
+
+The arm to watch hardest is **too strong**. If every wake becomes a forced fight, the flash stops
+being a wager and becomes a bill — and unlike #83, there is no constant left to turn down, because
+the ruling deleted the only one. The fix would have to be a new rule, so the measurement matters more
+here than it did there. **#99 gets stronger under this ruling** (the wake count over a floor is now
+monotone) and is deliberately still unruled — it should be ruled, not filed.
+
 ## 2026-08-02 — Reconcile after #119: a measurement that cannot answer its own question
 
 **Did:** Archivist pass over `main` at `2890e06`. `GDD.md` §4 (the watch) and §6; `ROADMAP.md` in

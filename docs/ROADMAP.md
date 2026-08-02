@@ -15,7 +15,7 @@ was wrong"**, so M2 opens with the build order the #83 ruling specifies. Four M1
 determinism-gate debt (see the split below). So `gh issue list --milestone "M2: The light loop"`
 will not show you #12 — that is deliberate, not a lost issue.
 
-**M2 is four steps into a build order of six, plus the step 3a inserted since — and 3a is done too.**
+**M2 is four steps into a build order of six, plus 3a (done) and 4a (ruled, not built).**
 #79 (PR #92) made a wake announce itself, with a
 count; #94 (PR #101) gave that announcement two emphasis levels so it is read first; **#31/#41 made a
 cache terrain the lantern has to have shown you**, which un-contaminates the fuel corpus; #107 made a
@@ -27,26 +27,51 @@ sequenced around.** `nextMind` went from five cases to three: an awake creature 
 player every turn, lit or shuttered, near or far, and the eight-turn counter is the only thing
 contact still governs. It is subtraction — two cases and the `Awareness` union deleted, no mechanic,
 no state, no UI — and it is the first step in this build order to change what the simulation *does*
-rather than what it says about itself. `RULES_VERSION` 4 → 5.
+rather than what it says about itself. `RULES_VERSION` 4 → 5. **It was half the fix**, which is what
+step 4a below is: #83 replaced the parking and left the clock, and the clock is where the refund
+lived.
 
-**Next in the build order is #109 — the `HARVESTER` style, step 5 — and it is now the gate on
-everything numeric.** The four legibility steps are done, so the wager is finally *stated* on screen
-and *priced* in the simulation; what is still missing is the corpus that says whether the price is
-right. No fuel number may move until it exists. **#121 is not a build step and outranks it for the
-milestone**: it is a design ruling, and it is what stands between M2 and its exit criterion.
+**#121 is ruled, and the ruling is the next thing to build: step 4a, `#123` — delete re-dormancy.**
+The playtest of #83 found that a pursuer cannot hit a player who keeps moving (0 damage across ~30
+turns of active flight), and the ruling is that it never will: under §2 a creature's action is fixed
+before your command and resolved after it, so **a player who moves cannot be hit at any creature
+speed, given one legal move to make.** (`pursue()` names only the tile the player is standing on, so
+the threat is a *single* tile and two adjacent creatures name the same one. The qualifier fails only
+for a player enclosed on all four sides — a legitimate death, and **not** grounds to reopen cadence.)
+All three fixes #121 offered — cadence, geometry-aware pathing, and something at the moment
+of adjacency — are rejected, two of them on Pillar 2. **The fix is upstream: fleeing was still
+*accomplishing* something.** Eight turns of walking turned a hunter back into a sleeper and pursuit
+delivered it to the player's feet. So the eight-turn clock is deleted: **a woken Cinder is awake for
+the rest of the floor — you kill it or you take the stairs.** Subtraction, as #83's was: one
+constant, one field, one case of `nextMind`, and the whole *contact* concept with it. Full ruling in
+GDD §4 (*Awake-creature behaviour*), with §3's *fleeing is hard* deleted rather than pointed at.
 
-**#83 has been played, its verdict is split, and #121 is now what stands between M2 and its exit.**
-The broad playtest the exit criteria call for ran on PR #119. **What the ruling bought:** the retreat
-exploit is no longer optimal — measured A/B from one save point, walking away is 17 turns and −9 fuel
-against 9 turns and **+6** for standing, so M1's +4-profit retreat is now a loss — and **0 fuel has
-stopped being a dead zone** (dead in 6 turns, against 143 inert turns before). **What it did not
-buy:** a pursuer **cannot hit a player who keeps moving** — 0 damage across ~30 turns of active
-flight — so §3's *fleeing is hard, and that is a feature* is still false and §4's **too-weak** arm has
-fired. That is **#121**; §4 declines to name a dial for that arm, so it needs its own ruling.
+**The ruling redenominates the flash's price into HP, which is the only resource with no in-floor
+recovery** (§3: no healing within a floor, +2 a descent, 12 max). The exchange rate is arithmetic and
+not tuning: **every woken Cinder costs exactly 2 HP or the stairs**, so a run can light and resolve
+about **13 creatures across eight floors** against the **42** it will meet. That is the wager
+acquiring a currency, and it is also how this rule kills people — §4's own floor-8 history (*three
+flashes, five Cinders, 10 HP, resolved for no damage*) becomes a dead run.
 
-**Do not re-run §4's named measurement as a verdict.** It returned **0.89**, which reads as the
-*opposite* arm, because the player sets it — see the boxed warning in GDD §4's watch and the exit
-criteria at the end of this section.
+**#109 — the `HARVESTER` style, step 5 — remains the gate on everything numeric**, and #123 goes
+ahead of it deliberately: a rule that changes how many turns a run spends and what it spends them on
+means the corpus would otherwise be re-measured twice with no way to attribute the difference. **No
+fuel number may move until #109**, and §3's combat numbers should not move before it either, for the
+same attribution reason — which now matters more, because §3's numbers are where the too-strong arm
+gets answered if it fires.
+
+**Three measurements are now rejected here, and the third was this ruling's own.** The adjacency
+fraction is set by the **player** (0.89, and it reads as the opposite arm). *Unavoidable hits* is
+pinned by the **rules** — §2 makes it 0, so it can only move by breaking §2. And the first replacement
+#121 wrote — *free ember from a creature you woke, which must be zero* — is pinned by the **numbers**,
+which the review of PR #124 caught. **GDD §4 now watches one arm, the too-strong one** (the lantern
+opened only when lost), declares the too-weak arm **structurally closed**, keeps the zero-count claim
+as a **regression guard** rather than a watch, and records the question that separates the two:
+*name the state of the world in which this number comes back different.*
+
+**§12's trip-wire is ruled and did not fire — [ADR-0012](decisions/0012-the-fallback-trigger-is-a-verdict-not-a-signature.md).**
+The fallback is **not** spent, the trigger is restated as two named arms, and the next broad playtest
+after #123 is the one that judges it. See M1's exit section and M2's exit criteria, both amended.
 
 ---
 
@@ -307,17 +332,25 @@ therefore "not yet, and here is the rule that was wrong"** — §12's fallback i
 place the wager is judged. If M2's playtest also cannot sign it, with #83 landed and measured, the
 checkpoint has been answered twice with "not yet" and *that* is what spends §12 — not a deadline.
 
-> **That sentence is now live and somebody has to rule on it.** #83 is landed and measured, a
-> playtest ran after it (PR #119), and it **could not sign** M2's exit criterion. Read literally,
-> the trip-wire above has fired. **The reconcile after #119 does not rule that it has**, for one
-> reason worth stating: the verdict was not *"not tense"* — it named a genuine retellable moment and
-> specific tense turns, and the complaint is that the tension is **declinable** (#121). That is a
-> different answer from M1's, and it arrives with a named, unbuilt fix rather than a dead end. It is
-> also the **earliest** permissible judging playtest (step 4 of six), not the last one M2 gets.
-> **Whether this counts as the second "not yet" is a `game-designer` call**, it is recorded on #121,
-> and it must be made before anyone reads M2's exit criterion as merely pending. §12's fallback is
-> still **not** spent, and nobody should treat it as spent — but nobody should treat the question as
-> unasked either.
+> **Ruled on #121, 2026-08-02: it did not fire. [ADR-0012](decisions/0012-the-fallback-trigger-is-a-verdict-not-a-signature.md)
+> has the reasoning and the alternative that lost.** The short version: *"cannot sign the criterion"*
+> and *"says the wager is not tense"* are different findings and only the second is §12's trigger.
+> Three playtests, three verdicts — **tense and rare** (M1's exit), **tense and declinable** (PR
+> #119), and *not tense*, which nobody has returned. A fallback that fires on any unsigned criterion
+> fires on every unfinished milestone, which is the deadline the sentence above says it is not.
+>
+> **The sentence above is superseded rather than deleted, because the runner-up is real:** the
+> trip-wire was written *knowing* #83 was the fix and knowing it would be built and measured before
+> the sentence could fire, so "it arrives with a named fix" is an argument it already anticipated. It
+> loses on the evidence — #83 fixed what it aimed at, and what PR #119 found is that the *diagnosis*
+> was one layer short, not that the concept is dead.
+>
+> **The replacement trigger, so that "it never trips" is not the next failure mode.** §12 is spent by
+> either of: **a playtest that cannot name a tense turn** (not one that could not sign, not one that
+> wants it more often, not one that found a way to decline it), or **a playtest that reports the
+> lantern being opened only when lost** — VISION's own failure condition, and §4's too-strong arm.
+> **Bound: the next broad playtest after #123 is the one that judges it**, because #121's build is
+> the last unbuilt thing that changes what the wager *costs*. §12 carries the same text.
 
 **Two instructions the playtest brief must carry, both because auto-travel is deliberately absent
 (ADR-0009).** Both were carried by the first brief and both did their job — keeping them here
@@ -361,7 +394,12 @@ this milestone, not its method.
       tested in `behaviour.test.ts` and pinned end-to-end by `replay.test.ts`'s fixture. **The first
       playtest reported it unimplemented and built a recommendation on that**, almost certainly after
       reading GDD §4's "**Awake-creature behaviour** (M2, ...)" marker, which was stale. §4 is fixed;
-      this line exists so the mistake is not repeated from the roadmap instead
+      this line exists so the mistake is not repeated from the roadmap instead.
+      **And it is now being deleted — #121, ruled 2026-08-02, build issue #123 — so this bullet is
+      kept as history and not as a feature.** Read it as *the mechanic that two rulings were spent
+      on before anyone questioned whether it should exist*: it was believed missing (#31), then found
+      built and blamed for the wrong thing (#63), then had its cause corrected upstream (#83), and is
+      now removed because pursuit made the refund it pays *cheaper* to collect rather than harder
 - [x] **A wake is announced, in the turn line, with a count — #79 (PR #92).** M2's first code and
       step 1 of the build order below, which made it a *precondition* rather than polish: once #83
       lands, an unannounced wake is an unannounced hunter. It covers all three emission sites — the
@@ -402,7 +440,30 @@ this milestone, not its method.
       a dead zone** — dead in 6 turns from fuel 0 with two hunters, against 143 inert turns at fuel 0
       and HP 4 before — and the adjacency fraction returned **0.89 and does not discriminate**,
       because the player sets it (0 of 4 walking, 1.0 standing). **§4's too-weak arm fired instead:
-      0 damage in ~30 turns of active flight.** That is **#121**
+      0 damage in ~30 turns of active flight.** That is **#121**, now ruled — see the bullet below
+- [ ] **Re-dormancy is deleted: a woken Cinder is awake for the rest of the floor — #121 ruled
+      2026-08-02, build issue #123, build-order step 4a.** The ruling is that the too-weak arm cannot
+      be closed by creature behaviour at all: under §2 an attack names a tile a turn in advance and
+      resolves after the player's command, so **a mover with one legal move cannot be hit at any
+      creature speed** — and as implemented the threat is a *single* tile (`pursue()` names only the
+      player's own), so two adjacent creatures name the same one and cannot pincer. All
+      three of #121's proposed fixes are rejected (cadence and attack-of-opportunity on Pillar 2,
+      geometry-aware pathing on reach and on §2's legible-over-smart trade). What was actually broken
+      is that **fleeing accomplished something**: eight turns of walking converted a hunter into a
+      sleeper, and pursuit delivered it *closer than it started* — one measured seven-tile retreat had
+      a walk back of four. Deleting the clock removes the only free way out of a wake; §4 listed
+      three (*outlast it, kill it, take the stairs*) and outlast was the free one. **Subtraction:**
+      `TURNS_TO_REDORMANCY`, `turnsSinceContact`, one case of `nextMind`, and the whole *contact*
+      concept including the injected `LightQuery` — the entity layer stops needing to know what light
+      is. It closes **#89** by deleting the event #89 wanted announced, and makes **#99** a readout
+      rather than a second opinion (the wake count over a floor becomes monotone). **The same edit was
+      #83's rejected runner-up**, and the reversal is recorded in GDD §4 and the change log rather
+      than made quietly: it lost on *"a permanently-awake **parked** Cinder is furniture"*, and #83
+      itself deleted parking. **Its largest cost is stated in §4 and is not the deletion: HP is the
+      only resource with no in-floor recovery, and this rule redenominates the flash's price into it
+      at exactly 2 HP a wake** — about 13 woken kills a run against the **42** a run meets. **Carries
+      per-creature wake/HP instrumentation** for §4's regression guard; see step 4a below for why that
+      is scope and not a nice-to-have
 - [ ] Fuel economy and the risk/reward tuning around it — calibrated once in #17. **#63 is ruled**
       and **no fuel number may move yet.** The first of the two reasons is now discharged: #31/#41
       landed 2026-08-01 and `DARK_PACIFIST`'s take went **119 of 121 → 0 of 121**, so the corpus is
@@ -549,6 +610,31 @@ New pin: the longest line the game can produce is ≤ **41** characters.
    the exit criteria's numbers — see the exit criteria at the end of this section. It did **not**
    settle the ruling: the metric the ruling named turns out to be one the player sets, and the
    too-weak arm fired. **#121** is the consequence and is M2's blocker.
+
+**Step 4a — #123: delete re-dormancy. Ruled on #121, 2026-08-02; not built.** **Lettered rather than
+renumbered, for the same reason step 3a was**: `docs/JOURNAL.md`, the comment closing #105 and M2's
+exit criterion all cite "step 5"/"step 6", and renumbering would silently redirect them. It is step 4a
+and not step 5 because it is the second half of step 4 — #83 replaced the *parking* and left the
+*clock*, and the clock turns out to be where the refund lived. **Sequenced ahead of #109 deliberately,
+on #83's own argument for putting #31/#41 ahead of itself:** a rule that changes how many turns a run
+spends and what it spends them on means the corpus gets measured twice with no way to attribute the
+difference, and #109 exists to produce a clean measurement of invariant 4. **The consequence for #109
+is not only sequencing** — the ruling widens the gap invariant 4 names, because a flashing style now
+pays HP for every creature it lights while a never-flash fighter still one-shots everything it meets.
+`HARVESTER`'s brief gains that question. **No number moves in step 4a**, including §3's combat
+numbers, for the same attribution reason.
+
+**One thing step 4a carries that is not a deletion, and it must not be dropped as scope: per-creature
+wake and HP instrumentation.** GDD §4 keeps *no run may bank ember from a creature it woke without
+paying HP for it* as a **regression guard** — true by arithmetic today, and there to fail later if
+#109's re-tune or a creature with 3 HP or less reopens a free-kill route. **Nothing can assert it
+today.** `game/systems/economy.test.ts` and `tests/unit/support/lantern-run.ts` record per-floor fuel
+income, demand and dry-out turns and have **no per-creature attribution at all**, so the guard needs a
+run instrumented to record, per creature, whether it was ever woken and what HP the player spent
+between its wake and its death. **If that is not built, the guard is not an acceptance criterion and
+must not be listed as one** — a green assertion over a corpus that cannot see the quantity is worse
+than no assertion.
+
 5. A **`HARVESTER`** style in `game/systems/economy.test.ts` — never flashes, routes to every
    ember-sense contact, one-shots each dormant — which is what §4's invariant 4 is asserted against.
    **Filed as #109** by the reconcile after #106: it was the one step in this list with no issue behind it,
@@ -574,6 +660,14 @@ that stops moving already is re-dormancy announcing itself** — in the fiction,
 shuttered player is already reading, and it worked every time the playtester used it. **The issue
 stays open for the counter-argument, not because the question is unanswered**; closing it is a
 `game-designer` call. The hole the finding exposes is a different one and belongs to #99.
+
+**That call is now made, and it is made by #121 rather than by argument: close #89.** The ruling
+deletes re-dormancy, so there is no transition left to announce — a woken creature is awake until it
+dies or you descend. Close it citing #121, not the counter-argument above, so that the record says
+*the event was removed* rather than *the announcement was refused*. **#99 moves the other way and
+gets stronger:** with re-dormancy gone the wake count over a floor is **monotone**, so a HUD readout
+of how many things are awake is a running total of the flash's bill rather than a number that can
+silently go down. Whether to build it is still unruled.
 
 **#99's parking reason is discharged, and this reconcile moved it into M2.** A HUD readout of how
 many creatures are awake, split out of #94's ruling. It was parked as *"today it would count parked
@@ -807,14 +901,42 @@ because a pursuer cannot hit a player who keeps walking. A wager you can decline
 wager — which is the same sentence M1's exit playtest wrote about the old rule, arrived at by a
 different route. **#121 is what now stands between M2 and this exit.**
 
+**#121 is ruled and #123 is the build, so the next *broad* playtest is the judging one — and it is
+briefed differently.** Broad as in PR #119's six lines across three seeds; a narrow follow-up may not
+spend §12. Three things it must be asked, and none of them is "can you sign the criterion":
+
+- **Both arms of §12's restated trigger, in VISION's words** (ADR-0012): *can you name a turn where
+  the light decision mattered?* and *did you open the lantern only when lost?* An unsigned criterion
+  is **not** an answer to either. If the answer to the first is no, or to the second is yes, the
+  fallback is spent and no further evidence is needed.
+- **The too-strong arm is the only arm GDD §4 still watches**, and it is the second question above.
+  §4 declares the **too-weak arm structurally closed**: a woken Cinder costs exactly 2 HP or the
+  stairs, by arithmetic (5 HP against 3 damage is two strikes, and the player is only ever adjacent
+  at their decision point after the creature has declared), so there is no reachable state in which a
+  wake costs nothing. **Nothing is watching for it, deliberately.**
+- **The open band, which is not a trigger: HP spent on woken creatures per floor, against the +2 a
+  descent returns.** The exchange rate is decided; **how many wakes a run pays for is not.** Flashing
+  freely and still finishing with HP to spare says 2 is not a price at these numbers. Unable to afford
+  a second wake on floor 3 is the arm above. **Report it; re-tune nothing** — §3's combat numbers are
+  frozen behind #109 for the same attribution reason #123 is.
+
+**Do not re-run the adjacency fraction, do not measure damage taken while fleeing, and do not count
+free kills on woken creatures as a verdict.** Set by the player, pinned by the rules, and pinned by
+the numbers respectively — three ways of being unfalsifiable, and GDD §4 records all three with the
+question that separates a watch from a guard: **name the state of the world in which this number comes
+back different.** The third one survives in §4 as a **regression guard** for a later re-tune, and it
+needs per-creature wake and HP instrumentation that does not exist yet — **#123 owns that or the guard
+is not built.**
+
 **Both numbers the block asked for came back.** **0 fuel has stopped being a dead zone**: dead in 6
 turns from fuel 0 with two hunters, against the 143 inert turns recorded above. That is a total
 reversal and the strongest single evidence #83 was right. **The adjacency fraction is the defective
 one**: it returned **0.89**, which by its own sentence reads *the 8 comes down*, and the truth is the
 other arm — it is a property of the player's policy (0 of 4 in every line where the player walked,
-1.0 in every line where they stood). **Do not re-run it as a verdict.** GDD §4's watch now carries
-the warning, and #121 owns the replacement — *unavoidable hits*, damage taken while actively fleeing,
-measured at 0 across ~30 turns.
+1.0 in every line where they stood). **Do not re-run it as a verdict.** §4's boxed warning has been
+**deleted** now that #121 has ruled; the warning it carried is preserved inside §4's new watch, and
+the replacement is *not* the *unavoidable hits* the playtest proposed — that one is rejected too, for
+the reason above.
 
 ## M3 — Depth
 

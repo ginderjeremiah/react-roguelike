@@ -57,6 +57,76 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-08-02 — Reconcile after #119: a measurement that cannot answer its own question
+
+**Did:** Archivist pass over `main` at `2890e06`. `GDD.md` §4 (the watch) and §6; `ROADMAP.md` in
+nine places. **The in-PR doc work was not redone** — the §4/§6 markers, the §4 change-log row, step 4
+marked done, the header rewrite and the count table were checked and are correct. The table was
+re-derived from the tree rather than trusted: `game/` **811**, `render/` **171**, `session/` **28**,
+`tests/unit/` **157**, **1167** total, **38** E2E (19 declarations × 2 projects). All six match.
+Milestones set on **#99**, **#115**, **#116**, **#117**; `blocked` removed from #99.
+
+*(Dated from the clock. The entry below shares this date honestly — it is not copied from it, which
+is the specific route this file's header and #50 warn about.)*
+
+**Why — the one edit that mattered.** GDD §4's watch staked the whole #83 ruling on *the fraction of
+woken creatures that reach adjacency at least once before re-dormanting*, near 1 meaning the 8 is too
+long. The playtest measured **0.89** and the truth is the **opposite** arm. Split by policy it was
+**0 of 4** when the player kept walking and **1.0** when they stood — **the player controls adjacency
+completely, so the number measures the playtester rather than the design.** §4 now carries a boxed
+warning saying so before the metric can be acted on. **The substitution is deliberately not made**:
+*unavoidable hits* (damage taken while actively fleeing, measured at **0** in ~30 turns) is a design
+ruling and belongs to **#121**. So §4 now names a metric and tells you not to use it, which is the
+honest state and is written as such rather than tidied away.
+
+**Learned — this is a stale *instrument*, and it is the third consecutive reconcile whose biggest
+find is the same shape.** §4 already documents two stale *status markers* (one said "not built" of
+built code and cost a playtest verdict). The reconcile after #106 found a stale *count table* that
+misattributed a test delta. This one is a stale *measurement*. All three are the same defect: **a
+claim in a document that a reader would act on without re-deriving.** The count table has #110; the
+markers have the "the PR that changes the code owes the edit" rule. The instrument has nothing —
+**no mechanism stops the next metric from outliving its validity**, and unlike the other two it
+cannot be automated, because only a measurement can falsify a measurement.
+
+**Learned — the reconcile is not triggered by anything, and it cost three issues.** PR #113 (#107)
+merged **without** a docs pass; the next PR was #119. So #115, #116, #117 and #118 — all from #113's
+playtest — never reached `ROADMAP.md`, and three of the four were in **no milestone at all**, which
+the roadmap itself says makes an issue invisible to `gh issue list --milestone`. The "wager is
+illegible" family therefore read **ten from four playtests** when it was thirteen from six. Fixed,
+but the mechanism is untouched: the convention is one reconcile per code PR and nothing enforces it,
+so the roadmap's queue-visibility claims are only as good as the last person who remembered.
+
+**The family's own measurement came back, and it is a 0.** The bullet said: *"the measurement that
+would settle it is the next broad playtest — the one after #83… if it returns six again, 'the wager
+is illegible' has stopped being a list of bugs and become a finding about the screen."* That playtest
+ran, was genuinely broad, and **filed nothing new into the family**. Tally by creation time is now
+**6 → 1 → 2 → 1 → 3 → 0**. Do not over-read it: it re-hit **#85** live, and the sharpest legibility
+hole it named is **#99** — an existing issue, not a new one.
+
+**Two parked design questions moved, neither ruled.** **#89** is answered *against* building it: a
+mark that stops moving already is re-dormancy announcing itself in-fiction, and it worked every time
+it was used. Left open for the counter-argument. **#99's** parking reason (*"today it would count
+parked creatures"*) is discharged, so it is in M2 with the `blocked` label gone — but **the lit
+player is the hole**, not the shuttered one, which is the reverse of how both issues were framed.
+
+**Flagged and not resolved: §12's trip-wire sentence is live.** `ROADMAP.md` says *"if M2's playtest
+also cannot sign it, with #83 landed and measured, the checkpoint has been answered twice with 'not
+yet' and that is what spends §12."* #83 is landed and measured, a playtest ran, and it **could not
+sign**. This pass does **not** rule that the trip-wire fired — the verdict was not *"not tense"* but
+*"tense and declinable"*, it names a fix (#121), and it is the earliest permissible judging playtest
+rather than M2's last. **That is a `game-designer` call and it is now recorded on #121.** §12's
+fallback is still not spent; the question is no longer unasked.
+
+**Next:** **#109** — the `HARVESTER` style, build-order step 5, still the gate on every fuel number.
+But **#121** is what stands between M2 and its exit criterion, and it is a design ruling, not a build.
+
+**Watch:** **GDD §4 currently names a measurement it also forbids using**, and that is deliberate
+until #121 rules. If #121 is ruled and §4's watch is *not* amended in the same pass, the boxed
+warning is the only thing standing between a future session and a 0.89. **Do not delete it as
+redundant.** Separately: the roadmap's count table is now stamped with the commit it was measured at
+(`2890e06`), because the prose around it still describes the `0baacfd` re-count and a reader was one
+paragraph away from reading history as current.
+
 ## 2026-08-02 — #83: a woken Cinder pursues, and the fixture that had to be re-recorded rather than re-pinned
 
 **Did:** Build-order **step 4**, closing **#83** — the ruling M2's entire build order was sequenced to

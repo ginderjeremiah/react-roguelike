@@ -689,10 +689,13 @@ of corrections is the record — a marker that said "not built" while the code w
 playtest verdict (§4's blockquote below), and a marker that said "not implemented" after it shipped
 would have been the same defect with the sign flipped.
 
-**What is still owed is the measurement, not the build.** §4's watch names one number — the fraction
-of woken creatures that reach adjacency at least once before re-dormanting — and it is a playtest
-number, so it is not settled by this section closing. Until it is taken, do not re-tune the 8 in
-either direction. Fuel numbers remain frozen for a separate reason (#109).
+**The measurement has been taken, and the instrument is what broke.** §4's watch names one number —
+the fraction of woken creatures that reach adjacency at least once before re-dormanting — and the
+broad playtest after #83 (PR #119) returned **0.89**, which by the watch's own sentence reads *too
+strong, bring the 8 down*. **The opposite arm fired.** The number is a property of the player's
+policy rather than of the design; see the boxed warning in the watch below before you act on it, and
+**do not re-tune the 8 in either direction** — #121 owns the arm that did fire and explains why
+raising the 8 cannot close it. Fuel numbers remain frozen for a separate reason (#109).
 
 **Why this replaces a *Settled* rule.** The old rule sent a creature that lost contact to your
 last-known tile, where it waited indefinitely. The exit playtest measured the consequence and it was
@@ -719,6 +722,28 @@ wearing a `*`. **Too strong:** every wake becomes a forced fight, and the flash 
 and becomes a bill. One number tells you which: **the fraction of woken creatures that reach adjacency
 at least once before re-dormanting.** Near 0 and the pursuit is theatre; near 1 and 8 is too long.
 
+> **That number is known-defective. It has been measured, and it cannot answer the question above —
+> do not run it as a verdict.** The broad playtest after #83 (PR #119) returned **8 of 9 = 0.89**,
+> which reads as the *too-strong* arm. **The arm that actually fired is the too-weak one.** Split by
+> the player's policy the same nine were **0 of 4** in every line where the player kept walking and
+> **1.0** in every line where they stood, fought or advanced: the player controls adjacency
+> completely and never has to stop, so the fraction measures the playtester's choices rather than the
+> design. What the same playtest measured instead is the paragraph below coming true — **0 damage
+> taken across ~30 turns of active flight**, including cornered at 4 HP and 0 fuel with two Cinders
+> adjacent, walked out of for nothing.
+>
+> **The substitute the playtest proposes is unavoidable hits — damage taken while actively fleeing**
+> (measured at 0), because the design controls that one and the player cannot fake it. **That
+> substitution is not made here: it is a design ruling and it belongs to #121**, which owns the
+> too-weak arm and should amend this watch in the same pass. Until it does, this section names a
+> metric and also tells you not to use it, and that is the honest state rather than an oversight.
+>
+> **Third correction of this kind in §4, and the first that is not a status marker.** The other two
+> are elsewhere in this section: one said "(M2, …)" of code that had shipped and cost a playtest
+> verdict, one said "ruled, not built" of code about to ship. This one is a *measurement* that could
+> not answer its own question — same failure, different organ: **a claim in this document that a
+> reader would act on without re-deriving.**
+
 **The 8 is the dial for the too-strong arm only, and §4 declines to name one for the other.** On the
 too-weak arm the 8 is not a fix: the player and a creature share `ACTION_COST`, so **a pursuer never
 closes on a player who keeps stepping away**, and raising the number lengthens the pursuit window
@@ -726,7 +751,9 @@ rather than tightening it. It would buy adjacency only by giving the floor's geo
 pin you — paid for in exactly the forced-walking turns this ruling exists to delete, which is
 word-for-word the argument that rejected the distance requirement three paragraphs above. **If the
 too-weak arm fires, the fix is something not currently named** (cadence, or geometry-aware pathing)
-and it needs its own ruling. Naming a dial that cannot move the outcome is how a session burns a
+and it needs its own ruling. **It fired — measured on PR #119, filed as #121 — and the prediction in
+this paragraph is what the playtest confirmed**, so the ruling #121 asks for is now owed rather than
+hypothetical. Naming a dial that cannot move the outcome is how a session burns a
 cycle turning 8 into 12, re-measuring, and finding the adjacency fraction unmoved and the walking
 demonstrably worse. A distance requirement is not the dial either — see the change log.
 
@@ -880,6 +907,14 @@ shuttered the lantern and let it walk past me in the dark"** — which two playt
 automatic and available every single time, which is not a moment. It is now **"I shuttered, it came
 anyway, and I kept a doorway between us for eight turns."** §5 puts 1–2 extra doorways on every floor
 and calls them escape routes; that is the sentence they were generated for.
+
+**Observed, not predicted — the playtest after #83 (PR #119) produced that moment almost verbatim.**
+Seed `ashfall-nine`, floor 2: a flash woke two, the player ran five tiles and stood below a doorway
+only one could reach, killed it there, and the second — blocked behind it — timed its eight turns out
+without ever arriving and was one-shot asleep. **2 HP for 38 ember.** What the same playtest could
+*not* find is any pressure on a player who simply keeps walking (**#121**, 0 damage in ~30 turns of
+flight), so the trade this section describes is real **only for a player who chooses to stand**. That
+is a live defect in the rule above, not in this description of it.
 
 Case and shape carry dormancy, not colour (§11). **Waking is announced in the turn line, with a
 count** — §4 has the rule, its precedence, and why it is a precondition for the behaviour above

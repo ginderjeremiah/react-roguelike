@@ -421,10 +421,14 @@ unannounced hunter — and a death you cannot retell is a Pillar 2 and Pillar 4 
 *How loudly the line is drawn is §10's, ruled in #94 — a wake is an `alarm`, and the shutter line it
 outranks is a `report`. Pointed at rather than restated, so the two cannot drift apart.*
 
-*One thing this precedence now outranks that it was never asked about: the cache rule below made a
-flash able to **pay** on the same free action it wakes on, so `You gather N ember.` is suppressed by
-the wake line. Recorded as an as-implemented note beside §10's table and open as **#107**; nothing in
-this block is amended for it.*
+**The wake takes the line. It may also *share* it — with one other sentence and no more — *ruled
+2026-08-01 (#107)*.** The cache rule below made a flash able to **pay** on the same free action it
+wakes on, so `Two things wake.` suppressed `You gather 21 ember.` and the pickup was announced by
+nothing at all. **The blockquote above is unamended and there is no fourth tier**: the wake still
+takes the line, and what #107 rules is that on a turn which also paid, the turn's fuel receipt is
+appended to it — `Two things wake. You gather 21 ember.` — wake first, both halves verbatim, and only
+this pair. §10 owns the ruling, the level, and the character budget that makes it fit; it is stated
+there rather than here so the copy and the emphasis cannot drift apart.
 
 *Watch:* the line is wrong if it becomes wallpaper. The signal is a playtest that reports reading
 the turn line for damage and skipping it otherwise, or one in which the wake line appears on more
@@ -554,6 +558,19 @@ information straight back in a costume: a marked-but-unclaimed tile is routable,
 routing returns, and the follow-up flash is *obviously correct* whenever nothing is sensed, which
 makes the wager a permission check for +21 fuel. It also adds a mechanic to enforce a rule that one
 predicate already enforces.
+
+**Rejected, and recorded so it is not re-proposed: that the shutter may not pay a cache underfoot —
+*ruled 2026-08-01 (#107)*.** Proposed there because opening the shutter on an unlit cache both takes
+it and wakes the room, and the pickup went unannounced (§10). It is a **simulation** answer to a
+**copy** defect, and it costs the thing this block was written to protect. Every version of it —
+*pay only on entering the tile*, or *phase 5 does not collect on a free action* — leaves the player
+standing on ember they can now see and cannot have, and the cure is **step off, step back**: two
+turns with one legal answer each, which is the same autopilot the *ever lit* clause rejected
+*currently lit* for, rebuilt from the other side and charged in tempo instead of fuel. It also
+re-falsifies *"a kill or a cache re-opens the shutter"* at 0 fuel, where the shutter cannot open and
+the step-off-step-back ritual would be the only route to a cache under your own feet. Nothing about
+the payment is wrong: the fuel arrived, the rule fired as designed, and the player was better off.
+**The *ever lit* clause is not reopened.** #107 is ruled in §10, in copy.
 
 **What it costs, said plainly.** The simulation must record which tiles the **lantern** has revealed,
 separately from which tiles have been perceived at all: one more monotone per-tile channel in run
@@ -997,6 +1014,7 @@ is what your press did.** In full, over every message the game can produce:
 | Message | Level | Why |
 | --- | --- | --- |
 | `Something wakes.` / `N things wake.` | **alarm** | A hunter exists that did not exist before, and under #83 it is walking toward you |
+| `Something wakes. You gather N ember.` / `N things wake. You gather N ember.` | **alarm** | The only compound the line has (#107, below). Both wake forms compound — n = 1 is reachable and the singular row above is the half that composes. The level is the winning cue's, and the wake won it — a hunter is still what is against you |
 | `You take N.` | **alarm** | At 12 HP and 2-4 a blow, three of these is the run (#20's finding) |
 | `The lantern goes out.` | **alarm** | The run ended |
 | `You strike for N.` | report | You chose it, you aimed it, and the target is on screen |
@@ -1030,16 +1048,118 @@ cheap:
 > `report` in the last row, *is* drawn on a finished run — in the summary panel's note row, not in the
 > turn line — and `e2e/run-loop.spec.ts` already asserts it.
 
-> **A second as-implemented note, and this one is a collision the precedence could not have
-> anticipated: a cache the flash paid for is announced by nothing (#107).** §4's cache rule (#31/#41,
-> 2026-08-01) pays a cache once its tile has *ever* been lit, so opening the shutter while standing
-> on an unlit cache both takes it and wakes what the light reaches — one free action, two outcomes.
-> `woke` outranks recency and `You gather N ember.` lives in recency, so `describeTurn` returns
-> `Two things wake.` and the pickup is stated only by the fuel counter. The precedence was ruled when
-> a cache could be taken **only by stepping onto one**, and stepping wakes nothing, so `woke` and
-> `fuelGained` could not collide; they can now. **The ruling above is not amended for it** — whether
-> the answer is a fourth tier, a compound line, or a rule about what the shutter may pay for is
-> #107's, and it is sequenced as step 3a in `docs/ROADMAP.md`'s build order.
+**A wake and a gain on the same press are one line with two sentences — *ruled 2026-08-01 (#107)*.**
+
+> **When a turn both wakes and pays, the line is the wake sentence followed by the fuel receipt, in
+> that order, both verbatim, joined by one space: `Two things wake. You gather 21 ember.` It is an
+> `alarm`. This is the only compound the turn line has, and the two player tiers — damage and death —
+> never compound.**
+
+§4's cache rule (#31/#41) created a turn shape the precedence had never been asked about. The pickup
+condition is *ever lit* and the shutter is a free action, so **opening the shutter while standing on
+an unlit cache lights the tile and pays it on the same press** — and that press wakes what the light
+touches, by construction, because the flash is what lit the tile. `woke` outranks recency and
+`You gather N ember.` lives in recency, so the turn read `Two things wake.` and the pickup was
+announced by nothing: `FUEL 66 → 87`, no `♦` drawn for a single frame, the only evidence a number
+that moved. The precedence was ruled when a cache could be taken **only by stepping onto one**, and
+stepping wakes nothing, so the two could not collide. That rationale was not wrong; its premise
+expired.
+
+**There is no fourth tier, because no precedence can fix this.** A tier list is a total order over
+*which single fact gets said*, and the complaint is that this turn has **two** headline facts and a
+one-line channel. Reordering only moves the silence — from the goods to the price. The reordering it
+would take is also the wrong one twice over: `fuelGained` above `woke` inverts §4's own accounting,
+where the flash's price is what it wakes and the fuel is the part the HUD already meters; and it gets
+**worse** under #83, where the suppressed sentence stops being a fact and becomes a hunter. A
+precedence that only works while creatures park is one that expires again in a step. `fuelGained`
+placed *below* `woke` changes nothing at all, which is the other half of why the tier is not the
+instrument.
+
+**The rule change — the shutter may not pay a cache underfoot — loses in §4, and is recorded there.**
+It is a simulation answer to a copy defect and it rebuilds the autopilot the *ever lit* clause exists
+to prevent. **That clause is not reopened.**
+
+**Doing nothing was the real runner-up, and it loses on attribution.** The table above levels
+`You gather N ember.` a `report` because *the FUEL readout is 17px and says it louder* — and **that
+reasoning assumes the player can attribute the change.** On every other paying turn they can: they
+stepped onto a `♦` they had already seen lit, or they killed the thing that dropped it. On this one
+the meter shows a single net number containing a burn and a gain (+25, −4, and the HUD moves 21), the
+source glyph never rendered, and there is no body. It is the one turn in the game where fuel arrives
+from a source the player never saw, which is exactly where the sentence stops being redundant. The
+sentence does not restate the meter; it **attributes** it. The meter has the amount, the words have
+the source.
+
+**Why the compound is safe here and was not on the descent.** Three reasons, all measurable:
+
+- **It never costs the alarm its glance.** The wake sentence is first and unchanged, so a player who
+  reads only the first half reads exactly what they read today; the compound is strictly *additive*
+  to a glance. That is also why the two player tiers are excluded rather than merely unhandled:
+  `You take N.` and `The lantern goes out.` are the two lines whose entire value is being read
+  instantly, and each states a fact about the player's own survival that nothing else on screen
+  states. The wake tier can afford a second clause because the board carries the woken creature as
+  well — it is lit or adjacent by construction, and #94's playtest measured the player noticing the
+  red `C` *first*.
+- **It fits on one line at the default text size, and the descend compound was long enough not to be
+  safe.** The budget is **41 characters**. The longest compound the game can produce is
+  `Three things wake. You gather 41 ember.` at **39** — `Three things wake.` is the longest of the six
+  wake sentences and the amount is two digits at every reachable value. `You climb down to floor 8.
+  Something wakes.` is **43**, over budget, which is one of the three reasons #94 refused it and not
+  the load-bearing one.
+
+  **41 is a budget, it is not the measured capacity, and it is only safe above a viewport width
+  nothing has ever stated — which took two passes to establish and is worth all three drafts.**
+  Measured in the shipped build at 390 wide, mono resolves to ~7.7pt per character against ~362pt of
+  row, so roughly **47** characters fit. An earlier draft derived 41 from a different per-character
+  figure and called the result *arithmetic rather than taste*; it is neither, because the resolved
+  font is a **stack** (`SFMono-Regular, Menlo, …, monospace`) whose advance width is device-dependent.
+
+  The second draft then called 41 *conservative*, on the strength of that 390-wide measurement. **A
+  playtest measured it across widths and falsified that**: capacity is 46 at 390, 43 at 360, 41 at
+  344 and **37 at 320** — so the 39-character worst case **wraps at 320**, and 41 is not a margin
+  there, it is over budget. What is genuinely arithmetic remains the comparison, 39 against 43.
+  **41 is therefore a budget that presumes a viewport floor this document has never defined**, which
+  is **#115** and is a design decision, not a number to quietly raise or lower. Do not "fix" it by
+  moving it in either direction before that floor exists: raising it to the measured 47 loses the
+  headroom the stack requires, and lowering it to 37 prices every line for a device we may not
+  support.
+- **It invents no sentence.** Both halves are strings already ruled — #79's wake line and this
+  table's receipt — with one space between them. Nothing is re-worded, so §4's *no cause-variant
+  string* ruling is untouched: this is not a variant of the wake line, it is the wake line followed by
+  another line. The standing objection to compounds bites on *authored* pairs, which are
+  combinatorial; a concatenation of two ruled strings, defined for exactly one pair, adds no copy to
+  maintain and no branch to word.
+
+**The level is the wake's, and that is what keeps §10 cheap.** The compound is an `alarm` because the
+cue that won the line is the `woke`, and the level has always been a property of the winning cue
+rather than of the string. It keeps the invariant §10 and §4 share exactly true — *a turn whose cues
+contain a `woke`, a player `damaged` or a player `died` draws an `alarm`* — so the corpus test that
+pins it does not change shape, only the enumerated table grows a row. Levelling the compound a
+`report` would quietly demote every wake that happened to coincide with a pickup, which is #94's
+defect reintroduced by the fix to #107.
+
+**One `fuelGained` per turn, so there is nothing to aggregate.** `render/cues.ts` emits a single
+`fuelGained` carrying the turn's **net** delta, which is why the receipt says 21 on a flash that took
+a 25 cache and burned 4: the words and the meter agree, deliberately. Unchanged here, and it is the
+reason the compound needs no second aggregation rule beside the wake count.
+
+**The `♦` that never renders is not part of this ruling, and does not need to be.** The tile is lit
+and emptied in the same step, so no frame draws it, and the sentence is now the whole receipt. That
+is enough for a reason particular to this event: **a pickup is always underfoot.** Both income
+sources are collected by standing on the tile, so the spatial question a visual beat would answer has
+a constant answer — under `@` — and `@` is the most located thing on the screen. This is not the
+`woke` case, where one new glyph among twenty needed a count. A beat would also cost more than it
+looks: `fuelGained` deliberately carries **no `at`**, being an aggregate net delta, so giving a pickup
+a pulse means widening `render/`'s cue vocabulary *and* it lands on #82's mechanism, which is
+explicitly last in the build order. It stays a Watch rather than an issue, and #81 — drawing a kill's
+ember drop in the dark — is untouched either way.
+
+*Watch:* three signals, with three different fixes. If a playtest reports reading only the first
+sentence and being surprised by the fuel anyway, the words are the wrong instrument and the answer is
+the spatial beat above — an `at` on `fuelGained` plus #82's pulse, filed then and not before. If the
+line wraps at the default text size on any supported viewport, the 41-character budget is wrong and
+**the second clause is what gets cut**, never the wake. And once #83 lands, if a playtest reports
+missing the hunter on compound turns *specifically*, with plain wake turns as the control, the second
+clause is stealing the glance and it goes — back to the runner-up, which is doing nothing.
 
 **Emphasis is carried by weight and colour together, and the words do not count as a carrier.** §11
 forbids colour as the sole carrier, and the tempting defence is that the sentences differ so the
@@ -1105,7 +1225,10 @@ message lands in the level this table names and that any turn containing a `woke
 or a player `died` cue yields an `alarm`; a component unit test that the two levels differ in at least
 two channels, one of them not colour, in **both** schemes (this is the §11 test); and an E2E that
 reads the level off the DOM as an attribute rather than off computed styles, so it asserts the rule
-and survives M4 repainting everything.
+and survives M4 repainting everything. **#107's compound adds a fourth thing to pin and it is a
+number:** the longest line the game can produce must be **≤ 41 characters**, asserted over every
+reachable `n`, because that budget is the only thing standing between the second clause and a wrap
+that moves the board.
 
 *Watch:* two signals, with different fixes. If a playtest reports the `alarm` level firing often
 enough to stop reading as one — §4's Watch sets the threshold at roughly one turn in six — the fix is
@@ -1357,3 +1480,4 @@ recorded at the moment we made it, is the part git cannot give us.
 | 2026-07-31 | **§4/§6: a wake is announced in the turn line, with a count, and it outranks the shutter line** | #79, from the M1 exit playtest: seven turns, two Cinders woken, the line under the board empty the whole way. §4 promised the player the price of a flash *in creatures* **before** the press ("everything a flash can wake, you can already feel") and said nothing about what they are owed **after** it — so the game's most consequential event was the only one it never acknowledged, which is §2's own standard applied to the wager instead of to a refused tap. Ruled here rather than left to the `ui-engineer` because two of the three clauses are design, not copy. **The count is spoken** — not to substitute for looking, since a woken creature is lit or adjacent by construction, but because a flash reveals a *whole room at once* and one new glyph among twenty is not a signal; the number is also the only executable form of the containment guarantee until #82 draws the footprint. **The wake line beats `shutterChanged`**, which competes for the same single line every flash turn: "The shutter opens" restates the board's entire tint change on the one turn the player pressed the control themselves, and demoting it means the turn line reports the flash's *outcome*, with the shutter line surviving as the sentence that means *you got away with it*. **It covers arrival** — phase 3 runs on `descend` and on `beginRun`, and §4 measures one arrival in five as waking something, where the player has a new floor, sense radius 1 and no reason to suspect anything. On a fresh floor every creature spawns dormant, so awake-in-`after` **is** woken-this-turn and no cross-floor diff is needed; if that spawn invariant ever moves, the census is wrong and must become a diff. Precedence is player death > player damage > **woke** > recency: player damage keeps the tier it won in #20 (three silent turns from death at 12 HP), and woke sitting directly under it resolves the §3 dormant-strike case with no special branch — a survivor's wake takes the line over `You strike for 6.`, which is right, since the strike was chosen and visible and the waking is the surprise. **Re-lighting an awake creature is silent**: no transition, and a line that fired every turn a `C` stood in the light would speak on every turn of every fight, which is how a player learns to stop reading the line. The runner-up shape was a single aggregated cue carrying only a count (`fuelGained`'s shape); it lost to one cue per creature carrying `at` (`damaged`/`died`'s shape) because `render/cues.ts`'s bar for a new kind is *a renderer would draw it differently*, and a count can only ever become text where a position can become a pulse on the tile that woke — the treatment most likely to fix the playtest's "I did not notice" without the line at all. The count comes free as the list's length, and `at` is what lets #82's spatial promise be checked against a spatial receipt rather than a scalar one |
 | 2026-08-01 | **§10: the turn line gets two emphasis levels, `alarm` and `report`, and which messages sit in each is a rule** | #94, from the playtest of #79. #79's rule, copy, count and precedence all held in play; what failed was the volume knob. Measured at 390×844 dark, the turn line is 13px/400 in the same grey as the shutter button's sub-caption and the build note — the second-smallest text on the screen — so `The shutter opens. Light spills out.` and `Two things wake.`, the two outcomes of one press, are **typographically identical**, and at the half-second a phone player gives the line the difference between *you got away with it* and *you have company* is which dim grey letters are present. A rule that fires correctly and cannot be read is not a rule the player has, which is why this is ruled rather than left to the `ui-engineer`. **Two levels, not three.** `alarm` is *something is now against you that was not before* — a wake, damage taken, the player's death; `report` is *here is what your press did*, which is everything else including every refusal. A third level below `report` for refusals was rejected because it has nowhere to go: `report` already sits one step above the captions and dropping under them is Pillar 3's footnote-sized text. A third level splitting *hunted* from *hit* was rejected because §4's precedence means those two never appear side by side, and a distinction the player can never contrast is a costume rather than a tier. The levels turn out to **agree with §4's precedence exactly** — `death > player damage > woke` *is* the `alarm` set and everything recency can reach is a `report` — so no turn ever pre-empts a louder line with a quieter one, and that is pinnable over the real-run corpus. **Weight and colour both carry it, and the words carry nothing.** The tempting §11 defence is that the sentences differ, so the distinction survives greyscale; it is rejected because it is the same defence that would justify doing nothing, and §11's real test is whether the distinction survives *how the element is read* — at a glance, which is a channel words do not reach. So weight is the non-colour carrier, and colour gets a closed `alarm`/`report` token pair that a theme may not collapse — not `token.creature` as proposed, which is a board role, is wrong for `You take N.`, and would let a board retune move the chrome. `report` may keep `textDim`'s value; what is ruled is that it stops *being* `textDim`. One shared size for both levels, raised to rank above every caption — a per-level size was rejected because the row is fixed-height so the board does not jump and §11's text scaling multiplies it, which puts reflow risk on exactly the message that must not reflow. **No persistence and no motion.** Persistence was the serious runner-up and it is free of motion, but it protects the line only in the case that does not need protecting: it exists for the player tapping fast, and a tap makes a press, a press makes a line, and §2 requires even a refused press be acknowledged — so it is pre-empted by the very next tap and survives only while the player is idle. It also lies by tense, since `Two things wake.` is a sentence about *this* turn, and carrying it forward would need a re-wording into a state readout, which is a copy change made by the presentation layer and belongs in the HUD if it is wanted at all. One turn is positively right: an ordinary dark step says nothing, so an `alarm` appearing on an empty row is a change in how much ink is on screen — the nearest thing to motion available to something that has none. **The descent keeps its precedence:** on an arrival that wakes, the line stays the wake. A compound was the runner-up and `messages.ts`'s standing argument against compounds does **not** defeat it — that argument is about *unreachability*, and 20% of arrivals is not unreachable — but it loses anyway on three: the floor number is on the HUD in the largest type on screen and the hunter is nowhere; a compound overturns §4's cause-variant ruling (*the causal link is carried by when the line appears*) for a press at least as visible as the flash that ruling was written about; and it is the one message that reliably wraps at increased text scale, on the arrival where reading fast matters most. The level closes the gap instead — a waking arrival draws `alarm`, a quiet one draws `You climb down to floor N.` in `report` — so the descend press gets the same glanceable contrast the flash press does, which is what the compound was reaching for. **Checkable by construction:** the level is a property of the cue that won the line, never of the string, so a pure unit test pins the assignment, a component test pins that the two levels differ in two channels in both schemes, and an E2E reads the level off the DOM as an attribute rather than off computed styles. Cut signals in §10: `alarm` firing more than ~1 turn in 6 means fewer things should speak, not a third level; a playtest still reporting the `C` read first and the line second means the sentence is the wrong instrument and #82's pulse is the right one, and the response is to revert this rather than escalate it |
 | 2026-08-01 | **§4: a cache is terrain the lantern has to have shown you — touch feels it as floor, and it pays once its tile has *ever* been lit. The code is wrong; §4 and §1 are right** | #31 and #41, ruled together because answering one alone yields a cache you can see and not take, or take and not see. Both issues leaned the other way (amend §4, let the dark keep its caches) and **both were reasoning without the number.** #41 priced the leak as "probably not by much" on the grounds that touch is radius 1, so finding a cache that way is the 10-15-turn expensive path; the corpus falsifies it — a dark crawler walks the floor to find the *stairs* anyway, so the cache comes free with an activity it was already doing, and `DARK_PACIFIST` takes **119 of 121**. Restricting only *routing* still takes 89 of 121, so reading (c) is a 26% haircut, not a rule. **The amend-§4 option is also mispriced as "a line of the GDD".** §1's settled core loop names *light finds supplies; dark finds enemies* as one of the **three facts that give the light decision teeth**, and the other two (fuel from kills, the dormant strike) are both *dark* advantages — so deleting it leaves light with no product darkness cannot buy, which is invariant 4's exact wording, and makes the invariant unsatisfiable by design rather than by bug. That is an ADR against ADR-0007's territory and a new mechanic to replace what it deletes, against **one boolean plane** to enforce what is already written. **The three clauses each refute an option rather than out-voting it.** Touch renders the tile as *floor*, not as nothing: a permanent hole at exactly the cache tile is **more** informative than the `♦`, and it would break §4's four-neighbour guarantee, which §2 spends to refuse an illegal move for free. Payment keys on **ever lit**, not *currently* lit: the strict reading falsifies §4's own "a kill or a cache re-opens the shutter" at 0 fuel, where the shutter cannot open, and it manufactures an autopilot — the shutter is a free action and §2 runs phase 5 on free actions, so `open`-`shut` on a cache tile takes it for 4 fuel and no turns whenever ember-sense is clear, which is the permission check both playtests named, rebuilt on a new tile. **Ember a kill drops is explicitly excluded** — you know it is there because you made it, and a dormant strike whose ember you could not collect would delete darkness's one capability. Runner-up rejected and recorded: a *scuff* cue when you step on an unlit cache, which preserves the good stumble but hands the information back in a costume, restores dark cache routing, and makes the follow-up flash obviously correct for +21. **Cost, admitted:** one more monotone per-tile channel in `Vision` — the tiles the *lantern* has revealed — which a replay must reproduce and which resets on descent like remembered terrain. Not the "map of known kinds" it looked like: one kind diverges, one way only. §4's exploration arithmetic is corrected in the same pass and the correction is factual, not tuning — a flash is 5 fuel and **zero turns**, both toggles being free actions, so "ten times cheaper in *turns*" was never true and light is 2-3× cheaper in fuel and unmeasured in tempo; **the flash's price is what it wakes**, which is what §12 and #83 already say. Expected effect, for the re-measurement to be checked against: dark cache income ~37/floor → near zero (only the entrance room, lit on arrival, survives), `STALKER`'s take should barely move, and `CACHE_FUEL` becomes light's exclusive income and therefore the dial for invariant 4. **Necessary, not sufficient** — a never-flash *fighter* still banks 20 a kill, and `HARVESTER` is what says whether more is owed. Numbers deliberately **not** moved here: that is the roadmap's later step and moving one now would re-tune against the contaminated corpus this ruling exists to clean |
+| 2026-08-01 | **§10: a turn that both wakes and pays says both — `Two things wake. You gather 21 ember.`, one line, `alarm`, and the only compound the turn line has. §4: the shutter still pays a cache underfoot** | #107, from the playtest of #31/#41. That ruling created a turn shape the precedence had never been asked about: the pickup condition is *ever lit* and the shutter is a free action, so opening the shutter on an unlit cache lights the tile and pays it on the same press — and that press wakes what the light touches, by construction, because the flash is what lit the tile. `woke` outranks recency and `You gather N ember.` lives in recency, so the turn read `Two things wake.`, the `♦` never rendered for a frame, and the only evidence a cache existed was `FUEL 66 → 87`. **The receipt #79 built printed the price and not the goods, on the one turn that is step 3's entire claim.** The old rationale was not wrong — it reasons about `woke` vs `shutterChanged`, written when a cache could be taken only by *stepping onto* one, and stepping wakes nothing. Its premise expired. **No fourth tier**, because no precedence can fix this: a tier list is a total order over which *single* fact gets said, and this turn has two, so reordering only moves the silence from the goods to the price — and the reorder it would need (`fuelGained` above `woke`) inverts §4's accounting, where the flash's price is what it wakes, and gets **worse** under #83, where the suppressed line stops being a fact and becomes a hunter. Below `woke` it changes nothing. **No rule change**: *the shutter may not pay a cache underfoot* is a simulation answer to a copy defect, and every version of it (pay only on entry; phase 5 skips free actions) leaves the player on ember they can see and cannot have, curable by **step off, step back** — the same autopilot the *ever lit* clause rejected *currently lit* for, rebuilt from the other side and charged in tempo. It also re-falsifies "a kill **or a cache** re-opens the shutter" at 0 fuel. **The *ever lit* clause is not reopened**; the rejection is recorded in §4 so it is not re-proposed. **The runner-up was doing nothing**, and it loses on attribution: §10 levels the receipt a `report` because *the FUEL readout says it louder*, and that assumes the player can attribute the change — on every other paying turn they stepped onto a `♦` they had seen or killed the thing that dropped it, and on this one the meter shows one net number (+25, −4, HUD moves 21) with no glyph and no body. The sentence does not restate the meter, it **attributes** it. The compound is safe where the descent's was not, on three measurable counts: it is **strictly additive to a glance** (the wake is first and unchanged, so a half-reader loses nothing), which is also why the two player tiers never compound — `You take N.` and `The lantern goes out.` are the lines whose whole value is instant reading, and each states a survival fact nothing else on screen states, where the wake tier can afford a clause because the board carries the `C` too (#94 measured it read first); it **fits inside a conservative 41-character budget**, the longest compound being `Three things wake. You gather 41 ember.` at **39** against the descend compound at **43** — 41 is deliberately *below* the ~47 characters that measurably fit at 390 wide, because the resolved mono font is a stack and its advance width is device-dependent, so the margin is the safety rather than the measurement; and it **invents no sentence** — both halves are strings already ruled, joined by one space, so §4's *no cause-variant string* ruling is untouched and the standing objection to compounds, which bites on *authored* combinatorial pairs, has nothing to bite. **Level `alarm`**, lifted off the winning `woke` cue as always, which keeps the shared invariant (`woke` ∨ player `damaged` ∨ player `died` → `alarm`) exactly true so the corpus test does not change shape; a `report` here would silently demote every wake that coincided with a pickup, which is #94's defect reintroduced by #107's fix. **The `♦` that never renders stays out of scope and is a Watch, not an issue:** a pickup is *always underfoot*, so the spatial question a beat would answer has a constant answer under `@`, and `fuelGained` deliberately carries no `at` — a beat means widening `render/`'s cue vocabulary and lands on #82's mechanism, which is explicitly last. #81 is untouched. New pin: the longest producible line is ≤ 41 characters |

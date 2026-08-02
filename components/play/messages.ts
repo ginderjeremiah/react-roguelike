@@ -235,6 +235,13 @@ export function describeCue(cue: Cue): TurnLine | null {
         ? { text: 'The lantern goes out.', level: 'alarm' }
         : { text: 'It burns out.', level: 'report' };
     case 'fuelGained':
+      // Also the **second clause of the one compound the turn line has** (§10, #107): a turn that
+      // both wakes and pays says `Two things wake. You gather 21 ember.`, and `describeTurn` builds
+      // that by reading this sentence rather than by re-writing it. So a rewording here travels to
+      // the compound, and the two can never disagree about what a receipt says.
+      //
+      // The amount is `render/cues.ts`'s **net** delta, deliberately — a cache taken with the
+      // lantern open is +25 against a -4 and the HUD moves 21, so the words and the meter agree.
       return { text: `You gather ${cue.amount} ember.`, level: 'report' };
   }
 }
@@ -284,21 +291,69 @@ export function describeCue(cue: Cue): TurnLine | null {
  * §3's dormant strike falls out of this order with **no special branch**: `You strike for 6.` is a
  * `damaged` cue in recency, `woke` is a tier above it, so a survivor's wake takes the line. That is
  * the right answer on the merits — the strike was chosen and is visible, the waking is the surprise
- * — and a compound sentence is deliberately not built, because §4's change log records that branch
- * as unreachable at M1's numbers and a special case for a branch that cannot fire is the same defect
- * as #80's undrawable glyph. If a creature that survives a strike ever ships, the compound is the
- * prepared answer and it is a copy change, not a precedence change.
+ * — and a compound sentence is deliberately not built **for that pair**, because §4's change log
+ * records that branch as unreachable at M1's numbers and a special case for a branch that cannot
+ * fire is the same defect as #80's undrawable glyph. If a creature that survives a strike ever
+ * ships, the compound is the prepared answer and it is a copy change, not a precedence change.
+ * (#107's compound, below, is a *different* pair and does not reach this one: what may share the
+ * wake's line is the turn's fuel receipt, and nothing else.)
  *
  * The count is **aggregated here** rather than read off any one cue, because a cue is one creature
  * and only this function sees the turn.
  *
+ * ## The one compound: a wake that also paid says both (§10, #107)
+ *
+ *     Two things wake. You gather 21 ember.
+ *
+ * The wake sentence, one space, the fuel receipt. Both verbatim, wake first, at the wake's level.
+ *
+ * **The argument above was never wrong; its premise expired.** Every line of it reasons about `woke`
+ * against `shutterChanged`, and it was written when a cache could be taken only by *stepping onto*
+ * one — a step wakes nothing, so `woke` and `fuelGained` could not land on the same turn and the
+ * question never arose. §4's cache rule (#31/#41) made the pickup condition **ever lit** while the
+ * shutter stayed a **free action**, so opening the shutter on an unlit cache underfoot now lights the
+ * tile and pays it on the same press, and that press wakes what the light touches by construction —
+ * the flash is what lit the tile. The turn read `Two things wake.`, the `♦` was never drawn for a
+ * single frame, and the only evidence a cache had existed was the meter moving (#107).
+ *
+ * **There is no fourth tier, and the list above is unchanged**, because no ordering can fix this: a
+ * tier list is a total order over which *single* fact gets said, and this turn has two headline facts
+ * and one line. Reordering only moves the silence from the goods to the price — and `fuelGained`
+ * above `woke` inverts §4's own accounting (the flash's price is what it wakes) and gets worse under
+ * #83, where the suppressed sentence stops being a fact and becomes a hunter. Below `woke` it changes
+ * nothing at all. So the tier is not the instrument; what changed is that the **wake tier's line may
+ * carry a second clause**.
+ *
+ * **Wake first, and that ordering is the whole safety argument.** A player who reads only the first
+ * sentence reads exactly what they read before, so the compound is strictly *additive* to a glance.
+ * That is also why the two player tiers return above without ever reaching this branch rather than
+ * merely happening not to compound: `You take N.` and `The lantern goes out.` are the two lines whose
+ * entire value is being read instantly. It also fits, which is arithmetic rather than taste —
+ * `status-line.tsx` holds **41** mono characters at the default text size and the longest producible
+ * compound is `Three things wake. You gather 41 ember.` at **39**, against the descend compound #94
+ * rejected at 43. The budget is pinned in `tests/unit/play-messages.test.ts` over every reachable
+ * count and amount, and if the type ramp moves it is the number that gets re-derived.
+ *
+ * **It is the only compound, and deliberately not a mechanism.** Both halves are strings already
+ * ruled — #79's wake line and §10's receipt — joined by one space for exactly one pair, so nothing is
+ * reworded and §4's *no cause-variant string* ruling is untouched: this is not a variant of the wake
+ * line, it is the wake line followed by another line. A table of joinable pairs would be a machine
+ * for a rule with one member, and the next pair would be a ruling rather than a config change.
+ * `render/cues.ts` emits at most one `fuelGained` a turn, carrying the net delta, so unlike the wake
+ * count there is nothing to aggregate on this side.
+ *
  * ## The volume comes from the winner, and is never re-decided (§10, #94)
  *
  * Every `return` below hands back the `TurnLine` **`describeCue` built for the cue that won**, so
- * the level is the winning cue's own and there is no second table to keep in step. The aggregate
- * wake is the one line whose *words* this function has to compose, and even there the level is
- * lifted off a real `woke` cue rather than written as a literal: `{ ...one, text: wakeMessage(n) }`.
- * If `woke` were ever re-levelled in `describeCue`, a turn that woke three would follow it.
+ * the level is the winning cue's own and there is no second table to keep in step. The wake is the
+ * one line whose *words* this function has to compose — the count, and #107's second clause — and
+ * even there the level is lifted off a real `woke` cue rather than written as a literal:
+ * `{ ...one, text }`. If `woke` were ever re-levelled in `describeCue`, a turn that woke three would
+ * follow it, and so would every compound.
+ *
+ * **The compound's level is the wake's and never the receipt's**, which is what keeps §10 cheap: a
+ * `report` there would silently demote every wake that happened to coincide with a pickup, which is
+ * #94's defect reintroduced by #107's fix. It is also what leaves the invariant below exactly true.
  *
  * That the three tiers above recency are exactly the `alarm` set is not a coincidence to be
  * maintained by hand — it is §4's precedence and §10's levels agreeing, and it is asserted over real
@@ -310,6 +365,7 @@ export function describeTurn(cues: readonly Cue[]): TurnLine | null {
   let playerDied: Cue | null = null;
   let playerHurt: Cue | null = null;
   let anyWoke: Cue | null = null;
+  let gained: Cue | null = null;
   let woken = 0;
   let latest: TurnLine | null = NO_MESSAGE;
 
@@ -319,12 +375,21 @@ export function describeTurn(cues: readonly Cue[]): TurnLine | null {
     else if (cue.kind === 'woke') {
       woken += 1;
       anyWoke ??= cue;
+    } else if (cue.kind === 'fuelGained') {
+      // Collected on the same pass, and **used only by the wake tier below** (#107). `render/cues.ts`
+      // emits at most one of these a turn, so `??=` is a statement of that contract rather than a
+      // choice between candidates: if a second ever arrived, the turn's first receipt is the one the
+      // rest of this function is reasoning about.
+      gained ??= cue;
     }
 
     const line = describeCue(cue);
     if (line !== null) latest = line;
   }
 
+  // The two player tiers never compound (#107). They return the winning cue's own line, whole, and
+  // that is the ruling rather than an omission — these are the sentences whose entire value is being
+  // read instantly.
   if (playerDied !== null) return describeCue(playerDied);
   if (playerHurt !== null) return describeCue(playerHurt);
   if (anyWoke !== null) {
@@ -332,7 +397,20 @@ export function describeTurn(cues: readonly Cue[]): TurnLine | null {
     // than a `!` so that a future `describeCue` which stopped narrating a wake would go quiet
     // instead of throwing on the most consequential turn in the game.
     const one = describeCue(anyWoke);
-    if (one !== null) return { ...one, text: wakeMessage(woken) };
+    if (one !== null) return { ...one, text: withReceipt(wakeMessage(woken), gained) };
   }
   return latest;
+}
+
+/**
+ * The wake sentence, plus the turn's fuel receipt if it earned one. §10's only compound (#107).
+ *
+ * The second clause is **read from `describeCue`** rather than written here, so there is exactly one
+ * copy of `You gather N ember.` in the file and a rewording cannot leave the compound saying the old
+ * thing. Same `null` fall-through as the wake itself: a receipt that stopped speaking leaves the wake
+ * alone on the line rather than appending `undefined` to the loudest sentence in the game.
+ */
+function withReceipt(wake: string, gained: Cue | null): string {
+  const receipt = gained === null ? null : describeCue(gained);
+  return receipt === null ? wake : `${wake} ${receipt.text}`;
 }

@@ -15,21 +15,23 @@ was wrong"**, so M2 opens with the build order the #83 ruling specifies. Four M1
 determinism-gate debt (see the split below). So `gh issue list --milestone "M2: The light loop"`
 will not show you #12 — that is deliberate, not a lost issue.
 
-**M2 is three steps into a build order of six, and one more (step 3a) has been inserted since.**
+**M2 is three steps into a build order of six, plus the step 3a inserted since — and 3a is done too.**
 #79 (PR #92) made a wake announce itself, with a
 count; #94 (PR #101) gave that announcement two emphasis levels so it is read first; **#31/#41 made a
 cache terrain the lantern has to have shown you**, which is the first of the three to move a
 simulation value and the one that un-contaminates the fuel corpus. **The order has changed since the
 #83 ruling was written**, so read "The build order for the wager" under M2 below, not #83's issue body.
 
-**Next up is #107, then #83 — a woken Cinder pursues.** Step 3 landed on
+**Next up is #83 — a woken Cinder pursues.** Step 3 landed on
 2026-08-01 and its measurement is recorded there and in §4's invariant-4 blockquote: `DARK_PACIFIST`'s
 cache take went 119/121 → **0/121**, `STALKER`'s 121/121 → 114/121 and its net +8 → +7 a floor. The
 flashing style barely moved, which is the ruling's prediction rather than its falsifier, so the
 baseline #83 is measured against is now a clean one. **Step 3 also introduced a regression in its own
-receipt** — a cache taken by the flash that lit it is announced by nothing (#107) — which is inserted
-below as **step 3a**, on its own playtest's argument and the same argument that inserted #94. #83 is
-still step 4 and the numbering below is unchanged, because other records cite these step numbers.
+receipt** — a cache taken by the flash that lit it was announced by nothing (#107) — which was
+inserted below as **step 3a**, on its own playtest's argument and the same argument that inserted
+#94, **ruled 2026-08-01 and now closed**: a turn that both wakes and pays says both, on one line.
+#83 is still step 4 and the numbering below is unchanged, because other records cite these step
+numbers.
 
 ---
 
@@ -377,15 +379,16 @@ this milestone, not its method.
       — **#65**, filed because the gate below has been answered and the recommendation is build it.
       #32 was the design ruling and stays closed
 - [ ] **The wager is invisible before it is taken and illegible after it** — now **ten** issues from
-      **four** playtests, none of them tuning and none of them mechanic, all M2. One is closed:
-      ~~**#94** the wake line is the least emphatic text on screen~~ (done, PR #101). Open: **#82**
+      **four** playtests, none of them tuning and none of them mechanic, all M2. Two are closed:
+      ~~**#94** the wake line is the least emphatic text on screen~~ (done, PR #101) and ~~**#107** a
+      cache the flash paid for is announced by nothing~~ (done, 2026-08-01 — the wake line now
+      carries the turn's fuel receipt as a second sentence). Open: **#82**
       you cannot see which contacts a flash would wake, **#80** the dormant glyph `c` can never be
       drawn, **#81** the ember a kill drops is invisible in the dark beside you, **#84** neither your
       damage nor a creature's health is ever shown, **#85** dying with a dry lantern near-misses
-      §13's "The lantern goes out.", **#86** the self-tap target eats half-cell misses, from #94's
+      §13's "The lantern goes out.", **#86** the self-tap target eats half-cell misses, and from #94's
       playtest **#103** whether `You take N.` earns `alarm` when it has three carriers already in
-      frame and **#102** the board jogs 6pt every flash cycle, and from #106's **#107** a cache the
-      flash paid for is announced by nothing. They are
+      frame and **#102** the board jogs 6pt every flash cycle. They are
       one family: the exit criterion is a *felt* decision, and none of these change what the
       simulation does. **By creation time the four playtests contributed 6 → 1 → 2 → 1**, and the
       family has never shrunk except by being built. Do **not** read that as a trend in either
@@ -430,19 +433,27 @@ on **#83**.
    to the threshold, and no assertion was loosened. And the *sequencing argument was confirmed by
    the outcome*: the measurement above is attributable to exactly one change.
 
-**Step 3a — #107: a cache taken by the flash that lit it is announced by nothing. ← NEXT**
-**Inserted by the reconcile after #106, on that PR's own journal entry's argument**, and it is step 3's own
-regression: the pickup condition is *ever lit*, so a flash can now pay a cache and wake something on
-the same free action, and `describeTurn` returns at the `woke` tier before it ever reaches
+**~~Step 3a — #107: a cache taken by the flash that lit it is announced by nothing.~~ Done,
+2026-08-01.** **Inserted by the reconcile after #106, on that PR's own journal entry's argument**, and it was step 3's own
+regression: the pickup condition is *ever lit*, so a flash can pay a cache and wake something on
+the same free action, and `describeTurn` returned at the `woke` tier before it ever reached
 `fuelGained`. Verified in `components/play/messages.ts` at `0baacfd`. Sequenced here for the reason
 #94 was: step 3's entire claim is that **light acquires caches**, and on the one turn where the
-acquisition and the light are the same press, the price gets the line and the goods do not. It is
+acquisition and the light are the same press, the price got the line and the goods did not. It was
 also cheaper before #83 than after — once a flash produces a hunter, one more thing competes for the
 same row. **Lettered rather than renumbered on purpose**: `docs/JOURNAL.md`, the comment closing #105
 and the exit criterion below all cite "step 4"/"step 5"/"step 6", and renumbering would silently
-redirect them. **The precedence question itself is not ruled here** — a fourth tier, a compound line,
-or a rule that the shutter may not pay a cache underfoot is the `game-designer`'s call on #107, which
-is labelled `design` for that reason.
+redirect them.
+
+**The precedence question was the `game-designer`'s and is now ruled** (GDD §10, 2026-08-01): a turn
+that both wakes and pays says **both, on one line, in two sentences** — `Two things wake. You gather
+21 ember.` — wake first, both halves verbatim, at the wake's own `alarm`. **Not** a fourth tier: a
+tier list is a total order over which *single* fact gets said, and the turn has two, so reordering
+only moves the silence from the goods to the price. **Not** a rule that the shutter may not pay a
+cache underfoot: that is a simulation answer to a copy defect and it rebuilds the step-off-step-back
+autopilot the *ever lit* clause exists to prevent, so §4 records it as rejected and the clause is not
+reopened. It is the **only** compound the turn line has, and the two player tiers never compound.
+New pin: the longest line the game can produce is ≤ **41** characters.
 
 4. **#83** — the ruling itself: a woken Cinder pursues.
 5. A **`HARVESTER`** style in `game/systems/economy.test.ts` — never flashes, routes to every

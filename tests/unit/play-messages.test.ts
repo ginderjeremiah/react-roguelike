@@ -63,6 +63,17 @@ function turnWords(cues: readonly Cue[]): string | null {
 const LEVEL_MEMBERS: Record<LineLevel, true> = { alarm: true, report: true };
 const LEVELS = Object.keys(LEVEL_MEMBERS) as readonly LineLevel[];
 
+/**
+ * Every count a turn can wake. §8 caps a floor at `min(2 + floor, 6)` creatures, so six is the whole
+ * reachable range above one and every loop below is total rather than a sample.
+ */
+const COUNTS: readonly number[] = [1, 2, 3, 4, 5, 6];
+
+/** `n` woken creatures, on distinct tiles, as `render/cues.ts` emits them: one cue per creature. */
+function wokeCues(n: number): readonly Cue[] {
+  return Array.from({ length: n }, (_, i) => ({ kind: 'woke', at: { x: i, y: 0 } }) as Cue);
+}
+
 describe('every cue has copy', () => {
   it('covers `CUE_KINDS` exhaustively, at runtime as well as at compile time', () => {
     // The switch in `describeCue` is exhaustive by type today, but a `default` branch added later
@@ -189,15 +200,6 @@ describe('a wake is announced with a number (§4, #79)', () => {
     }
   });
 
-  it('fits the line at its longest, against copy that already ships', () => {
-    // The status line holds `The shutter opens. Light spills out.` at 36 characters. The longest
-    // wake sentence must not be the thing that starts truncating it.
-    const longest = Math.max(...[1, 2, 3, 4, 5, 6].map((n) => wakeMessage(n).length));
-    expect(longest).toBeLessThanOrEqual(
-      words({ kind: 'shutterChanged', to: 'open' })!.length,
-    );
-  });
-
   it('reads a single cue as one creature, because one cue is one creature', () => {
     // `render/cues.ts` emits one `woke` per creature, so `describeCue` on a lone cue is n = 1 by
     // construction rather than by default. A cue shape that aggregated a count would make this
@@ -228,9 +230,15 @@ describe('a wake is announced with a number (§4, #79)', () => {
     expect(turnWords([SAMPLES.shutterChanged, SAMPLES.woke])).toBe(wakeMessage(1));
   });
 
-  it('outranks the ember, the body and the stairs too', () => {
-    // Everything below the wake's tier is either visible on the board or already on the HUD.
-    expect(turnWords([SAMPLES.woke, SAMPLES.fuelGained])).toBe(wakeMessage(1));
+  it('outranks the body and the stairs — but now shares the line with the ember (#107)', () => {
+    // Everything below the wake's tier is either visible on the board or already on the HUD, with
+    // **one exception**, and this test is where the exception was carved out. The `fuelGained`
+    // assertion here used to read `toBe(wakeMessage(1))` — it pinned the bug #107 was filed about,
+    // which is what a test written from the implementation gets you. The body and the stairs are
+    // unchanged and are the control: they prove the compound is one pair rather than a mechanism.
+    expect(turnWords([SAMPLES.woke, SAMPLES.fuelGained])).toBe(
+      `${wakeMessage(1)} ${words(SAMPLES.fuelGained)}`,
+    );
     expect(turnWords([SAMPLES.woke, SAMPLES.died])).toBe(wakeMessage(1));
     expect(turnWords([SAMPLES.descended, SAMPLES.woke])).toBe(wakeMessage(1));
   });
@@ -253,6 +261,244 @@ describe('a wake is announced with a number (§4, #79)', () => {
     // sentence is deliberately not built — that would repeat #80's dead-branch defect.
     const struck: Cue = { kind: 'damaged', at: { x: 3, y: 4 }, who: 'creature', amount: 6 };
     expect(turnWords([struck, SAMPLES.woke])).toBe(wakeMessage(1));
+  });
+});
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
+ * §10's ONE COMPOUND (#107) — a turn that both wakes and pays says both, in that order
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * §4's cache rule (#31/#41) made the pickup condition *ever lit* while the shutter stayed a free
+ * action, so opening the shutter on an unlit cache underfoot lights the tile and pays it on the same
+ * press — and that press wakes what the light touches, because the flash is what lit the tile. The
+ * wake tier outranks recency, so the turn read `Two things wake.` and the pickup was announced by
+ * **nothing at all**: `FUEL 66 → 87`, no `♦` drawn for a frame, the only evidence a number that
+ * moved.
+ *
+ * The ruling is a second clause, not a fourth tier: `Two things wake. You gather 21 ember.`, wake
+ * first, both halves verbatim, at the wake's own level. The two player tiers never compound.
+ */
+
+/** A position for the cues that carry one. Nothing below reads it; it is shape, not data. */
+const SOMEWHERE = { x: 0, y: 0 };
+
+/**
+ * Every amount the receipt can carry, enumerated rather than sampled.
+ *
+ * The ruling's measurement is `Three things wake. You gather 41 ember.`, and 41 is not arbitrary: it
+ * is §4's `CACHE_FUEL` (25) plus a Cinder's drop (20) less a lit turn's burn (4), which is the
+ * biggest ordinary net delta the simulation produces. Two digits at every reachable value, so this
+ * range covers the whole of it with room to spare — and it is a **range** and not the number 41,
+ * because a test that enumerated only the value the ruling happened to measure would stop being a
+ * budget and become a transcript of one screenshot.
+ */
+const AMOUNTS: readonly number[] = Array.from({ length: 99 }, (_, i) => i + 1);
+
+/**
+ * §10's measured character budget for the row: `status-line.tsx` fits **41** mono characters at 14px
+ * in 362pt of row at 390 wide.
+ *
+ * **This replaces the old "fits the line at its longest" assertion**, which was baselined against
+ * `The shutter opens. Light spills out.` at 36 — a comparison the compound overturns, and which
+ * would therefore have failed for the right reason at the wrong threshold. 41 is a *budget*, not a
+ * fact about today's font: if the type ramp moves, this number is what gets re-derived, and §10 says
+ * that when it is exceeded **the second clause is what gets cut**, never the wake.
+ */
+const LINE_BUDGET = 41;
+
+/**
+ * Every sentence the turn line can be made to show, over both of its variable dimensions.
+ *
+ * Enumerated through the real code paths rather than written out, so the longest line is **derived**
+ * from the copy that ships. A budget test holding a literal `'Three things wake. You gather 41
+ * ember.'` would go on passing at 39 characters after the copy grew to 45, which is the one failure
+ * mode a character budget exists to prevent.
+ */
+function everyLineTheGameCanShow(): readonly string[] {
+  const lines: string[] = [BLOCKED_MESSAGE.text, RUN_OVER_MESSAGE.text, TOO_FAR_MESSAGE.text];
+  const say = (cue: Cue): void => {
+    const line = describeCue(cue);
+    if (line !== null) lines.push(line.text);
+  };
+
+  say({ kind: 'refused' });
+  say({ kind: 'shutterChanged', to: 'open' });
+  say({ kind: 'shutterChanged', to: 'shuttered' });
+  say({ kind: 'died', at: SOMEWHERE, who: 'player' });
+  say({ kind: 'died', at: SOMEWHERE, who: 'creature' });
+
+  // §5's run length, read off the HUD rather than as a literal 8 — the same reason `descendHint`'s
+  // test does: the day `LAST_FLOOR` moves, the longest descent sentence moves with it.
+  const last = sceneOf(beginRun('budget')).hud.floor.last;
+  for (let floor = 1; floor <= last; floor += 1) say({ kind: 'descended', toFloor: floor });
+
+  for (const amount of AMOUNTS) {
+    say({ kind: 'damaged', at: SOMEWHERE, who: 'player', amount });
+    say({ kind: 'damaged', at: SOMEWHERE, who: 'creature', amount });
+    say({ kind: 'fuelGained', amount });
+  }
+
+  // The two lines only a whole turn can produce: the aggregate wake, and #107's compound.
+  for (const n of COUNTS) {
+    lines.push(describeTurn(wokeCues(n))!.text);
+    for (const amount of AMOUNTS) {
+      lines.push(describeTurn([...wokeCues(n), { kind: 'fuelGained', amount }])!.text);
+    }
+  }
+  return lines;
+}
+
+describe('a wake that also paid says both, on one line (§10, #107)', () => {
+  it('appends the receipt to the wake at every count the game can reach', () => {
+    // THE RULING, over n = 1..6 — §8 caps a floor at six creatures, so this is the full reachable
+    // range and not a sample. Before #107 every one of these returned the wake alone and the pickup
+    // was announced by nothing.
+    //
+    // Both halves are **derived from the code that owns them** rather than retyped: the wake from
+    // `wakeMessage`, the receipt from `describeCue`. So this asserts the *joining*, which is the only
+    // thing #107 added, and a reworded receipt fails in the one place that owns the wording.
+    for (const n of COUNTS) {
+      const turn: readonly Cue[] = [...wokeCues(n), SAMPLES.fuelGained];
+      expect(describeTurn(turn), `n=${n}`).toEqual({
+        text: `${wakeMessage(n)} ${words(SAMPLES.fuelGained)}`,
+        level: 'alarm',
+      });
+    }
+  });
+
+  it('says #107’s own sentence, verbatim, with the wake first', () => {
+    // The exact string off the issue's repro — `FUEL 66 -> 87` on seed `emberdepth`, two Cinders
+    // woken by the flash that paid the cache. Written out once, deliberately: everything else here
+    // derives its expectation from the code, and a suite that derives *everything* can agree with a
+    // rewrite of the copy that nobody ruled.
+    expect(turnWords([...wokeCues(2), { kind: 'fuelGained', amount: 21 }])).toBe(
+      'Two things wake. You gather 21 ember.',
+    );
+  });
+
+  it('takes the level off the winning `woke` cue and never off the receipt', () => {
+    // #94's constraint, which #107 must not spend: the level is a property of the cue that won the
+    // line. A `report` here — the receipt's own level, and the tempting one, since the receipt is
+    // the clause being added — would silently demote **every wake that coincided with a pickup**,
+    // which is #94's defect reintroduced by #107's fix.
+    //
+    // Compared against `describeCue`'s answer rather than against the literal `'alarm'`, so the day
+    // a wake is re-levelled the compound follows it instead of going stale.
+    for (const n of COUNTS) {
+      const compound = describeTurn([...wokeCues(n), SAMPLES.fuelGained]);
+      expect(compound!.level, `n=${n}`).toBe(describeCue(SAMPLES.woke)!.level);
+    }
+  });
+
+  it('never compounds with a blow the player took', () => {
+    // The first exclusion, and it is a ruling rather than an omission: `You take N.` is one of the
+    // two lines whose entire value is being read instantly. A tier that fell through to the wake
+    // branch and appended a receipt would put the fuel news on the line that is three of from death.
+    const turn: readonly Cue[] = [SAMPLES.damaged, ...wokeCues(2), SAMPLES.fuelGained];
+    expect(describeTurn(turn)).toEqual(describeCue(SAMPLES.damaged));
+    expect(turnWords(turn), 'the damage line stands alone').not.toMatch(/wake|gather/);
+  });
+
+  it('never compounds with the run ending', () => {
+    // The second exclusion. `The lantern goes out.` is §13's ending, and the summary panel prints
+    // the headline two lines below it — a receipt appended here would be the loudest sentence in the
+    // game reporting the spoils of the turn that killed you.
+    const died: Cue = { kind: 'died', at: SOMEWHERE, who: 'player' };
+    const turn: readonly Cue[] = [SAMPLES.damaged, died, ...wokeCues(3), SAMPLES.fuelGained];
+    expect(describeTurn(turn)).toEqual(describeCue(died));
+    expect(turnWords(turn), 'the death line stands alone').not.toMatch(/wake|gather/);
+  });
+
+  it('is the only pair that shares the line', () => {
+    // #107 rules **one** compound, not a compounding mechanism. Everything else the wake outranks is
+    // still swallowed whole — the shutter, the stairs, a body, and §3's dormant strike — so a
+    // general "join the winner to the last report" implementation fails here rather than shipping as
+    // a table of joinable pairs with one member.
+    const struck: Cue = { kind: 'damaged', at: SOMEWHERE, who: 'creature', amount: 6 };
+    for (const other of [SAMPLES.shutterChanged, SAMPLES.descended, SAMPLES.died, struck]) {
+      expect(turnWords([...wokeCues(2), other]), other.kind).toBe(wakeMessage(2));
+    }
+  });
+
+  it('leaves a paying turn that woke nothing exactly as it was', () => {
+    // #107's own **control**: kill the two Cinders in the dark first and the same flash on the same
+    // cache tile reads `You gather 21 ember.` at `report`. That contrast is what makes the compound
+    // attributable to the wake rather than to the press — and it is what fails if a future
+    // implementation builds the compound unconditionally and starts prefixing an empty wake.
+    expect(describeTurn([SAMPLES.shutterChanged, SAMPLES.fuelGained])).toEqual(
+      describeCue(SAMPLES.fuelGained),
+    );
+  });
+
+  it('reproduces #107 off a real run, through `session/`, with the numbers it was filed with', () => {
+    // ═══════════════════════════════════════════════════════════════════════════════════════════
+    // THE ISSUE'S REPRO, EXACTLY — and the reason it is here and not only in Playwright
+    // ═══════════════════════════════════════════════════════════════════════════════════════════
+    //
+    // Every assertion above is over cues somebody typed, and this file's own header records what
+    // that misses twice over (#20's single `damaged` sample, #79's hand-built pair). This is the
+    // turn shape #107 is about, produced by the simulation: shutter, thirteen steps in the dark onto
+    // an unlit cache — which pays nothing, correctly, per #31/#41 — then open, which lights the tile,
+    // pays the cache and wakes the two Cinders the light reaches, all on one free action.
+    //
+    // The seed is passed explicitly, so unlike the E2E's route this survives #47 replacing the
+    // screen's constant. What it does not survive is a change to floor generation, and that is the
+    // point: it would fail loudly, on a named tile, rather than by quietly walking somewhere else.
+    const route = [
+      'north', 'east', 'east', 'south', 'east', 'east', 'east', 'east',
+      'south', 'south', 'south', 'east', 'south',
+    ] as const;
+
+    let run = setShutter(beginRun('emberdepth'), 'shuttered');
+    for (const dir of route) run = move(run, dir);
+
+    // Standing on the cache, in the dark, thirteen turns in, having been paid nothing for it.
+    expect(sceneOf(run).hud.fuel.fuel, 'the walk went somewhere else').toBe(66);
+    expect(sceneOf(run).hud.turnsElapsed).toBe(13);
+
+    run = setShutter(run, 'open');
+    const cues = cuesOf(run);
+    expect(cues.filter((cue) => cue.kind === 'woke')).toHaveLength(2);
+    expect(cues.filter((cue) => cue.kind === 'fuelGained')).toHaveLength(1);
+    // +25 for the cache, less the 4 the flash cost: the meter moves 21 and the words say 21.
+    expect(sceneOf(run).hud.fuel.fuel).toBe(87);
+    expect(describeTurn(cues)).toEqual({
+      text: 'Two things wake. You gather 21 ember.',
+      level: 'alarm',
+    });
+  });
+
+  it('fits the row at its longest, over every count and every amount (41 characters)', () => {
+    // §10's budget, and the concrete difference between this compound and the descend compound #94
+    // rejected: `Three things wake. You gather 41 ember.` is 39 and fits, and
+    // `You climb down to floor 8. Something wakes.` is 43 — long enough to be at risk on a narrow
+    // phone, which is one of three reasons #94 refused it and not the load-bearing one.
+    //
+    // **41 is deliberately conservative and is not the measured capacity.** Measured in the shipped
+    // build at 390 wide, mono resolves to ~7.7pt/char against ~362pt of row, so ~47 characters
+    // actually fit — and more on a wider device. The budget is set below that on purpose: the
+    // resolved font is a *stack* (`SFMono-Regular, Menlo, …, monospace`), so the advance width is
+    // device-dependent and a number derived from one browser is not a rule. Do not "correct" this
+    // upward to the measured figure; the headroom is the point.
+    //
+    // The longest line is **derived from the code**, over both dimensions that vary, so this tracks
+    // the copy instead of a screenshot: reword the wake or the receipt and this number moves with it.
+    // A wrap is not cosmetic — `status-line.tsx` sets `minHeight: 34` with `numberOfLines={2}`, so a
+    // second line does not clip, it **grows the row**, and the board a press is being aimed at moves
+    // under the thumb (`board.tsx` resolves a press by measuring where the board is). Growing rather
+    // than clipping is the right failure of the two, which is why the row is written that way — but
+    // it is still a failure, and it is why this budget exists rather than a wrap being tolerated.
+    const longest = everyLineTheGameCanShow().reduce((a, b) => (b.length > a.length ? b : a));
+    expect(longest.length, `the longest line is ${JSON.stringify(longest)}`).toBeLessThanOrEqual(
+      LINE_BUDGET,
+    );
+
+    // Not vacuous: the enumeration really does contain the compound, which is the thing being
+    // budgeted. Without this the assertion above passes just as well on a list of refusals.
+    expect(everyLineTheGameCanShow(), 'the enumeration missed the compound entirely').toContain(
+      'Three things wake. You gather 41 ember.',
+    );
   });
 });
 
@@ -383,6 +629,17 @@ const TABLE: readonly LevelRow[] = [
     shape: /things wake\.$/,
   },
   {
+    // §10's one compound (#107). Its row sits in the `alarm` block because the level is the winning
+    // cue's and the wake won it — a hunter is still what is against you, and the receipt riding
+    // along does not make the turn quieter. `from: 'woke'` for the same reason: `fuelGained` has its
+    // own row below, as the sentence it is on the turns that do not wake.
+    gdd: 'N things wake. You gather N ember.',
+    from: 'woke',
+    line: describeTurn([...wokeCues(2), SAMPLES.fuelGained]),
+    level: 'alarm',
+    shape: /^\w+ things wake\. You gather \d+ ember\.$/,
+  },
+  {
     gdd: 'You take N.',
     from: 'damaged',
     line: describeCue(SAMPLES.damaged),
@@ -485,10 +742,19 @@ describe('every message is drawn at the level §10 names (#94)', () => {
 
   it('keeps `alarm` scarce: exactly the wake, the wound and the death', () => {
     // §10's Watch is that an `alarm` firing too often stops reading as one, and the mechanical half
-    // of that is which *messages* are allowed to be loud at all. Four rows out of fourteen, named.
+    // of that is which *messages* are allowed to be loud at all. Five rows out of fifteen, named —
+    // and the fifth (#107's compound) is not a new loud *event*, it is the wake row wearing its
+    // receipt. Nothing became an alarm that was not one before, which is the property that keeps
+    // this list a scarcity claim rather than a census.
     const loud = TABLE.filter((row) => row.line?.level === 'alarm').map((row) => row.gdd);
     expect(loud.sort()).toEqual(
-      ['N things wake.', 'Something wakes.', 'The lantern goes out.', 'You take N.'].sort(),
+      [
+        'N things wake.',
+        'N things wake. You gather N ember.',
+        'Something wakes.',
+        'The lantern goes out.',
+        'You take N.',
+      ].sort(),
     );
   });
 

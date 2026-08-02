@@ -124,6 +124,46 @@ Sharper rule than "read a clock", since both agents technically had one: **a new
 the clock even when a neighbouring record disagrees — and if it disagrees, that is a finding, not a
 formatting question.**
 
+**Playtested — the receipt earns its place, and the runner-up would have been wrong.** Five runs,
+~130 turns. On the #107 turn the playtester asked itself honestly whether it would have attributed
++21 from the meter alone and answered **no** — it would have guessed *opening the lantern refunded
+something*, which is not what happened. That is the ruling's central claim (this is the only turn
+where fuel arrives from a source the player never saw, so the sentence *attributes* rather than
+restates) tested against the one thing that could refute it. The seam does not show either: the
+period-space in bold warm mono does not register as a join, so it reads as one thought. And a run
+ending at 2 HP and `SHUTTER STUCK`, one tile from a remembered `♦` the player thought unreachable,
+paid 25 and brought the lantern back — which is #31/#41's *0 fuel gains a destination* claim landing
+in play rather than on paper.
+
+**Learned — I called 41 "conservative" and a playtest falsified it within the hour.** The review
+established that ~47 characters fit at 390 wide and that my "arithmetic" derivation did not
+reproduce; I corrected the claim to *deliberately conservative* and pushed it. The playtest then
+measured capacity **across widths** — 46 at 390, 43 at 360, 41 at 344, **37 at 320** — so the
+39-character worst case **wraps at 320**, where 41 is not a margin at all but over budget. Both my
+drafts were wrong in the same way and it is the same way as everything else this session: **a number
+measured in one configuration, stated as a property.** The real defect is upstream of the number —
+**this project has never defined a minimum supported viewport**, so no character budget can be
+correct or incorrect. Filed as **#115**, and the GDD now says explicitly not to move 41 in *either*
+direction until that floor exists: raising it to 47 loses the headroom the font stack requires,
+lowering it to 37 prices every line for a device we may not support.
+
+**Three follow-ups filed, and one deliberately left unfiled for the designer.** **#115** is the
+viewport floor above. **#116**: the compound is additive in *reading order* but not *on screen* — the
+wake half shifts 80pt left and the optical centre lands inside `You`, so §10's "a half-reader loses
+nothing" is slightly stronger than what was observed. The playtester was careful that the receipt does
+**not** bury the wake — it read the wake first every time and the board carries the `C`s — but the
+margin is smaller than the ruling assumes, and #83 is what makes a beat's delay cost a step.
+**#117**: `You gather N ember.` prints the turn's **net** delta, so the same cache reads 21 lit and 25
+dry, and the same drop 19 shut and 16 open. That is deliberate and documented (*the words and the
+meter agree*) — but it means the compound attributes a 25-ember cache as 21, **16% off on the one turn
+whose entire purpose is attribution**, which is the first time that ruling has collided with something
+that depends on it.
+
+Unfiled and flagged for the `game-designer` instead: **a kill you make while taking damage is not
+spoken.** `You take 2.` alone, though the board does show the new `♦`. That is the same *two facts,
+one line* shape #107 just solved, it is **far more common** than the flash-cache compound, and #107 is
+now the precedent for how to answer it. Worth ruling before #83 rather than after.
+
 **Next:** **#83 — a woken Cinder pursues**, which is step 4 and the ruling the whole build order
 exists to reach.
 

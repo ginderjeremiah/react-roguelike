@@ -1106,15 +1106,22 @@ the source.
   Something wakes.` is **43**, over budget, which is one of the three reasons #94 refused it and not
   the load-bearing one.
 
-  **41 is a deliberately conservative budget, not the measured capacity, and the distinction was
-  worth a review finding.** Measured in the shipped build at 390 wide, mono resolves to ~7.7pt per
-  character against ~362pt of row, so roughly **47** characters actually fit — and more on a wider
-  device. An earlier draft of this bullet derived 41 from a different per-character figure and called
-  the result *arithmetic rather than taste*; it is neither. The resolved font is a **stack**
-  (`SFMono-Regular, Menlo, …, monospace`), so the advance width is device-dependent, and a number
-  measured in one browser is a sample, not a rule. What is genuinely arithmetic is the comparison —
-  39 against 43 — and the headroom under a conservative budget is what makes the ruling safe on a
-  device we have not measured. Do not raise 41 to the measured figure; the margin is the point.
+  **41 is a budget, it is not the measured capacity, and it is only safe above a viewport width
+  nothing has ever stated — which took two passes to establish and is worth all three drafts.**
+  Measured in the shipped build at 390 wide, mono resolves to ~7.7pt per character against ~362pt of
+  row, so roughly **47** characters fit. An earlier draft derived 41 from a different per-character
+  figure and called the result *arithmetic rather than taste*; it is neither, because the resolved
+  font is a **stack** (`SFMono-Regular, Menlo, …, monospace`) whose advance width is device-dependent.
+
+  The second draft then called 41 *conservative*, on the strength of that 390-wide measurement. **A
+  playtest measured it across widths and falsified that**: capacity is 46 at 390, 43 at 360, 41 at
+  344 and **37 at 320** — so the 39-character worst case **wraps at 320**, and 41 is not a margin
+  there, it is over budget. What is genuinely arithmetic remains the comparison, 39 against 43.
+  **41 is therefore a budget that presumes a viewport floor this document has never defined**, which
+  is **#115** and is a design decision, not a number to quietly raise or lower. Do not "fix" it by
+  moving it in either direction before that floor exists: raising it to the measured 47 loses the
+  headroom the stack requires, and lowering it to 37 prices every line for a device we may not
+  support.
 - **It invents no sentence.** Both halves are strings already ruled — #79's wake line and this
   table's receipt — with one space between them. Nothing is re-worded, so §4's *no cause-variant
   string* ruling is untouched: this is not a variant of the wake line, it is the wake line followed by

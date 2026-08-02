@@ -9,7 +9,7 @@ import {
   PLAYER_MAX_HP,
   STARTING_FUEL,
 } from '../content';
-import { isAlive, playerOf } from '../entities';
+import { isAdjacent, isAlive, playerOf } from '../entities';
 import { hasBeenLit, hasTile, tileSetContains, tileSetsEqual } from '../fov';
 import { expectedDrawCount, samePosition, tileAt } from '../map';
 import { createRng, int, next, pick, type Draw, type Rng } from '../rng';
@@ -948,7 +948,7 @@ function expectPinned(record: RunRecord, pinned: Digest): void {
 
 describe('pinned run — a descent in the dark', () => {
   const PINNED_RECORD: RunRecord = {
-    version: 4,
+    version: 5,
     seed: 'emberdepth',
     // A dark crawl across floor 1 to its stairs, a descent, and three commands on the floor below —
     // one of which (the move north) is refused by the new floor's geometry, which is why the two
@@ -1047,52 +1047,87 @@ describe('pinned run — the whole combat loop, ending in a death', () => {
    *
    *   1. **command 1** — shutter. Free (§2), and it drops ember-sense to the adaptation floor,
    *      which then climbs back to 5 over the four turns that follow (§4).
-   *   2. **commands 2-11** — ten turns backing into the dark. §6 gives an awake creature 8 turns
-   *      without light and without adjacency before it returns to dormant, and this one gets
-   *      exactly that: `turnsSinceContact` climbs 1..7 and it is asleep again by command 10. This
-   *      is the only fixture in the repo that pins re-dormancy.
-   *   3. **commands 12-13** — walk back at it and bump the sleeper. §3's dormant strike: 3 x 2
+   *   2. **commands 2-10** — nine turns of retreat, north out of the entrance room and then west
+   *      the whole length of the corridor at y=11. **The Cinder follows the whole way** — (8, 8)
+   *      through the doorway at (9, 10) and along the corridor to (5, 11), eight tiles, **three
+   *      behind the player at every frame** and never adjacent — which is §4's too-weak arm in
+   *      miniature: same `ACTION_COST`, so a pursuer never closes on someone who keeps stepping
+   *      away, and the gap is constant rather than shrinking. `turnsSinceContact` climbs 1..7 and
+   *      it goes dormant at command 10, **where the chase left it** rather than where the light
+   *      was. This is the only
+   *      fixture in the repo that pins either pursuit (§4, #83) or re-dormancy.
+   *   3. **commands 11-13** — walk back east and bump the sleeper. §3's dormant strike: 3 x 2
    *      against 5 HP kills it outright, and phase 5 drops its ember where it stood. **At single
    *      damage the Cinder survives**, wakes, and every number below changes — which is what makes
    *      this fixture a pin on the multiplier and not just on "a fight happened".
    *   4. **command 14** — step onto the corpse's tile and collect the ember. Fuel goes *up*, from
    *      67 to 86, which is the one moment in the game where it does.
-   *   5. **command 15** — open again.
-   *   6. **commands 16-20** — walk north into the next room. The second Cinder comes into the lit
-   *      radius on command 18, wakes, closes, and declares an attack on command 20.
-   *   7. **commands 21-26** — stand still. Six landed attacks at 2 damage against 12 HP, so the
-   *      sixth ends the run in phase 4 — which is why `turnsElapsed` is 24 while `now` is 2300
-   *      rather than 2400: §13 stops the turn where the killing blow lands and the clock never
+   *   5. **commands 15-18** — carry on east to the doorway, still dark.
+   *   6. **command 19** — open again. Free, and it wakes nothing from here: the second Cinder at
+   *      (10, 6) is Chebyshev 5 away, one tile outside `LIT_RADIUS`.
+   *   7. **commands 20-21** — two steps north through the doorway. The second Cinder comes into
+   *      the lit radius on command 20 and wakes, closes (10, 6) → (9, 8) over commands 21-23, and
+   *      lands its first blow on command 24.
+   *   8. **commands 22-29** — stand still. Six landed attacks at 2 damage against 12 HP, so the
+   *      sixth ends the run in phase 4 — which is why `turnsElapsed` is 27 while `now` is 2600
+   *      rather than 2700: §13 stops the turn where the killing blow lands and the clock never
    *      advances past it.
+   *
+   * ## Re-recorded for `RULES_VERSION` 5 (#83), not merely re-pinned
+   *
+   * The version-4 log did step 2 as two steps south and then eight turns alternating west and east
+   * in the corner of the entrance room, because under the old rules breaking contact was enough and
+   * standing anywhere would do. Under pursuit that shuffle is not a retreat: the Cinder walked
+   * straight up to the player and the run became a stand-up fight with **no re-dormancy, no sleeper
+   * to strike and no death** — replayed under these rules it ends with the player alive at 2 HP and
+   * `status: running`. Re-pinning the digest onto that would have deleted three of the six things
+   * this fixture exists for, which is precisely the "update the expected values" failure the version
+   * policy in `replay.ts` is written against.
+   *
+   * **It would not have been *silent*, and the distinction is worth keeping** — an earlier draft of
+   * this comment said it would. The digest is a `toEqual` on one final frame, so it would have gone
+   * green; the sibling test below is what fails, on four separate assertions including `nothing ever
+   * returned to dormant (§6)`. So the guard that caught this was the **trajectory** test, not the
+   * pin. Read that as an argument for what a fixture should carry: a digest tells you a run changed,
+   * and only a property assertion tells you *what stopped happening*. The temptation a version bump
+   * creates is to refresh the digest and move on, and the digest is exactly the half that cannot
+   * object.
+   *
+   * So step 2 was re-recorded as an actual retreat — the same intent, played against the new rules
+   * — and every property the fixture pinned before is pinned again, with pursuit added to the list.
+   * The digest below is the *consequence* of that log, not its purpose.
    *
    * Recorded by scripting exactly the sequence above against `step()` and storing the resulting
    * command log verbatim. It is stored, not regenerated: a fixture computed by a script at test
    * time changes silently whenever the script does, which is the one thing a fixture must not do.
    */
   const PINNED_RECORD: RunRecord = {
-    version: 4,
+    version: 5,
     seed: 'ember-z',
     commands: [
       { kind: 'setShutter', to: 'shuttered' },
-      { kind: 'move', dir: 'south' },
-      { kind: 'move', dir: 'south' },
-      { kind: 'move', dir: 'west' },
-      { kind: 'move', dir: 'east' },
-      { kind: 'move', dir: 'west' },
-      { kind: 'move', dir: 'east' },
-      { kind: 'move', dir: 'west' },
-      { kind: 'move', dir: 'east' },
-      { kind: 'move', dir: 'west' },
-      { kind: 'move', dir: 'east' },
       { kind: 'move', dir: 'north' },
-      { kind: 'move', dir: 'north' },
-      { kind: 'move', dir: 'north' },
+      { kind: 'move', dir: 'west' },
+      { kind: 'move', dir: 'west' },
+      { kind: 'move', dir: 'west' },
+      { kind: 'move', dir: 'west' },
+      { kind: 'move', dir: 'west' },
+      { kind: 'move', dir: 'west' },
+      { kind: 'move', dir: 'west' },
+      { kind: 'move', dir: 'west' },
+      { kind: 'move', dir: 'east' },
+      { kind: 'move', dir: 'east' },
+      { kind: 'move', dir: 'east' },
+      { kind: 'move', dir: 'east' },
+      { kind: 'move', dir: 'east' },
+      { kind: 'move', dir: 'east' },
+      { kind: 'move', dir: 'east' },
+      { kind: 'move', dir: 'east' },
       { kind: 'setShutter', to: 'open' },
       { kind: 'move', dir: 'north' },
-      { kind: 'move', dir: 'west' },
       { kind: 'move', dir: 'north' },
-      { kind: 'move', dir: 'north' },
-      { kind: 'move', dir: 'north' },
+      { kind: 'wait' },
+      { kind: 'wait' },
       { kind: 'wait' },
       { kind: 'wait' },
       { kind: 'wait' },
@@ -1105,44 +1140,47 @@ describe('pinned run — the whole combat loop, ending in a death', () => {
   const PINNED_DIGEST: Digest = {
     status: 'died',
     floorNumber: 1,
-    // 26 commands, 2 of them free (§2), so 24 turns...
-    turnsElapsed: 24,
-    commandsResolved: 26,
+    // 29 commands, 2 of them free (§2), so 27 turns...
+    turnsElapsed: 27,
+    commandsResolved: 29,
     // The Cinder felled in its sleep on command 13. **One, not zero**, and the difference is the
     // whole reason `kills` is not counted at phase 5: that kill's body *was* swept here (the player
     // survived that turn), but a losing run's last kill often is not, and the two must count alike.
     kills: 1,
-    // 26 resolved commands, so 26 burns: 14 shuttered at 1 and 12 lit at 4 == 62. It is the *gross*
+    // 29 resolved commands, so 29 burns: 18 shuttered at 1 and 11 lit at 4 == 62. It is the *gross*
     // burn — the 20 collected off the corpse on command 14 does not come off it, which is what makes
     // 80 - 62 + 20 == the 38 below rather than 80 - 42. That identity is what pins this as fuel
     // *spent* rather than fuel *lost*.
     fuelBurned: 62,
-    // ...and 23 actions on the clock, not 24: the killing blow stopped the turn before phase 4
+    // ...and 26 actions on the clock, not 27: the killing blow stopped the turn before phase 4
     // advanced it (§13). The gap between these two numbers *is* the assertion.
-    now: 2300,
+    now: 2600,
     // 80 to start, minus the 62 above, plus the 20 off the corpse.
     fuel: 38,
     shutter: 'open',
     senseRadius: 5,
-    remembered: 66,
-    // Equal to `remembered` again, for the same reason: this log spends its dark half retracing one
-    // corridor it had already lit.
-    revealed: 66,
-    player: { x: 9, y: 8 },
+    remembered: 72,
+    // **Not** equal to `remembered` any more, and that is #83's retreat showing up in the fuel
+    // planes: the nine-turn walk west along y=11 is felt in the dark and never lit, so twelve tiles
+    // are remembered without ever having been revealed. Under the version-4 log the two were both
+    // 66, because that log's dark half never left ground the opening flash had already lit.
+    revealed: 60,
+    player: { x: 9, y: 9 },
     hp: 0,
     creatures: [
       // Never woken: it is in the far corner and the lantern was never open near it.
       { at: { x: 6, y: 0 }, hp: 5, mind: { kind: 'dormant' } },
-      // The one that killed the player, in the frame of the blow: adjacent, holding what it
-      // declared this turn, and remembering where it last saw the light. The third Cinder is
-      // absent from this list because the dormant strike on command 13 killed it.
+      // The one that killed the player, in the frame of the blow: adjacent, and holding a **wait**
+      // it declared over the body. That wait is the dead-player gate in `nextMind` (#83): with the
+      // player at 0 HP there is no contact, so the clock has started, and pursuit is refused rather
+      // than routed at a corpse — without the gate this reads `attack at (9, 9)`. The third Cinder
+      // is absent from this list because the dormant strike on command 13 killed it.
       {
-        at: { x: 10, y: 8 },
+        at: { x: 9, y: 8 },
         hp: 5,
         mind: {
           kind: 'awake',
-          intent: { kind: 'move', to: { x: 9, y: 8 } },
-          awareness: { kind: 'lastSeen', at: { x: 9, y: 8 } },
+          intent: { kind: 'wait' },
           turnsSinceContact: 1,
         },
       },
@@ -1180,10 +1218,12 @@ describe('pinned run — the whole combat loop, ending in a death', () => {
     let emberDrops = 0;
     let embersCollected = 0;
     let felledInOneBlowWhileAsleep = 0;
+    let pursuedInTheDark = 0;
 
     for (let i = 1; i < states.length; i += 1) {
       const before = states[i - 1].world;
       const after = states[i].world;
+      const shuttered = states[i].lantern.vision.shutter === 'shuttered';
       woke += Math.max(0, awake(states[i]) - awake(states[i - 1]));
       if (playerOf(after).hp < playerOf(before).hp) hitsTaken += 1;
       if (after.embers.length > before.embers.length) emberDrops += 1;
@@ -1201,10 +1241,19 @@ describe('pinned run — the whole combat loop, ending in a death', () => {
         if (actor.mind.kind === 'awake' && now.mind.kind === 'dormant') wentDormant += 1;
         if (now.mind.kind === 'awake' && now.mind.intent.kind === 'attack') declaredAnAttack += 1;
         if (!samePosition(actor.at, now.at)) creatureMoved += 1;
+        if (shuttered && !samePosition(actor.at, now.at) && !isAdjacent(now.at, playerOf(after).at)) {
+          pursuedInTheDark += 1;
+        }
       }
     }
 
     expect(woke, 'nothing ever woke up').toBeGreaterThan(0);
+    // §4 (#83): a woken Cinder pursues. Eight steps taken with the lantern shut and without ever
+    // reaching the player — through a doorway and the length of a corridor — which is the one thing
+    // in this log the rules that preceded version 5 could not produce: they walked a creature to the
+    // player's last-known tile, at most two steps here, and then parked it. Counted rather than
+    // pinned as a position because the body is gone by the final frame, so the digest cannot see it.
+    expect(pursuedInTheDark, 'nothing chased the player in the dark (§4)').toBe(8);
     expect(declaredAnAttack, 'nothing ever declared an attack').toBeGreaterThan(0);
     expect(creatureMoved, 'no creature ever moved').toBeGreaterThan(0);
     expect(wentDormant, 'nothing ever returned to dormant (§6)').toBeGreaterThan(0);
@@ -1239,9 +1288,10 @@ describe('pinned run — a cache the lantern found, hauled home in the dark', ()
    *
    * The two above pin generation, movement, fuel, the shutter, descent and the whole combat loop,
    * and neither of them ever picks a cache up — so §4's cache rule could have been written, or
-   * un-written, without a single fixture noticing. This log is the rule end to end, and it is also
-   * the only fixture in the repo where `remembered` and `revealed` are different numbers, which is
-   * the whole substance of the new plane.
+   * un-written, without a single fixture noticing. This log is the rule end to end, and it is the
+   * only fixture in the repo where `remembered` and `revealed` differ **on the tile that is paid
+   * for**. (The combat fixture's two planes also differ since its retreat was re-recorded for #83,
+   * but nothing there ever stands on a cache, so it says nothing about the rule.)
    *
    * `cache-haul`'s floor 1 holds two caches, at (7, 6) and (9, 9).
    *
@@ -1264,7 +1314,7 @@ describe('pinned run — a cache the lantern found, hauled home in the dark', ()
    * verbatim — stored, not regenerated, for the reason the fixture above gives.
    */
   const PINNED_RECORD: RunRecord = {
-    version: 4,
+    version: 5,
     seed: 'cache-haul',
     commands: [
       { kind: 'setShutter', to: 'shuttered' },
@@ -1320,7 +1370,6 @@ describe('pinned run — a cache the lantern found, hauled home in the dark', ()
         mind: {
           kind: 'awake',
           intent: { kind: 'move', to: { x: 6, y: 6 } },
-          awareness: { kind: 'lastSeen', at: { x: 7, y: 5 } },
           turnsSinceContact: 0,
         },
       },

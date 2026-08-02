@@ -49,7 +49,7 @@ import { step } from './step';
 import { createInitialState, type GameState } from './state';
 
 /** The rules version this build of the simulation implements. See the header. */
-export const RULES_VERSION = 4;
+export const RULES_VERSION = 5;
 
 /**
  * Append-only. One line per bump, newest last, so that a fixture pinned at version N can be
@@ -75,6 +75,19 @@ export const RULES_VERSION_LOG: readonly string[] = [
     'in `GameState` and a changed rule, which is the one bump that is unambiguous under either ' +
     'clause of the policy above. Perception changed with it — touch reports a cache tile as ' +
     'ordinary floor — but that is `render/`-side and moves no state.',
+  '5 — §4\'s awake-creature rule (#83): a woken Cinder pursues. `nextMind` loses the two cases ' +
+    'that sent a creature without contact to the tile it last saw the light from and then parked ' +
+    'it there, so an awake creature now paths toward the player every turn, lit or shuttered, ' +
+    'adjacent or across the floor, and the eight-turn counter is the only thing contact still ' +
+    'governs. A version-4 record replays differently from the first turn anything is awake and out ' +
+    'of contact — different creature positions, different declared intents, and wherever the ' +
+    'pursuit arrives, different HP, different kills and a different ending. Measured on the stored ' +
+    'combat log: under version 4 the player shuffled one tile back and forth for ten turns, the ' +
+    'Cinder parked, went dormant and was one-shot in its sleep, and the run ended in a death; ' +
+    'replayed under these rules that same log is a stand-up fight in which nothing ever sleeps and ' +
+    'the player is still alive at the end of it. `Mind` also drops `awareness`, the tile those two ' +
+    'deleted cases read, so a version-4 *state* carries a field these rules do not produce. Both ' +
+    'clauses of the policy above, again.',
 ];
 
 /**

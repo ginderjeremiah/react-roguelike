@@ -49,7 +49,6 @@ import {
   PLAYER_ID,
   withActor,
   type ActorWorld,
-  type Awareness,
   type Intent,
   type LightQuery,
 } from '@/game/entities';
@@ -175,13 +174,12 @@ export function awaken(
   world: ActorWorld,
   id: ActorId,
   intent: Intent,
-  awareness: Awareness = { kind: 'none' },
   turnsSinceContact = 0,
 ): ActorWorld {
   const creature = creatureById(world, id);
   const updated = withActor(world, {
     ...creature,
-    mind: { kind: 'awake', intent, awareness, turnsSinceContact },
+    mind: { kind: 'awake', intent, turnsSinceContact },
   });
   if (hasActor(updated.schedule, id)) return updated;
   return {

@@ -57,6 +57,171 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-08-02 — #83: a woken Cinder pursues, and the fixture that had to be re-recorded rather than re-pinned
+
+**Did:** Build-order **step 4**, closing **#83** — the ruling M2's entire build order was sequenced to
+reach. `nextMind` in `game/entities/behaviour.ts` goes from five cases to three: settle
+`turnsSinceContact` (0 on contact, else +1), return `DORMANT` at 8, otherwise attack if adjacent and
+step toward the player if not. **The third case does not consult contact at all**, which is the whole
+rule — an awake creature paths at you lit or shuttered, near or far, and the counter is the only
+thing contact still governs. `Mind.awareness` and the `Awareness` union are deleted with the two
+cases that read them. `RULES_VERSION` 4 → 5. GDD §4/§6 status markers flipped and a change-log row
+added; `ROADMAP.md`'s step 4 marked done.
+
+**Why:** §4's ruling, transcribed, not re-decided. Nothing here was a design call except the one
+named below. The measured defect was not re-dormancy but the *parking* underneath it: an awake
+creature that lost contact walked to your last-known tile and waited there forever, so breaking
+contact was sufficient, and the retreat-and-harvest procedure the exit playtest measured (+4 fuel
+profitable **after** paying for the whole 16-turn retreat) had no decision inside it and no way to
+fail. Re-dormancy was the refund; case 5 was what made the refund collectable.
+
+**The one case the ruling did not name, and it needed deciding: a dead player.** `hasContact` answers
+`false` for one, deliberately, so creatures do not spend the intervening turns swinging at a corpse.
+Unconditional pursuit would have them *walk to* it instead — which routes around that guard rather
+than honouring it. So the declaration is gated on the player being alive. `turn.ts` halts the actor
+sweep on the killing blow so this is nearly unreachable, but "nearly" is not a rule, and it turns out
+to be **observable in a stored fixture**: the surviving Cinder in the combat run holds a `wait`
+declared over the body, which reads `attack at (9, 9)` without the gate.
+
+**Learned — the re-recording decision, which is the part of this PR worth reading.** Bumping
+`RULES_VERSION` invalidates the stored fixtures, and the obvious move is to re-pin their digests.
+For the `ember-z` combat fixture that would have been **wrong**, and quietly so. Its version-4 log
+did its retreat by shuffling one tile west and east in the corner of the entrance room — a retreat
+only because breaking contact used to be enough, and standing anywhere would do. Replayed under
+pursuit, the Cinder walks straight at the player and the run becomes a stand-up fight: **no
+re-dormancy, no sleeper, no dormant strike, no death.** Three of the six properties that fixture's
+own header says it exists for, gone — and the digest would have been perfectly green afterwards.
+
+That is exactly the failure `replay.ts`'s version policy is written against ("a fixture that fails
+mysteriously months later and gets 'fixed' by updating the expected values"). So the *same intent* was
+re-recorded against the new rules — a real retreat, north out of the entrance room and west down the
+y=11 corridor — and every property is pinned again, with pursuit added. **The general rule this
+teaches: a `RULES_VERSION` bump asks whether the fixture's *log* still expresses the behaviour it was
+written to express, not just whether its digest can be refreshed.** A log encodes an intent, and a
+rule change can silently turn that intent into a different one.
+
+**Also learned — `findFieldDivergence` reports only the first difference, and that made the failure
+look small.** The digest mismatch presented as a one-tile creature position. The thing that actually
+exposed the collapse was the fixture's *trajectory* test failing on `nothing ever returned to dormant
+(§6)`. A digest tells you a run changed; only a property assertion tells you *what stopped
+happening*. Worth remembering the next time a fixture "just needs re-pinning".
+
+**Learned — the count table's staleness reattributes work to whoever measures next.** `ROADMAP.md`'s
+table read `1158`; `main` at `8f29dc3` actually measured **1166**, because PR #113 added eight tests
+under `tests/unit/` and did not touch the table. Had I measured only the branch, this PR would have
+been credited with +9 tests instead of its real **+1**. So a stale baseline is not merely a wrong
+number — it silently misattributes the delta. Updated the table here, which makes this **the first
+code PR to do so** (the streak was four for four); recorded on **#110** as an argument for automating
+it rather than deleting it, since a deleted number cannot be misattributed but also cannot be
+checked.
+
+**Verified:** `npm run verify` green (typecheck, lint, **1167** tests), plus `build:web` and the 37
+E2E specs. The headline claim was checked by **mutation rather than by assertion**: restoring the old
+rule's defining property (no contact ⟹ hold still) fails **7** tests — the four new behaviour tests,
+both stored-fixture assertions, and one in `render/cues.test.ts`. Two new tests deliberately *cannot*
+fail on `main` and are labelled as such in the file: the dead-player gate (whose bug is in the new
+code, confirmed by deleting the gate) and the no-legal-step case (whose bug would be a `WAIT` branch
+that short-circuits the counter).
+
+**One file outside `game/` changed and it is worth flagging:** `render/cues.test.ts`'s "speaks again
+for a creature that went re-dormant and was woken a second time" broke on its **premise**, not its
+subject — its three-tile retreat now ends in a fight instead of re-dormancy. Rewritten to keep
+walking, and it now also asserts the creature sleeps at `(6, 1)`, eight tiles from where it was
+announced, which is a fact only pursuit can produce.
+
+**Playtested — the ruling landed, and §4's "too weak" arm fired in a form §4 did not name.** Six
+lines of play across three seeds (`emberdepth`, `quarryglass`, `ashfall-nine`), bundle built from
+this branch and served on a non-default port with the seed visible in every dump, per #95/#90.
+
+**What the ruling bought, measured A/B from one identical save point** (`emberdepth` turn 7, fuel 67,
+HP 12, one Cinder woken) — this is the number #83 existed to move:
+
+| | shutter and walk away | shutter and stand |
+| --- | --- | --- |
+| turns to resolve | 17 | **9** |
+| fuel | 67 → 58 (**−9**) | 67 → 73 (**+6**) |
+| HP | 12 → 12 | 12 → 10 |
+
+**The old +4-profit retreat is now a loss**, and standing is +7 fuel for 2 HP and 8 fuel-turns saved.
+**And 0 fuel has stopped being a dead zone** — the before-measurement was 143 inert turns at fuel 0
+and HP 4; a reckless run hit 0 fuel at turn 20 with two Cinders hunting and was dead by turn 26, HP
+12 → 10 → 8 → 4. That is a total reversal and it is the single strongest evidence the ruling was
+right.
+
+**But: a pursuer can never *hit* a player who keeps moving.** A Cinder swings only if it is
+orthogonally adjacent at its own phase, and a player who steps away every turn is never there when it
+does. Measured four separate ways, including a worst case — **HP 4, fuel 0, two Cinders adjacent,
+pinned in a corner** — which was walked out of over seven turns for **zero damage**. Across ~30 turns
+of active flight in four situations, **damage taken from a pursuer being avoided: 0.** §3's "fleeing
+is hard, and that is a feature" is still false. §4 predicted the cause exactly (the player and a
+creature share `ACTION_COST`) and correctly ruled the 8 is not the dial — raising it lengthens the
+tail without closing it.
+
+**Second-order, and nobody predicted it: pursuit *subsidises* the procedure it was written to kill.**
+The creature walks toward you and then sleeps where the chase left it — *closer to you than it
+started*. One measured retreat of 7 tiles had a walk **back** of 4. §4 claims re-dormancy becomes "a
+payoff instead of a refund"; measured, it is a payoff **and** a refund. The retreat is no longer
+optimal, which was the point, but it is still free of damage and pursuit made it shorter.
+
+**Learned — §4's named measurement does not discriminate, and this is the most useful thing the
+playtest brought back.** The ruling stakes itself on *the fraction of woken creatures that reach
+adjacency at least once before re-dormanting*, near 0 meaning theatre and near 1 meaning the 8 is too
+long. Measured: **8 of 9, or 0.89** — which reads as the "too strong" arm. It is not. Split by
+policy, it was **0 of 4** in every line where the player kept walking and **1.0** in every line where
+they stood, fought, or advanced. **The metric is a property of the player's policy, not of the
+design**, because the player controls adjacency completely and never has to stop. A number that the
+subject sets cannot adjudicate the thing it was chosen to adjudicate.
+
+The substitute the playtest offers is the one from the finding above: **unavoidable hits — damage
+taken while actively fleeing — which was 0 in ~30 turns.** That one the design controls and the
+player cannot fake. Recorded here rather than only in the issue because §4's watch still names the
+old number, and the next session to run this measurement will otherwise reproduce a 0.89 and conclude
+the opposite of what is true.
+
+**Pillar 1, fresh count:** 8 of 48 sampled turns (17%) were real decisions; excluding traversal of
+already-mapped space per the standing instruction, **8 of 21 (38%)**. Two flash decisions sit outside
+the count entirely because the shutter is a free action — worth noting that **the game's best
+decision is structurally invisible to this metric.** Traversal was 107 presses to turn 88, longest
+unbroken run 13, which is more evidence for #65.
+
+**The retellable moment did happen, close to §6's wording.** `ashfall-nine` floor 2: a flash woke
+two, the player ran five tiles south and stood below a doorway so only one could reach, killed it in
+the doorway, and the second — blocked behind it — timed out its eight turns without ever arriving and
+was one-shot asleep. 2 HP for 38 ember. §5's loop doorways are load-bearing now, which is exactly
+what §4 said this ruling would make true.
+
+**Next:** **#109 — the `HARVESTER` style in `game/systems/economy.test.ts`**, step 5, and now the
+gate on everything numeric: no fuel number may move until the corpus contains a never-flash fighter.
+**But the more valuable next thing is the broad playtest**, which is not a build step — see Watch.
+
+**Watch:** **the rule is built, it was played, and its verdict is split.** It bought what it was
+supposed to buy — the retreat exploit is no longer optimal and 0 fuel is lethal — and it did **not**
+make fleeing hard, which §3 says it must be. **The too-weak arm of §4's watch has fired**, so the fix
+is by §4's own instruction *something not currently named* (cadence, or geometry-aware pathing) and
+needs its own ruling. **Do not spend a cycle turning 8 into 12**: §4 argues, and the playtest
+confirms, that raising it lengthens the chase without closing it. Filed as **#121**, and it is the
+issue that now stands between M2 and its exit criterion.
+
+**Do not trust §4's stated measurement without reading the finding above it.** It names the adjacency
+fraction; the measured 0.89 reads as *too strong* and the truth is the opposite arm. The number moves
+with the player's policy, not with the design. **Use unavoidable hits instead.**
+
+**#89 is answered by the playtest, and the answer is "not for the shuttered player".** A mark that
+stops moving for two turns *is* re-dormancy announcing itself, in-fiction, and it worked every time
+it was used — so the parked question resolves against building it. The player with no channel is the
+**lit** one: ember-sense is sealed while the shutter is open, so an all-lantern player gets one
+`Something wakes.` and then nothing at all, and one run carried two hunters for ~10 turns blind
+before losing 8 HP in three. That is **#99**'s shape (a persistent count of what is awake, which the
+player was legitimately told about at wake time) rather than #89's. Both issues have the finding.
+
+**Two bugs the playtest hit were already filed, and neither was re-filed.** The death panel reading
+`The lantern goes out.` after an HP death is **#85**, and `You gather N ember.` printing the net
+delta is **#117** — matched down to the numbers. Worth stating because the last playtest-adjacent
+session filed **#100 as a duplicate of #76** after hitting a bug live without checking, and the
+roadmap's note on it is exact: *filing into the right milestone is not the same as reading it.* What
+did change is #85's **priority**: before pursuit almost nobody died of HP loss, so #83 is what makes
+that headline fire.
+
 ## 2026-08-01 — #107: the flash's receipt prints the goods as well as the price
 
 **Did:** Build-order **step 3a**, closing **#107**. A turn that both wakes and pays now says both, on

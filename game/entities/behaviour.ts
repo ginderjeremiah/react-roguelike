@@ -24,41 +24,72 @@
  * every creature look smarter. `commit.test.ts` exists to kill it.
  * ═══════════════════════════════════════════════════════════════════════════════════════════════
  *
- * ## The behaviour, from §6
+ * ## The behaviour, from §4 and §6
  *
- * > Awake, it paths toward you while your shutter is open or while it is adjacent to you.
- * > Shuttered and non-adjacent, it paths to where it last saw your light, then searches; after 8
- * > turns of no contact it goes dormant again.
+ * > Waking it is what tells it where you are, and it does not forget. A woken Cinder comes for you;
+ * > eight turns (tuning) after the last one in which it saw your light or stood next to you, it
+ * > sleeps where it stands.
  *
- * Which is, in order of precedence:
+ * Three cases, in order:
  *
- *   1. contact + adjacent  → declare an attack on the player's tile
- *   2. contact             → declare a step toward the player, remembering the tile
- *   3. no contact, 8 turns → return to dormant, and leave the schedule
+ *   1. settle the counter  → `0` on contact, otherwise one more than last turn
+ *   2. counter at 8        → return to dormant, and leave the schedule
+ *   3. otherwise           → adjacent: attack the player's tile · not adjacent: step toward it
+ *
+ * **Case 3 does not look at contact**, and that is the whole rule in one line: an awake creature
+ * paths toward the player every turn, lit or shuttered, near or far. There is no last-known tile, no
+ * search, and no state in which it holds still. `stepToward` returning `null` — walled off, or every
+ * improving step occupied — still yields a wait, but that is "no legal step this turn" rather than a
+ * hold-still state: the counter keeps running underneath it and the creature sleeps on schedule.
+ *
+ * The counter is the one thing that still runs on *contact* rather than on pursuit (§4, explicitly).
+ * So a creature that catches you starts its eight over, and one you hold at arm's length in the dark
+ * falls asleep — wherever the chase left it, as a fresh dormant-strike target.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
+ * SUPERSEDED — the rule this replaced, and why it is recorded rather than deleted (#83)
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * Until 2026-08-02 this function had five cases. The two that are gone read:
+ *
  *   4. no contact, memory  → declare a step toward the remembered tile
  *   5. no contact, arrived → declare a wait
  *
- * **What "then searches" means is the one thing §6 does not spell out**, and case 5 is the smallest
- * honest reading of it: having reached the last place it saw light and found nothing, the creature
- * holds position until re-dormancy. The alternative — wandering — needs a wander model nobody has
- * designed and, worse, needs a random draw on a path taken a variable number of times per turn,
- * which is the fragility `rng/draw.ts` warns about. Flagged for the `game-designer`: if the
- * playtester reports that a searching Cinder is a statue, this is the function to change and case 5
- * is the only case that changes.
+ * They implemented the previous §6 — *"shuttered and non-adjacent, it paths to where it last saw
+ * your light, then searches"* — and they are the reason `Mind` used to carry an `Awareness`, a union
+ * of "I never saw it" and "I saw it at (3, 4)". That field is deleted with them; this paragraph is
+ * where its meaning survives, because a dead field is easier to re-add than a forgotten reason.
+ *
+ * Case 5 was the honest reading of an under-specified "then searches": having reached the last place
+ * it saw light and found nothing, the creature held position until re-dormancy. Wandering was
+ * refused because it needs a wander model nobody had designed and a random draw on a path taken a
+ * variable number of times per turn — the fragility `rng/draw.ts` warns about. **That refusal still
+ * stands, and nothing here draws from the RNG.** What changed is that pursuit made the question moot:
+ * the creature always has a goal, so it never needs one invented for it.
+ *
+ * This header used to end: *"if the playtester reports that a searching Cinder is a statue, this is
+ * the function to change and case 5 is the only case that changes."* The exit playtest reported it in
+ * different words, and the measurement was worse than a statue — it was a **procedure**: shutter,
+ * step out of adjacency, walk anywhere for eight turns, walk back, one-shot a dormant target. On the
+ * same seed a flash that woke a Cinder cost 16 turns of walking and paid 20 fuel, so waking it was
+ * net *profitable* after paying for the entire retreat. Re-dormancy was the refund; **case 5 was what
+ * made the refund collectable**, which is why the ruling deleted the parking rather than the clock.
+ * The prediction was right and its scope was one case too narrow. See GDD §4, which also records the
+ * two fixes that were considered and rejected (a distance requirement; cutting re-dormancy outright).
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
  */
 
-import { samePosition, type Position } from '../map';
+import type { Position } from '../map';
 import { ACTION_COST, addActor, hasActor, removeActor, type ActorId } from '../systems/schedule';
 import {
   DORMANT,
   isAdjacent,
   isAlive,
-  UNAWARE,
   WAIT,
-  type Awareness,
   type CreatureActor,
   type Intent,
   type Mind,
+  type PlayerActor,
 } from './actor';
 import { stepToward } from './pathing';
 import { hasContact, type LightQuery } from './contact';
@@ -68,9 +99,21 @@ import { playerOf, withActor, withSchedule, type ActorWorld } from './world';
  * §4/§6: "after 8 turns (tuning) with no light and no adjacency it returns to dormant." Counted at
  * declaration, so it is 8 of the creature's own turns.
  *
- * **(tuning)**, and flagged in the GDD as the mechanic most likely to degenerate: "if the
- * playtester reports retreating to a cleared room and pressing wait, it is broken. The fix is a
- * distance requirement, not a fuel tax."
+ * **(tuning)**, and now the game's single most important number — it is the entire length of the
+ * consequence of a flash. §4 holds it at 8 and names the measurement that would move it: *the
+ * fraction of woken creatures that reach adjacency at least once before re-dormanting.* Near 1 and
+ * the 8 is too long.
+ *
+ * **It is a dial for one arm of the watch only.** If pursuit turns out to be too weak — a pursuer
+ * that starts four tiles off and never closes, because the player and a creature share
+ * `ACTION_COST` — raising this number lengthens the chase instead of tightening it, and buys
+ * adjacency only in walking turns. §4 says the fix there is something not yet named (cadence, or
+ * geometry-aware pathing) and needs its own ruling.
+ *
+ * The watch this docblock used to quote — *"the fix is a distance requirement, not a fuel tax"* —
+ * **has fired and its prescription was rejected** (§4, and the superseded block in this file's
+ * header): the measured degenerate case was already at distance, so requiring more of it would only
+ * have lengthened the retreat it was meant to stop.
  */
 export const TURNS_TO_REDORMANCY = 8;
 
@@ -89,8 +132,15 @@ function moveOrWait(world: ActorWorld, creature: CreatureActor, goal: Position):
  * falling asleep live in exactly one place (`setMind`).
  *
  * Called on a dormant creature too — that is what waking *is*, since an awake creature must hold an
- * intent (see `Mind`). A creature woken by light or by a strike therefore always has contact, and
- * takes case 1 or 2.
+ * intent (see `Mind`). A creature woken by light or by a strike therefore always has contact, so it
+ * starts its clock at zero and declares against the player like any other awake creature.
+ *
+ * **A dead player is the one case §4's ruling does not name.** `hasContact` already answers `false`
+ * for one, deliberately, so that "creatures must not spend the intervening turns attacking a corpse"
+ * (`contact.ts`) — but unconditional pursuit would have them *walk to* it instead, which routes
+ * around that guard rather than honouring it. `turn.ts` halts the actor sweep on the killing blow, so
+ * this is close to unreachable; "close to" is not a rule, so the declaration is gated and the
+ * creature waits out its clock over the body.
  */
 export function nextMind(
   world: ActorWorld,
@@ -99,26 +149,23 @@ export function nextMind(
 ): Mind {
   const player = playerOf(world);
 
-  if (hasContact(world, creature, light)) {
-    const awareness: Awareness = { kind: 'lastSeen', at: player.at };
-    const intent: Intent = isAdjacent(creature.at, player.at)
-      ? { kind: 'attack', at: player.at }
-      : moveOrWait(world, creature, player.at);
-    return { kind: 'awake', intent, awareness, turnsSinceContact: 0 };
-  }
-
-  const remembered: Awareness = creature.mind.kind === 'awake' ? creature.mind.awareness : UNAWARE;
-  const turnsSinceContact =
-    (creature.mind.kind === 'awake' ? creature.mind.turnsSinceContact : 0) + 1;
+  const turnsSinceContact = hasContact(world, creature, light)
+    ? 0
+    : (creature.mind.kind === 'awake' ? creature.mind.turnsSinceContact : 0) + 1;
 
   if (turnsSinceContact >= TURNS_TO_REDORMANCY) return DORMANT;
 
-  const intent: Intent =
-    remembered.kind === 'lastSeen' && !samePosition(creature.at, remembered.at)
-      ? moveOrWait(world, creature, remembered.at)
-      : WAIT;
+  return { kind: 'awake', intent: pursue(world, creature, player), turnsSinceContact };
+}
 
-  return { kind: 'awake', intent, awareness: remembered, turnsSinceContact };
+/**
+ * §4: adjacent, it swings; otherwise it closes. Contact does not enter into it — a corpse is the
+ * only thing that stops it, and only because `contact.ts` already refuses to see one.
+ */
+function pursue(world: ActorWorld, creature: CreatureActor, player: PlayerActor): Intent {
+  if (!isAlive(player)) return WAIT;
+  if (isAdjacent(creature.at, player.at)) return { kind: 'attack', at: player.at };
+  return moveOrWait(world, creature, player.at);
 }
 
 /**

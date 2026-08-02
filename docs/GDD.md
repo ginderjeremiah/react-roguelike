@@ -939,8 +939,17 @@ anything moves**, which is why this is recorded as a band to observe and not as 
 > from a cautious playtester says nothing about whether 2 HP binds — it says the playtester was
 > cautious. Anyone reporting this band reports the policy that produced it, or does not report it.
 >
-> That is also why it is a band and not an arm: an arm has to fire on a number, and this one cannot
-> be read without a sentence attached.
+> That is also why it is a band and not an arm — but **not** for the reason an earlier draft of this
+> paragraph gave. It said *"an arm has to fire on a number, and this one cannot be read without a
+> sentence attached."* **That is false of every arm this project has**: the one arm watched above is
+> *a playtest that reports opening the shutter on arrival and then not again*, which is a sentence
+> and has no number under it, because there is no dial under it either. §12's arms are the same
+> shape. Left recorded because the wrong reason is instructive — it is the same reflex that produced
+> three dead metrics, reaching for numeracy as the mark of rigour.
+>
+> **The real distinction is actionability.** An arm fires a decision on its own: it spends §12, or it
+> sends §3's numbers to #109. This band fires nothing — it cannot be acted on without the policy that
+> produced it, and nothing acts on it before #109 in any case. *Report it; re-tune nothing.*
 
 **A regression guard, stated as one so nobody mistakes it for a watch — and it needs instrumentation
 that does not exist.** *No run may bank ember from a creature it woke without paying HP for it.* That

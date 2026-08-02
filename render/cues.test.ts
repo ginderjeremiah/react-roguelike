@@ -320,32 +320,32 @@ describe('waking (§2 phase 3, §4: the whole cost of light)', () => {
     // "has it ever been announced" flag: after eight turns of no contact the creature is a sleeper
     // again, the player has been treating it as one, and it is a new hunter when it wakes.
     //
-    // Played out for real: flash, shutter, retreat to the end of the corridor, and wait while
-    // §6's `TURNS_TO_REDORMANCY` runs out. The creature walks to the tile it last saw the light on
-    // and parks there, three tiles short of the player — never adjacent, so contact never resumes.
+    // Played out for real: flash, shutter, and then **keep walking**, because since #83 a woken
+    // creature follows. Standing still would end in a fight rather than in re-dormancy — the player
+    // and a creature share `ACTION_COST`, so retreating step for step is the only way to hold it at
+    // arm's length until §6's `TURNS_TO_REDORMANCY` runs out. It trails four tiles back the whole
+    // way and never touches the player, so contact never resumes and it sleeps where the chase
+    // stopped: near the player, not on the tile the flash happened on.
     const { state, scenario } = scenarioState(
-      ['#############', '#...@...c...#', '#############'],
+      ['##################', '#..........@..c..#', '##################'],
       { shutter: 'shuttered', perceive: false },
     );
     const id = scenario.ids[0];
 
     const first = step(state, { kind: 'setShutter', to: 'open' });
-    expect(cuesFor(state, first)).toContainEqual({ kind: 'woke', at: { x: 8, y: 1 } });
+    expect(cuesFor(state, first)).toContainEqual({ kind: 'woke', at: { x: 14, y: 1 } });
 
     let current = step(first, { kind: 'setShutter', to: 'shuttered' });
-    for (const dir of ['west', 'west', 'west'] as const) {
-      const before = current;
-      current = step(before, { kind: 'move', dir });
-      expect(kinds(cuesFor(before, current))).not.toContain('woke');
-    }
     for (let turn = 0; turn < 12 && creatureById(current.world, id).mind.kind === 'awake'; turn += 1) {
       const before = current;
-      current = step(before, { kind: 'wait' });
+      current = step(before, { kind: 'move', dir: 'west' });
       expect(kinds(cuesFor(before, current)), `turn ${turn}`).not.toContain('woke');
     }
 
-    // The premise: it really did fall asleep, in the dark, without ever reaching the player.
+    // The premise: it really did fall asleep, in the dark, without ever reaching the player — and
+    // it did the chasing, so it is asleep eight tiles from where it was announced.
     expect(creatureById(current.world, id).mind.kind).toBe('dormant');
+    expect(creatureById(current.world, id).at).toEqual({ x: 6, y: 1 });
     expect(playerOf(current.world).hp).toBe(playerOf(state.world).hp);
 
     const again = step(current, { kind: 'setShutter', to: 'open' });

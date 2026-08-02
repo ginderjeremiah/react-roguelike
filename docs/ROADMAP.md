@@ -15,23 +15,31 @@ was wrong"**, so M2 opens with the build order the #83 ruling specifies. Four M1
 determinism-gate debt (see the split below). So `gh issue list --milestone "M2: The light loop"`
 will not show you #12 — that is deliberate, not a lost issue.
 
-**M2 is three steps into a build order of six, plus the step 3a inserted since — and 3a is done too.**
+**M2 is four steps into a build order of six, plus the step 3a inserted since — and 3a is done too.**
 #79 (PR #92) made a wake announce itself, with a
 count; #94 (PR #101) gave that announcement two emphasis levels so it is read first; **#31/#41 made a
-cache terrain the lantern has to have shown you**, which is the first of the three to move a
-simulation value and the one that un-contaminates the fuel corpus. **The order has changed since the
+cache terrain the lantern has to have shown you**, which un-contaminates the fuel corpus; #107 made a
+turn that both wakes and pays say both. **The order has changed since the
 #83 ruling was written**, so read "The build order for the wager" under M2 below, not #83's issue body.
 
-**Next up is #83 — a woken Cinder pursues.** Step 3 landed on
-2026-08-01 and its measurement is recorded there and in §4's invariant-4 blockquote: `DARK_PACIFIST`'s
-cache take went 119/121 → **0/121**, `STALKER`'s 121/121 → 114/121 and its net +8 → +7 a floor. The
-flashing style barely moved, which is the ruling's prediction rather than its falsifier, so the
-baseline #83 is measured against is now a clean one. **Step 3 also introduced a regression in its own
-receipt** — a cache taken by the flash that lit it was announced by nothing (#107) — which was
-inserted below as **step 3a**, on its own playtest's argument and the same argument that inserted
-#94, **ruled 2026-08-01 and now closed**: a turn that both wakes and pays says both, on one line.
-#83 is still step 4 and the numbering below is unchanged, because other records cite these step
-numbers.
+**Step 4 — #83, a woken Cinder pursues — landed 2026-08-02, and it is the one the other five were
+sequenced around.** `nextMind` went from five cases to three: an awake creature now paths toward the
+player every turn, lit or shuttered, near or far, and the eight-turn counter is the only thing
+contact still governs. It is subtraction — two cases and the `Awareness` union deleted, no mechanic,
+no state, no UI — and it is the first step in this build order to change what the simulation *does*
+rather than what it says about itself. `RULES_VERSION` 4 → 5.
+
+**Next up is #109 — the `HARVESTER` style, step 5 — and it is now the gate on everything numeric.**
+The four legibility steps are done, so the wager is finally *stated* on screen and *priced* in the
+simulation; what is still missing is the corpus that says whether the price is right. No fuel number
+may move until it exists.
+
+**What #83 does _not_ yet have is its measurement**, and the ruling is explicit that the measurement
+is what decides whether it was correct: **the fraction of woken creatures that reach adjacency at
+least once before re-dormanting.** Near 0 and the pursuit is theatre; near 1 and the 8 is too long.
+That number is a playtest number, so **it is not settled by the PR that shipped the rule** — see the
+exit-criteria note at the end of this section, which is where the broad playtest after #83 is
+specified.
 
 ---
 
@@ -124,11 +132,20 @@ changed three helpers under `tests/unit/support/` — `scenario.ts`, `lantern-ru
 to know about is **`scenario.ts`**: its floor construction used to make a `cache` tile without adding
 it to `floor.caches`, so the contract every cache test is built on changed underneath them.
 
-**This table goes stale on every code PR and is repaired by the next docs pass — three for three.**
+**This table went stale on every code PR and was repaired by the next docs pass — four for four.**
 The total was `1047` at both `9df602d` and `bd4f577` (#92), `1116` at `942136c` (#97, a docs PR) and
-`86eda1e` (#101), `1129` at `8c475bc` (#104, a docs PR) and `0baacfd` (#106). No code PR has ever
-updated it. Tracked as **#110**; the options are automating it or deleting the numbers, and nobody
-should keep paying for it by hand a fourth time.
+`86eda1e` (#101), `1129` at `8c475bc` (#104, a docs PR) and `0baacfd` (#106), and `1158` at
+`5c14218` (#111, a docs PR). Tracked as **#110**; the options are automating it or deleting the
+numbers.
+
+**#83's PR is the first code PR to update it**, which is why the streak above is written in the past
+tense — and the way it was caught is the part worth keeping. The table read `1158`; `main` at
+`8f29dc3` actually measured **1166**, because PR #113 (#107) added eight tests under `tests/unit/`
+and did not touch the table. So this PR's own delta is **+1**, not +9, and the only way to know that
+was to run the commands against `main` as well as against the branch. **A stale baseline does not
+just make a number wrong — it silently reattributes the difference to whoever measures next.** That
+is a better argument for #110 than the staleness itself, and it is an argument for automating rather
+than deleting: a deleted number cannot be misattributed, but it also cannot be checked.
 
 ```bash
 # source modules and test files, per directory, tracked files only
@@ -145,21 +162,21 @@ is why M1 closes without it.
 
 | Directory | Source modules | Test files | Tests |
 | --- | --- | --- | --- |
-| `game/` — generation, FOV, light, fuel, scheduler, combat, descent, endings | 45 | 42 | 810 |
+| `game/` — generation, FOV, light, fuel, scheduler, combat, descent, endings | 45 | 42 | 811 |
 | `render/` — the presentation model (#19), `taps.ts` (#20), `cues.ts` (#21, #79) | 9 + barrel | 9 | 171 |
 | `session/` — the run (#45) | 1 + barrel | 1 | 28 |
 | `components/play/` — board, cells, HUD, controls, summary, hit test, theme, `opening`, `status-style` | 14 | 0 colocated | — |
 | `components/` (rest) + `app/` — two themed views; `_layout` and the game screen | 2 + 2 | 0 | — |
-| `tests/unit/` — contract gates, consumer probe, the six `play-*` suites, helpers | 6 helpers | 10 | 149 |
-| **Total (Vitest)** | | **62** | **1158** |
+| `tests/unit/` — contract gates, consumer probe, the six `play-*` suites, helpers | 6 helpers | 10 | 157 |
+| **Total (Vitest)** | | **62** | **1167** |
 
 `components/play/` has **no colocated tests**: its **seven** pure modules are tested from
 `tests/unit/play-*.test.ts` (hit test, cell style, messages, summary style, theme, opening — and
 `status-style` from the theme suite, which is why seven modules make six suites) and its
-React is tested by Playwright, per ADR-0005's no-component-test-runner rule. E2E is **36 runs — 18
+React is tested by Playwright, per ADR-0005's no-component-test-runner rule. E2E is **38 runs — 19
 declarations across 3 spec files, each run under both the `phone` and `desktop` projects**, up from 4
-before #20 and 34 before #94. A green CI log reads **35 passed, 1 skipped**, not 36 passed: the
-win-the-run spec
+before #20, 34 before #94 and 36 before #107. A green CI log reads **37 passed, 1 skipped**, not 38
+passed: the win-the-run spec
 self-skips on `desktop` (it is a 30-second dive and the `phone` project already covers it). Stated
 because the next person to re-measure this will otherwise think the count is off by one.
 
@@ -340,6 +357,17 @@ this milestone, not its method.
       left behind**, all filed: `The lantern goes out.` is levelled `alarm` and can never reach a pixel
       (#98), `You take N.` fired five turns running with identical text (#103), and the board jogs 6pt
       on every flash cycle for an unrelated reason (#102)
+- [x] **A woken Cinder pursues — #83, build-order step 4, 2026-08-02.** The ruling M2's whole build
+      order was sequenced to reach, and the first of the four to move the simulation rather than the
+      screen. An awake creature paths toward the player every turn regardless of contact; contact now
+      governs only the eight-turn re-dormancy counter, which is unchanged at 8. **Subtraction, as
+      ruled:** `nextMind` 5 cases → 3, and `Mind.awareness` deleted with the cases that read it. The
+      four rules §4 said this would make load-bearing — §5's loop doorways, §2's step-off-the-marked-
+      tile, §4's adaptation ramp, §13's un-followable stairs — now have something to do. **The rule
+      is built; the verdict on it is not in.** §4's watch can fire in either direction and the number
+      that says which is a playtest number (see the exit criteria). Two things to check when it runs:
+      whether **0 fuel has stopped being a dead zone** (before-measurement: 143 turns at fuel 0 and
+      HP 4 with no way to finish), and the adjacency fraction itself
 - [ ] Fuel economy and the risk/reward tuning around it — calibrated once in #17. **#63 is ruled**
       and **no fuel number may move yet.** The first of the two reasons is now discharged: #31/#41
       landed 2026-08-01 and `DARK_PACIFIST`'s take went **119 of 121 → 0 of 121**, so the corpus is
@@ -455,7 +483,15 @@ autopilot the *ever lit* clause exists to prevent, so §4 records it as rejected
 reopened. It is the **only** compound the turn line has, and the two player tiers never compound.
 New pin: the longest line the game can produce is ≤ **41** characters.
 
-4. **#83** — the ruling itself: a woken Cinder pursues.
+4. ~~**#83** — the ruling itself: a woken Cinder pursues.~~ **Done, 2026-08-02.** `nextMind`'s five
+   cases become three; the declaration no longer consults contact, and the counter is all contact
+   still governs. Two cases and `Mind.awareness` deleted — the ruling promised subtraction and the
+   diff is subtraction. `RULES_VERSION` 4 → 5, and **the combat fixture was re-recorded rather than
+   re-pinned**: its old log's "retreat" was a one-tile shuffle that only worked because breaking
+   contact used to be enough, and under pursuit it became a stand-up fight with no re-dormancy, no
+   sleeper and no death — so re-pinning the digest would have deleted three of the six properties
+   that fixture exists for. **The measurement the ruling asks for is still outstanding** and is a
+   playtest number, not a test assertion; the post-#83 playtest below is where it comes from.
 5. A **`HARVESTER`** style in `game/systems/economy.test.ts` — never flashes, routes to every
    ember-sense contact, one-shots each dormant — which is what §4's invariant 4 is asserted against.
    **Filed as #109** by the reconcile after #106: it was the one step in this list with no issue behind it,

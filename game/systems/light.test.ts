@@ -322,9 +322,11 @@ describe('phase 3: lighting and waking', () => {
     expect(woken).toHaveLength(1);
     expect(woken[0].kind === 'creature' && woken[0].mind.kind === 'awake').toBe(true);
     if (woken[0].kind === 'creature' && woken[0].mind.kind === 'awake') {
-      // It declared a real action against the player, not a placeholder wait.
-      expect(woken[0].mind.intent.kind).toBe('move');
-      expect(woken[0].mind.awareness.kind).toBe('lastSeen');
+      // It declared a real action *against the player*, not a placeholder wait: the Cinder is at
+      // (4, 1) and the player at (1, 1), so the only declaration that counts is the step west. A
+      // move to any other tile would be a creature that woke and wandered.
+      expect(woken[0].mind.intent).toEqual({ kind: 'move', to: { x: 3, y: 1 } });
+      expect(woken[0].mind.turnsSinceContact).toBe(0);
     }
   });
 
@@ -393,11 +395,10 @@ describe('phase 3: lighting and waking', () => {
     // The creature is lit from the player's tile and NOT from the entrance, so contact retained
     // through a phase-4 declaration can only have come from a query centred on the player.
     expect(playerOf(state.world).at).toEqual({ x: 3, y: 1 });
+    // `turnsSinceContact` is the *whole* observable since #83: an awake creature now paths toward
+    // the player whether or not it has contact, so its declared intent says nothing about which
+    // tile the light was measured from and only the counter does.
     expect(awakeMind(state.world).turnsSinceContact).toBe(0);
-    expect(awakeMind(state.world).awareness).toEqual({
-      kind: 'lastSeen',
-      at: playerOf(state.world).at,
-    });
   });
 
   it('lets a creature declaring in phase 4 see the light phase 3 just recomputed', () => {
@@ -419,11 +420,10 @@ describe('phase 3: lighting and waking', () => {
     // Turn two is the one that matters — the creature resolves and then re-declares, in phase 4.
     // It has closed a tile and is three steps away, so adjacency cannot be the contact.
     state = turn(state);
+    // The counter is the only thing left to read: since #83 a creature paths toward the player with
+    // or without contact, so the declared intent is the same under the mutant and cannot be the
+    // observable here.
     expect(awakeMind(state.world).turnsSinceContact).toBe(0);
-    expect(awakeMind(state.world).awareness).toEqual({
-      kind: 'lastSeen',
-      at: playerOf(state.world).at,
-    });
 
     // The contrast, without which the assertions above pass for a creature that simply never loses
     // contact: shutter the lantern between the two turns and the same creature at the same distance

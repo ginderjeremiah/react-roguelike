@@ -28,9 +28,15 @@
  *
  * Plain JSON-shaped data, like everything destined for `GameState`: no `Map`, no `Set`, no class
  * instances, no `undefined` fields (`game/core/divergence.ts` throws on the first three and
- * mis-renders the fourth). Dormancy and awareness are **unions rather than optional fields**, so
+ * mis-renders the fourth). Dormancy is a **union rather than a boolean plus optional fields**, so
  * reading a creature's intent requires first establishing that it is awake — a dormant creature has
  * no intent, and there is no `intent?: Intent` for a bug to leave stale across a nap.
+ *
+ * The same rule is why `Mind` carries no memory of the player any more. It used to hold an
+ * `Awareness` — the last tile the player's light was seen from — and #83 deleted the two behaviour
+ * cases that read it. A field written every turn and read by nothing is a field `GameState` has to
+ * reproduce on every replay and a future session has to reverse-engineer a meaning for, so it went
+ * with them. `behaviour.ts`'s header keeps the reason it existed.
  */
 
 import { assertNever } from '../core/assert';
@@ -66,25 +72,10 @@ export type Intent =
 export const WAIT: Intent = { kind: 'wait' };
 
 /**
- * What an awake creature knows about where the player was.
- *
- * §6: "Shuttered and non-adjacent, it paths to where it last saw your light, then searches." So the
- * memory is a *tile*, not a target — a creature chasing a remembered position is what makes
- * shuttering mid-fight a real move, and it is why this is a union: "I never saw it" and "I saw it
- * at (3,4)" are different states and produce different behaviour.
- */
-export type Awareness =
-  | { readonly kind: 'none' }
-  | { readonly kind: 'lastSeen'; readonly at: Position };
-
-/** Shared by every creature that has never had contact. */
-export const UNAWARE: Awareness = { kind: 'none' };
-
-/**
  * Dormant, or awake and committed to something.
  *
- * A union rather than `dormant: boolean` plus optional fields: the awake state carries three things
- * a dormant creature must not have, and this makes reading any of them require establishing
+ * A union rather than `dormant: boolean` plus optional fields: the awake state carries two things a
+ * dormant creature must not have, and this makes reading either of them require establishing
  * wakefulness first. It also makes one design rule unrepresentable-if-violated — **an awake
  * creature always has a declared intent** — which is why waking necessarily declares (§2 phase 3:
  * a creature woken by light "wakes and immediately declares").
@@ -95,8 +86,6 @@ export type Mind =
       readonly kind: 'awake';
       /** Declared last turn; resolved on this creature's next turn. */
       readonly intent: Intent;
-      /** Where the player's light was last seen from here. */
-      readonly awareness: Awareness;
       /**
        * Turns of no contact, counted at declaration. `0` on a turn with contact; at
        * `TURNS_TO_REDORMANCY` the creature returns to dormant (§4/§6).

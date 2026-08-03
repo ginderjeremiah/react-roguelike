@@ -247,8 +247,20 @@ describe('the retreat procedure, as a regression test', () => {
     // §4's arithmetic, as a test rather than as a paragraph: "a Cinder has 5 HP against the player's
     // 3 damage, so a woken one takes two strikes; and the player is adjacent at their own decision
     // point only when the creature has already declared on their tile, so the first strike always
-    // eats 2." **Every woken Cinder costs exactly 2 HP.** Before #123 this same situation cost 0,
-    // because the creature could be outwaited and struck asleep for double damage.
+    // eats 2." Before #123 this same situation cost 0, because the creature could be outwaited and
+    // struck asleep for double damage.
+    //
+    // **§4 used to end that sentence "every woken Cinder costs exactly 2 HP", and that is false —
+    // see #125.** A creature woken by a command whose phase 4 does not sweep the clock gets two
+    // player commands instead of one, which is two strikes, which is exactly a Cinder. Measured at
+    // one woken kill in seven in the free-action half of the corpus alone.
+    //
+    // **This test is sitting in that window and pays the 2 HP anyway, which is the sharp part.**
+    // `awaken()` schedules at `now + ACTION_COST` with `now = 0` and the player uncharged — exactly
+    // `beginRun`'s shape. What it measures is therefore narrower and truer than the struck sentence:
+    // **a woken Cinder costs 2 HP to a player who spends the grace closing the distance instead of
+    // striking.** That is the ordinary case and it is the one §4's pricing argument needs; the free
+    // kill is what happens when the creature is already adjacent when it wakes.
     const { world, ids } = scenario(['#######', '#@...c#', '#######']);
     let current: ActorWorld = awaken(world, ids[0], WAIT);
     const startingHp = playerOf(current).hp;

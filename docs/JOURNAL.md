@@ -124,10 +124,17 @@ absorbed.** *"A creature returned to dormant"* is now impossible. The assertion 
 `wentDormant === 0` on a log that spends 27 creature-steps out of contact — which would have driven
 the old clock to expiry three times — and **three** properties were added in its place:
 `felledWithoutEverWaking === felledInOneBlowWhileAsleep` (every creature killed in its sleep is one
-that was never woken — **the equality is the property**, reached from opposite directions, and
-restoring the clock breaks it because the old log outwaited a creature it had woken and struck it
-asleep), the HP arithmetic of the last four landed turns, and the dead-player gate visible **twice**
-in the final frame. Re-recorded rather than re-pinned, per #83's lesson:
+that was never woken, reached from opposite directions), the HP arithmetic of the last four landed
+turns, and the dead-player gate visible **twice** in the final frame.
+
+**That equality claim was wrong twice before it was right, and both corrections came from running
+it.** It was first called `felledWithoutEverBeingLit` — but nothing in the state records whether a
+creature was ever *lit*, and a creature woken by a surviving strike was never lit and would still
+count. Renamed, and then justified with *"restoring the clock breaks it"* — which review **measured
+and falsified**: replaying this log under `c422315` with the clock present gives 1 and 1, equal,
+because the creature that goes dormant is never struck. Under the current rules the two are equal
+**by construction**. So it is recorded as an identity rather than a discriminator, and the assertion
+that actually catches the clock is `wentDormant === 0` — measured at 1 with the clock restored. Re-recorded rather than re-pinned, per #83's lesson:
 replayed under the new rules the old log ends `running`, player alive at 10 HP, with no dormant
 strike, no second wake and no death.
 

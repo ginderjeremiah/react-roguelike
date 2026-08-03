@@ -1110,8 +1110,9 @@ describe('pinned run — the whole combat loop, ending in a death', () => {
    * creatures, two different minds, and the difference is exactly where the sweep stopped (§13). And
    * **every creature killed in its sleep is one that was never woken**, asserted as an identity
    * between two counts reached from opposite directions; that is §1's *free kills exist only in the
-   * dark* with the loophole re-dormancy left in it closed, and it is the assertion that comes apart
-   * if the clock returns.
+   * dark* with the loophole re-dormancy left in it closed. It is an identity **by construction**
+   * rather than a discriminator — an earlier draft claimed the clock returning separates the two
+   * counts, and review measured that it does not. `wentDormant === 0` is what catches the clock.
    *
    * The version-5 log — retreat west nine, walk back east eight, flash, step north twice, wait —
    * cannot be re-pinned onto these rules, and this was **measured rather than assumed**. Replayed
@@ -1355,10 +1356,19 @@ describe('pinned run — the whole combat loop, ending in a death', () => {
     // says so. An earlier draft called it `felledWithoutEverBeingLit` and claimed it as a second,
     // distinct property; it is neither, on its own. **The equality is.**
     //
-    // Restoring the clock breaks it, which is why it is here: under version 5 this log outwaited a
-    // creature it had woken and struck it asleep, so that kill counts in the first number and not in
-    // the second and the two come apart. That is the whole of what re-dormancy did to §1's "free
-    // kills exist only in the dark", stated as one line.
+    // **An earlier draft claimed "restoring the clock breaks it". Review measured that and it is
+    // false**: replaying *this* log under `c422315`, with the clock present, gives
+    // `felledInOneBlowWhileAsleep 1`, `felledWithoutEverWaking 1` — equal. The creature that goes
+    // dormant under the clock is never struck, because this log's route never returns to y=11.
+    //
+    // So be exact about what this line is. Under the current rules the two counts are equal **by
+    // construction** — a woken creature can never be dormant, and a dormant creature is always at
+    // full HP because a survived strike wakes it — and no mutant on this log separates them. It is
+    // an **identity, not a discriminator**, and it is kept as a statement of §1's *free kills exist
+    // only in the dark* with re-dormancy's loophole closed, not as a guard.
+    //
+    // **The assertion that actually kills the clock mutant on this log is `wentDormant === 0`, two
+    // lines above** — measured at 1 with the clock restored. That is the one to protect.
     expect(felledWithoutEverWaking, 'a creature was killed asleep after having been awake')
       .toBe(felledInOneBlowWhileAsleep);
     expect(emberDrops, 'no ember was ever dropped').toBe(1);

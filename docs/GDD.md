@@ -847,7 +847,7 @@ arm.**
   > **This bullet is the paragraph the correction below is about, and it is wrong about roughly one
   > woken kill in seven — [#125](../../issues/125).** The "always" fails whenever a creature's first
   > action after waking resolves a command later than usual, which happens on every run start
-  > (`beginRun` runs phase 3 and no phase 4) and after every free action. Measured: 56 of 386 woken
+  > (`beginRun` runs phase 3 and no phase 4) and after every free action. Measured (**the free-action half only — the corpus never calls `beginRun`, so this is a floor on the defect, not its size**): 56 of 386 woken
   > kills in the `STALKER` corpus cost 0 HP. The budget arithmetic below is therefore an **upper
   > bound on the price**, not the price — a run may light and resolve somewhat more than 13. **Nobody
   > may cite this bullet as authority that a wake always costs something.** The full statement is

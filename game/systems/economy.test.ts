@@ -563,8 +563,19 @@ describe('§4’s regression guard cannot be enabled yet, and this is the size o
     // and never runs a phase 4 to advance the clock. Same window, no free action, and it is a
     // property of **every run start**: GDD's change log records that 20% of arrivals wake something.
     //
-    // This is why #125's cause has to be stated as the scheduling invariant. A fix that special-
-    // cases free actions leaves this test red, and this test is the one that says so.
+    // This is why #125's cause has to be stated as the scheduling invariant — and **read the signal
+    // carefully, because an earlier draft of this comment had it backwards.** This test asserts that
+    // the defect is *present*. So:
+    //
+    //   - a fix that special-cases free actions leaves this test **PASSING**, because the `beginRun`
+    //     half is still open. Measured, by implementing that fix as a mutant: the corpus assertion
+    //     and the flash reproduction both go red, and this one stays green.
+    //   - a **complete** fix is what turns this test red.
+    //
+    // **A still-passing test here is the failure signal, not the success signal.** Do not delete this
+    // block while it passes: the handover at the top of this file says whoever fixes #125 deletes the
+    // block and enables §4's one-line guard, and doing that on two reds would enable a guard over a
+    // corpus that cannot see the route this test pins.
     //
     // `arriveOn` in `tests/unit/support/lantern-run.ts` starts every floor shuttered and never calls
     // `beginRun`, so nothing in the corpus above can reach this. It is pinned here instead.

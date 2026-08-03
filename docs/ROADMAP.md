@@ -487,7 +487,7 @@ this milestone, not its method.
       woke it did not sweep phase 4 past `now`, which is true of a free action *and* of `beginRun`
       (phase 3 only, one run start in five) but **not** of a descent. Two player commands is two
       strikes, and two strikes is a Cinder. §4's *"every woken Cinder costs exactly 2 HP"* is wrong
-      about one woken kill in seven. Not a regression — it predates #83 — and the fix is a rule
+      about one woken kill in seven **in the free-action half alone** — the corpus never calls `beginRun`, so that fraction is a floor rather than the size of the defect. Not a regression — it predates #83 — and the fix is a rule
       change, so it is #125's to rule. `economy.test.ts` carries a characterisation test in the
       guard's place, with both routes reproduced by hand and a negative control on descent
 - [ ] Fuel economy and the risk/reward tuning around it — calibrated once in #17. **#63 is ruled**

@@ -54,3 +54,4 @@ Superseding, never editing: to reverse a decision, write a new ADR and mark the 
 | [0010](0010-session-layer-owns-the-run.md) | A `session/` layer owns the run | Accepted |
 | [0011](0011-m1-exits-on-the-answer-not-the-outcome.md) | M1 exits on the concept checkpoint being *answered*, not on the wager being tense | Accepted |
 | [0012](0012-the-fallback-trigger-is-a-verdict-not-a-signature.md) | §12's fallback is spent by a verdict, not by an unsigned criterion | Accepted |
+| [0013](0013-a-claim-about-the-build-is-established-by-measurement.md) | A claim about the build is established by measurement, not by argument | Accepted |

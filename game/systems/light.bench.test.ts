@@ -68,9 +68,12 @@ describe('the light economy inside a turn', () => {
     const floor = generateFloor(createRng('light-bench'), 8).value;
     const arrived = createLanternWorld(floor, 'open');
     // Woken through a floodlit query rather than by playing far enough into the floor to light them
-    // all. This is fixture setup, not the thing being measured: §5 keeps creatures out of the
-    // entrance room, so an honest first flash wakes nothing and would benchmark a floor of sleepers,
-    // which costs almost nothing and is the wrong turn.
+    // all. This is fixture setup, not the thing being measured: an honest first flash wakes *few*
+    // creatures — §5 keeps them out of the entrance room, though not out of line of sight through a
+    // doorway — and would benchmark a floor of sleepers, which costs almost nothing and is the wrong
+    // turn. (This comment used to say "wakes nothing", reading §5's *room* exclusion as a *light*
+    // exclusion; that is the error #127/#130 corrected across the docs. Harmless here because the
+    // fixture force-wakes anyway, but it is the same sentence.)
     return {
       lantern: arrived.lantern,
       world: wakeInLight(arrived.world, { isPlayerLightVisibleFrom: () => true }),

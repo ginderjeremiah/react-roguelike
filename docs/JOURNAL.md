@@ -57,9 +57,13 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
-## 2026-08-02 — #130: an opening is not a descent, and the fourth sweep found four sites
+## 2026-08-03 — #130: an opening is not a descent, and the fifth sweep found five sites
 
 **Did:** Closed **#130**. GDD §4's *Where a run starts* priced the opening at the **descent** rate.
+**Dated 2026-08-03**, and the two entries below it were re-dated from 08-02 to 08-03 in the same
+pass: the clock rolled over mid-session and I kept copying the previous heading, which is exactly
+the mechanism this file's own preamble warns about and **#50** owns. Caught by review comparing the
+heading to `git log --date=short`. The entries above `aa53855` are correctly 08-02.
 Corrected to about **one in nine**, with a change-log row. Docs only; no rule and no number in the
 simulation moves.
 
@@ -100,14 +104,26 @@ note for whoever rules it: #125's *"What a fix must do"* refers to *"Option 1 as
 and Options 1-3 are defined only inside the collapsed `<details>` block holding the superseded
 framing — point at it rather than let the agent conclude the options are gone.
 
-**Watch:** the frequency now appears correctly in `game/`, `session/`, `docs/` and on #125, and
-incorrectly nowhere I can find — **but that sentence has been written three times this session and
-been wrong twice.** The standing defence is not another sweep; it is that every corrected site now
+**Watch:** **that sentence was written a fourth time in this entry's first draft and was wrong a
+third time.** It read *"the frequency now appears correctly everywhere and incorrectly nowhere I can
+find"*. Review then found the **fifth** site, in `game/systems/run.ts` — and it is the strongest form
+of the error in the repository:
+
+> **Open**, not shuttered. §5 step 7 puts no creature in the entrance room or in the room merged with
+> it, so this is **the one flash in the game whose safety the *generator* guarantees.**
+
+That is a claim of **zero**, with no number in it to grep for, in the docstring of `beginRun` — the
+function #125 is about. Three things make it the worst-placed copy: `game/core/state.ts` points at
+it as the single in-code statement of the opening; `run.test.ts` **quotes this exact sentence,
+measures it false over 480 floors, and concludes "the GDD sentence is the thing that needs
+correcting"** — the GDD sentence was corrected three times over and its sibling in `run.ts` never
+was; and it contradicts its own third bullet eleven lines later (*light still wakes what light
+wakes*). Fixed here, along with the same sentence in `light.bench.test.ts`. The standing defence is not another sweep; it is that every corrected site now
 carries either a *do not "fix" this back* note or an explicit statement of which event it is about.
 The next person to meet one of these should be told which rate applies before they can get it wrong,
 rather than after.
 
-## 2026-08-02 — #127: the last live site of the frequency, and the Watch it closes
+## 2026-08-03 — #127: the last live site of the frequency, and the Watch it closes
 
 **Did:** Closed **#127**. `game/systems/economy.test.ts`'s run-start block cited GDD's change log at
 *20% of arrivals* and applied it to a **run start** — accurate citation, wrong inference, because a

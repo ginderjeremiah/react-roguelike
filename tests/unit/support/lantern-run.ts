@@ -100,9 +100,9 @@ import {
   createLantern,
   isDry,
   lanternPhases,
-  lightOf,
   resolveTurn,
   setShutterTurn,
+  type ActorId,
   type LanternWorld,
 } from '@/game/systems';
 
@@ -162,6 +162,52 @@ export const DARK_PACIFIST: Style = { name: 'dark-pacifist', fights: false, ligh
  */
 export const DRY_CRAWL: Style = { name: 'dry-crawl', fights: true, light: 'never' };
 
+/**
+ * One creature that was woken and then killed, and what the player spent on it.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
+ * WHAT `hpSpentWhileAwake` IS, AND THE ONE WAY IT CAN LIE
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * GDD §4 keeps a **regression guard** — *no run may bank ember from a creature it woke without
+ * paying HP for it* — and says outright that nothing in this harness could assert it, because it
+ * recorded per-floor fuel and nothing per creature. This is that attribution, built by #123.
+ *
+ * It is the player's HP loss summed over every command on which this creature was **awake and
+ * alive**, from the first such command to the one that killed it. Exact attribution is not
+ * available and cannot be: §2 has a creature mark a *tile*, and two adjacent creatures mark the
+ * **same** tile (GDD §4's *as implemented the threat set is one tile*), so when the player loses 2
+ * HP with two hunters adjacent there is no observable in the state that says which one swung.
+ *
+ * **So the error runs one way and it is worth naming.** Overlapping hunters *over-credit*: a
+ * creature killed for nothing while a second one was landing blows reports a non-zero spend. The
+ * guard is therefore a claim about every woken kill in the corpus having *some* HP against it, and
+ * a re-tune that made free kills the norm would still be caught — a free-kill route reopened by a
+ * 3 HP creature produces lone woken kills as well as crowded ones, and the lone ones report 0. It
+ * would *not* catch a free kill that only ever happened in a crowd. Written down rather than
+ * hedged: this instrument is a tripwire, not a measurement, which is exactly what §4 asks it to be.
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
+ */
+export type WokenKill = {
+  readonly id: ActorId;
+  /** Player HP lost across the commands this creature spent awake and alive. Never negative. */
+  readonly hpSpentWhileAwake: number;
+  /**
+   * How many player commands it was awake for before it died.
+   *
+   * A bound on *when* a free kill happens, never on *why*: it counts commands, not mechanisms, and
+   * cannot tell #125's free-action window from its `beginRun` one. `economy.test.ts` asserts it as
+   * "soon after the wake" and pins the mechanisms with hand-built reproductions instead.
+   *
+   * A third field — `actedWhileAwake` — was here and is deleted. It was computed, exported and
+   * asserted by nothing, which this file's own rule forbids; worse, it did not measure what its name
+   * said, because a creature can spend its one action resolving a *stale move* and still never swing.
+   * That is exactly the `beginRun` shape, so the field would have mis-attributed the case it looked
+   * built for.
+   */
+  readonly commandsAwake: number;
+};
+
 /** What one floor cost and paid. */
 export type FloorResult = {
   readonly floorNumber: number;
@@ -174,6 +220,15 @@ export type FloorResult = {
   /** Paid turns taken with the shutter already open: light *held*, rather than flashed. */
   readonly litTurns: number;
   readonly kills: number;
+  /**
+   * The subset of `kills` that had been **woken** at some point before they died, in ascending
+   * actor id, each with the HP the player spent while it was awake.
+   *
+   * `kills - wokenKills.length` is therefore the floor's free kills: creatures the run never lit
+   * and struck in their sleep, which §3 pays double for and §4 calls the reward for having played
+   * dark. The split is the quantity GDD §4's regression guard is stated in.
+   */
+  readonly wokenKills: readonly WokenKill[];
   readonly cachesTaken: number;
   /**
    * Caches on the floor when the player arrived — §5 places 1-2.
@@ -307,6 +362,7 @@ export function playFloor(start: LanternWorld, style: Style): FloorResult {
   let ranDry = isDry(start.lantern);
   let driedOnTurn: number | null = ranDry ? 0 : null;
   let reachedStairs = false;
+  const attribution = new WakeLedger();
 
   while (turns < TURN_CAP_PER_FLOOR && commands < TURN_CAP_PER_FLOOR * 2) {
     const before = state;
@@ -333,6 +389,8 @@ export function playFloor(start: LanternWorld, style: Style): FloorResult {
       if (wasOpen) litTurns += 1;
     }
 
+    attribution.record(before.world, state.world);
+
     const killedNow = countLiving(before.world) - countLiving(state.world);
     const cachesNow = before.world.floor.caches.length - state.world.floor.caches.length;
     kills += killedNow;
@@ -351,6 +409,7 @@ export function playFloor(start: LanternWorld, style: Style): FloorResult {
     flashes,
     litTurns,
     kills,
+    wokenKills: attribution.wokenKills(),
     cachesTaken,
     cachesOnFloor: start.world.floor.caches.length,
     fuelBefore: start.lantern.fuel,
@@ -363,6 +422,62 @@ export function playFloor(start: LanternWorld, style: Style): FloorResult {
     ranDry,
     driedOnTurn,
   };
+}
+
+/**
+ * Per-creature wake and HP attribution, accumulated one command at a time.
+ *
+ * The instrument GDD §4's regression guard needs and this harness did not have. See `WokenKill` for
+ * what the number means and the one way it can over-credit.
+ *
+ * **Ordering:** ids are collected in a `Map` for the accumulation and **sorted before they leave**,
+ * so `wokenKills()` is a function of the run and never of insertion order. Nothing in the harness
+ * feeds this back into the simulation, but ADR-0004's rule is cheaper to keep than to reason about
+ * an exception to.
+ */
+class WakeLedger {
+  private readonly hpWhileAwake = new Map<ActorId, number>();
+  private readonly commandsAwake = new Map<ActorId, number>();
+  private readonly killed: WokenKill[] = [];
+
+  /** Fold one resolved command into the ledger. */
+  record(before: ActorWorld, after: ActorWorld): void {
+    // Who was awake *before* the command. That is who could have resolved an action during it: a
+    // creature declares one turn and resolves it the next, so the actor that swung was already
+    // awake when the turn began.
+    const awakeNow: ActorId[] = [];
+    for (const actor of before.actors) {
+      if (actor.kind !== 'creature' || !isAlive(actor) || actor.mind.kind !== 'awake') continue;
+      this.commandsAwake.set(actor.id, (this.commandsAwake.get(actor.id) ?? 0) + 1);
+      awakeNow.push(actor.id);
+    }
+
+    const spent = playerOf(before).hp - playerOf(after).hp;
+    if (spent > 0) {
+      for (const id of awakeNow) {
+        this.hpWhileAwake.set(id, (this.hpWhileAwake.get(id) ?? 0) + spent);
+      }
+    }
+
+    // Deaths: an id in `before` and gone from `after`. Phase 5 removes the body, so this is the one
+    // frame in which a creature's whole history is still available.
+    const survivors = new Set<ActorId>(after.actors.map((actor) => actor.id));
+    for (const actor of before.actors) {
+      if (actor.kind !== 'creature' || survivors.has(actor.id)) continue;
+      const commandsAwake = this.commandsAwake.get(actor.id) ?? 0;
+      if (commandsAwake === 0) continue; // a free kill on something never lit (§3, §4)
+      this.killed.push({
+        id: actor.id,
+        hpSpentWhileAwake: this.hpWhileAwake.get(actor.id) ?? 0,
+        commandsAwake,
+      });
+    }
+  }
+
+  /** Every creature killed after having been awake, in ascending id. */
+  wokenKills(): readonly WokenKill[] {
+    return [...this.killed].sort((a, b) => a.id - b.id);
+  }
 }
 
 /**
@@ -419,7 +534,7 @@ function apply(state: LanternWorld, action: Action): LanternWorld {
       if (action.kind !== 'bump') return charged;
       return {
         lantern: charged.lantern,
-        world: bump(charged.world, PLAYER_ID, action.to, lightOf(current)),
+        world: bump(charged.world, PLAYER_ID, action.to),
       };
     }),
   );

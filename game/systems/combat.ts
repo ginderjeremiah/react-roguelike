@@ -55,7 +55,6 @@ import {
   type Actor,
   type ActorWorld,
   type EmberDrop,
-  type LightQuery,
 } from '../entities';
 import { blocksMovement, inBounds, tileAt, type Position } from '../map';
 import { hasActor, removeActor, type ActorId } from './schedule';
@@ -111,16 +110,9 @@ function unschedule(world: ActorWorld, id: ActorId): ActorWorld {
  * is a legal, meaningful outcome of a committed action: the target stepped aside, or what moved in
  * is not an enemy. The turn is still spent — the caller charged for it.
  *
- * @param light needed only because a dormant creature that survives **wakes** (§3), and waking
- *   declares an intent (§2), which is what light is for.
  * @throws if the attacker does not exist, is dead, or is attacking its own tile.
  */
-export function resolveAttack(
-  world: ActorWorld,
-  attackerId: ActorId,
-  at: Position,
-  light: LightQuery,
-): ActorWorld {
+export function resolveAttack(world: ActorWorld, attackerId: ActorId, at: Position): ActorWorld {
   const attacker = actorById(world, attackerId);
   if (!isAlive(attacker)) {
     throw new Error(`combat: dead actor ${attackerId} cannot attack`);
@@ -144,8 +136,9 @@ export function resolveAttack(
   if (hp === 0) return unschedule(afterDamage, target.id);
 
   // §3/§6: "If the target survives, it wakes." A dormant creature that ate a stalked strike and
-  // lived is the one thing in the game that turns a free kill into a fight.
-  if (damaged.kind === 'creature') return wakeCreature(afterDamage, damaged, light);
+  // lived is the one thing in the game that turns a free kill into a fight — and since #123 it is a
+  // fight for the rest of the floor, because nothing it wakes ever sleeps again.
+  if (damaged.kind === 'creature') return wakeCreature(afterDamage, damaged);
   return afterDamage;
 }
 
@@ -205,12 +198,7 @@ export function canBump(world: ActorWorld, actorId: ActorId, to: Position): bool
  * move-or-attack must be decided by what is on the tile at the moment of the tap — not by a mode,
  * not by a modifier. `to` must be orthogonally adjacent.
  */
-export function bump(
-  world: ActorWorld,
-  actorId: ActorId,
-  to: Position,
-  light: LightQuery,
-): ActorWorld {
+export function bump(world: ActorWorld, actorId: ActorId, to: Position): ActorWorld {
   const actor = actorById(world, actorId);
   if (!isAdjacent(actor.at, to)) {
     // Enforced here, not only in resolveMove. The adjacency check used to sit on the move branch
@@ -228,7 +216,7 @@ export function bump(
   }
   const occupant = occupantAt(world, to);
   if (occupant !== null && occupant.id !== actorId && isHostile(actor, occupant)) {
-    return resolveAttack(world, actorId, to, light);
+    return resolveAttack(world, actorId, to);
   }
   return resolveMove(world, actorId, to);
 }

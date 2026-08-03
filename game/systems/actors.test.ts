@@ -21,7 +21,7 @@ describe('actOnce', () => {
     const { world, ids, at } = scenario(['#######', '#@...c#', '#######']);
     const committed = allDueNow(awaken(world, ids[0], { kind: 'move', to: { x: 4, y: 1 } }));
 
-    const after = actOnce(committed, ids[0], FLOODLIT);
+    const after = actOnce(committed, ids[0]);
     const creature = creatureById(after, ids[0]);
 
     expect(creature.at).toEqual({ x: 4, y: 1 });
@@ -33,25 +33,25 @@ describe('actOnce', () => {
     const { world, ids, at } = scenario(['#####', '#@c.#', '#####']);
     const committed = allDueNow(awaken(world, ids[0], { kind: 'attack', at: at('@') }));
 
-    expect(playerOf(actOnce(committed, ids[0], SHUTTERED)).hp).toBe(PLAYER_MAX_HP - CINDER.attack);
+    expect(playerOf(actOnce(committed, ids[0])).hp).toBe(PLAYER_MAX_HP - CINDER.attack);
   });
 
   it('refuses the player', () => {
     // The tripwire for a command that forgot to charge. Without it the player acts twice in a turn
     // — once in phase 1 and once in phase 4 — and a free action hands every creature a free turn.
     const { world } = scenario(['#####', '#@c.#', '#####']);
-    expect(() => actOnce(world, PLAYER_ID, SHUTTERED)).toThrow(/resolves in phase 1/);
+    expect(() => actOnce(world, PLAYER_ID)).toThrow(/resolves in phase 1/);
   });
 
   it('refuses a dormant or dead creature', () => {
     // Both are out of the schedule by invariant, so reaching here means the invariant broke
     // upstream. A silent no-op would hide it until the creature's behaviour looked wrong.
     const { world, ids } = scenario(['#####', '#@c.#', '#####']);
-    expect(() => actOnce(world, ids[0], SHUTTERED)).toThrow(/dormant/);
+    expect(() => actOnce(world, ids[0])).toThrow(/dormant/);
 
     const awakened = awaken(world, ids[0], { kind: 'wait' });
     const dead = withActor(awakened, withHp(creatureById(awakened, ids[0]), 0));
-    expect(() => actOnce(dead, ids[0], SHUTTERED)).toThrow(/dead actor/);
+    expect(() => actOnce(dead, ids[0])).toThrow(/dead actor/);
   });
 });
 
@@ -99,7 +99,7 @@ describe('the actor phase', () => {
     const committed = allDueNow(awaken(world, ids[0], { kind: 'attack', at: at('@') }));
 
     // The phase itself first: `free` is identity, not "run it but skip the charge".
-    expect(actorPhase('free', SHUTTERED)(committed)).toBe(committed);
+    expect(actorPhase('free')(committed)).toBe(committed);
 
     const free = playTurn(committed, { kind: 'free' }, SHUTTERED);
     expect(playerOf(free).hp).toBe(PLAYER_MAX_HP);
@@ -180,7 +180,7 @@ describe('the run ends where the killing blow lands (§13)', () => {
     // Phase 1 charges the player; this stands in for it, or phase 4 refuses to give the player a turn.
     committed = { ...committed, schedule: chargeActor(committed.schedule, PLAYER_ID) };
 
-    const after = actorPhase('costsATurn', SHUTTERED)(committed);
+    const after = actorPhase('costsATurn')(committed);
 
     expect(playerOf(after).hp).toBe(0);
     // The second Cinder never resolved its declared attack, so it still holds it.
@@ -198,7 +198,7 @@ describe('the run ends where the killing blow lands (§13)', () => {
     committed = allDueNow(withActor(committed, withHp(playerOf(committed), 2 * CINDER.attack + 1)));
     committed = { ...committed, schedule: chargeActor(committed.schedule, PLAYER_ID) };
 
-    const after = actorPhase('costsATurn', SHUTTERED)(committed);
+    const after = actorPhase('costsATurn')(committed);
 
     expect(playerOf(after).hp).toBe(1);
     expect(after.schedule.now).toBe(committed.schedule.now + ACTION_COST);

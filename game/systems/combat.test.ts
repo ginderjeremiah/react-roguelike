@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { awaken, FLOODLIT, scenario, SHUTTERED } from '@/tests/unit/support/scenario';
+import { awaken, scenario } from '@/tests/unit/support/scenario';
 import { CINDER, PLAYER_ATTACK, PLAYER_MAX_HP } from '../content';
 import {
   creatureById,
@@ -67,7 +67,7 @@ describe('resolving an attack', () => {
   it('kills a dormant Cinder in one strike', () => {
     // §3's stated consequence: "a dormant Cinder dies to one strike and costs 0 HP."
     const { world, ids, at } = scenario(['#####', '#@c.#', '#####']);
-    const after = resolveAttack(world, PLAYER_ID, at('c'), SHUTTERED);
+    const after = resolveAttack(world, PLAYER_ID, at('c'));
 
     expect(creatureById(after, ids[0]).hp).toBe(0);
     expect(playerOf(after).hp).toBe(PLAYER_MAX_HP);
@@ -77,10 +77,10 @@ describe('resolving an attack', () => {
     const { world, ids, at } = scenario(['#####', '#@c.#', '#####']);
     const woken = awaken(world, ids[0], { kind: 'wait' });
 
-    const once = resolveAttack(woken, PLAYER_ID, at('c'), SHUTTERED);
+    const once = resolveAttack(woken, PLAYER_ID, at('c'));
     expect(creatureById(once, ids[0]).hp).toBe(CINDER.maxHp - PLAYER_ATTACK);
 
-    const twice = resolveAttack(once, PLAYER_ID, at('c'), SHUTTERED);
+    const twice = resolveAttack(once, PLAYER_ID, at('c'));
     expect(creatureById(twice, ids[0]).hp).toBe(0);
   });
 
@@ -90,14 +90,15 @@ describe('resolving an attack', () => {
     // not the tuning.
     const { world, ids, at } = scenario(['#####', '#@c.#', '#####']);
     const tough = withActor(world, { ...creatureById(world, ids[0]), hp: 20, maxHp: 20 });
-    const after = resolveAttack(tough, PLAYER_ID, at('c'), SHUTTERED);
+    const after = resolveAttack(tough, PLAYER_ID, at('c'));
     const creature = creatureById(after, ids[0]);
 
     expect(creature.hp).toBe(20 - PLAYER_ATTACK * DORMANT_STRIKE_MULTIPLIER);
-    expect(creature.mind).toMatchObject({
+    expect(creature.mind).toEqual({
       kind: 'awake',
-      // It woke adjacent to the player, so it has contact and commits to hitting back — even
-      // though the shutter is closed.
+      // It woke adjacent to the player, so it commits to hitting back. Since #123 there is no
+      // lighting argument to get wrong here: a declaration does not consult the shutter, and a
+      // creature woken by a strike is awake for the rest of the floor.
       intent: { kind: 'attack', at: at('@') },
     });
     // And it is now in the queue, for next turn rather than this one.
@@ -107,7 +108,7 @@ describe('resolving an attack', () => {
   it('never drops HP below zero', () => {
     const { world, ids, at } = scenario(['#####', '#@c.#', '#####']);
     const overkill = withActor(world, { ...playerOf(world), attack: 999 });
-    const after = resolveAttack(overkill, PLAYER_ID, at('c'), SHUTTERED);
+    const after = resolveAttack(overkill, PLAYER_ID, at('c'));
     expect(creatureById(after, ids[0]).hp).toBe(0);
     expect(findWorldProblems(after)).toEqual([]);
   });
@@ -125,7 +126,6 @@ describe('resolving an attack', () => {
       withActor(woken, { ...playerOf(woken), attack: 99 }),
       PLAYER_ID,
       at('c'),
-      SHUTTERED,
     );
 
     expect(hasActor(killed.schedule, ids[0])).toBe(false);
@@ -141,7 +141,7 @@ describe('resolving an attack', () => {
     const woken = awaken(world, ids[0], { kind: 'attack', at: { x: 1, y: 1 } });
     const dodged = withActor(woken, { ...playerOf(woken), at: { x: 3, y: 1 } });
 
-    const after = resolveAttack(dodged, ids[0], { x: 1, y: 1 }, SHUTTERED);
+    const after = resolveAttack(dodged, ids[0], { x: 1, y: 1 });
     expect(playerOf(after).hp).toBe(PLAYER_MAX_HP);
     expect(after).toBe(dodged);
   });
@@ -151,16 +151,16 @@ describe('resolving an attack', () => {
     // whether that hurts is a design question §6 does not answer. Until it does, nothing happens.
     const { world, ids } = scenario(['#####', '#@cc#', '#####']);
     const attacker = awaken(world, ids[0], { kind: 'attack', at: { x: 3, y: 1 } });
-    const after = resolveAttack(attacker, ids[0], { x: 3, y: 1 }, SHUTTERED);
+    const after = resolveAttack(attacker, ids[0], { x: 3, y: 1 });
     expect(creatureById(after, ids[1]).hp).toBe(CINDER.maxHp);
   });
 
   it('refuses to let an actor attack its own tile or act while dead', () => {
     const { world, ids, at } = scenario(['#####', '#@c.#', '#####']);
-    expect(() => resolveAttack(world, PLAYER_ID, at('@'), SHUTTERED)).toThrow(/its own tile/);
+    expect(() => resolveAttack(world, PLAYER_ID, at('@'))).toThrow(/its own tile/);
 
     const dead = withActor(world, withHp(playerOf(world), 0));
-    expect(() => resolveAttack(dead, PLAYER_ID, at('c'), SHUTTERED)).toThrow(/dead actor/);
+    expect(() => resolveAttack(dead, PLAYER_ID, at('c'))).toThrow(/dead actor/);
     expect(ids.length).toBe(1);
   });
 });
@@ -245,7 +245,7 @@ describe('canBump — the predicate GDD §2s refusal rule is stated in', () => {
       const allowed = canBump(world, PLAYER_ID, to);
       const acted = (() => {
         try {
-          return bump(world, PLAYER_ID, to, SHUTTERED) !== world;
+          return bump(world, PLAYER_ID, to) !== world;
         } catch {
           return false;
         }
@@ -259,12 +259,12 @@ describe('bump to attack', () => {
   it('attacks an adjacent creature and moves onto anything else', () => {
     // §9: "Tap an adjacent tile to move; tap an adjacent occupied tile to attack." One verb.
     const { world, ids, at } = scenario(['#####', '#@c.#', '#####']);
-    const attacked = bump(world, PLAYER_ID, at('c'), SHUTTERED);
+    const attacked = bump(world, PLAYER_ID, at('c'));
     expect(creatureById(attacked, ids[0]).hp).toBe(0);
     expect(playerOf(attacked).at).toEqual(at('@'));
 
     const { world: open } = scenario(['#####', '#@..#', '#####']);
-    expect(playerOf(bump(open, PLAYER_ID, { x: 2, y: 1 }, SHUTTERED)).at).toEqual({ x: 2, y: 1 });
+    expect(playerOf(bump(open, PLAYER_ID, { x: 2, y: 1 })).at).toEqual({ x: 2, y: 1 });
   });
 
   it('refuses a distant or diagonal target, on the attack branch as well as the move branch', () => {
@@ -279,21 +279,21 @@ describe('bump to attack', () => {
      * dangerous branch — and `bump` is what #18's tap handler will call with a raw tap target.
      */
     const { world, at } = scenario(['#######', '#@..c.#', '#######']);
-    expect(() => bump(world, PLAYER_ID, at('c'), SHUTTERED)).toThrow(/4-directional/);
+    expect(() => bump(world, PLAYER_ID, at('c'))).toThrow(/4-directional/);
 
     // Diagonal, adjacent-looking but not orthogonally adjacent.
     const diag = scenario(['#####', '#@..#', '#.c.#', '#####']);
-    expect(() => bump(diag.world, PLAYER_ID, diag.at('c'), SHUTTERED)).toThrow(/4-directional/);
+    expect(() => bump(diag.world, PLAYER_ID, diag.at('c'))).toThrow(/4-directional/);
 
     // The empty-tile case must keep throwing too — this is not a regression swap.
-    expect(() => bump(world, PLAYER_ID, { x: 3, y: 1 }, SHUTTERED)).toThrow(/4-directional/);
+    expect(() => bump(world, PLAYER_ID, { x: 3, y: 1 })).toThrow(/4-directional/);
   });
 
   it('walks over a corpse rather than attacking it', () => {
     // Phase 5 has not run yet, so the body is still listed. It must not be a target or an obstacle.
     const { world, ids, at } = scenario(['#####', '#@c.#', '#####']);
-    const killed = resolveAttack(world, PLAYER_ID, at('c'), SHUTTERED);
-    const walked = bump(killed, PLAYER_ID, at('c'), SHUTTERED);
+    const killed = resolveAttack(world, PLAYER_ID, at('c'));
+    const walked = bump(killed, PLAYER_ID, at('c'));
     expect(playerOf(walked).at).toEqual(at('c'));
     expect(creatureById(walked, ids[0]).hp).toBe(0);
   });
@@ -302,7 +302,7 @@ describe('bump to attack', () => {
 describe('the deaths phase', () => {
   it('drops the creature s ember where it fell and takes the body out of the world', () => {
     const { world, ids, at } = scenario(['#####', '#@c.#', '#####']);
-    const after = resolveDeaths(resolveAttack(world, PLAYER_ID, at('c'), SHUTTERED));
+    const after = resolveDeaths(resolveAttack(world, PLAYER_ID, at('c')));
 
     expect(findActor(after, ids[0])).toBeNull();
     expect(after.embers).toEqual([{ at: at('c'), amount: CINDER.emberDrop }]);
@@ -331,7 +331,7 @@ describe('the deaths phase', () => {
     const { world, ids, at } = scenario(['#####', '#@c.#', '#####']);
     const woken = awaken(world, ids[0], { kind: 'attack', at: at('@') });
     const strong = withActor(woken, { ...creatureById(woken, ids[0]), attack: 99 });
-    const killed = resolveAttack(strong, ids[0], at('@'), SHUTTERED);
+    const killed = resolveAttack(strong, ids[0], at('@'));
 
     expect(playerOf(killed).hp).toBe(0);
     expect(hasActor(killed.schedule, PLAYER_ID)).toBe(false);
@@ -371,7 +371,7 @@ describe('healing', () => {
     let previous = playerOf(current).hp;
 
     for (let turn = 0; turn < 4; turn += 1) {
-      current = resolveAttack(current, ids[0], at('@'), FLOODLIT);
+      current = resolveAttack(current, ids[0], at('@'));
       current = resolveDeaths(current);
       expect(playerOf(current).hp).toBeLessThan(previous);
       previous = playerOf(current).hp;

@@ -37,6 +37,11 @@
  * cases that read it. A field written every turn and read by nothing is a field `GameState` has to
  * reproduce on every replay and a future session has to reverse-engineer a meaning for, so it went
  * with them. `behaviour.ts`'s header keeps the reason it existed.
+ *
+ * **`turnsSinceContact` went the same way in #123** — the eight-turn re-dormancy clock is deleted,
+ * so the awake variant is now one field. `behaviour.ts`'s second `SUPERSEDED` block is where that
+ * field's meaning survives; the rule is that a dead field is easier to re-add than a forgotten
+ * reason.
  */
 
 import { assertNever } from '../core/assert';
@@ -72,26 +77,29 @@ export type Intent =
 export const WAIT: Intent = { kind: 'wait' };
 
 /**
+ * Awake, and therefore committed to something.
+ *
+ * Named separately from `Mind` because it is what `nextMind` returns since #123: a declaration is
+ * always an awake mind, and saying so in the type is what makes *"a woken Cinder never returns to
+ * dormant"* a fact the compiler checks rather than a rule a reviewer has to notice. Re-introducing
+ * the clock means widening this back, which is a visible edit rather than an extra branch.
+ */
+export type AwakeMind = {
+  readonly kind: 'awake';
+  /** Declared last turn; resolved on this creature's next turn. */
+  readonly intent: Intent;
+};
+
+/**
  * Dormant, or awake and committed to something.
  *
- * A union rather than `dormant: boolean` plus optional fields: the awake state carries two things a
- * dormant creature must not have, and this makes reading either of them require establishing
- * wakefulness first. It also makes one design rule unrepresentable-if-violated — **an awake
- * creature always has a declared intent** — which is why waking necessarily declares (§2 phase 3:
- * a creature woken by light "wakes and immediately declares").
+ * A union rather than `dormant: boolean` plus an optional field: the awake state carries something
+ * a dormant creature must not have, and this makes reading it require establishing wakefulness
+ * first. It also makes one design rule unrepresentable-if-violated — **an awake creature always has
+ * a declared intent** — which is why waking necessarily declares (§2 phase 3: a creature woken by
+ * light "wakes and immediately declares").
  */
-export type Mind =
-  | { readonly kind: 'dormant' }
-  | {
-      readonly kind: 'awake';
-      /** Declared last turn; resolved on this creature's next turn. */
-      readonly intent: Intent;
-      /**
-       * Turns of no contact, counted at declaration. `0` on a turn with contact; at
-       * `TURNS_TO_REDORMANCY` the creature returns to dormant (§4/§6).
-       */
-      readonly turnsSinceContact: number;
-    };
+export type Mind = { readonly kind: 'dormant' } | AwakeMind;
 
 /** Shared by every sleeping creature. */
 export const DORMANT: Mind = { kind: 'dormant' };

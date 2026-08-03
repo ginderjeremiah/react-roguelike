@@ -11,10 +11,10 @@ import {
   stepToward,
   PLAYER_ID,
   type ActorWorld,
-  type LightQuery,
 } from '../entities';
 import { generateFloor, manhattanDistance, type Position } from '../map';
 import { createRng, int, type Rng } from '../rng';
+import type { LightQuery } from './light';
 import { ACTION_COST } from './schedule';
 
 /**
@@ -32,20 +32,33 @@ import { ACTION_COST } from './schedule';
  * notice a generator which had stopped generating.
  *
  * So the run collects evidence as it goes, and asserts at the end that the interesting things
- * actually *happened*: creatures woke, moved, closed distance, landed hits, died, and went back to
- * sleep. Those counters are the part of this file that fails when the behaviour quietly degenerates.
+ * actually *happened*: creatures woke, moved, closed distance, landed hits and died. Those counters
+ * are the part of this file that fails when the behaviour quietly degenerates.
+ *
+ * **One counter is asserted at zero, and it is the sharpest thing in this file (#123):
+ * `wentDormant`.** §4: a woken Cinder is awake for the rest of the floor. Over 24 generated floors
+ * and 90 turns each, with the shutter cycling open and shut the whole way, not one awake creature
+ * may go back to sleep. It is a zero with a positive control beside it — `woke` is asserted well
+ * above zero on the same corpus — so it cannot pass by nothing ever waking.
  * ═══════════════════════════════════════════════════════════════════════════════════════════════
  *
  * The lighting query here is a **stand-in** — "lit within 4 steps of the player while the shutter is
- * open" — and it is written in the test rather than in `game/` for the reason `contact.ts` gives:
- * the real one is #14/#17's, its metric is still open (#25), and a placeholder living in the
- * simulation is a lie that outlives the session that wrote it. Nothing asserted here depends on the
- * shape of the lit area, only on light existing and going away.
+ * open" — written in the test rather than in `game/`: the real one is `light.ts`'s, its metric is
+ * still open (#25), and a placeholder living in the simulation is a lie that outlives the session
+ * that wrote it. Nothing asserted here depends on the shape of the lit area, only on light existing
+ * and going away.
  */
 
 const SEEDS = 24;
 const TURNS = 90;
-/** Turns of open shutter, then closed — long enough for the 8-turn re-dormancy clock to run out. */
+/**
+ * Turns of open shutter, then closed.
+ *
+ * The 18 shuttered turns used to be there to let the 8-turn re-dormancy clock run out twice over.
+ * #123 deleted the clock, and the cycle is kept exactly as it was: it is now what makes
+ * `wentDormant === 0` a claim about long stretches of darkness rather than about a floor that was
+ * lit the whole time.
+ */
 const SHUTTER_PERIOD = 24;
 const SHUTTER_OPEN_FOR = 6;
 
@@ -243,9 +256,23 @@ describe('playing whole floors', () => {
     expect(tally.hitThePlayer).toBeGreaterThan(25); // committed attacks land (§3)
     expect(tally.missedThePlayer).toBeGreaterThan(25); // ...and stepping aside works (§2)
     expect(tally.killed).toBeGreaterThan(50); // the player can kill things (§4's fuel economy)
-    // Thin on purpose: this corpus kills most creatures long before an 8-turn silence can elapse,
-    // so re-dormancy is corroborated here and pinned properly in `entities/behaviour.test.ts`.
-    expect(tally.wentDormant).toBeGreaterThan(2);
+    // ═══ #123, at the corpus tier: a woken Cinder never returns to dormant ═══
+    //
+    // This counter used to be asserted **above 2**. It is now asserted at exactly 0, over 2160
+    // scripted turns in which the shutter spends three quarters of its cycle shut and the script
+    // regularly walks away from what it woke.
+    //
+    // **Measured, not guessed: with the clock restored this reads 4** (checked out at `c422315` and
+    // run — the whole tally was `woke 70, moved 168, hitThePlayer 70, missedThePlayer 72, killed
+    // 118, wentDormant 4, closedDistance 141`). An earlier draft of this comment claimed "in the
+    // twenties", which was a guess dressed as a measurement in a file whose neighbour insists on
+    // printing margins rather than guessing them. 4 still kills the mutant, and the margin being
+    // *thin* is the useful thing to know: this corpus kills most creatures long before eight silent
+    // turns can elapse, which is why the pre-#123 assertion here was only `> 2`.
+    //
+    // Not vacuous: `woke` above is asserted at more than 30 on the same runs, so there is always
+    // something awake that *could* have gone back to sleep.
+    expect(tally.wentDormant).toBe(0);
   });
 });
 
@@ -257,6 +284,12 @@ describe('the same commands always produce the same floor', () => {
     let rng = createRng(`${seed}-script`);
 
     for (let turn = 0; turn < turns; turn += 1) {
+      // §13: the run is over the moment the player's HP reaches 0, and a dead player is out of the
+      // schedule — so `chargeActor` throws rather than handing a corpse a turn. The loop stopped
+      // here implicitly before #123 because the corpus rarely got the player killed; with nothing
+      // ever going back to sleep it does, and the stop is now stated. It is still deterministic:
+      // where a run stops is a function of the seed like everything else here.
+      if (!isAlive(playerOf(world))) break;
       const open = turn % SHUTTER_PERIOD < SHUTTER_OPEN_FOR;
       const scripted = scriptPlayer(world, rng, turn);
       rng = scripted.rng;

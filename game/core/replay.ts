@@ -49,7 +49,7 @@ import { step } from './step';
 import { createInitialState, type GameState } from './state';
 
 /** The rules version this build of the simulation implements. See the header. */
-export const RULES_VERSION = 5;
+export const RULES_VERSION = 6;
 
 /**
  * Append-only. One line per bump, newest last, so that a fixture pinned at version N can be
@@ -88,6 +88,24 @@ export const RULES_VERSION_LOG: readonly string[] = [
     'the player is still alive at the end of it. `Mind` also drops `awareness`, the tile those two ' +
     'deleted cases read, so a version-4 *state* carries a field these rules do not produce. Both ' +
     'clauses of the policy above, again.',
+  '6 — §4\'s awake-creature rule again (#121, #123): the eight-turn re-dormancy clock is deleted, ' +
+    'so a woken Cinder is awake for the rest of the floor. `nextMind` loses its third case and now ' +
+    'returns an awake mind unconditionally; `TURNS_TO_REDORMANCY`, `Mind.turnsSinceContact` and the ' +
+    'whole *contact* concept go with it, including the injected `LightQuery` the entity layer used ' +
+    'to be handed. A version-5 record diverges from the eighth turn after anything wakes out of ' +
+    'contact: where that creature used to leave the schedule and lie down as a fresh double-damage ' +
+    'target, it keeps its place in the queue and keeps coming — so every actor position, every ' +
+    'declared intent, every kill and the ending itself can differ, and a run that outwaited what it ' +
+    'woke replays into a fight it has to finish. Measured, by replaying the version-5 combat fixture ' +
+    'under these rules: that log retreated nine turns, watched the Cinder go dormant at command 10, ' +
+    'walked back and one-shot it asleep, then flashed and was killed by a second one. Under version ' +
+    '6 nothing sleeps — the Cinder follows the player back east and is fought **awake** for 2 HP, ' +
+    'the flash lands somewhere else entirely and wakes nothing, and the run ends `running` with the ' +
+    'player alive at 10 HP and both surviving creatures still dormant. Same log, same seed: no free ' +
+    'kill, no second wake, no death. `Mind` also drops ' +
+    '`turnsSinceContact`, so a version-5 *state* carries a field these rules do not produce. Both ' +
+    'clauses of the policy above, for the third time — and the second time in two versions that the ' +
+    'clause doing the work is a **deletion**.',
 ];
 
 /**

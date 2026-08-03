@@ -2,19 +2,25 @@
  * Where the lantern meets the floor: the real `LightQuery`, and five of GDD §2's six phases.
  *
  * ═══════════════════════════════════════════════════════════════════════════════════════════════
- * THE REAL `LightQuery`, AND WHY IT IS THE PLAYER'S LIT FIELD READ BACKWARDS
+ * `LightQuery`, AND WHY IT IS THE PLAYER'S LIT FIELD READ BACKWARDS
  * ═══════════════════════════════════════════════════════════════════════════════════════════════
  *
- * `game/entities/contact.ts` asks one question — *"is the player's lantern-light visible from
- * this tile?"* — and refuses to answer it, because what "visible" means is a lighting decision. This
- * is the answer:
+ * One question — *"is the player's lantern-light visible from this tile?"* — with one answer:
  *
  *     shuttered  ->  false, from everywhere. Darkness is the mechanic; a query that said otherwise
  *                    would delete the game's central decision rather than change a number.
  *     open       ->  the tile is in `computeLitField(grid, playerAt)` — GDD §4's Chebyshev radius 4,
  *                    line-of-sight blocked by walls and pillars.
  *
- * **The second line is only correct because `game/fov/shadowcast.ts` is symmetric**, and that is not
+ * **The type used to live in `game/entities/contact.ts`, injected**, because the entity layer needed
+ * to know whether a creature could see the lantern and refused to decide what "see" meant. #123
+ * deleted the rule that asked — the eight-turn re-dormancy clock — and with it the last consumer in
+ * `game/entities/`, so both the question and its answer live here now. **That is a simplification
+ * and not a layering regression**: the one remaining reader is §2 phase 3's waking (`wakeInLight`),
+ * which is this directory's own rule and always resolved light from the lit radius rather than from
+ * the deleted `hasContact`.
+ *
+ * **The `open` line is only correct because `game/fov/shadowcast.ts` is symmetric**, and that is not
  * an incidental property — it is why that variant was chosen (see its header, and the FOV journal
  * entry). The lit field is computed from the *player's* eye; the question asked here is from the
  * *creature's*. Those are the same set only if visibility is symmetric. Under the classic Bergström
@@ -23,10 +29,10 @@
  * through. `light.test.ts` asserts the two directions agree over every passable pair on generated
  * floors, so a future "generous FOV" tweak fails here rather than in play.
  *
- * The field is computed **once** and closed over, not recomputed per call. The query is asked a
- * variable number of times per turn (once per creature that declares, plus once per sleeper in
- * `wakeInLight`), and `contact.ts` requires it to be pure and total — so it must not be
- * expensive, and it must never consume a random number.
+ * The field is computed **once** and closed over, not recomputed per call. The query is asked once
+ * per sleeper per turn in `wakeInLight`, so it must not be expensive — and it **must never consume a
+ * random number**, because it is asked a variable number of times per turn and a query with a side
+ * effect would make the run depend on how many creatures happened to be asleep.
  * ═══════════════════════════════════════════════════════════════════════════════════════════════
  *
  * ## The free action: which of the six phases a shutter command runs
@@ -68,13 +74,7 @@
 
 import { CACHE_FUEL } from '../content';
 import { assertNever } from '../core/assert';
-import {
-  createActorWorld,
-  PLAYER_ID,
-  playerOf,
-  type ActorWorld,
-  type LightQuery,
-} from '../entities';
+import { createActorWorld, PLAYER_ID, playerOf, type ActorWorld } from '../entities';
 import {
   adaptVision,
   computeLitField,
@@ -145,6 +145,31 @@ function withLantern(state: LanternWorld, lantern: Lantern): LanternWorld {
 }
 
 /**
+ * What §2 phase 3 can learn about the player's lantern, as one boolean question.
+ *
+ * Named for what it is — a *query*, not a lighting model — because `wakeInLight` takes it as an
+ * argument rather than computing it: the rule ("every dormant creature in the lit radius wakes") and
+ * the lighting it is resolved against are separate concerns, and a test can hand the rule a
+ * floodlit, shuttered or hand-drawn field without building a `Vision`.
+ *
+ * ## What an implementation must guarantee
+ *
+ *   - **Pure.** Same tile, same answer, no state of its own, **no draws from the RNG**. It is called
+ *     a variable number of times per turn (once per sleeper), so a query with a side effect —
+ *     including consuming a random number — would make the run depend on how many creatures happened
+ *     to be asleep.
+ *   - **Total.** Any in-bounds tile is a legal question, including one the player cannot see.
+ */
+export type LightQuery = {
+  /**
+   * Is the player's light visible from `at`? `false` whenever the shutter is closed — darkness is
+   * the whole point of the mechanic, so a query that answered `true` while shuttered would delete
+   * the game's central decision rather than change a number.
+   */
+  readonly isPlayerLightVisibleFrom: (at: Position) => boolean;
+};
+
+/**
  * The shuttered answer: nothing sees the lantern, from anywhere.
  *
  * A shared immutable value — the query holds no state, so there is nothing to alias.
@@ -152,7 +177,7 @@ function withLantern(state: LanternWorld, lantern: Lantern): LanternWorld {
 const DARK: LightQuery = { isPlayerLightVisibleFrom: () => false };
 
 /**
- * The real `LightQuery` (`game/entities/`), built from the lit field. See the header.
+ * The real `LightQuery`, built from the lit field. See the header.
  *
  * @param origin the player's tile. Passed rather than read from a world so that this can be asked
  *   about a hypothetical position — which is what the symmetry test does.
@@ -173,7 +198,7 @@ function litQuery(lit: TileSet): LightQuery {
   return { isPlayerLightVisibleFrom: (at) => hasTile(lit, at.x, at.y) };
 }
 
-/** The lighting as it stands in this state. What phases 1, 3 and 4 each ask, at their own moment. */
+/** The lighting as it stands in this state. Phase 3's question, asked at phase 3's moment. */
 export function lightOf(state: LanternWorld): LightQuery {
   return lanternLight(state.world.floor.grid, state.lantern, playerOf(state.world).at);
 }
@@ -407,13 +432,15 @@ function unlessTheRunEnded(phase: TurnPhase<LanternWorld>): TurnPhase<LanternWor
 /**
  * Phase 4, lifted to a `LanternWorld`.
  *
- * The light query is built **inside** the phase rather than passed in, so creatures declare against
- * the lighting phase 3 just recomputed rather than against the lighting the turn started with. The
- * free case still goes through `actorPhase`, which is the one function allowed to know what a free
- * action does to the schedule.
+ * **It no longer takes the lighting**, and that is #123 arriving here: a declaration is `attack the
+ * player's tile if adjacent, otherwise step toward it`, which asks nothing about light. This phase
+ * used to build the query so that creatures declared against the lighting phase 3 had just
+ * recomputed rather than the lighting the turn started with — a real distinction that now has
+ * nothing to distinguish. The free case still goes through `actorPhase`, which is the one function
+ * allowed to know what a free action does to the schedule.
  */
 function actorsPhase(cost: TurnCost): TurnPhase<LanternWorld> {
-  return (state) => withWorld(state, actorPhase(cost, lightOf(state))(state.world));
+  return (state) => withWorld(state, actorPhase(cost)(state.world));
 }
 
 // --- phase 1: the player's commands --------------------------------------------------------------
@@ -456,21 +483,16 @@ export function waitCommand(state: LanternWorld): LanternWorld {
  * bumpable (`canBump`) — a tap on a wall is refused by `step()` before any of this runs, and
  * reaching here with one is a bug rather than a blocked move.
  *
- * The light query is built from the state as it stands at phase 1 — the lighting the player's
- * strike happens under, before phase 3 recomputes it. (It is used for one thing: §3's "if the target
- * survives, it wakes", and a creature that wakes mid-strike declares against the light as it was
- * when it was hit.)
- *
- * Building it from `charged` rather than from `state` is a **provably equivalent mutant** and a
- * mutation run will not kill it: the two differ only in the schedule, which `lanternLight` does not
- * read. Noted here alongside the other documented equivalents in this file so a later run does not
- * spend time re-deriving it. It is written this way because "the lighting the command started
- * under" is the sentence, and charging the player is not part of the command's effect on the world.
+ * **No light is threaded through here since #123.** It used to be, for one thing: §3's "if the
+ * target survives, it wakes", where waking declared and declaring consulted contact. Waking still
+ * happens and still declares; what it declares no longer depends on the lantern, so there is nothing
+ * to hand it. The two documented equivalent mutants that lived on that argument (building the query
+ * from `charged` rather than from `state`) go with the argument.
  */
 export function moveCommand(to: Position): TurnPhase<LanternWorld> {
   return (state) => {
     const charged = chargePlayer(state);
-    return withWorld(charged, bump(charged.world, PLAYER_ID, to, lightOf(state)));
+    return withWorld(charged, bump(charged.world, PLAYER_ID, to));
   };
 }
 

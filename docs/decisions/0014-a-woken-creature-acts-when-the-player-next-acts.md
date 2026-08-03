@@ -55,8 +55,13 @@ for (a free action, or `beginRun`) the player is still due at `now`, so the crea
 
 The observable rule, which is what GDD §2 now states:
 
-> **However a creature was woken, exactly one player action stands between the wake and the creature's
-> first resolution. Never two, and never zero.**
+> **However a creature was woken, exactly one *paid* command stands between the wake and the
+> creature's first resolution. Never two, and never zero.**
+
+**"Paid command", not "action" and not "command".** Free actions do not count, by construction — flash,
+shut the shutter again, then move, and three commands have passed with one turn in them. The looser
+wordings are true of turns and false of commands, and that conflation is what produced this defect;
+the unit the schedule advances on is the unit the rule is stated in.
 
 **Never zero holds by construction rather than by care:** phase 1 charges the player before phase 3
 runs, so on a paid command the rule yields a strictly future instant and the creature cannot resolve
@@ -70,11 +75,13 @@ thing to get out of step, and it is the shape of the narrow fix that does not cl
 ## Alternatives considered
 
 **Accept it and re-denominate §4's arithmetic** — price the wake as *2 HP, or 0 if you spend a flash
-to set it up*. **The runner-up, and a real option**: it costs nothing to build, the playtest reports
-the two-turn stillness as relief rather than exploit, and the dominance argument above says it
-distorts no optimum. It lost on three counts.
+to set it up*. **The runner-up, and a real option**: it costs nothing to build, the dominance argument
+above says it distorts no optimum, and #123's playtest — which reproduced the route deliberately —
+reports it as *"very visible"*, *"a discount on an accidental wake, not an exploit"* and *"low
+priority"*. **Those are their words and they are evidence for this option.** It lost on three counts.
 
-1. **It is a hidden state machine, and §4 deleted the last one three days earlier on Pillar 2.** The
+1. **It is a hidden state machine, and §4 deleted the last one in #121/#123, the build-order step
+   immediately before this one.** The
    player has no readout of the clock. Two boards that look identical differ in whether the woken
    creature hits back, and the difference is which command last advanced a queue nobody can see. That
    is #121's invisible eight-turn counter re-entering through the scheduler. It runs in the player's
@@ -112,9 +119,17 @@ breaking three settled rules, and it does nothing for the free action.
   guard — *no run may bank ember from a creature it woke without paying HP for it* — becomes
   enable-able. It then stands on a scheduling rule with one call site instead of on an arithmetic
   proof that had a hole in it.
-- **The opening gets harder on about one run start in nine.** It cannot produce a first-command hit:
-  §5 step 7 keeps every creature at least Manhattan 3 from the entrance, so a creature woken by the
-  opening light is never adjacent and always declares a *move*.
+- **The opening gets a command tighter on about one run start in nine — not 2 HP more expensive, and
+  the first draft of this ADR said otherwise.** Measured over a `beginRun` wake played
+  close-then-strike, the window is worth **0 HP at Manhattan 1-2** and is otherwise spent closing the
+  distance (2 HP at 3 and at 4). §5 step 7 keeps every creature at least Manhattan 3 from the
+  entrance, so **an opening wake already costs the full 2 HP** on a generated floor: one in nine is
+  the frequency of the *grace*, not of a free kill, and the HP leaks through the **free action**.
+  #125's Reproduction B is a hand-built floor at Manhattan 2 — a correct proof of the mechanism, not
+  a shape the generator produces at an opening. It cannot produce a first-command hit either: that
+  far out, a woken creature always declares a *move*. **State the free kill by its condition** —
+  *the player can land both strikes before the creature resolves an attack on the tile they are
+  standing on* — and not by adjacency, which is narrower than the evidence.
 - **One retellable moment is deleted** — *I flashed, it woke, and I killed it before it could swing*.
   Paid deliberately: the thing it was buying is a wake that costs nothing.
 - **`RULES_VERSION` 6 → 7**, with all three stored fixtures re-recorded. Any record whose log contains
@@ -138,9 +153,18 @@ combat numbers are its answer, after #109.
 
 ### How this was verified
 
-The rule was applied by hand to an already-woken creature through the exported `reschedule`, and both
-of `economy.test.ts`'s reproductions replayed under it: the flash route ends at **10/12 HP** and the
-`beginRun` route at **10/12**, i.e. §3's 2 HP in both, against 12/12 in the build as it stands. The
-paid path was checked the same way — after a paid move that wakes by light the schedule reads
-`player@100, creature@100, now=100`, which is what `now + ACTION_COST` already produces. Per ADR-0013,
-the arithmetic was not trusted on its own.
+Twice, because ADR-0013 says the arithmetic is not to be trusted on its own.
+
+**Before the ruling was written**, the rule was applied by hand to an already-woken creature through
+the exported `reschedule`: both of `economy.test.ts`'s reproductions end at **10/12 HP**, i.e. §3's 2
+in both, against 12/12 in the build as it stands; and the paid path reads
+`player@100, creature@100, now=100`, which is what `now + ACTION_COST` already produces.
+
+**On review of the ruling**, it was implemented as a mutant in `setMind` and the whole suite run.
+**9 of 1167 tests red, in four files**, every one of them enumerated in GDD §4's *What a build owes*
+and classified there as re-point or re-author. The corpus goes from **56 of 386** free woken kills to
+**0 of 387** — the guard holding, measured rather than argued. The mutant also found the trap in
+criterion 1: reading the player's due instant *above* `setMind`'s `hasActor` early return throws on
+every run that ends in a death, because `resolveAttack` unschedules the dead player — **33** further
+tests. That is exactly the class of thing this ADR's own subject says you find by building it and
+not by reading it.

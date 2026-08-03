@@ -72,8 +72,9 @@ On a paid command that instant is `now + ACTION_COST`, which is what the build a
 **no paid command moves, byte for byte**. On a command the player was *not* charged for — a free
 action, or `beginRun` — the player is still due at `now`, so the creature is due at `now` and
 resolves in phase 4 of the next command the player pays a turn for. Observable form, now in §2:
-**exactly one player action stands between a wake and the creature's first resolution — never two,
-never zero.**
+**exactly one *paid command* stands between a wake and the creature's first resolution — never two,
+never zero.** *Paid*, because a free action is not a turn — the turn/command conflation is the defect
+itself, so the sentence is stated in the unit the schedule advances on.
 
 **Why stated over the schedule rather than over free actions, which is the whole content of the
 ruling.** #125 opened with *schedule a creature woken by a free action at `now`*. That is the same
@@ -90,7 +91,8 @@ strike is one turn, 0 HP, 6 damage, no wake and no 4 fuel, so **nobody optimisin
 sleeper**. It is a discount on an *accidental* wake, not an exploit. Three arguments beat it, and
 only the third is about the budget:
 
-1. **It is a hidden state machine, and §4 deleted the last one three days ago on Pillar 2.** The
+1. **It is a hidden state machine, and §4 deleted the last one in #121/#123, the build-order step
+   immediately before this one.** The
    player has no readout of the clock, so two boards that look identical differ in whether the woken
    `C` hits back — and the difference is which command last advanced a queue nobody can see. That is
    #121's invisible eight-turn counter re-entering through the scheduler. It runs in the player's
@@ -110,7 +112,11 @@ cost paragraph says the opening cannot produce a first-command hit, because §5 
 creature at least **Manhattan 3** from the entrance. That is load-bearing: it is the difference
 between "the opening gets harder" and "the opening can now kill you before you have understood the
 lantern". It is true — `game/map/generate.test.ts` pins
-`manhattanDistance(creature.at, floor.entrance) > 2` over 60 seeds × 8 floors — but I checked it
+`manhattanDistance(creature.at, floor.entrance) > 2` over 60 seeds × 8 floors — **and the review found
+that I had not followed it far enough**: measured by distance, the window is worth 0 HP only at
+Manhattan 1-2, so that same exclusion means an opening wake **already costs the full 2 HP** and the
+ruling buys a command there rather than HP. One in nine is the frequency of the *grace*, not of a free
+kill. I checked the exclusion
 because the last four sessions in this file are all one shape: a sentence about the build, derived
 correctly from these documents, false of the code. The metric name mattered too; §5's prose says
 *within 2 tiles* without naming one.

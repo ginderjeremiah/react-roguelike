@@ -15,7 +15,8 @@ was wrong"**, so M2 opens with the build order the #83 ruling specifies. Four M1
 determinism-gate debt (see the split below). So `gh issue list --milestone "M2: The light loop"`
 will not show you #12 — that is deliberate, not a lost issue.
 
-**M2 is four steps into a build order of six, plus 3a and 4a (both done) and 4b (#125, next).**
+**M2 is four steps into a build order of six, plus 3a and 4a (both done) and 4b (#125 — *ruled
+2026-08-03, PR #134; the build is #133 and it is next*).**
 #79 (PR #92) made a wake announce itself, with a
 count; #94 (PR #101) gave that announcement two emphasis levels so it is read first; **#31/#41 made a
 cache terrain the lantern has to have shown you**, which un-contaminates the fuel corpus; #107 made a
@@ -67,16 +68,21 @@ fuel number may move until #109**, and §3's combat numbers should not move befo
 same attribution reason — which now matters more, because §3's numbers are where the too-strong arm
 gets answered if it fires.
 
-> **What is next is #125, not #109, and the build order below says so as step 4b.** Recorded here
-> rather than left to inference because the journal's `Next:` and this list disagreeing is how the
-> order has drifted twice before. **The argument is the one #123 itself used to get ahead of #109**,
+> **#125 is ruled (2026-08-03, PR #134) and what is next is #133 — its build — not #109. The build
+> order below says so as step 4b.** Every argument in this note survives the ruling unchanged,
+> because all three are about the *fix* landing before the corpus is measured, and the fix is #133.
+> Recorded here rather than left to inference because the journal's `Next:` and this list
+> disagreeing is how the order has drifted twice before. **The argument is the one #123 itself
+> used to get ahead of #109**,
 > applied unchanged: #125's fix is a rule change that alters what a run spends and gets, so building
 > #109 first means measuring the corpus twice with no way to attribute the difference — and #109
 > exists precisely to produce a *clean* measurement of invariant 4. Two more reasons on top. **§4's
-> honesty is gated on it**: §4 now says in as many words that nobody may cite its pricing paragraph
-> as authority that a wake costs something until #125 rules. And **a free-kill route on a woken
-> creature is exactly what invariant 4 is asserted against** — a flashing style banking ember it did
-> not pay HP for is income the fuel corpus would measure without knowing it. #125 is a **ruling**,
+> honesty is gated on it**: §4 says in as many words that nobody may cite its pricing paragraph as
+> authority that a wake costs something — and the ruling does not lift that, the build does, because
+> #125 is ruled to make *every woken Cinder costs exactly 2 HP* true again rather than to soften it.
+> And **a free-kill route on a woken creature is exactly what invariant 4 is asserted against** —
+> a flashing style banking ember it did not pay HP for is income the fuel corpus would measure
+> without knowing it. #125 is a **ruling**,
 > not a build, so it is cheap in the way #121 was.
 
 **Three measurements are now rejected here, and the third was this ruling's own.** The adjacency
@@ -514,20 +520,27 @@ this milestone, not its method.
       about one woken kill in seven **in the free-action half alone** — the corpus never calls `beginRun`, so that fraction is a floor rather than the size of the defect. Not a regression — it predates #83 — and the fix is a rule
       change, so it is #125's to rule. `economy.test.ts` carries a characterisation test in the
       guard's place, with both routes reproduced by hand and a negative control on descent
-- [ ] **Rule on the grace turn a wake gets when phase 4 did not sweep — #125, build-order step 4b and
-      the next thing to do.** Found by #123's instrumentation, not a regression, and a
-      `game-designer` call because every fix is a rule change. It is ahead of #109 on three grounds,
+- [x] **Rule on the grace turn a wake gets when phase 4 did not sweep — #125, build-order step 4b,
+      ruled 2026-08-03 (PR #134).** Found by #123's instrumentation, not a regression, and a
+      `game-designer` call because every fix is a rule change. It went ahead of #109 on three grounds,
       argued at step 4b below: attribution (its fix changes what a run spends, so #109 would measure
       the corpus twice), invariant 4 (a flashing style banks ember from ~1 woken kill in 7 without
       paying the HP, which the fuel corpus records as ordinary income), and **§4's honesty** — §4
-      says nobody may cite its pricing paragraph as authority that a wake costs something until this
-      rules. #123's playtest reproduced it deliberately and rules it **low priority**, because the
+      said nobody may cite its pricing paragraph as authority that a wake costs something until this
+      ruled. #123's playtest reproduced it deliberately and rules it **low priority**, because the
       dormant strike strictly dominates it: one turn, 0 HP, 6 damage, no wake, no 4 fuel spent. That
-      is evidence for the ruling and is **not** the ruling.
-      *Its frequency was overstated and is corrected — see the measurement under step 4b below, a
-      comment on #125, and* **#127** *for the one wrong site left in code (`economy.test.ts` prices
-      the run-start route at §4's all-depths 20%). Fix #127 or #125's body before ruling: the ruling
-      will be written from them*
+      was evidence for the ruling and was **not** the ruling.
+      **The ruling:** *a creature woken in phase 3 joins the schedule at the instant the player is
+      next due to act*, so exactly one **paid command** stands between a wake and the creature's first
+      resolution — never two, never zero. Stated over the schedule and not over free actions, because
+      `beginRun` has no free action in it.
+      [ADR-0014](decisions/0014-a-woken-creature-acts-when-the-player-next-acts.md); GDD §2's phase
+      contract is amended and §4 carries the price
+- [ ] **Build it — #133, and it is the next thing to do.** Docs are ruled and the code is not: §4's
+      *What a build owes* enumerates the **9 tests in 4 files** that go red (measured as a mutant),
+      which of them are re-points and which need re-authoring, the three docstrings and two helpers
+      that encode the old instant, and the `RULES_VERSION` 6 → 7 bump. §4's regression guard is
+      enabled by that PR and not before. **#109 stays after it**, for the attribution reason above
 - [ ] Fuel economy and the risk/reward tuning around it — calibrated once in #17. **#63 is ruled**
       and **no fuel number may move yet.** The first of the two reasons is now discharged: #31/#41
       landed 2026-08-01 and `DARK_PACIFIST`'s take went **119 of 121 → 0 of 121**, so the corpus is
@@ -739,8 +752,9 @@ nobody expected. #125 owns the fix, which is a rule change; `economy.test.ts` ca
 characterisation test in the guard's place, and it goes red the day #125 closes.
 
 **Step 4b — #125: rule on the grace turn a wake gets when phase 4 did not sweep. Added to this list by
-the reconcile after PR #126, and it is what happens next.** **Lettered rather than renumbered, for the
-third time and the same reason** as 3a and 4a: `docs/JOURNAL.md`, the comment closing #105, GDD §12
+the reconcile after PR #126; *ruled 2026-08-03 in PR #134, and the build is #133*.**
+**Lettered rather than renumbered, for the third time and the same reason** as 3a and 4a:
+`docs/JOURNAL.md`, the comment closing #105, GDD §12
 and M2's exit criterion all cite "step 5"/"step 6", and renumbering silently redirects them.
 
 **Why it goes ahead of #109, which is the whole reason it is written down here rather than inferred.**
@@ -754,16 +768,29 @@ the situation is identical:
   not out-earn one that flashes*. A flashing style currently banks ember from ~1 woken kill in 7
   without paying the HP, and the fuel corpus records it as ordinary income. Measuring the invariant
   against a confounded numerator answers the wrong question.
-- **§4's honesty is gated on it.** §4 now states that **nobody may cite its pricing paragraph as
-  authority that a wake costs something** until #125 rules. That sentence stands over the arithmetic
-  the whole HP budget rests on, and it stays there until this step is done.
+- **§4's honesty is gated on it.** §4 states that **nobody may cite its pricing paragraph as
+  authority that a wake costs something** — and the ruling does not lift that, the *build* does. #125
+  is ruled to make *every woken Cinder costs exactly 2 HP* true again rather than to soften it, so the
+  caveat stands over the arithmetic the whole HP budget rests on **until #133 ships**.
 
 **It is a ruling, not a build** — a `game-designer` call, cheap in the way #121 was, and this roadmap
-does not preempt it. #125's body carries both reproductions and the three options it opens with; none
-is chosen here. **Do not treat the low-priority read from #123's playtest as the ruling**: the
-playtester's finding is that the dormant strike strictly dominates the free kill, so it is a discount
-on an accidental wake rather than an exploit — real evidence, recorded below, and explicitly handed to
-#125 rather than substituting for it.
+did not preempt it. #125's body carries both reproductions and the three options it opened with.
+**Do not treat the low-priority read from #123's playtest as the ruling**: the playtester's finding is
+that the dormant strike strictly dominates the free kill, so it is a discount on an accidental wake
+rather than an exploit — real evidence, and it was handed to #125 rather than substituting for it.
+
+**Ruled 2026-08-03, PR #134: the grace turn is deleted.** *A creature woken in phase 3 joins the
+schedule at the instant the player is next due to act.* On a paid command that is `now + ACTION_COST`,
+so **no paid command moves**; on a command the player was not charged for it is `now`. The runner-up —
+accept it and re-price the wake — lost on Pillar 2 (an unreadable clock deciding whether a wake costs
+anything), on the medium (the rule the player would have to hold is a paragraph), and on the budget
+(§4's exchange rate stops being fixed by arithmetic and becomes partly player-set). One correction the
+review forced and it is worth carrying: **the free kill needs the player within Manhattan 2 at the
+wake**, and §5 step 7 keeps a run start at Manhattan 3 or more — so the `beginRun` half is a
+legibility and *tempo* defect, and the HP leaks through the **free action**. One start in nine is the
+frequency of the grace, not of a free kill.
+[ADR-0014](decisions/0014-a-woken-creature-acts-when-the-player-next-acts.md) carries the reasoning; **the build is #133**, which enables §4's regression guard, and **#109 stays
+after it**.
 
 5. A **`HARVESTER`** style in `game/systems/economy.test.ts` — never flashes, routes to every
    ember-sense contact, one-shots each dormant — which is what §4's invariant 4 is asserted against.

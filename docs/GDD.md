@@ -104,8 +104,10 @@ and unknown. This does not violate Pillar 2: the information exists and is purch
    whole vocabulary, and it is four commands, not five).
 2. Fuel burns at the current shutter rate.
 3. Lighting and vision recompute. Any dormant creature now inside the lit radius **wakes** and
-   immediately declares. *When that declaration resolves is one player action later, always — see
-   the boundary rule below, which is not the same thing as "the next command" (#125).*
+   immediately declares. *When that declaration resolves is one **paid command** later, always — see
+   the boundary rule below, which is not the same thing as "the next command". **Ruled 2026-08-03
+   (#125); not built — the build resolves it a command late whenever the waking command did not
+   charge the player, and this list is meant to be a literal description of `resolveTurn`.***
 4. Every actor whose `nextActAt` has arrived: resolve declared action, then declare the next.
 5. Deaths resolve; embers drop and are collected by walking over them.
 6. Dark-adaptation counter ticks (§4).
@@ -134,8 +136,15 @@ and it declares immediately; phase 4 of a later command resolves that declaratio
 command was never stated, because on a paid command the two available readings agree. On a command
 the player is not charged for they do not, and the build took the looser one:
 
-> **However a creature was woken, exactly one player action stands between the wake and the
+> **However a creature was woken, exactly one *paid* command stands between the wake and the
 > creature's first resolution. Never two, and never zero.**
+
+**"Paid command" and not "action" or "command", and the precision is the whole lesson of this
+defect.** Free actions do not count, by construction — flash, shut the shutter again, then move, and
+*three* commands have passed with only one turn in them. The looser wordings are true of turns and
+false of commands, which is the exact conflation that produced #125, so the sentence is stated in the
+unit the schedule actually advances on. It stays testable: a paid command is one that charges the
+player.
 
 **Never two** is the half being fixed. A free action is explicitly *not a turn* — that is the whole
 of the paragraph above — so "next turn" named no command in that case, and the creature resolved a
@@ -521,12 +530,36 @@ of them fiction:
 
    > **How many commands that telegraph buys is ruled by #125 — *2026-08-03, not built*.** `beginRun`
    > runs phase 3 alone, so a creature woken by the opening light is currently due only on the
-   > player's **second** command, and the opening's wake costs nothing at all. Under *The grace turn is
-   > deleted* (below) it is due on the first, exactly as a descent's wake always has been: **a run
-   > start is a floor-1 arrival, and it should also behave like one.** The opening stays legible — §5
-   > step 7 keeps every creature at least Manhattan 3 from the entrance, so a creature woken here is
-   > never adjacent and always declares a *move*, and there is no first-command hit for the rule to
-   > produce.
+   > player's **second** paid command. Under *The grace turn is deleted* (below) it is due on the
+   > first, exactly as a descent's wake always has been: **a run start is a floor-1 arrival, and it
+   > should also behave like one.**
+   >
+   > **What that is worth here is a command, not 2 HP, and the first draft of this blockquote said
+   > "the opening's wake costs nothing at all", which is false of the build.** State the free kill by
+   > its **condition** and not by adjacency, as `behaviour.test.ts` already does: the window is worth
+   > 0 HP exactly when the player can land **both** strikes before the creature resolves an attack on
+   > the tile they are standing on. Measured over a `beginRun` wake played close-then-strike, with the
+   > window and under the rule:
+   >
+   > | Manhattan distance at wake | window open (build today) | under the rule |
+   > | --- | --- | --- |
+   > | 1 | **0 HP**, 2 commands | 2 HP, 2 commands |
+   > | 2 | **0 HP**, 3 commands | 2 HP, 3 commands |
+   > | 3 | 2 HP, 4 commands | 2 HP, **3** commands |
+   > | 4 | 2 HP, 4 commands | 2 HP, 4 commands |
+   >
+   > So the extra command is a free kill at Manhattan 1-2 and is otherwise **spent closing the
+   > distance**. **§5 step 7 keeps every creature at least Manhattan 3 from the entrance**, so at a
+   > run start on a generated floor the opening's wake **already costs the full 2 HP** — the window
+   > buys a command there and nothing else, and there is no first-command hit for the rule to produce
+   > either, because a creature that far away always declares a *move*. #125's Reproduction B is a
+   > hand-built floor at Manhattan 2: a correct proof of the mechanism and **not** a shape the
+   > generator produces at an opening.
+   >
+   > **The HP therefore leaks through the free action, not through the run start** — flash while
+   > within two steps of a sleeper — and *about one run start in nine* is the frequency of the
+   > **grace**, not of a free kill. It is closed here by the same rule for free, which is an argument
+   > for stating the rule over the schedule rather than a second reason to.
 2. **Starting shuttered creates an autopilot opening.** At the adaptation floor you know nothing, on
    a floor §5 guarantees is safe to *stand* on and which nothing can wake up on you while the
    shutter is shut — so the correct opening is four turns of *wait* while the ramp climbs. An
@@ -1029,22 +1062,25 @@ the same rule read off a single reproduction, and it leaves the run start open �
 implementing it as a mutant (#123's own note in `economy.test.ts`). The general form does not have to
 enumerate which commands sweep phase 4, because it does not ask: **a woken creature is due when the
 player is due.** That is [ADR-0013](decisions/0013-a-claim-about-the-build-is-established-by-measurement.md)'s
-subject one level down and the second time in three days it has bitten here.
+subject one level down, and the second time in this issue's own life that it has bitten — the first
+was #126, which found `beginRun` doing what the free-action statement said only a free action did.
 
 **Why the rule and not the arithmetic — the runner-up was *accept it and re-price the wake*, and it
-is a real option.** It costs nothing to build, the #123 playtest reports the two-turn stillness as
-**relief rather than exploit**, and the dominance argument is sound: a dormant strike is one turn, 0
-HP, 6 damage, no wake and no 4 fuel, so **nobody optimising flashes next to a sleeper**. Three
-arguments beat it, and only the third is about the budget.
+is a real option.** It costs nothing to build, and the dominance argument is sound: a dormant strike
+is one turn, 0 HP, 6 damage, no wake and no 4 fuel, so **nobody optimising flashes next to a
+sleeper**. The #123 playtest reproduced the route deliberately and its words are *"very visible"*, *"a
+discount on an accidental wake, not an exploit"* and *"low priority"* — **that is the finding, and it
+is evidence for the runner-up.** Three arguments beat it, and only the third is about the budget.
 
-- **It is a hidden state machine, and this section deleted the last one three days ago on Pillar 2.**
-  The player has no readout of the clock. Two boards that look identical — a `C` woken adjacent, the
-  player about to strike — differ in whether it hits back, and the difference is *which command last
-  advanced a queue nobody can see*. That is the invisible eight-turn counter #121 was proud of
-  removing, re-entering through the scheduler. It runs in the player's favour today, which makes it
-  pleasant and does not make it legible: **relief you cannot predict is the same defect as a death
-  you cannot explain**, and #79 exists because this game owes the player the price of a flash in a
-  currency it prints.
+- **It is a hidden state machine, and §4 deleted the last one in #121/#123, the milestone step
+  immediately before this one.** The player has no readout of the clock. Two boards that look
+  identical — a `C` woken adjacent, the player about to strike — differ in whether it hits back, and
+  the difference is *which command last advanced a queue nobody can see*. That is the invisible
+  eight-turn counter #121 was proud of removing, re-entering through the scheduler. It runs in the
+  player's favour today, and **the inference that this makes it pleasant rather than legible is §4's,
+  not the playtester's**: they reported the stillness as *visible*, and visible is not the same as
+  predictable. **A discount you cannot predict is the same defect as a death you cannot explain**,
+  and #79 exists because this game owes the player the price of a flash in a currency it prints.
 - **The rule the player would have to hold does not fit on the screen this game is for.** *A woken
   Cinder costs 2 HP* is one clause and teaches itself in one fight. *A woken Cinder costs 2 HP unless
   the command that woke it did not advance the clock* is a paragraph about a mechanism with no
@@ -1061,12 +1097,13 @@ arguments beat it, and only the third is about the budget.
 
 **What it costs, said plainly.**
 
-- **The opening gets harder about one run start in nine**, which is the frequency #127 measured and
-  the one to quote. A run that opens by waking something now hands the player one command before that
-  creature moves, not two — the same deal a descent has always given. **It cannot produce a
-  first-command hit:** §5 step 7 puts no creature within Manhattan 2 of the entrance, so a creature
-  woken by the opening light is never adjacent and always declares a *move*. The earliest it can
-  strike is the second command, and only if the player walked into it.
+- **The opening gets a command tighter on about one run start in nine, and no more expensive than
+  that.** One in nine is #127's frequency and the one to quote, but it is the frequency of the
+  **grace**, not of a free kill: §5 step 7 puts no creature within Manhattan 2 of the entrance, and
+  the window is worth 0 HP only at Manhattan 1-2 (measured; the table under *Where a run starts*),
+  so **an opening wake already costs the full 2 HP today**. What the rule takes there is one command
+  of approach at Manhattan 3 and, measured, nothing at all at 4. It cannot produce a first-command
+  hit either — that far out a woken creature always declares a *move*.
 - **The flash loses a discount it was never designed to have, and one retellable moment goes with
   it** — *I flashed, it woke, and I killed it before it could swing* stops being available. That is
   the cost, and it is paid: the thing it was buying was a wake that cost nothing, which is the exact
@@ -1099,25 +1136,87 @@ not to restore the grace turn.
    player's `nextActAt`), not from a `TurnCost` threaded down from the command: the player being
    charged already *is* the fact the rule turns on, and a second copy of it in a parameter is a second
    thing to get wrong. `wakeInLight` and `lanternPhases` need no new arguments.
-2. **The paid path must stay byte-identical.** Verified before the change by hand-applying the rule
-   through the exported `reschedule`: after a paid move that wakes by light the schedule reads
+   **The read must live *inside* the not-already-scheduled branch**, after the `hasActor` early
+   return. `resolveAttack` unschedules a dead actor **including the player**, and `actOnce` still
+   calls `commitNextIntent` → `setMind` after a killing blow, so a read hoisted above that branch
+   throws `schedule: no actor 0 is scheduled` on every run that ends in a death — measured, **33**
+   tests across `replay`, `step`, `render/` and `session/`.
+2. **The paid path must stay byte-identical.** Verified by hand-applying the rule through the
+   exported `reschedule`: after a paid move that wakes by light the schedule reads
    `player@100, creature@100, now=100`, which is what `now + ACTION_COST` already produces. The
    descent negative control in `economy.test.ts` pins exactly this and must stay green **unedited**.
 3. **A creature must never resolve inside the command that woke it** (§2's *never zero*). On a paid
    command phase 1 has already charged the player, so the rule yields a strictly future instant; a
    test should assert that rather than trust it.
-4. **`economy.test.ts`'s characterisation block is deleted, not repaired.** Both reproductions
-   change verdict — measured by hand-applying the rule, the flash route ends at **10/12 HP** and the
-   `beginRun` route at **10/12**, i.e. §3's 2, both of them. They are re-pointed as the two positive
-   reproductions of the closed rule, keeping the descent control beside them, and §4's guard is
-   enabled in their place: **one line, `expect(kill.hpSpentWhileAwake).toBeGreaterThan(0)` over
-   `wokenKills`.** Enabling it on anything less than both routes going red is the failure this
-   handover exists to prevent.
-5. **`RULES_VERSION` 6 → 7**, a `RULES_VERSION_LOG` line, and all three stored fixtures re-recorded.
-6. The two docstrings that assert the old behaviour in English — `light.ts`'s header (*"a creature
-   woken during a free action sees two player commands"*) and `setMind`'s (*"waking joins the queue
-   at `now + ACTION_COST`, which is what makes §2 phase 3 true"*) — say the new rule instead. They are
-   where this defect hid for three milestones.
+4. **Exactly nine tests go red, in four files, and every one of them is listed here.** Measured by
+   implementing the rule as a mutant and running the suite (1167 tests, 9 failed). The list is the
+   point of this section: a builder who meets an unlisted red has to decide something, which is what
+   the section exists to prevent. **Four are verdict changes to re-point** — the rule is right, the
+   expected value moves:
+   - `game/entities/behaviour.test.ts` › *"declares immediately and joins the schedule for next turn,
+     not this one"* — `expected +0 to be 100`. The world is uncharged, so the answer is now `now`.
+     **Its rationale comment states the old rule in English** (*"joining at `now` instead would let it
+     act in phase 4 of the very turn it woke"*) and is false under the ruling: on an *uncharged*
+     command there is no phase 4 to act in. Re-point the assertion at the player's due instant and
+     add the paid case, which is criterion 3.
+   - `game/core/step.test.ts` › *"counts a kill made in phase 1 of the turn the player dies in phase
+     4"* — `expected {kind:'died'} to deeply equal {kind:'running'}`. The two flashed Cinders land a
+     command earlier, so the player at 2 HP dies before making the kill. **The boundary being pinned
+     does not move**; the staging must supply the phase-1 kill without the free strike the flash used
+     to buy (a pre-wounded target, or a paid wake). Assertions unchanged.
+   - `game/core/replay.test.ts` › *"reproduces the stored final state exactly"*, **twice** — the
+     combat-loop fixture and the cache fixture. Covered by criterion 6's re-record.
+   - `game/core/replay.test.ts` › *"is a run in which the whole combat loop actually happened"* —
+     `nothing chased the player in the dark (§4): expected 26 to be 27`. **Not a re-record**: it is a
+     property assertion beside the fixture. Re-derive the count from the re-recorded run and confirm
+     the property still *holds* — something must still chase. Do not delete it and do not nudge it.
+
+   **Three are the characterisation block, and they must go red together** —
+   `game/systems/economy.test.ts` ›
+   *"still banks woken kills for nothing…"*, *"reproduces #125 from a flash"*, *"reproduces #125 from
+   `beginRun`"*. Measured under the mutant: the corpus reports **0 of 387** free woken kills (from 56
+   of 386), and both reproductions end at **10/12 HP**. **The block is deleted, not repaired**: the two
+   reproductions are re-pointed as positive reproductions of the closed rule, the descent control
+   stays beside them unedited, and §4's guard replaces the block as **one line,
+   `expect(kill.hpSpentWhileAwake).toBeGreaterThan(0)` over `wokenKills`.** Enabling the guard on
+   anything less than all three going red is the failure this handover exists to prevent.
+5. **One test needs re-authoring rather than re-pointing, and it is a §13 test** —
+   `game/core/step.test.ts` › *"pays the turn on the floor below, so the floor above gets no parting
+   shot"*, `expected 4 to be 6`. **§13's rule is untouched and must not be re-decided.** What breaks is
+   the staging: it flashes on the stairs, then spends a `wait` as a *safe* turn, **quoting the very §2
+   sentence this ruling marks do-not-restore**. Under the rule the flash's wake is due on the next
+   paid command, so the poised state is reached one command earlier — the `woken` state *is* the
+   poised state. Delete the intervening `wait` and the quotation; the control (`wait` → takes the
+   attack) and the rule (`descend` → +2 instead) are unchanged, and the player must still start
+   wounded for the same reason the comment already gives.
+6. **`RULES_VERSION` 6 → 7**, a `RULES_VERSION_LOG` line, and all three stored fixtures re-recorded.
+7. **Three docstrings assert the old behaviour in English and become wrong**, and two further sites
+   encode the old instant without prose:
+   - `game/systems/light.ts`'s header — *"a creature woken during a free action sees two player
+     commands before its declared action resolves"*.
+   - `setMind`'s own docstring — *"waking joins the queue at `now + ACTION_COST`, which is what makes
+     §2 phase 3 true"*.
+   - `game/entities/world.ts`'s scheduling-invariant block — *"a creature woken by light joins the
+     queue at `now + ACTION_COST`, so it 'declares this turn and acts next turn' rather than acting in
+     phase 4 of the very turn it woke — which would be the reactive behaviour §2 exists to forbid."*
+     **This one is the trap**: under the ruling, joining at `now` is *correct* on an uncharged command
+     and does **not** produce the reactive behaviour it warns of, because that command has no phase 4.
+     Restate it as the player's due instant, or a future reader will read the ruling as a violation of
+     the invariant.
+   - `game/systems/actors.test.ts` › *"wakes a creature to act next turn, never this one"* — stays
+     **green** (it wakes on a paid `wait`), but its comment says the creature *"joins at
+     `now + ACTION_COST` instead"* as the general rule. Narrow it to the paid case.
+   - `tests/unit/support/scenario.ts`'s `awaken()` schedules at `now + ACTION_COST` by hand. It stays
+     green and it is now **the old rule preserved in a helper** — `behaviour.test.ts`'s 2 HP test
+     relies on it to reproduce `beginRun`'s shape, and would go on reproducing the *window* after the
+     window is gone. Bring it to the same instant as `setMind`.
+8. **Every *ruled, not built* marker this ruling added comes out the same day** — **eight** sites in
+   this document, enumerated one by one in **#133** rather than restated here, because two copies of
+   a checklist is how one of them goes stale. **This list itself stays**, marked *built*, the way §4
+   keeps every other ruling's record. Eight further *not built* strings in the file must **not** be
+   touched: four in §4's prose belong to #83/#121/#123's status history and to the lessons about
+   markers that *were* stale, and four are change-log rows. That is why the list is enumerated and
+   not grepped.
 
 **Why this replaces a *Settled* rule.** The old rule sent a creature that lost contact to your
 last-known tile, where it waited indefinitely. The exit playtest measured the consequence and it was
@@ -2214,4 +2313,4 @@ recorded at the moment we made it, is the part git cannot give us.
 | 2026-08-02 | **§4/§6: re-dormancy is deleted and the status markers on both blocks flip to *built* (#121 ruled, #123 built)** | The build of the #121 ruling, and it is subtraction: `TURNS_TO_REDORMANCY`, `Mind.turnsSinceContact`, `nextMind`'s `DORMANT` return, and — because nothing in `game/entities/` asked the question any more — the whole *contact* concept including the injected `LightQuery`. The entity layer no longer knows what a shutter is; `LightQuery` moved to `game/systems/light.ts`, where the real one was always built, and §2 phase 3's waking is its one remaining reader. `nextMind` now returns an **awake** mind by type rather than by convention, so re-introducing the clock is a change to a signature rather than an extra branch. `RULES_VERSION` 5 → 6; all three stored fixtures re-recorded, and the combat fixture's log rewritten rather than re-pinned because one of the six properties it existed for — *a creature returned to dormant* — is now impossible, and the assertion is **inverted** rather than deleted. No number moved. **The thing this row exists to record is what the build found: [#125](../../issues/125).** §4 asked #123 to build per-creature wake/HP instrumentation before its regression guard could be claimed, #123 built it, and the guard came back **red** — 56 of 386 woken kills in the `STALKER` corpus cost the player nothing. The cause is a **scheduling invariant** and stating it narrowly is how it gets fixed wrong: a creature's first action after waking resolves a command late whenever the command that woke it did not sweep phase 4 past `now`. Two commands do that and they are different in kind — a **free action** (phase 4 is `identity`) and **`beginRun`** (phase 3 only, no free action anywhere, and live on one run start in five). A **descent does not**, which is the boundary of the claim. Two player commands is two strikes, and two strikes is exactly a Cinder. `light.ts` had recorded the free-action half in plain English three milestones earlier and nobody had multiplied it by §3's damage; the `beginRun` half means the obvious fix (*schedule a creature woken by a free action at `now`*) would not close it. **§4's *every woken Cinder costs exactly 2 HP* is wrong about roughly one woken kill in seven**, the fix is a rule change and is #125's to rule, and nothing in §4 is amended by it here beyond striking the sentence that claimed the state was unreachable and pointing the three paragraphs that restated it at the correction. The 56/386 is the free-action half **only** — `tests/unit/support/lantern-run.ts` never calls `beginRun`, so that corpus is structurally blind to the run-start route |
 | 2026-08-02 | **Correction, measured: the `beginRun` free-kill route is one run start in *nine*, not one in five — and §4's *name the state* test is demoted to necessary-and-not-sufficient ([ADR-0013](decisions/0013-a-claim-about-the-build-is-established-by-measurement.md))** | The reconcile after PR #126. **No rule moves; two claims about the build do.** (1) §4 above, `ROADMAP.md` twice and #125's body all priced the `beginRun` half of #125 at *one run start in five*, citing this table's own row (*480 floors, 97 = 20% wake on arrival*). The citation is accurate and the inference is not: **a run start is always floor 1**, and §5 spawns `min(2 + floor, 6)` — three creatures on floor 1 against six from floor 4 down. Measured over 2000 seeds through `openRun`: **223, 11.2%**; per depth, floor 1 **11.2%**, then 14.7 / 17.9 / **20.6%**, flat from floor 4 down (the `min` caps spawn at 6, so floors 4-8 are structurally identical and measure bit-identically), so the 20% is the *deep-arrival* rate. **A run start is a floor-1 arrival**, one quantity and not two — a draft of this row reported floor 1 separately at 9.5%, which was sampling noise on the same number and is the eighth instance of this row's own subject. **The repository already held the right figure and a documented number overwrote it** — `tests/unit/play-opening.test.ts` pins *"roughly one opening in ten"*, `components/play/opening.ts` explains why an opening is rarer than a descent, and `ARCHITECTURE.md` says one in ten twice. #125's conclusion is unaffected (one in nine is still frequent; the free-action-only fix still leaves the route open) and its *size* claim is not: do not quote one in five. (2) That is the **seventh** defect of one shape in this session — a claim derived correctly from these documents and false of the build — and the previous six all **pass** §4's *name the state of the world in which this number comes back different*. So the question is kept and demoted: ask it, then measure it anyway. ADR-0013 carries the rule and the six-plus-one evidence, and §4 carries a pointer rather than a copy, because *how this project establishes a claim* is not a rule of the game |
 | 2026-08-03 | **Correction, measured: §4's *Where a run starts* priced the opening at the *descent* rate. An opening is about one in nine, a descent about one in five, and they are different events** | #130, from the review of PR #129 (#127). The same inference #127 fixed in `game/systems/economy.test.ts`, in the section that **governs the run start** — which is the section a `game-designer` reads when ruling on it, and **#125 is unruled and is priced by exactly this number**. Four sites in §4, not the two the issue named — **and a fifth outside it, found by the review of this PR** (`game/systems/run.ts`'s `beginRun` docstring, which asserted the generator *guaranteed* the opening's safety: the same error with no number in it to grep for): reason 1's refutation of *the opening flash wakes nothing*, reason 2's *the lit opening is known to cost something one time in five*, the *waking arrival* bullet in the awake-creature block quoting them, and the #79 legibility bullet, which conflates the two events in one sentence (*"phase 3 runs on `descend` and on the opening of a run, and §4 measures one arrival in five"*) and is now split. **A run start is always floor 1**, which carries `min(2 + floor, 6)` = 3 creatures against 6 from floor 4 down; measured **223 of 2000 through `openRun`**, about **11%** — quote it as *about one in nine* and not to three figures, per `ARCHITECTURE.md`, which records the per-seed-family spread and the sample sizes it was measured at. Per depth roughly 11 / 15 / 18 / 21%, flat from floor 4 because the `min` caps spawn there. **No argument breaks**: reasons 1 and 2 are about the opening not being *guaranteed safe*, which is as true at one in nine as at one in five, and §13's descent ruling is untouched because a descent really is one in five. **Two sites deliberately not changed** — §10's descent-precedence paragraph, which is about `You climb down to floor N.` and is correct; and the **2026-07-31 #79 row** (nine rows above this one, not below — this row is the table's last), which carries the original conflation and is corrected by this row rather than edited, per the convention that a change log records what we believed at the time. **This is the fourth consecutive sweep for this phrase to find more sites than the one before it**, which is the observation [ADR-0013](decisions/0013-a-claim-about-the-build-is-established-by-measurement.md) exists for: a sweep is not done when your greps stop matching, it is done when someone else greps |
-| 2026-08-03 | **§2/§4: the grace turn is deleted. A creature woken in phase 3 joins the schedule at the instant the player is next due to act, so exactly one player action stands between a wake and the creature's first resolution — never two, never zero. Ruled, not built ([ADR-0014](decisions/0014-a-woken-creature-acts-when-the-player-next-acts.md))** | #125, build-order step 4b, and the ruling #123's instrumentation forced. The build schedules a woken creature at `now + ACTION_COST`, which is *declares this turn, acts next turn* **only if the waking command's phase 4 sweeps the clock to that instant**. Two commands do not, and they differ in kind: a **free action** (phase 4 is `identity`) and **`beginRun`** (phase 3 alone, no free action anywhere, live on about **one run start in nine** — #127, not one in five). A **descent does not**, which is the boundary of the claim and has a negative control. Two player commands is two strikes, and two strikes is exactly a 5 HP Cinder: **56 of 386** `STALKER` woken kills and **22 of 247** `FLOODLIT` cost 0 HP, and that corpus never calls `beginRun`, so it is a floor on the defect rather than its size. **The rule is stated over the schedule and not over free actions**, because #125's opening option — *schedule a creature woken by a free action at `now`* — is the same rule read off one reproduction and leaves the run start open; measured as a mutant, it leaves `economy.test.ts`'s `beginRun` reproduction **passing**, which is the signal that would get §4's guard enabled over a corpus blind to the route still open. **The runner-up was to accept it and re-price the wake** — cheap, and backed by real evidence: #123's playtest reproduced the route deliberately, rules it low priority, and is right that **the dormant strike strictly dominates it** (one turn, 0 HP, 6 damage, no wake, no 4 fuel), so it is a discount on an accidental wake rather than an exploit. It lost on three counts. **It is a hidden state machine** — the player has no readout of the clock, so two identical-looking boards differ in whether the woken `C` hits back, which is #121's invisible eight-turn counter re-entering through the scheduler; running in the player's favour makes it pleasant, not legible. **The rule does not fit the medium** — *a woken Cinder costs 2 HP* teaches itself in one fight, *…unless the command that woke it did not advance the clock* is a paragraph about a mechanism with no representation, in a game with no tutorial text. And **it makes the budget partly player-set**: §4's exchange rate is claimed *fixed by arithmetic and not a matter of play*, which is the only reason 13-against-42 is a design fact, and derived from the corpus figure a run resolves 26 ÷ 2(1−*f*) ≈ **13/(1−f)** woken kills — about **15** at `STALKER`'s 14.5% — with *f* set by how often the player flashes beside things, against §4's own standing rule that a number the subject sets cannot adjudicate the design. **Costs, stated:** the opening gets harder on about one start in nine (but **cannot** produce a first-command hit — §5 step 7 keeps every creature at least Manhattan 3 from the entrance, so an opening wake always declares a *move*); one retellable moment goes (*I killed it before it could swing*); and it is a **`RULES_VERSION` 6 → 7** bump with all three fixtures re-recorded. **No number in §3 or §4 moves** — #109 still gates every constant, and this is sequenced ahead of #109 so that #109 measures the game rather than the artefact. **§4's regression guard becomes enable-able the day it ships**, on two conditions the characterisation test enforces: the corpus assertion and **both** hand-built reproductions go red together, and the block is deleted rather than adjusted, with the descent control kept unedited. **Verified rather than argued** ([ADR-0013](decisions/0013-a-claim-about-the-build-is-established-by-measurement.md)): the rule was hand-applied through the exported `reschedule` and both reproductions replayed under it end at **10/12 HP**, i.e. §3's 2, against 12/12 today; the paid path reads `player@100, creature@100, now=100`, which is what `now + ACTION_COST` already produces, so **no paid command moves** |
+| 2026-08-03 | **§2/§4: the grace turn is deleted. A creature woken in phase 3 joins the schedule at the instant the player is next due to act, so exactly one **paid command** stands between a wake and the creature's first resolution — never two, never zero (*paid*, because a free action is not a turn and the turn/command conflation is what produced the defect). Ruled, not built ([ADR-0014](decisions/0014-a-woken-creature-acts-when-the-player-next-acts.md))** | #125, build-order step 4b, and the ruling #123's instrumentation forced. The build schedules a woken creature at `now + ACTION_COST`, which is *declares this turn, acts next turn* **only if the waking command's phase 4 sweeps the clock to that instant**. Two commands do not, and they differ in kind: a **free action** (phase 4 is `identity`) and **`beginRun`** (phase 3 alone, no free action anywhere, live on about **one run start in nine** — #127, not one in five). A **descent does not**, which is the boundary of the claim and has a negative control. Two player commands is two strikes, and two strikes is exactly a 5 HP Cinder: **56 of 386** `STALKER` woken kills and **22 of 247** `FLOODLIT` cost 0 HP, and that corpus never calls `beginRun`, so it is a floor on the defect rather than its size. **The rule is stated over the schedule and not over free actions**, because #125's opening option — *schedule a creature woken by a free action at `now`* — is the same rule read off one reproduction and leaves the run start open; measured as a mutant, it leaves `economy.test.ts`'s `beginRun` reproduction **passing**, which is the signal that would get §4's guard enabled over a corpus blind to the route still open. **The runner-up was to accept it and re-price the wake** — cheap, and backed by real evidence: #123's playtest reproduced the route deliberately and reports it *"very visible"*, *"a discount on an accidental wake, not an exploit"*, *"low priority"* — their words, and right that **the dormant strike strictly dominates it** (one turn, 0 HP, 6 damage, no wake, no 4 fuel). It lost on three counts. **It is a hidden state machine** — the player has no readout of the clock, so two identical-looking boards differ in whether the woken `C` hits back, which is #121's invisible eight-turn counter re-entering through the scheduler; running in the player's favour makes it pleasant rather than predictable — **that inference is §4's, not the playtester's**, who reported it as visible. **The rule does not fit the medium** — *a woken Cinder costs 2 HP* teaches itself in one fight, *…unless the command that woke it did not advance the clock* is a paragraph about a mechanism with no representation, in a game with no tutorial text. And **it makes the budget partly player-set**: §4's exchange rate is claimed *fixed by arithmetic and not a matter of play*, which is the only reason 13-against-42 is a design fact, and derived from the corpus figure a run resolves 26 ÷ 2(1−*f*) ≈ **13/(1−f)** woken kills — about **15** at `STALKER`'s 14.5% — with *f* set by how often the player flashes beside things, against §4's own standing rule that a number the subject sets cannot adjudicate the design. **Costs, stated, and one of them was over-claimed in the first draft of this row.** The opening gets **a command tighter** on about one start in nine, not 2 HP more expensive: measured over a `beginRun` wake played close-then-strike, the window is worth 0 HP at Manhattan **1-2** and is otherwise spent closing (2 HP at 3 and at 4), and §5 step 7 keeps every creature at least Manhattan 3 from the entrance — so **an opening wake already costs the full 2 HP today**, one in nine is the frequency of the *grace* and not of a free kill, and the HP leaks through the **free action**. #125's Reproduction B is a hand-built floor at Manhattan 2 and not a shape the generator produces at an opening. Also: one retellable moment goes (*I killed it before it could swing*); and it is a **`RULES_VERSION` 6 → 7** bump with all three fixtures re-recorded. **No number in §3 or §4 moves** — #109 still gates every constant, and this is sequenced ahead of #109 so that #109 measures the game rather than the artefact. **§4's regression guard becomes enable-able the day it ships**, on two conditions the characterisation test enforces: the corpus assertion and **both** hand-built reproductions go red together, and the block is deleted rather than adjusted, with the descent control kept unedited. **Verified rather than argued** ([ADR-0013](decisions/0013-a-claim-about-the-build-is-established-by-measurement.md)): the rule was hand-applied through the exported `reschedule` and then **implemented as a mutant in `setMind` and the whole suite run** — **9 of 1167 tests red in four files**, all enumerated in §4's *What a build owes* so the builder decides nothing; the corpus goes from **56 of 386** free woken kills to **0 of 387**; both reproductions end at **10/12 HP** against 12/12 today; and the paid path reads `player@100, creature@100, now=100`, which is what `now + ACTION_COST` already produces, so **no paid command moves** |

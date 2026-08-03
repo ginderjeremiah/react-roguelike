@@ -536,11 +536,22 @@ this milestone, not its method.
       `beginRun` has no free action in it.
       [ADR-0014](decisions/0014-a-woken-creature-acts-when-the-player-next-acts.md); GDD §2's phase
       contract is amended and §4 carries the price
-- [ ] **Build it — #133, and it is the next thing to do.** Docs are ruled and the code is not: §4's
-      *What a build owes* enumerates the **9 tests in 4 files** that go red (measured as a mutant),
-      which of them are re-points and which need re-authoring, the three docstrings and two helpers
-      that encode the old instant, and the `RULES_VERSION` 6 → 7 bump. §4's regression guard is
-      enabled by that PR and not before. **#109 stays after it**, for the attribution reason above
+- [x] **Built it — #133, 2026-08-03.** One call site: `setMind` reads the player's `nextActAt` out of
+      the schedule, *inside* the not-already-scheduled branch (hoisting it above the `hasActor` early
+      return throws on every run that ends in a death, because `resolveAttack` unschedules the dead
+      player — 33 tests, measured). `wakeInLight` and `lanternPhases` gained no arguments and **no
+      paid command moved**: the descent negative control is green and unedited. §4's *What a build
+      owes* predicted **9 reds in 4 files** and got exactly those 9; item 7's separate instruction to
+      bring `scenario.ts`'s `awaken()` helper to the same instant added **3 more**, all the same class
+      of verdict change (a chase loses a frame in which the creature was owed nothing; a retreat leaves
+      the hunter a tile closer; a hand-built wind-up turn no longer exists). `RULES_VERSION` **6 → 7**
+      with all three fixtures re-recorded — the shuttered crawl reproduced unchanged, and the combat
+      log turned out to *re-converge* four commands after the wake, so what moved in its final frame is
+      which of two hunters struck the killing blow. §4's regression guard is enabled in place of the
+      characterisation block: free woken kills **56/386 → 0/387** (`STALKER`) and **22/247 → 0/252**
+      (`FLOODLIT`), and both hand-built reproductions now end at **10/12 HP**. All three of the
+      characterisation assertions were confirmed red *together* before anything was deleted, which is
+      the condition §4 set. **#109 stays after it**, for the attribution reason above
 - [ ] Fuel economy and the risk/reward tuning around it — calibrated once in #17. **#63 is ruled**
       and **no fuel number may move yet.** The first of the two reasons is now discharged: #31/#41
       landed 2026-08-01 and `DARK_PACIFIST`'s take went **119 of 121 → 0 of 121**, so the corpus is
@@ -752,12 +763,12 @@ alone. The run-start route is pinned by a hand-built reproduction in `economy.te
 declared zero by argument, relabelled a guard on the strength of the argument, and never measured
 because the measurement did not exist. The rule that no criterion may be claimed until the thing that
 would falsify it can be observed is the only reason this was found — and it fired in the direction
-nobody expected. #125 owns the fix, which is a rule change; `economy.test.ts` carries a
-characterisation test in the guard's place, and it goes red the day the rule is **built** — #133, not
-#125. #125 is the ruling and closes on its own merge; nothing in `game/` moves until #133.
+nobody expected. #125 owns the fix, which is a rule change; `economy.test.ts` carried a
+characterisation test in the guard's place, and **it went red** the day the rule was built — #133,
+not #125. #125 was the ruling and closed on its own merge; nothing in `game/` moved until #133.
 
 **Step 4b — #125: rule on the grace turn a wake gets when phase 4 did not sweep. Added to this list by
-the reconcile after PR #126; *ruled 2026-08-03 in PR #134, and the build is #133*.**
+the reconcile after PR #126; *ruled 2026-08-03 in PR #134 and built the same day in #133 — done*.**
 **Lettered rather than renumbered, for the third time and the same reason** as 3a and 4a:
 `docs/JOURNAL.md`, the comment closing #105, GDD §12
 and M2's exit criterion all cite "step 5"/"step 6", and renumbering silently redirects them.
@@ -770,13 +781,14 @@ the situation is identical:
   #109 first and the corpus is re-measured twice with no way to tell which change moved it, which is
   precisely what #109 exists to avoid — it is the *clean* measurement of invariant 4.
 - **#125 is income invariant 4 cannot see.** Invariant 4 is *a style that never opens the shutter must
-  not out-earn one that flashes*. A flashing style currently banks ember from ~1 woken kill in 7
-  without paying the HP, and the fuel corpus records it as ordinary income. Measuring the invariant
-  against a confounded numerator answers the wrong question.
-- **§4's honesty is gated on it.** §4 states that **nobody may cite its pricing paragraph as
-  authority that a wake costs something** — and the ruling does not lift that, the *build* does. #125
-  is ruled to make *every woken Cinder costs exactly 2 HP* true again rather than to soften it, so the
-  caveat stands over the arithmetic the whole HP budget rests on **until #133 ships**.
+  not out-earn one that flashes*. A flashing style banked ember from ~1 woken kill in 7 without paying
+  the HP, and the fuel corpus recorded it as ordinary income. Measuring the invariant against a
+  confounded numerator answers the wrong question. Measured after the build: 0 of 387 for `STALKER`.
+- **§4's honesty was gated on it.** §4 stated that **nobody may cite its pricing paragraph as
+  authority that a wake costs something** — and the ruling did not lift that, the *build* did. #125
+  was ruled to make *every woken Cinder costs exactly 2 HP* true again rather than to soften it, so
+  the caveat stood over the arithmetic the whole HP budget rests on **until #133 shipped**. It has,
+  and the caveat is gone.
 
 **It is a ruling, not a build** — a `game-designer` call, cheap in the way #121 was, and this roadmap
 did not preempt it. #125's body carries both reproductions and the three options it opened with.
@@ -794,8 +806,12 @@ review forced and it is worth carrying: **the free kill needs the player within 
 wake**, and §5 step 7 keeps a run start at Manhattan 3 or more — so the `beginRun` half is a
 legibility and *tempo* defect, and the HP leaks through the **free action**. One start in nine is the
 frequency of the grace, not of a free kill.
-[ADR-0014](decisions/0014-a-woken-creature-acts-when-the-player-next-acts.md) carries the reasoning; **the build is #133**, which enables §4's regression guard, and **#109 stays
-after it**.
+[ADR-0014](decisions/0014-a-woken-creature-acts-when-the-player-next-acts.md) carries the reasoning.
+**Built 2026-08-03 in #133**: one call site (`setMind` reads the player's `nextActAt` from the
+schedule), `RULES_VERSION` 6 → 7 with all three fixtures re-recorded, and §4's regression guard
+enabled in place of the characterisation block — free woken kills 56/386 → **0/387** for `STALKER`
+and 22/247 → **0/252** for `FLOODLIT`, with the descent negative control green and unedited. **#109
+stays after it.**
 
 5. A **`HARVESTER`** style in `game/systems/economy.test.ts` — never flashes, routes to every
    ember-sense contact, one-shots each dormant — which is what §4's invariant 4 is asserted against.

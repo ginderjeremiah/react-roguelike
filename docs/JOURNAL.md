@@ -57,6 +57,89 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-08-03 — #133: the grace turn is deleted in the build, and the guard is green for the first time
+
+**Did:** Built **#133**, the #125 ruling (ADR-0014), M2 build-order step 4b. **§4's regression guard
+is enabled and passing** — the first time since #123 built the instrumentation that measured it red.
+
+**The rule is one line**, in `setMind`, the only place a woken creature joins the queue:
+
+```diff
+-    addActor(updated.schedule, creature.id, updated.schedule.now + ACTION_COST),
++    addActor(updated.schedule, creature.id, nextActAtOf(updated.schedule, PLAYER_ID)),
+```
+
+Read from the state, not from a `TurnCost` threaded down — the player being charged already *is* the
+fact the rule turns on, and a second copy of it in a parameter is a second thing to get out of step.
+`wakeInLight` and `lanternPhases` gained no arguments. Everything else in a +574/−437 diff is tests,
+three fixtures, six docstrings and the docs.
+
+**Measured, in order, because the order is the point:**
+
+| | |
+| --- | --- |
+| baseline | 1167 passed |
+| the one-line change alone | **9 failed / 1158 passed** — exactly the nine enumerated tests in the four enumerated files, no unlisted red |
+| corpus before | `STALKER` **56/386** free woken kills, `FLOODLIT` **22/247** |
+| corpus after | `STALKER` **0/387**, `FLOODLIT` **0/252**, median 2 HP per woken kill |
+| both reproductions | 12/12 → **10/12 HP**, on both routes, as the ruling predicted |
+| final | **1168 passed** |
+
+**Criterion 4's precondition was checked before anything was deleted**, which is the one thing #125
+was shaped to prevent getting wrong: the corpus assertion *and* both hand-built reproductions went
+red **together**. The `beginRun` one did not stay green — a still-passing `beginRun` reproduction was
+the failure signal, and it did not fire.
+
+**The paid path did not move, checked three ways** rather than argued: the descent negative control is
+green and **unedited**; the `descent in the dark` fixture reproduced its digest unchanged with only
+its `version` field moving; and all three fixtures' `rng` fields are byte-identical, so **no draw
+moved anywhere**. That last one is the real proof — a scheduling change that perturbed the RNG stream
+would have been a determinism bug wearing a passing test suite.
+
+**Learned — the nine-test list was measured against the wrong edit, and it undercounted by three.**
+§4's *What a build owes* enumerated nine reds, derived by implementing the rule as a mutant **in
+`setMind` alone**. But criterion 7 also mandates editing `awaken()` in `tests/unit/support/scenario.ts`
+— and **that helper is a second rules-shaped edit whose consequences nobody had measured.** Bringing it
+to the player's due instant reds three more: two in `behaviour.test.ts` (a hunter's approach losing a
+step, `[5,5,4,3,2]` → `[5,4,3,2]`) and one in `render/cues.test.ts`. All three are the same class of
+verdict change the nine are — a hand-built world losing a command in which the creature was owed
+nothing — and none is a regression. The handover is 9+3, and it now says so.
+
+The general shape is worth keeping: **a test helper that encodes a rule is a rule site, and a mutant
+run measures only the site you mutated.** `awaken()` existed to reproduce the very window this issue
+deletes; left alone it would have gone on reproducing it after the window was gone, which is why
+criterion 7 named it. What nobody did was ask what *else* changing it would touch.
+
+**Learned — the fixture re-record was smaller than a `RULES_VERSION` bump implies, and derived rather
+than pasted.** In the combat log the opening wake hands the hunter one command at the start and it
+**spends** it: at command 23 the extra tempo puts it adjacent, it declares, the player steps away, and
+command 24 resolves the attack on empty ground. From command 24 the two runs are identical — same 27
+creature steps, same 4 landed blows, same death on command 37, same `now`, `fuel`, `kills` and both
+vision planes. What actually moves is *which* of two hunters lands the killing blow, so the digest's
+two minds are **swapped**. And `pursuedInTheDark` 27 → 26 is **not a lost step**: the counter excludes
+a step that ends adjacent, and command 23's now does. Re-derived from both trajectories rather than
+nudged until green — a fixture number changed by hand until the test passes is not a fixture.
+
+**Also found: a sixth prose site** asserting the old instant in English, outside criterion 7's five —
+`commit.test.ts` › *waking is not acting*, which stays green (its command is paid) but stated
+`now + ACTION_COST` as the *general* rule. Same trap as `world.ts`. Narrowed to the paid case. And
+`FLOODLIT`'s denominator moves 247 → **252**, which the spec did not predict and should have: giving
+creatures a command back means slightly more of them get killed awake.
+
+**Next:** **#109** — the `HARVESTER` style, the gate on every fuel and combat number. It has been
+waiting behind three build-order steps and nothing numeric may move until it lands. The reason #123,
+#121 and #125 all went ahead of it holds one last time and then stops: the corpus has now been
+re-measured for the last rule change, so #109 measures the game rather than an artefact.
+
+**Watch:** **`FLOODLIT` 247 → 252 and `STALKER` 386 → 387 are new denominators, and #109 will read
+them.** They moved because the rule gives every woken creature a command back, not because anything
+about fuel changed — but they are the corpus #109 is about to measure invariant 4 against, and a
+figure quoted from a pre-#133 run of this file is now stale by five kills. Also: §4's guard is green
+for the first time, which means **it has never yet caught anything**. A guard that has only ever been
+observed passing is in the same epistemic position as the arithmetic proof it replaced (ADR-0013) —
+the difference is that this one is pinned to a scheduling rule with one call site rather than to an
+argument, and the two reproductions beside it fail loudly if that call site drifts.
+
 ## 2026-08-03 — Reconcile after #134: the ruling was propagated to the blocks it *amended*, not to the ones it *falsified*
 
 **Did:** Archivist sweep over PR #134 (the #125 ruling). No rule, no number and no behaviour moves.

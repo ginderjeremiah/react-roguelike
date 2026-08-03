@@ -139,11 +139,15 @@ the clock did **not** move).
 So this is a **fourth** verdict change beyond the 9+3, and it is the same lesson as `awaken()` wearing
 a benchmark's clothes: **a fixture is a rule site too.** Two of this repo's performance guards have now
 been found asserting a state rather than the work, and a state that the rules quietly stopped
-implying. Filed as **#137** — a ratio instrument rather than an absolute threshold, since a turn
-measures 29.2× and 34.0× a lit field here and 31.4× and 32.1× on the runner — **about 16% apart
-across a 4.5× machine gap** in the absolute numbers. (A first draft of this said *7%*, which was the
-narrowest reading of a two-point sample; the review's third point widened it. The argument does not
-need 7%, and #137 quotes 16%.) The evidence that this is not theoretical: a *real* planted regression
+implying. Filed as **#137**, with the line-endings trap it exposed as **#141** — a ratio instrument rather than an absolute threshold, since a turn against a lit field
+measures **25.1, 29.2, 31.4, 32.1 and 34.0×** over five readings on two machine classes — a spread of
+**at least ~36%**, against a **4.5×** gap in the absolute numbers.
+
+**That figure is a small lesson in itself, and it is the one this whole session keeps teaching.** It
+was written *7%* from two points, corrected to *16%* from four, and is *~36%* at five — widened by the
+next CI run every single time, each draft an honest reading of the data then in hand. The argument
+survives at all three, which is the tell that the digits were never what mattered: **state it as a
+floor and as unstable**, not as a figure. #137 quotes it that way. The evidence that this is not theoretical: a *real* planted regression
 (recomputing the lit field per light query, the bug `step.bench.test.ts` names) costs **1.4×** and
 sails under the recalibrated threshold. #133 recalibrated the absolute numbers and recorded the
 argument; #137 is the instrument.

@@ -124,11 +124,16 @@ import { resolveTurn } from './turn';
  * regression on a fast machine, and nothing absolute can. `step.bench.test.ts` holds a turn to a
  * *ratio* against a lit field measured in the same process for exactly that reason, and the ratio is
  * what survives a change of machine: this turn against `fov.bench.test.ts`'s lit field measures
- * **29.2x** and **34.0x** here and **31.4x** and **32.1x** on the runner — three to four points
- * spanning about **16%**, across a machine gap of **4.5x** in the absolute numbers. (A first draft
- * said *7% apart*, which was the narrowest reading of a two-point sample; the third point widened it.
- * The argument does not need 7% — 16% against a 4.5x spread is still an order of magnitude better
- * than anything absolute — but do not quote the 7%.) That is measured across two files rather than in
+ * **25.1, 29.2, 31.4, 32.1 and 34.0x** across five readings on two machine classes — a spread of **at
+ * least ~36%** off the minimum, against a machine gap of **4.5x** in the absolute numbers.
+ *
+ * **State that as a floor and as unstable, not as a figure.** This number has now been quoted three
+ * times from the narrowest sample available — 7% from two points, 16% from four, ~36% from five — and
+ * widened by the next run every time. Each draft was the honest reading of the data then in hand,
+ * which is exactly why the *shape* of the claim has to carry the uncertainty rather than the digits.
+ * The argument is unharmed at any of them: 36% against a 4.5x absolute spread is still an order of
+ * magnitude better than anything absolute, and this is measured across two files in separate workers,
+ * which a paired in-process harness would improve on. That is measured across two files rather than in
  * one process, so the real instrument would be steadier still. Converting this file to it is how these thresholds start to bite; it needs that
  * harness extracted from `step.bench.test.ts` first, which is more than a benchmark fix.
  */
@@ -147,10 +152,26 @@ const TURN_BUDGET_MS = 1;
  * *"no runner has measured this fixture yet"* and inferred ~0.2ms from the turn's machine factor,
  * landing on 0.4. The green run reads **0.1070ms**, which makes 0.4 **3.7x** the runner against the
  * turn's 1.89x — the two constants had drifted into different postures, which is the one thing
- * setting them separately was supposed to prevent. Tightened to **0.25**: about **2.3x** the runner
+ * setting them separately was supposed to prevent. Tightened to **0.3**: about **2.3x** the worse of two runner readings
  * and **4x** the worst reading here, matching the turn. An inference left standing where a
  * measurement exists is [ADR-0013](../../docs/decisions/0013-a-claim-about-the-build-is-established-by-measurement.md)'s
  * subject, and this file is otherwise scrupulous about it.
+ *
+ * **And then 0.25 was itself set from a one-point sample, which is the same mistake one size down.**
+ * The next runner read **0.1414ms** — 1.32x the first reading on the same machine class — putting
+ * 0.25 at **1.77x**, the tightest margin of any constant here and tighter than the turn's own posture
+ * (1.89x at its worst). Two runner readings, quoted as a row rather than a figure:
+ *
+ * | run | flash |
+ * | --- | --- |
+ * | 30831088439 | 0.1070ms |
+ * | 30835191393 | 0.1414ms |
+ *
+ * **0.3** holds the stated ~2.3x-the-worst-runner posture against the worse of the two. It changes
+ * nothing about what the guard catches — the 1.4x planted regression below sails under 0.25 and 0.3
+ * alike — so the choice is purely flake risk, which argues for the looser of two equally toothless
+ * numbers. **Do not tighten this from a single green run**; that is now the third time in this file's
+ * history that a constant was set from the narrowest sample available and the next run widened it.
  *
  * It is a separate constant rather than a shared one because a single limit across two workloads
  * that differ threefold is a limit that enforces nothing on the cheaper of them — the file's own
@@ -159,11 +180,11 @@ const TURN_BUDGET_MS = 1;
  * there: recomputing the lit field per light query instead of closing over it — the invariant
  * `light.ts`'s header states, and the bug `step.bench.test.ts` says "belongs to
  * `light.bench.test.ts`'s busy floor" — plants six extra casts in this exact fixture and measures
- * 0.0492-0.0515ms, **1.4x**, which sails under 0.25 the same way it sails under the 5x there. This is
+ * 0.0492-0.0515ms, **1.4x**, which sails under 0.3 the same way it sails under the 5x there. This is
  * now the fixture that *asks* the query six times, which it was not before, so a ratio limit here
  * would catch it; an absolute one never will.
  */
-const FLASH_BUDGET_MS = 0.25;
+const FLASH_BUDGET_MS = 0.3;
 
 const WARMUP = 50;
 const BATCHES = 5;

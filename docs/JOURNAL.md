@@ -57,6 +57,73 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-08-02 — #127: the last live site of the frequency, and the Watch it closes
+
+**Did:** Closed **#127**. `game/systems/economy.test.ts`'s run-start block cited GDD's change log at
+*20% of arrivals* and applied it to a **run start** — accurate citation, wrong inference, because a
+run start is always **floor 1** and §5 spawns `min(2 + floor, 6)`: three creatures there against six
+from floor 4 down. Corrected to **about one run start in nine** (11.2% over 2000 seeds through
+`openRun`), with the per-depth ladder. **No test changed** — the assertion was never wrong, only the
+frequency attached to it.
+
+**Also corrected #125's body**, directly on GitHub rather than in the diff. Recorded here because
+that edit is otherwise **off-repo entirely**: nothing in the tree would say it happened.
+
+**This closes the Watch on the entry two above.** That entry said: *"One site is still unfixed and it
+is the one that matters most: issue #125's own body, the document the ruling will be written from.
+`game/systems/economy.test.ts`'s run-start comment is the other, filed as #127. **Correct the issue
+before ruling on it.**"* **Both are now done**, and the next session is the `game-designer` ruling
+#125 as build-order step 4b — which is exactly the reader that Watch was written for, so leaving it
+uncontradicted would have had it either redo the correction or distrust the corrected figure it
+found.
+
+**Why it was worth a PR rather than a footnote.** It changes nothing about the defect and roughly
+**halves its size**, and #125 is unruled. The route is still real, still reachable at will, and the
+free-action-only fix still leaves it open — every conclusion in #125 stands. But frequency is most of
+what decides whether a free kill is a hole to close or a rule to accept, and the ruling was going to
+be written from documents overstating it by 2×.
+
+**Learned — the repository already held the right number in three places and a documented figure
+overwrote all three.** `tests/unit/play-opening.test.ts` pins *roughly one opening in ten*,
+`components/play/opening.ts` explains why an opening is rarer than a descent, and `ARCHITECTURE.md`
+says one in ten twice **and carries an explicit "do not correct this to one in five"**. The wrong
+number won anyway, because it was *cited* and they were merely *true*. That is the cleanest instance
+of ADR-0013's subject in the set: nobody reasoned badly: somebody quoted a real figure from a real
+document and carried it one step too far.
+
+**Learned — and this one is the same habit wearing the other face: over-precision.** The correction
+carried *"11.25% at 20 000"* into four documents. Review could not reproduce it — the same seed family
+extended to 20 000 measures **10.87%**, and four families give 10.87 / 11.15 / 11.47 / 11.52%. The
+mean is ~11.25% and the headline 11.2% is solid, but **the second decimal is seed-family noise stated
+as a measurement**, which is what the original defect was. Softened to *≈ 11% across seed families* in
+all four, with the reason written at `ARCHITECTURE.md` so the next person quotes "about one in nine"
+and not three figures.
+
+**Learned — "flat from floor 4 down" is structural, not statistical, and stronger than it was
+written.** Review verified over 100 seeds that `generateFloor(createRng(s), 4)` through `…, 8)` produce
+**identical `Floor` values** apart from `floorNumber` — same grid, entrance, doorways, creature list —
+because `floorNumber` reaches generation only through `creatureCount`, and the `min` caps it at 6. So
+floors 4-8 cannot differ in wake rate even in principle. Worth having: it means the ladder has four
+real steps and a plateau, not eight noisy samples.
+
+**Next:** **#125 — the design ruling**, build-order step 4b, ahead of #109. It is now safe to write:
+both documents it will be written from carry the corrected frequency. **One thing the ruling agent
+must be told:** #125's *"What a fix must do"* refers to "Option 1 as originally written", and Options
+1-3 are defined only inside the collapsed `<details>` block holding the superseded framing. Point at
+it rather than let the agent conclude the options are gone.
+
+**Watch:** **GDD §4's *Where a run starts* still applies the arrival rate to a run start**, in two
+places — *"now that the lit opening is known to cost something one time in five"* and the reason-1
+refutation citing the 480-floor 20%. The lit opening **is** the run start, always floor 1, measured
+11.2%. Both arguments survive at one in nine — they are about *not guaranteed safe*, not about the
+rate — so it is an accuracy fix rather than a design one. **Filed as #130 and it should land before
+#125 is ruled**, because §4 is the section a `game-designer` reads when ruling on the run start.
+
+Left out of this PR under one-issue-one-PR, which is also why the previous entry's claim that this
+pass *"fixed the live ones in `GDD.md` and `ROADMAP.md`"* was not quite true — a third sweep, a third
+undercount, and the pattern by now is that **a sweep is not done when the greps stop matching, it is
+done when someone else greps.**
+
 ## 2026-08-02 — Reconcile after #126: the lesson gets an ADR, and the ADR gets a seventh instance while being written
 
 **Did:** Archivist pass over `main` at `29493d3` (PRs #119, #122, #124, #126). New
@@ -89,7 +156,7 @@ seven.** GDD §4, `ROADMAP.md` twice and #125's body all price the `beginRun` fr
 run start in five**, citing §4's change log: *"over 480 generated floors, 97 (20%) wake at least one
 creature on arrival."* The citation is accurate; the inference is not. **A run start is always floor
 1**, and §5 spawns `min(2 + floor, 6)` — three creatures on floor 1 against six from floor 4 down.
-Measured over 2000 seeds through `openRun`: **223, 11.2%** (11.25% at 20 000). Per depth: floor 1 **11.2%**, then 14.7 / 17.9 / **20.6%**, flat from floor 4 down (the `min` caps spawn at 6, so floors 4-8 are structurally identical and measure bit-identically). The 20% is the deep-arrival rate.
+Measured over 2000 seeds through `openRun`: **223, 11.2%** (≈ 11% across seed families at 20 000; see below). Per depth: floor 1 **11.2%**, then 14.7 / 17.9 / **20.6%**, flat from floor 4 down (the `min` caps spawn at 6, so floors 4-8 are structurally identical and measure bit-identically). The 20% is the deep-arrival rate.
 
 **The right number was already in this repository and a documented number overwrote it.**
 `tests/unit/play-opening.test.ts` pins *"roughly one opening in ten"*, `components/play/opening.ts`

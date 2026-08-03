@@ -67,7 +67,7 @@ in two places and issue #125's body all state that the `beginRun` free-kill rout
 start in five**, citing §4's change log: *"over 480 generated floors, 97 (20%) wake at least one
 creature on arrival."* The citation is accurate and the inference is wrong. **A run start is always
 floor 1**, and §5 spawns `min(2 + floor, 6)` creatures — three on floor 1 against six from floor 4
-down. Measured over 2000 seeds through `openRun`: **223, or 11.2%** (11.25% at 20 000). Per depth: floor 1 **11.2%**, then 14.7 / 17.9 / **20.6%**, flat from floor 4 down (the `min` caps spawn at 6, so floors 4-8 are structurally identical and measure bit-identically). The 20% is the *deep-floor* rate.
+down. Measured over 2000 seeds through `openRun`: **223, or 11.2%** (≈ 11% across seed families at 20 000; see below). Per depth: floor 1 **11.2%**, then 14.7 / 17.9 / **20.6%**, flat from floor 4 down (the `min` caps spawn at 6, so floors 4-8 are structurally identical and measure bit-identically). The 20% is the *deep-floor* rate.
 
 The correct figure was already in this repository — `tests/unit/play-opening.test.ts` pins *"roughly
 one opening in ten"*, `components/play/opening.ts` explains why it is lower than a descent's, and

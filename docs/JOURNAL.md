@@ -100,8 +100,11 @@ undercount: a **third** proposition #134 falsified, live in four places includin
 56 of 386 was *"a floor on the defect, not its size"* — true when written, because the corpus never
 calls `beginRun` and the run start was believed to be a free-kill route. The distance table reverses
 it: every generated opening wake is at Manhattan ≥ 3, where the window costs **2 HP**, so teaching the
-corpus to call `beginRun` would add ~0.11 woken kills a run that all *cost* HP and move the free
-fraction **down**. For `STALKER` it is essentially the whole of the HP defect. §4 had been
+corpus to call `beginRun` would add woken kills that all *cost* HP and move the free fraction
+**down** — and that reversal does not rest on how many, since adding *k* such kills raises the
+denominator and not the numerator for any *k* > 0. (The ~0.11-a-run figure is `223/2000`, the rate at
+which a run start wakes *at least one* creature: an upper bound on added kills, not a count of them.
+Recorded because it will be quoted.) For `STALKER` it is essentially the whole of the HP defect. §4 had been
 contradicting itself about this seventeen lines apart since #134, and this pass edited a clause two
 lines above the contradiction without reading down to it.
 
@@ -132,9 +135,20 @@ duplicated or made stale by the ruling.
 **Next:** **#133** — unchanged by this pass. Build the ruling; then #109.
 
 **Watch:** the *ruled, not built* markers and the "goes red when #133 ships" sentences must move
-together when #133 lands. **There are three of those sentences, not two** — `GDD.md` twice (the
-regression-guard paragraph and the §4 status note) and `ROADMAP.md` once, the last added by #134 and
-outside this pass's diff. The first draft of this Watch said *two*, which defeats the purpose of a
+together when #133 lands. **There are three of those sentences, not two, and the first draft of this
+Watch named two of the three blocks wrongly** — which is this entry's own subject happening inside the
+note written to prevent it, so the corrected list is stated by the heading each sits under and was
+checked with `grep "goes red the day"`:
+
+1. `GDD.md` — under ***The too-weak arm is structurally closed, and this section no longer watches
+   it.*** (**not** the *Status is load-bearing here* note, which contains no such sentence — that was
+   the slip, and the two are distinct blocks, as this entry's own Verified paragraph lists them).
+2. `GDD.md` — under ***A regression guard, stated as one so nobody mistakes it for a watch***.
+3. `ROADMAP.md` — **step 4a**, #123's record, in the *transferable part is the conditional*
+   paragraph. **Not** step 4b's *§4's honesty is gated on it* bullet, which says *until #133 ships*
+   and carries no "goes red" clause at all.
+
+The first draft of this Watch said *two*, which defeats the purpose of a
 note whose whole job is to be the pointer for the clauses #133's criterion 9 deliberately does not
 enumerate. **And a journal Watch is the wrong home for it**: this file is read three entries deep by
 design, and #133 may not be built within three. The list now also lives as a **comment on #133**,

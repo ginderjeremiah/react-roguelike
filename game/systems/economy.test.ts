@@ -430,8 +430,14 @@ describe('§4’s regression guard cannot be enabled yet, and this is the size o
    * at every depth by `generate.test.ts` — so **every generated opening wake is at Manhattan >= 3**,
    * and GDD §4's distance table (re-measured as the minimum over every legal line of play) puts the
    * window at **2 HP** from Manhattan 3 outward. Teaching `arriveOn` to call `beginRun` would add
-   * roughly 0.11 woken kills a run and **every one of them would cost 2 HP**, which moves the free
-   * fraction *down*.
+   * woken kills that **all cost 2 HP**, which moves the free fraction *down*.
+   *
+   * **The reversal does not depend on how many.** Adding *k* kills that all cost HP raises the
+   * denominator and not the numerator, so the free fraction falls for any *k* > 0 — do not let this
+   * argument come to rest on a figure. The figure quoted elsewhere, ~0.11 a run, is `223/2000`: the
+   * rate at which a run start wakes **at least one** creature. That is an *upper bound* on added
+   * woken kills, since a run does not kill everything it wakes, and it is not a measurement of the
+   * added kills themselves.
    *
    * So for this style, **14.5% is essentially the whole of the HP defect, not a floor under it.** The
    * run start is still part of #125 and the rule still closes it — what it costs there is a

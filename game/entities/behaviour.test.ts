@@ -259,8 +259,14 @@ describe('the retreat procedure, as a regression test', () => {
     // `awaken()` schedules at `now + ACTION_COST` with `now = 0` and the player uncharged — exactly
     // `beginRun`'s shape. What it measures is therefore narrower and truer than the struck sentence:
     // **a woken Cinder costs 2 HP to a player who spends the grace closing the distance instead of
-    // striking.** That is the ordinary case and it is the one §4's pricing argument needs; the free
-    // kill is what happens when the creature is already adjacent when it wakes.
+    // striking.** That is the ordinary case and it is the one §4's pricing argument needs.
+    //
+    // The free kill is the other case, and state it by its **condition** rather than by adjacency:
+    // you are close enough to land two strikes before the creature resolves an attack on the tile
+    // you are standing on. That is adjacency at wake **or one step away** — Reproduction B in
+    // `economy.test.ts` spends its first grace command closing from distance 2 and still lands both.
+    // (An earlier draft of this line said "already adjacent", which is narrower than this PR's own
+    // evidence.)
     const { world, ids } = scenario(['#######', '#@...c#', '#######']);
     let current: ActorWorld = awaken(world, ids[0], WAIT);
     const startingHp = playerOf(current).hp;

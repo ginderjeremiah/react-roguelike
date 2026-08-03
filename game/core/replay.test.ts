@@ -1363,7 +1363,7 @@ describe('pinned run — the whole combat loop, ending in a death', () => {
     //
     // So be exact about what this line is. Under the current rules the two counts are equal **by
     // construction** — a woken creature can never be dormant, and a dormant creature is always at
-    // full HP because a survived strike wakes it — and no mutant on this log separates them. It is
+    // full HP because a survived strike wakes it — and no rules mutant tried here separates them. It is
     // an **identity, not a discriminator**, and it is kept as a statement of §1's *free kills exist
     // only in the dark* with re-dormancy's loophole closed, not as a guard.
     //

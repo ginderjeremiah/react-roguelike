@@ -209,7 +209,16 @@ slate — §4 opens the lantern and `createInitialState` runs §2's phase 3, so 
 already owes the player a wake line before a finger touches the screen (§4/#79). `app/index.tsx`
 previously called `beginRun` directly and initialised the status line to a literal `null`, which
 computed those cues and dropped them on the floor; the bug was invisible because the fixed seed
-(#47) is one of the nine in ten that wake nothing. The decision lives in `components/play/` rather
+(#47) is one of the nine in ten that wake nothing. **The one-in-ten here is right and GDD §4's
+"one arrival in five" does not apply to it — do not "correct" it.** A run start is always **floor 1**,
+which carries `min(2 + floor, 6)` = 3 creatures against 6 from floor 4 down; §4's 20% is the rate
+across all arrivals. Measured: **11.2%** over 2000 seeds through `openRun` (11.25% at 20 000), and
+pinned loosely in `tests/unit/play-opening.test.ts`. Per depth: floor 1 **11.2%**, then 14.7 / 17.9 / **20.6%**, flat from floor 4 down (the `min` caps spawn at 6, so floors 4-8 are structurally identical and measure bit-identically).
+**A run start and a floor-1 arrival are the same event** — `createInitialState` generates floor 1
+and calls `beginRun` — so there is one number here, not two to compare. Stated because the
+inference *was* made in the other direction, in three documents at once — see
+[ADR-0013](decisions/0013-a-claim-about-the-build-is-established-by-measurement.md). The decision
+lives in `components/play/` rather
 than in the `.tsx` for a reason that generalises: **`app/index.tsx` imports `react-native`, so Vitest
 cannot load it, and anything decided inside it is unreachable from every test tier we have.**
 

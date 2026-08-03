@@ -57,6 +57,123 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-08-02 — Reconcile after #126: the lesson gets an ADR, and the ADR gets a seventh instance while being written
+
+**Did:** Archivist pass over `main` at `29493d3` (PRs #119, #122, #124, #126). New
+**[ADR-0013](decisions/0013-a-claim-about-the-build-is-established-by-measurement.md)**; `GDD.md` §4
+in four places plus a change-log row; `ROADMAP.md` in eleven; `ARCHITECTURE.md` in one. Build order
+gains **step 4b (#125)**. Counts and issue lists re-derived by running the commands, not by reading
+the file. *(Dated from the clock. It shares 2026-08-02 with the three entries below honestly.)*
+
+**Why an ADR and not a GDD section — the thing this pass was asked to settle.** Six defects this
+session were one shape: **a claim derived correctly from the documents and false of the build.** §4's
+adjacency metric (set by the player), the playtest's *unavoidable hits* substitute (pinned by the
+rules), the *every woken kill costs exactly 2 HP* arithmetic (falsified by instrumentation — #125),
+#125's own free-action framing (`beginRun` is a second route), the #125 guard's signal comment
+(stated backwards, so a narrow fix leaves it passing), and the `felledWithoutEverWaking` equality
+(justified by a mutation that measured *equal*). **GDD §4 already carried a test — *name the state of
+the world in which this number comes back different* — and it caught none of them**, because each
+author could name a state and was wrong about reachability. What caught all six was **building the
+instrument and running it**, or, three times, **implementing the mutant**.
+
+It went in `docs/decisions/` rather than in §4 for two reasons. The GDD is supposed to describe the
+game **as implemented**; how this project establishes that a claim is true is not a rule of the game.
+And the seven instances span §4, the roadmap, a playtest brief, an issue body, a test comment and
+`ARCHITECTURE.md` — a rule that applies across documents cannot live inside one of them. §4 keeps the
+*name the state* test and gains a six-line pointer; the ADR carries the evidence, which is the
+load-bearing half. **A `CLAUDE.md` line was rejected outright**: without the falsification it reads as
+a platitude everyone agrees with, and all six defects were committed by authors who agreed with it.
+
+**Learned — the ADR acquired a seventh instance while I was writing it, and it is the cleanest of the
+seven.** GDD §4, `ROADMAP.md` twice and #125's body all price the `beginRun` free-kill route at **one
+run start in five**, citing §4's change log: *"over 480 generated floors, 97 (20%) wake at least one
+creature on arrival."* The citation is accurate; the inference is not. **A run start is always floor
+1**, and §5 spawns `min(2 + floor, 6)` — three creatures on floor 1 against six from floor 4 down.
+Measured over 2000 seeds through `openRun`: **223, 11.2%** (11.25% at 20 000). Per depth: floor 1 **11.2%**, then 14.7 / 17.9 / **20.6%**, flat from floor 4 down (the `min` caps spawn at 6, so floors 4-8 are structurally identical and measure bit-identically). The 20% is the deep-arrival rate.
+
+**The right number was already in this repository and a documented number overwrote it.**
+`tests/unit/play-opening.test.ts` pins *"roughly one opening in ten"*, `components/play/opening.ts`
+explains in a header comment exactly why an opening is rarer than a descent, and `ARCHITECTURE.md`
+says one in ten **twice**. Three sources agreed and lost to one citation that looked like it applied.
+**#125's conclusion survives unharmed** — one in nine is still frequent, and the free-action-only fix
+still leaves the route open — but the *size* claim was roughly double. `ARCHITECTURE.md` now says
+"do not correct this to one in five" in as many words, because the pressure runs that way.
+
+**Learned — the count table went stale again on the very next code PR, in the one column nobody
+checks.** The roadmap said *"#83's PR is the first code PR to update it, which is why the streak is
+written in the past tense."* Checked with `git show 29493d3 -- docs/ROADMAP.md`: **PR #126 touched
+`ROADMAP.md` by 129 lines and did not touch the table.** The total is still 1167 and the file count
+still 62 — which is why nobody noticed — but `game/` lost `entities/contact.ts`, so the
+**source-module** cell was 45 against a true 44. **A table that only goes stale in a column nobody
+re-derives is worse than one that goes stale in the total**, because the total is what a reader
+spot-checks. Past tense reverted; #110 is still the fix. Re-measured at `29493d3`: `game/` 811,
+`render/` 171, `session/` 28, `tests/unit/` 157, **1167** across **62** files, **38** E2E.
+
+**Ruled and written into the build order: #125 is next, not #109 — step 4b.** The journal's `Next:`
+below and the roadmap's numbered list disagreed, and the list wins by its own rule, so the list was
+amended rather than the disagreement left standing. Three grounds. **Attribution**, which is the
+argument #123 itself used to get ahead of #109, unchanged: #125's fix is a rule change that alters
+what a run spends and gets, so building #109 first measures the corpus twice with no way to attribute
+the difference — and #109 exists to produce the *clean* measurement of invariant 4. **Invariant 4
+cannot see the income**: a flashing style currently banks ember from ~1 woken kill in 7 without paying
+the HP, and the fuel corpus records it as ordinary income. And **§4's honesty is gated on it** — §4
+says nobody may cite its pricing paragraph until #125 rules. Lettered, not renumbered, for the third
+time and the same reason as 3a and 4a: four records cite "step 5"/"step 6".
+
+**#123's playtest is recorded, and recorded as *not* the judging one.** Its findings existed only in a
+PR comment: doorways are now the price control on every fight (**4 HP held at a doorway against
+roughly double in the open**, because two Cinders in the open stack — `You take 4.`, 12 → 8 → 4,
+measured both ways and on a second seed); a **shuttered floor cost 0 HP for 4 kills against a floodlit
+floor at 10 HP for 3 in the same run**; and **#125 is findable but nobody would seek it**, because the
+dormant strike strictly dominates it — one turn, 0 HP, 6 damage, no wake, no 4 fuel. It was an
+explicitly **narrow build-verification brief**, it drew **no §12 verdict**, and the roadmap now says
+so at the exit criterion so nothing reads one into it. **ADR-0012's bound is unspent: the next broad
+playtest is still the one that judges §12.**
+
+**The "wager is illegible" family is 13 from *seven* playtests, and the seventh added nothing.**
+Everything #123's playtest found mapped onto existing issues — #85 (third sighting, and #123 makes HP
+death the ordinary ending so its near-miss now fires on the common case), #84, #117, #80. Tally is now
+**6 → 1 → 2 → 1 → 3 → 0 → 0**. **Do not read the two zeroes as equal evidence**: #119's was a broad
+run and is the measurement the bullet asked for; this one was narrow and had fewer chances to hit a
+new one.
+
+**Learned — the Contract-and-tooling count was right for the first time, and the reason is not
+discipline.** Re-derived from `gh issue list` as the roadmap demands: **17**, and all seventeen are in
+the list. It had undercounted four times running (#76/#78, then #12, then #112). It held this time
+because **#123's cycle filed nothing into that milestone at all** — the one process defect it found is
+#125, which is a rule bug and correctly went to M2. So the streak of correctness is one cycle of no
+pressure, not evidence the habit is fixed.
+
+**Also done:** **#89** confirmed closed (2026-08-02, the ruling deleted the event it wanted announced)
+and the roadmap moved from *"close it"* to *"it is closed"*. **#99** got stronger and the roadmap says
+why in play now, not just in principle: the wake count is monotone, and #123's playtest makes *how
+many are awake* the input to the only price control the player has. **#120** and **#114** were already
+listed; **#125** was referenced everywhere and had no checklist bullet, and now does.
+
+**Next:** **#125**, build-order step 4b — a `game-designer` ruling on whether the grace turn a wake
+gets when phase 4 did not sweep should exist. Then **#109**, step 5, still the gate on every fuel
+number. The **broad** playtest that judges §12 is owed and is not blocked by either, but ADR-0012's
+bound is *after #123*, so it can run now.
+
+**Watch:** **the free-kill route had two frequencies in circulation and the sweep for the wrong one
+was asserted complete before it was.** Eight sites said "one in five". This pass fixed the live ones
+in `GDD.md` and `ROADMAP.md`, left the historical change-log rows corrected-by-a-newer-row, and —
+**after review caught that this very paragraph under-counted** — two more in `session/`, which is the
+layer that owns the run start and the first place anyone would look for the number: `session/run.ts`
+and `session/run.test.ts`. Each now carries its own *do not "fix" this back to one in five* note,
+which is the defence at the place the mistake gets made.
+
+**One site is still unfixed and it is the one that matters most: issue #125's own body**, the
+document the ruling will be written from. `game/systems/economy.test.ts`'s run-start comment is the
+other, filed as **#127**. **Correct the issue before ruling on it.** `render/cues.ts` also says one
+arrival in five and is **correct** — its context is `descendTurn`, real arrivals on floors 2-8 at
+14.7-20.6% — so do not sweep it up.
+
+**Also watch:** ADR-0013's scope line is *claims a reader would act on without re-deriving*, and that
+is deliberately not "every number". If a future session finds itself instrumenting a claim nobody
+would act on, the ADR names the narrowing to make. It has one failure mode nobody has tested: it
+costs time on every docs PR and pays off only on the ones that would have been wrong.
+
 ## 2026-08-02 — #123: the clock is deleted, and the guard nobody expected to fail failed on its first run
 
 **Did:** Built **#123**, build-order **step 4a** — the ruling from #121. `TURNS_TO_REDORMANCY`, the

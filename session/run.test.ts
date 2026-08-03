@@ -93,8 +93,10 @@ describe('the opening run', () => {
     // The argument "the opening has no predecessor, so it has nothing to say" is sound about
     // diffs and wrong about this: §4 starts the lantern **open**, and `game/systems/run.ts`'s
     // `beginRun` is `lightingAndWakingPhase(...)`, so the entrance room's light genuinely wakes what
-    // it touches before the player has pressed anything. §4 measures roughly one arrival in five as
-    // waking something, and under #83 that is a hunter the player was never told about.
+    // it touches before the player has pressed anything. About **one run start in nine** does so
+    // (11.2%) — not one arrival in five, which is §4's all-depths rate and does not apply to a run
+    // start, always floor 1 and therefore 3 creatures rather than 6. ADR-0013, #127 — do not "fix"
+    // this back to one in five. Under #83 that wake is a hunter the player was never told about.
     //
     // `open-1` is a seed where it happens. The assertion is against the state's own actor list
     // rather than a literal tile, so it survives a generator change without going quietly vacuous —

@@ -15,7 +15,7 @@ was wrong"**, so M2 opens with the build order the #83 ruling specifies. Four M1
 determinism-gate debt (see the split below). So `gh issue list --milestone "M2: The light loop"`
 will not show you #12 — that is deliberate, not a lost issue.
 
-**M2 is four steps into a build order of six, plus 3a and 4a (both done).**
+**M2 is four steps into a build order of six, plus 3a and 4a (both done) and 4b (#125, next).**
 #79 (PR #92) made a wake announce itself, with a
 count; #94 (PR #101) gave that announcement two emphasis levels so it is read first; **#31/#41 made a
 cache terrain the lantern has to have shown you**, which un-contaminates the fuel corpus; #107 made a
@@ -24,12 +24,12 @@ turn that both wakes and pays say both. **The order has changed since the
 
 **Step 4 — #83, a woken Cinder pursues — landed 2026-08-02, and it is the one the other five were
 sequenced around.** `nextMind` went from five cases to three: an awake creature now paths toward the
-player every turn, lit or shuttered, near or far, and the eight-turn counter is the only thing
-contact still governs. It is subtraction — two cases and the `Awareness` union deleted, no mechanic,
-no state, no UI — and it is the first step in this build order to change what the simulation *does*
-rather than what it says about itself. `RULES_VERSION` 4 → 5. **It was half the fix**, which is what
-step 4a below is: #83 replaced the parking and left the clock, and the clock is where the refund
-lived.
+player every turn, lit or shuttered, near or far. It is subtraction — two cases and the `Awareness`
+union deleted, no mechanic, no state, no UI — and it is the first step in this build order to change
+what the simulation *does* rather than what it says about itself. `RULES_VERSION` 4 → 5. **It was
+half the fix**, which is what step 4a below is: #83 replaced the parking and left the eight-turn
+clock (the only thing contact still governed *at that point* — it is gone now), and the clock is
+where the refund lived.
 
 **#121 is ruled and built: step 4a, `#123` — re-dormancy is deleted.**
 The playtest of #83 found that a pursuer cannot hit a player who keeps moving (0 damage across ~30
@@ -60,12 +60,24 @@ Cinders, 10 HP, resolved for no damage*) becomes a dead run.
 > is two strikes, and two strikes is a Cinder. The rule below is unaffected; the price it quotes is
 > not yet what the build charges.
 
-**#109 — the `HARVESTER` style, step 5 — remains the gate on everything numeric**, and #123 goes
+**#109 — the `HARVESTER` style, step 5 — remains the gate on everything numeric**, and #123 went
 ahead of it deliberately: a rule that changes how many turns a run spends and what it spends them on
 means the corpus would otherwise be re-measured twice with no way to attribute the difference. **No
 fuel number may move until #109**, and §3's combat numbers should not move before it either, for the
 same attribution reason — which now matters more, because §3's numbers are where the too-strong arm
 gets answered if it fires.
+
+> **What is next is #125, not #109, and the build order below says so as step 4b.** Recorded here
+> rather than left to inference because the journal's `Next:` and this list disagreeing is how the
+> order has drifted twice before. **The argument is the one #123 itself used to get ahead of #109**,
+> applied unchanged: #125's fix is a rule change that alters what a run spends and gets, so building
+> #109 first means measuring the corpus twice with no way to attribute the difference — and #109
+> exists precisely to produce a *clean* measurement of invariant 4. Two more reasons on top. **§4's
+> honesty is gated on it**: §4 now says in as many words that nobody may cite its pricing paragraph
+> as authority that a wake costs something until #125 rules. And **a free-kill route on a woken
+> creature is exactly what invariant 4 is asserted against** — a flashing style banking ember it did
+> not pay HP for is income the fuel corpus would measure without knowing it. #125 is a **ruling**,
+> not a build, so it is cheap in the way #121 was.
 
 **Three measurements are now rejected here, and the third was this ruling's own.** The adjacency
 fraction is set by the **player** (0.89, and it reads as the opposite arm). *Unavoidable hits* is
@@ -185,14 +197,22 @@ The total was `1047` at both `9df602d` and `bd4f577` (#92), `1116` at `942136c` 
 `5c14218` (#111, a docs PR). Tracked as **#110**; the options are automating it or deleting the
 numbers.
 
-**#83's PR is the first code PR to update it**, which is why the streak above is written in the past
-tense — and the way it was caught is the part worth keeping. The table read `1158`; `main` at
-`8f29dc3` actually measured **1166**, because PR #113 (#107) added eight tests under `tests/unit/`
-and did not touch the table. So this PR's own delta is **+1**, not +9, and the only way to know that
-was to run the commands against `main` as well as against the branch. **A stale baseline does not
-just make a number wrong — it silently reattributes the difference to whoever measures next.** That
-is a better argument for #110 than the staleness itself, and it is an argument for automating rather
-than deleting: a deleted number cannot be misattributed, but it also cannot be checked.
+**#83's PR (PR #119) is the only code PR to have updated it, and the past tense above was premature.**
+The way #119 was caught is still worth keeping: the table read `1158`; `main` at `8f29dc3` actually
+measured **1166**, because PR #113 (#107) added eight tests under `tests/unit/` and did not touch the
+table. So that PR's own delta was **+1**, not +9, and the only way to know it was to run the commands
+against `main` as well as against the branch. **A stale baseline does not just make a number wrong —
+it silently reattributes the difference to whoever measures next.** That is a better argument for
+#110 than the staleness itself, and an argument for automating rather than deleting: a deleted number
+cannot be misattributed, but it also cannot be checked.
+
+> **The streak resumed on the very next code PR, so it is back in the present tense — checked, not
+> assumed.** PR #126 (#123) touched `ROADMAP.md` by 129 lines and **did not touch this table**, which
+> went stale in a way the total hides: `game/` lost `entities/contact.ts`, so the **source-module**
+> cell went 45 → 44 while the test total sat still. Verified with `git show 29493d3 -- docs/ROADMAP.md`.
+> **A table that only goes stale in the column nobody re-derives is worse than one that goes stale in
+> the total**, because the total is the number a reader spot-checks. Five for six now, and #110 is
+> still the fix.
 
 ```bash
 # source modules and test files, per directory, tracked files only
@@ -202,10 +222,12 @@ git ls-files <dir> | grep -E '\.test\.tsx?$' | wc -l
 npx playwright test --list      # E2E: declarations x 2 projects
 ```
 
-**The table is measured at `2890e06`** (PR #119) and was re-derived from the tree by the reconcile
-after it: `game/` 811, `render/` 171, `session/` 28, `tests/unit/` 157, **1167** total, **38** E2E.
-The prose above about *which rows moved* describes the `0baacfd` re-count and has not been re-derived
-since — so read the table as current and the deltas as history.
+**The table is measured at `29493d3`** (PR #126) and was re-derived from the tree by the reconcile
+after it: `game/` 811, `render/` 171, `session/` 28, `tests/unit/` 157, **1167** total, **62** files,
+**38** E2E. **Only the `game/` source-module cell moved** (45 → 44, `entities/contact.ts` deleted by
+#123); every test count is unchanged, which is a coincidence rather than evidence — #126 both added
+and deleted tests. The prose above about *which rows moved* describes the `0baacfd` re-count and has
+not been re-derived since — so read the table as current and the deltas as history.
 
 **Everything M1 set out to build exists, endings included.** #21 closed the run loop; the exit
 playtest (#87) reached both endings on a phone at `3ea83fa`. What M1 did **not** settle is whether
@@ -214,7 +236,7 @@ is why M1 closes without it.
 
 | Directory | Source modules | Test files | Tests |
 | --- | --- | --- | --- |
-| `game/` — generation, FOV, light, fuel, scheduler, combat, descent, endings | 45 | 42 | 811 |
+| `game/` — generation, FOV, light, fuel, scheduler, combat, descent, endings | 44 | 42 | 811 |
 | `render/` — the presentation model (#19), `taps.ts` (#20), `cues.ts` (#21, #79) | 9 + barrel | 9 | 171 |
 | `session/` — the run (#45) | 1 + barrel | 1 | 28 |
 | `components/play/` — board, cells, HUD, controls, summary, hit test, theme, `opening`, `status-style` | 14 | 0 colocated | — |
@@ -485,11 +507,27 @@ this milestone, not its method.
       woken kills in the `STALKER` corpus cost 0 HP. The cause is a **scheduling invariant**, not a
       fact about flashes: a creature's first action resolves a command late whenever the command that
       woke it did not sweep phase 4 past `now`, which is true of a free action *and* of `beginRun`
-      (phase 3 only, one run start in five) but **not** of a descent. Two player commands is two
+      (phase 3 only, **roughly one run start in nine** — measured at 11.2% over 2000 seeds by the
+      reconcile after #126; *one in five* was §4's arrival figure misapplied to a run start, which is
+      always floor 1) but **not** of a descent. Two player commands is two
       strikes, and two strikes is a Cinder. §4's *"every woken Cinder costs exactly 2 HP"* is wrong
       about one woken kill in seven **in the free-action half alone** — the corpus never calls `beginRun`, so that fraction is a floor rather than the size of the defect. Not a regression — it predates #83 — and the fix is a rule
       change, so it is #125's to rule. `economy.test.ts` carries a characterisation test in the
       guard's place, with both routes reproduced by hand and a negative control on descent
+- [ ] **Rule on the grace turn a wake gets when phase 4 did not sweep — #125, build-order step 4b and
+      the next thing to do.** Found by #123's instrumentation, not a regression, and a
+      `game-designer` call because every fix is a rule change. It is ahead of #109 on three grounds,
+      argued at step 4b below: attribution (its fix changes what a run spends, so #109 would measure
+      the corpus twice), invariant 4 (a flashing style banks ember from ~1 woken kill in 7 without
+      paying the HP, which the fuel corpus records as ordinary income), and **§4's honesty** — §4
+      says nobody may cite its pricing paragraph as authority that a wake costs something until this
+      rules. #123's playtest reproduced it deliberately and rules it **low priority**, because the
+      dormant strike strictly dominates it: one turn, 0 HP, 6 damage, no wake, no 4 fuel spent. That
+      is evidence for the ruling and is **not** the ruling.
+      *Its frequency was overstated and is corrected — see the measurement under step 4b below, a
+      comment on #125, and* **#127** *for the one wrong site left in code (`economy.test.ts` prices
+      the run-start route at §4's all-depths 20%). Fix #127 or #125's body before ruling: the ruling
+      will be written from them*
 - [ ] Fuel economy and the risk/reward tuning around it — calibrated once in #17. **#63 is ruled**
       and **no fuel number may move yet.** The first of the two reasons is now discharged: #31/#41
       landed 2026-08-01 and `DARK_PACIFIST`'s take went **119 of 121 → 0 of 121**, so the corpus is
@@ -528,8 +566,8 @@ this milestone, not its method.
 - [ ] Auto-travel: implement `travel(to)` per [ADR-0009](decisions/0009-auto-travel-command-shape.md)
       — **#65**, filed because the gate below has been answered and the recommendation is build it.
       #32 was the design ruling and stays closed
-- [ ] **The wager is invisible before it is taken and illegible after it** — now **thirteen** issues
-      from **six** playtests, none of them tuning and none of them mechanic, all M2. Two are closed:
+- [ ] **The wager is invisible before it is taken and illegible after it** — still **thirteen** issues,
+      now from **seven** playtests, none of them tuning and none of them mechanic, all M2. Two are closed:
       ~~**#94** the wake line is the least emphatic text on screen~~ (done, PR #101) and ~~**#107** a
       cache the flash paid for is announced by nothing~~ (done, 2026-08-01 — the wake line now
       carries the turn's fuel receipt as a second sentence). Open: **#82**
@@ -555,9 +593,16 @@ this milestone, not its method.
       turn line wrapping at 320 wide, came from the same playtest and is *not* counted here: its root
       is that this project has never named a minimum supported viewport, which is a missing decision
       rather than a legibility defect. It is in M2 too, as the place the wrap is felt.)
-      **By creation time the six playtests contributed 6 → 1 → 2 → 1 → 3 → 0**, and the family has
-      never shrunk except by being built. **The final 0 is the measurement this bullet asked for.**
-      It said: *"the measurement that would settle it is the next broad playtest — the one after
+      **By creation time the seven playtests contributed 6 → 1 → 2 → 1 → 3 → 0 → 0**, and the family
+      has never shrunk except by being built. **The two trailing zeroes are not equal evidence.**
+      The first (PR #119) is the measurement this bullet asked for. The second is #123's playtest on
+      PR #126, which mapped everything it found onto **existing** issues — #85 (its third sighting;
+      #123 makes HP death the ordinary ending, so its near-miss now fires on the common case), #84,
+      #117 and #80 — and filed nothing new. That is a real sweep and it is **weaker evidence than
+      #119's**, because it was a **narrow build-verification brief** rather than a broad run, so it
+      had fewer chances to hit a new one. Read the pair as: the family stopped growing under a broad
+      brief, and did not resume under a narrow one.
+      This bullet said: *"the measurement that would settle it is the next broad playtest — the one after
       #83"*, and *"if it returns six again, 'the wager is illegible' has stopped being a list of bugs
       and become a finding about the screen."* That playtest ran on PR #119, was genuinely broad
       (6 lines of play across 3 seeds, unlike the four narrow briefs before it whose counts are
@@ -673,9 +718,12 @@ multiplied it by §3's damage. It predates #123 and #83 alike; re-dormancy hid i
 free kill was the one on a creature that had gone back to sleep.
 
 **Two things about the shape of it, both of which change what a fix must do.** The `beginRun` route is
-live on **one run start in five** (§4's change log: 20% of arrivals wake something), so *"schedule a
-creature woken by a free action at `now`"* — the obvious fix, and the one #125's first draft named —
-**would not close it**. And a **descent does not** open the window: `arriveOnFloor` charges the player
+live on **roughly one run start in nine** (measured at the reconcile after #126: **223 of 2000** seeds
+through `openRun`, 11.2%. *One in five was wrong* — it took §4's change-log figure of 20% of
+**arrivals** and applied it to a **run start**, which is always floor 1 and therefore carries
+`min(2 + floor, 6)` = 3 creatures against 6 from floor 4 down. Per-depth: floor 1 **11.2%**, then 14.7 / 17.9 / **20.6%**, flat from floor 4 down (the `min` caps spawn at 6, so floors 4-8 are structurally identical and measure bit-identically). `tests/unit/play-opening.test.ts` and `ARCHITECTURE.md` already said one in ten), so
+*"schedule a creature woken by a free action at `now`"* — the obvious fix, and the one #125's first
+draft named — **would not close it**. And a **descent does not** open the window: `arriveOnFloor` charges the player
 and `descendTurn` runs the whole phase list, so phase 4 sweeps and the creature acts on the next
 command as §2 promises. The route is `beginRun` and free actions, not arrivals generally.
 
@@ -689,6 +737,33 @@ because the measurement did not exist. The rule that no criterion may be claimed
 would falsify it can be observed is the only reason this was found — and it fired in the direction
 nobody expected. #125 owns the fix, which is a rule change; `economy.test.ts` carries a
 characterisation test in the guard's place, and it goes red the day #125 closes.
+
+**Step 4b — #125: rule on the grace turn a wake gets when phase 4 did not sweep. Added to this list by
+the reconcile after PR #126, and it is what happens next.** **Lettered rather than renumbered, for the
+third time and the same reason** as 3a and 4a: `docs/JOURNAL.md`, the comment closing #105, GDD §12
+and M2's exit criterion all cite "step 5"/"step 6", and renumbering silently redirects them.
+
+**Why it goes ahead of #109, which is the whole reason it is written down here rather than inferred.**
+Three arguments, and the first is the same one that put #123 ahead of #109 — used unchanged, because
+the situation is identical:
+
+- **Attribution.** #125's fix is a rule change that alters what a run spends and what it gets. Build
+  #109 first and the corpus is re-measured twice with no way to tell which change moved it, which is
+  precisely what #109 exists to avoid — it is the *clean* measurement of invariant 4.
+- **#125 is income invariant 4 cannot see.** Invariant 4 is *a style that never opens the shutter must
+  not out-earn one that flashes*. A flashing style currently banks ember from ~1 woken kill in 7
+  without paying the HP, and the fuel corpus records it as ordinary income. Measuring the invariant
+  against a confounded numerator answers the wrong question.
+- **§4's honesty is gated on it.** §4 now states that **nobody may cite its pricing paragraph as
+  authority that a wake costs something** until #125 rules. That sentence stands over the arithmetic
+  the whole HP budget rests on, and it stays there until this step is done.
+
+**It is a ruling, not a build** — a `game-designer` call, cheap in the way #121 was, and this roadmap
+does not preempt it. #125's body carries both reproductions and the three options it opens with; none
+is chosen here. **Do not treat the low-priority read from #123's playtest as the ruling**: the
+playtester's finding is that the dormant strike strictly dominates the free kill, so it is a discount
+on an accidental wake rather than an exploit — real evidence, recorded below, and explicitly handed to
+#125 rather than substituting for it.
 
 5. A **`HARVESTER`** style in `game/systems/economy.test.ts` — never flashes, routes to every
    ember-sense contact, one-shots each dormant — which is what §4's invariant 4 is asserted against.
@@ -716,13 +791,16 @@ shuttered player is already reading, and it worked every time the playtester use
 stays open for the counter-argument, not because the question is unanswered**; closing it is a
 `game-designer` call. The hole the finding exposes is a different one and belongs to #99.
 
-**That call is now made, and it is made by #121 rather than by argument: close #89.** The ruling
-deletes re-dormancy, so there is no transition left to announce — a woken creature is awake until it
-dies or you descend. Close it citing #121, not the counter-argument above, so that the record says
-*the event was removed* rather than *the announcement was refused*. **#99 moves the other way and
-gets stronger:** with re-dormancy gone the wake count over a floor is **monotone**, so a HUD readout
-of how many things are awake is a running total of the flash's bill rather than a number that can
-silently go down. Whether to build it is still unruled.
+**That call was made by #121 rather than by argument, and #89 is now closed** (2026-08-02, verified
+against `gh issue view 89`). The ruling deletes re-dormancy, so there was no transition left to
+announce — a woken creature is awake until it dies or you descend. It is closed citing #121, not the
+counter-argument above, so the record says *the event was removed* rather than *the announcement was
+refused*. **#99 moves the other way and gets stronger:** with re-dormancy gone the wake count over a
+floor is **monotone**, so a HUD readout of how many things are awake is a running total of the
+flash's bill rather than a number that can silently go down. **Whether to build it is still unruled**,
+and #123's playtest sharpened the case for it without ruling it either: two woken Cinders in the open
+stack their attacks (`You take 4.`, 12 → 8 → 4) where the same two held at a doorway cost 4 HP total,
+so *how many are awake* is now the input to the only price control the player has.
 
 **#99's parking reason is discharged, and this reconcile moved it into M2.** A HUD readout of how
 many creatures are awake, split out of #94's ruling. It was parked as *"today it would count parked
@@ -833,6 +911,14 @@ guarding nothing. The other is **#112**, filed by `code-reviewer` on PR #111 and
 here** until now, which is the #76/#78 failure repeating for the fourth time. **Re-derive this list
 from `gh issue list --milestone "Contract and tooling"` rather than reading it** — every count in this
 paragraph has been wrong at least once, and always in the same direction.
+
+**Still seventeen at the reconcile after #126, and this is the first pass where the re-derivation
+found nothing missing.** Verified with `gh issue list --state open --milestone "Contract and tooling"`:
+17 open, and all seventeen are in the list below — #12, #39, #48, #50, #52, #53, #57, #58, #62, #76,
+#78, #90, #91, #95, #110, #112, #120. **#123's cycle filed nothing into this milestone**, so the
+count held for a reason rather than by luck. One caveat on reading that as the habit sticking: the
+same cycle *did* find a process defect and it was filed as **#125**, in M2, correctly — it is a rule
+bug, not a tooling one.
 
 - [ ] Both contract gates are bypassable by naming a source file `*.test.ts` — #48. Same family as
       #12, which moved with it; whoever does #12 is already in both files
@@ -956,9 +1042,18 @@ because a pursuer cannot hit a player who keeps walking. A wager you can decline
 wager — which is the same sentence M1's exit playtest wrote about the old rule, arrived at by a
 different route. **#121 is what now stands between M2 and this exit.**
 
-**#121 is ruled and #123 is the build, so the next *broad* playtest is the judging one — and it is
+**#121 is ruled and #123 is built, so the next *broad* playtest is the judging one — and it is
 briefed differently.** Broad as in PR #119's six lines across three seeds; a narrow follow-up may not
 spend §12. Three things it must be asked, and none of them is "can you sign the criterion":
+
+> **The judging playtest is still owed, and #123's was not it.** A playtest ran on PR #126 — one full
+> run to death on `emberdepth`, 165 turns, floors 1-4, ~20 branch-point replays, plus two lines on a
+> second seed — and it was an explicitly **narrow build-verification brief**. It says so and it
+> **drew no §12 verdict**, handing its light-affordability observation to `game-designer` under
+> ADR-0012 instead. **Nothing may read it as having judged §12**, in either direction. Its findings
+> are recorded two blocks down as evidence for the judging brief to check, not as a substitute for
+> it. So the bound in ADR-0012 — *the next broad playtest after #123* — is **unspent**, and the next
+> broad playtest is the one that spends it.
 
 - **Both arms of §12's restated trigger, in VISION's words** (ADR-0012): *can you name a turn where
   the light decision mattered?* and *did you open the lantern only when lost?* An unsigned criterion
@@ -992,10 +1087,20 @@ back different.** The third one survives in §4 as a **regression guard** for a 
 needed per-creature wake and HP instrumentation that did not exist — **#123 owned that or the guard
 was not built.** #123 built it, ran it, and **the guard failed**: 56 of `STALKER`'s 386 woken kills
 cost 0 HP, because a creature's first action resolves a command late whenever the command that woke it
-did not sweep phase 4 past `now` — true of every free action **and of `beginRun`**, which is one run
-start in five. That is [#125](../../issues/125), it predates #83, and it means *"free kills on woken
-creatures"* was never pinned by the numbers at all — the third way of being unfalsifiable was itself
-unverified. Still not a verdict to run a playtest on; now a defect with an issue.
+did not sweep phase 4 past `now` — true of every free action **and of `beginRun`**, which is roughly
+one run start in **nine** (measured 11.2% at the reconcile after #126; *one in five* was §4's
+arrival figure misapplied to a run start). That is [#125](../../issues/125), it predates #83, and it
+means *"free kills on woken creatures"* was never pinned by the numbers at all — the third way of
+being unfalsifiable was itself unverified. Still not a verdict to run a playtest on; now a defect
+with an issue, and build-order step 4b.
+
+**And the question that separated a watch from a guard did not catch any of it — see
+[ADR-0013](decisions/0013-a-claim-about-the-build-is-established-by-measurement.md).** *Name the state
+of the world in which this number comes back different* is kept and is now **necessary and not
+sufficient**: six defects in the session that produced this block were the same shape (a claim
+derived correctly from these documents, false of the build) and **all six pass it**. What caught them
+was building the instrument or implementing the mutant. That is why the three bullets above are
+written as *report it* rather than as arithmetic.
 
 **Both numbers the block asked for came back.** **0 fuel has stopped being a dead zone**: dead in 6
 turns from fuel 0 with two hunters, against the 143 inert turns recorded above. That is a total
@@ -1006,6 +1111,49 @@ other arm — it is a property of the player's policy (0 of 4 in every line wher
 **deleted** now that #121 has ruled; the warning it carried is preserved inside §4's new watch, and
 the replacement is *not* the *unavoidable hits* the playtest proposed — that one is rejected too, for
 the reason above.
+
+### What #123's playtest measured, and what it deliberately did not
+
+*From PR #126. A **narrow build-verification brief**: one full run to death on `emberdepth` (165
+turns, floors 1-4, 13 kills), ~20 branch-point replays, two lines on a second seed. Recorded here
+because this roadmap is its only record and the judging playtest needs it.* **It drew no §12 verdict
+and nothing may read one into it.**
+
+- **Doorways are now the price control on every fight, measured both ways.** Two woken Cinders held
+  at a doorway cost **4 HP**; the same two fought in the open **stack their attacks** — `You take 4.`,
+  12 → 8 → 4 — for roughly double. Confirmed on the second seed. Doorways went from *a place to
+  outlast something* to *the thing that decides what a fight costs*. This is the load §4 predicted
+  #83 would put on §5's loop doorways, arriving. **It also corrects a §4 sentence** — *"a second
+  pursuer covers nothing a first did not"* is true of **tiles** and false of **damage**.
+- **A shuttered floor cost 0 HP for 4 kills; a floodlit floor in the same run cost 10 HP for 3.**
+  Floor 2, shuttered with three flashes and dormant-striking everything: **0 HP, 4 kills.** Floor 3,
+  floodlit whenever fuel allowed: **10 HP, 3 kills** — on a 12 HP bar. The playtester's read, handed
+  over rather than concluded: the flash-*peek* is well priced (5 fuel, zero turns, used deliberately
+  about twice a floor at nameable moments) and is **not** VISION's failure condition; **sustained
+  light is unaffordable**, and #123 widened that gap rather than narrowing it, because a wake used to
+  be a temporary nuisance with a 20-fuel refund and is now a permanent 2-HP debt. **That is the
+  too-strong arm's territory.** **It does not meet the arm's stated trigger**, which ADR-0012 defines as
+  *the lantern opened only when lost* — and this run opened it deliberately, about twice a floor, at
+  moments the playtester could name. **That is a statement about the trigger's wording, not a verdict
+  from this playtest**, which was a narrow build-verification brief and is not entitled to one. The
+  judging playtest decides whether the arm fires; this bullet only records that the observation and
+  the trigger are different claims.
+- **#125 is findable but nobody would seek it.** Reproduced deliberately (flash beside a sleeper, two
+  strikes, HP unchanged) and hit accidentally first — the two-turn stillness is very visible. **But
+  the dormant strike strictly dominates it:** one turn, 0 HP, 6 damage, no wake, and no 4 fuel spent.
+  So it is a **discount on an accidental wake**, not an exploit, and the corpus' 14.5% reflects a bot
+  that flashes constantly being adjacent to sleepers often. Playtester rules it low priority; **that
+  read is evidence on #125 and is not the ruling.**
+- **Fleeing is honestly worthless and it is felt:** 26 turns of flight cost 26 fuel and 2 HP and
+  gained nothing, with no refund at the end of it. Bundle-verified before playing: woke a Cinder at
+  turn 7, fled to turn 24, **17 turns later still adjacent and still coming**; repeated at 26 turns
+  on a second bundle.
+- **Existing issues re-hit, none new:** **#85** for the third time (`The lantern goes out.` as the
+  headline for an HP death — and #123 makes HP death the ordinary ending, so this now fires on the
+  common case), plus #84, #117 and #80. **#95 fired live again** — the working tree mutated during
+  the playtest, against a `dist/` built 10 minutes earlier; the playtester checked that no shipping
+  source had changed and the report is sound, but that check was theirs to think of, which is the
+  hazard #95 describes.
 
 ## M3 — Depth
 

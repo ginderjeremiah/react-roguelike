@@ -52,8 +52,9 @@ import { step } from './step';
  *
  * So the descent is held to what it *is*: a floor generation plus one turn. Generation already has
  * an absolute budget of its own (`generate.bench.test.ts`, 2ms) and a turn has one
- * (`light.bench.test.ts`, 0.2ms); what only this layer can see is whether descending costs more than
- * the sum of its two halves. Measuring both in the same process divides the machine out, so the
+ * (`light.bench.test.ts`, 1ms — 0.2ms until that file's fixture was found to be measuring a turn in
+ * which nothing acted, which was a factor of 8); what only this layer can see is whether descending
+ * costs more than the sum of its two halves. Measuring both in the same process divides the machine out, so the
  * assertion means the same thing on a laptop, a runner, and a phone. Under that first harness a
  * descent cost **1.06-1.09x** a bare generation here (~0.43ms against ~0.41ms) — so generating the
  * floor is ~92% of it and the six phases are noise. The figure under the present harness is below.

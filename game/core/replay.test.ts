@@ -842,7 +842,7 @@ describe('RunRecord', () => {
 // --- Pinned run ---------------------------------------------------------------------------------
 
 /**
- * A stored replay fixture, pinned at `RULES_VERSION` 6.
+ * A stored replay fixture, pinned at `RULES_VERSION` 7.
  *
  * Everything above proves the simulation reproduces *itself*. Nothing above notices if what it
  * reproduces silently changes — a different fuel burn, a reordered phase, a different seed
@@ -953,7 +953,7 @@ function expectPinned(record: RunRecord, pinned: Digest): void {
 
 describe('pinned run — a descent in the dark', () => {
   const PINNED_RECORD: RunRecord = {
-    version: 6,
+    version: 7,
     seed: 'emberdepth',
     // A dark crawl across floor 1 to its stairs, a descent, and three commands on the floor below —
     // one of which (the move north) is refused by the new floor's geometry, which is why the two
@@ -1083,11 +1083,49 @@ describe('pinned run — the whole combat loop, ending in a death', () => {
    *   7. **command 32** — open. Free, and it wakes the third Cinder at (6, 0), three tiles up a
    *      clear column. This is the flash's price with nothing left to pay it with.
    *   8. **commands 33-37** — stand still, and be killed by the pair. Four landed turns out of five:
-   *      two at 2 damage from the original hunter alone, then two at **4** once the newly-woken one
-   *      arrives — 12 HP gone in four blows-worth of turns rather than six, which is §6's *"the
-   *      second Cinder no longer times out behind the first"* as a number. `turnsElapsed` is 35
-   *      while `now` is 3400 because §13 stops the turn where the killing blow lands and the clock
-   *      never advances past it.
+   *      one at 2 damage from the original hunter alone, then two at **4** once the newly-woken one
+   *      arrives, then the 2 that finishes it — 12 HP gone in four blows-worth of turns rather than
+   *      six, which is §6's *"the second Cinder no longer times out behind the first"* as a number.
+   *      `turnsElapsed` is 35 while `now` is 3400 because §13 stops the turn where the killing blow
+   *      lands and the clock never advances past it.
+   *
+   * ## Re-recorded for `RULES_VERSION` 7 (#125, #133), and it is the smallest of the three
+   *
+   * ADR-0014 schedules a woken creature at the instant the player is next due to act, and this log
+   * wakes things two ways it changes: the **opening perception** at command 0 and the **flash** at
+   * command 32. Neither is a command the player was charged for, so both creatures now join the
+   * queue at `now` rather than a command beyond it.
+   *
+   * **It bought the hunter one command and the hunter spent it, which is worth reading before
+   * assuming the ruling makes pursuers stronger.** Measured by replaying this log under both rules:
+   * it steps out of (8, 8) on command **2** instead of command 3 and stays a command ahead all the
+   * way round the loop — until command 23, where being a command ahead puts it *adjacent* at (9, 7)
+   * while the player is on (10, 7), so it declares an attack, the player steps to (10, 6), and
+   * command 24 is spent resolving that attack on an empty tile. §2's *step off the marked tile*,
+   * charged to the creature.
+   *
+   * **The two runs then re-converge for eight commands and diverge a second time — a first draft of
+   * this comment said "identical from command 24 onward", which is true only through command 31.**
+   * The flash at command **32** wakes a Cinder, and under the ruling it is due immediately: it stands
+   * at (6, 1) and (6, 2) on commands 33-34 where version 6 had it at (6, 0) and (6, 1), and the
+   * player's HP differs mid-run — 6 against 8 on command 35, 2 against 4 on command 36. The run still
+   * ends the same way: same 27 creature steps, same four landed blows, same `doubleTeamed` of 2, same
+   * death on command 37, same `now`, `fuel`, `kills`, both vision planes and the same generator state.
+   * **The correction matters because the *damage sequence* assertion below depends on it** — it reads
+   * 2, 4, 4, 2 where version 6 read 2, 2, 4, 4, which is a mid-run difference and cannot be true of
+   * two runs that are identical from command 24.
+   *
+   * **Two things move in the final frame**, on top of the mid-run divergence above.
+   * `pursuedInTheDark` goes 27 → **26**, and
+   * not because a step was lost: the count excludes a step that ends adjacent, and command 23's step
+   * now does. And the **killing blow changes hands**. The pair are tied on the clock from command 33,
+   * so the flash-woken Cinder (the lower id) swings first each turn; under version 6 it arrived one
+   * command later and the player was still alive after its blow on the last turn, so the *other*
+   * hunter landed the killing one. Here the flash-woken one lands it, declares over the corpse and is
+   * frozen holding a `wait`, while the long-time hunter — which never got its turn, because §13
+   * halted the sweep — is frozen holding the `attack` it declared a command earlier. The two minds in
+   * the digest are therefore **swapped** relative to version 6, and the dead-player gate is still
+   * what produces the `wait`.
    *
    * ## Re-recorded for `RULES_VERSION` 6 (#121, #123), and the property that could not be preserved
    *
@@ -1151,7 +1189,7 @@ describe('pinned run — the whole combat loop, ending in a death', () => {
    * time changes silently whenever the script does, which is the one thing a fixture must not do.
    */
   const PINNED_RECORD: RunRecord = {
-    version: 6,
+    version: 7,
     seed: 'ember-z',
     commands: [
       { kind: 'setShutter', to: 'shuttered' },
@@ -1225,23 +1263,27 @@ describe('pinned run — the whole combat loop, ending in a death', () => {
     hp: 0,
     creatures: [
       // **The two minds in this list are different, and the difference is §13's halt.** Both
-      // creatures are adjacent to the corpse; ids sweep in ascending order, so on the last landed
-      // turn — the fourth of four — this one resolved its attack first, taking the player **4 -> 2**,
-      // declared another against a player who was still alive, and then the *next* creature's blow
-      // ended the run at 2 -> 0. So it is frozen holding an `attack`. It is the one woken by command
-      // 32's flash, three tiles up a clear column from (6, 0), and it only reached adjacency after
-      // command 35 — which is why the last two turns cost 4 and the first two cost 2.
+      // creatures are adjacent to the corpse and both are due at 3400; ids sweep in ascending order,
+      // so this one — the lower id — resolved its attack first on the last turn, took the player
+      // **2 -> 0**, and then declared from a world with a dead player in it. That declaration is the
+      // dead-player gate in `nextMind` (#83, unchanged by #123): pursuit is refused rather than
+      // routed at a corpse, so it holds a **wait**. Without the gate this reads `attack at (6, 3)`.
+      //
+      // It is the one woken by command 32's flash, three tiles up a clear column from (6, 0). Under
+      // version 6 it joined the queue a command later, reached adjacency after command 35 instead of
+      // 34, and was still swinging at a living player on the final turn — so these two minds are the
+      // version-6 pair **swapped**. #133 is what swapped them.
+      { at: { x: 6, y: 2 }, hp: 5, mind: { kind: 'awake', intent: { kind: 'wait' } } },
+      // ...and this is the hunter that has been following since before command 1. §13 halted the
+      // sweep on the blow above, so this one never took its turn 37 at all: it is frozen holding the
+      // `attack` it declared on command 36, against a player who was alive then. The gap between the
+      // two minds is exactly where the sweep stopped. The third Cinder is absent from this list
+      // because the dormant strike on command 23 killed it.
       {
-        at: { x: 6, y: 2 },
+        at: { x: 7, y: 3 },
         hp: 5,
         mind: { kind: 'awake', intent: { kind: 'attack', at: { x: 6, y: 3 } } },
       },
-      // ...and this is the hunter that has been following since before command 1. It struck the
-      // killing blow, then declared from a world with a dead player in it — which is the dead-player
-      // gate in `nextMind` (#83, unchanged by #123): pursuit is refused rather than routed at a
-      // corpse, so it holds a **wait**. Without the gate this reads `attack at (6, 3)`. The third
-      // Cinder is absent from this list because the dormant strike on command 23 killed it.
-      { at: { x: 7, y: 3 }, hp: 5, mind: { kind: 'awake', intent: { kind: 'wait' } } },
     ],
     // Dropped on command 23 and collected on command 24 — empty here because it was *taken*, which
     // the fuel above is what proves.
@@ -1317,13 +1359,22 @@ describe('pinned run — the whole combat loop, ending in a death', () => {
     }
 
     expect(woke, 'nothing ever woke up').toBe(1);
-    // §4 (#83): a woken Cinder pursues. Twenty-seven steps taken with the lantern shut and without
-    // ever reaching the player — through two doorways and most of a lap of the floor — which is the
-    // one thing in this log the rules that preceded version 5 could not produce: they walked a
-    // creature to the player's last-known tile, at most two steps here, and then parked it. Counted
-    // rather than pinned as a position because the body is gone by the final frame, so the digest
-    // cannot see it.
-    expect(pursuedInTheDark, 'nothing chased the player in the dark (§4)').toBe(27);
+    // §4 (#83): a woken Cinder pursues. Twenty-six steps taken with the lantern shut and without
+    // reaching the player — through two doorways and most of a lap of the floor — which is the one
+    // thing in this log the rules that preceded version 5 could not produce: they walked a creature
+    // to the player's last-known tile, at most two steps here, and then parked it. Counted rather
+    // than pinned as a position because the body is gone by the final frame, so the digest cannot
+    // see it.
+    //
+    // **26 and not the 27 this said under version 6, and the difference is not a lost step.**
+    // Re-derived rather than nudged: the hunter takes the same **27** steps under both rules — the
+    // opening wake now gives it its first one on command 2 instead of command 3, and it gives that
+    // command back on 23/24 by declaring an attack from (9, 7) that the player walks out of. What
+    // changed is which steps this counter is willing to count. It excludes a step that ends
+    // *adjacent* to the player, because that is catching up rather than chasing; command 23's step
+    // now ends on (9, 7) with the player on (10, 7), so it is excluded. Restoring the parking rules
+    // still fails this line by a wide margin — it is a bound on pursuit, not on tempo.
+    expect(pursuedInTheDark, 'nothing chased the player in the dark (§4)').toBe(26);
     expect(declaredAnAttack, 'nothing ever declared an attack').toBeGreaterThan(0);
     expect(creatureMoved, 'no creature ever moved').toBeGreaterThan(0);
 
@@ -1375,11 +1426,13 @@ describe('pinned run — the whole combat loop, ending in a death', () => {
     expect(embersCollected, 'the dropped ember was never collected').toBe(1);
 
     // §13's death, and §4's HP arithmetic underneath it. The whole 12 HP goes, but over **four**
-    // landed turns rather than six: the last two are 4 damage because the flash on command 32 woke
-    // a second hunter and it arrived while the first was still swinging. That is §6's *"the second
-    // Cinder no longer times out behind the first"* — under version 5 it had eight turns in which to
-    // fall asleep, and here it has none. Both halves asserted, because `damageTaken` alone is
-    // satisfied by six ordinary blows and `hitsTaken` alone by four of any size.
+    // landed turns rather than six — 2, 4, 4, 2 — because the flash on command 32 woke a second
+    // hunter and it arrived while the first was still swinging. That is §6's *"the second Cinder no
+    // longer times out behind the first"* — under version 5 it had eight turns in which to fall
+    // asleep, and here it has none. Both halves asserted, because `damageTaken` alone is satisfied
+    // by six ordinary blows and `hitsTaken` alone by four of any size. The **sequence** moved with
+    // #133 (version 6 read 2, 2, 4, 4: the second hunter arrived a command later) and these three
+    // counts did not, which is the useful thing this trio pins about the ruling.
     expect(damageTaken).toBe(PLAYER_MAX_HP);
     expect(hitsTaken).toBe(4);
     expect(doubleTeamed, 'no turn was fought against two hunters at once').toBe(2);
@@ -1428,11 +1481,23 @@ describe('pinned run — a cache the lantern found, hauled home in the dark', ()
    *   5. **command 16** — step south onto the cache. Phase 5 pays 25, the tile becomes floor, and
    *      (7, 6) leaves `floor.caches`. (9, 9) is still there, untouched and unlit.
    *
+   * ## Re-recorded for `RULES_VERSION` 7 (#125, #133), and this log is where the defect is clearest
+   *
+   * Commands 14 and 15 are **two free actions in a row** — flash, then shut again — which is §2's
+   * own illustration of why the rule is stated in *paid commands*: three commands pass here with one
+   * turn in them. Under version 6 the Cinder woken by command 14 joined the queue at
+   * `now + ACTION_COST`, an instant no phase 4 reached until after the run ended, so **it never took
+   * a turn at all**: the final frame had it standing on (6, 7) still holding the move it declared at
+   * the moment it woke. Under ADR-0014 it is due when the player is due, so command 16's phase 4
+   * gives it its one action — it steps to (6, 6), finds the player on the cache tile it just paid
+   * for, and declares an attack. Nothing else in the digest moves: same fuel, same burn, same two
+   * vision planes, same generator state, same cache taken.
+   *
    * Recorded by running `takeACacheTheLanternFound('cache-haul')` once and storing the resulting log
    * verbatim — stored, not regenerated, for the reason the fixture above gives.
    */
   const PINNED_RECORD: RunRecord = {
-    version: 6,
+    version: 7,
     seed: 'cache-haul',
     commands: [
       { kind: 'setShutter', to: 'shuttered' },
@@ -1481,11 +1546,14 @@ describe('pinned run — a cache the lantern found, hauled home in the dark', ()
     hp: 12,
     creatures: [
       // Woken by the flash on command 14 and coming: §4's price, paid in the same breath as the
-      // cache was found.
+      // cache was found. It has taken exactly one action — the move it declared when it woke — and
+      // is now adjacent to the player and declaring on their tile. Under version 6 this read
+      // `(6, 7)` still holding that move, because the two free actions at 14 and 15 meant its due
+      // instant was never reached before the log ran out.
       {
-        at: { x: 6, y: 7 },
+        at: { x: 6, y: 6 },
         hp: 5,
-        mind: { kind: 'awake', intent: { kind: 'move', to: { x: 6, y: 6 } } },
+        mind: { kind: 'awake', intent: { kind: 'attack', at: { x: 7, y: 6 } } },
       },
       { at: { x: 10, y: 8 }, hp: 5, mind: { kind: 'dormant' } },
       { at: { x: 4, y: 12 }, hp: 5, mind: { kind: 'dormant' } },

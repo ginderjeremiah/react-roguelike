@@ -57,6 +57,172 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-08-03 — #133: the grace turn is deleted in the build, and the guard is green for the first time
+
+**Did:** Built **#133**, the #125 ruling (ADR-0014), M2 build-order step 4b. **§4's regression guard
+is enabled and passing** — the first time since #123 built the instrumentation that measured it red.
+
+**The rule is one line**, in `setMind`, the only place a woken creature joins the queue:
+
+```diff
+-    addActor(updated.schedule, creature.id, updated.schedule.now + ACTION_COST),
++    addActor(updated.schedule, creature.id, nextActAtOf(updated.schedule, PLAYER_ID)),
+```
+
+Read from the state, not from a `TurnCost` threaded down — the player being charged already *is* the
+fact the rule turns on, and a second copy of it in a parameter is a second thing to get out of step.
+`wakeInLight` and `lanternPhases` gained no arguments. Everything else in a +574/−437 diff is tests,
+three fixtures, six docstrings and the docs.
+
+**Measured, in order, because the order is the point:**
+
+| | |
+| --- | --- |
+| baseline | 1167 passed |
+| the one-line change alone | **9 failed / 1158 passed** — exactly the nine enumerated tests in the four enumerated files, no unlisted red |
+| corpus before | `STALKER` **56/386** free woken kills, `FLOODLIT` **22/247** |
+| corpus after | `STALKER` **0/387**, `FLOODLIT` **0/252**, median 2 HP per woken kill |
+| both reproductions | 12/12 → **10/12 HP**, on both routes, as the ruling predicted |
+| final | **1168 passed** |
+
+**Criterion 4's precondition was checked before anything was deleted**, which is the one thing #125
+was shaped to prevent getting wrong: the corpus assertion *and* both hand-built reproductions went
+red **together**. The `beginRun` one did not stay green — a still-passing `beginRun` reproduction was
+the failure signal, and it did not fire.
+
+**The paid path did not move, checked three ways** rather than argued: the descent negative control is
+green and **unedited**; the `descent in the dark` fixture reproduced its digest unchanged with only
+its `version` field moving; and all three fixtures' `rng` fields are byte-identical, so **no draw
+moved anywhere**. That last one is the real proof — a scheduling change that perturbed the RNG stream
+would have been a determinism bug wearing a passing test suite.
+
+**Learned — the nine-test list was measured against the wrong edit, and it undercounted by three.**
+§4's *What a build owes* enumerated nine reds, derived by implementing the rule as a mutant **in
+`setMind` alone**. But criterion 7 also mandates editing `awaken()` in `tests/unit/support/scenario.ts`
+— and **that helper is a second rules-shaped edit whose consequences nobody had measured.** Bringing it
+to the player's due instant reds three more: two in `behaviour.test.ts` (a hunter's approach losing a
+step, `[5,5,4,3,2]` → `[5,4,3,2]`) and one in `render/cues.test.ts`. All three are the same class of
+verdict change the nine are — a hand-built world losing a command in which the creature was owed
+nothing — and none is a regression. The handover is 9+3, and it now says so.
+
+The general shape is worth keeping: **a test helper that encodes a rule is a rule site, and a mutant
+run measures only the site you mutated.** `awaken()` existed to reproduce the very window this issue
+deletes; left alone it would have gone on reproducing it after the window was gone, which is why
+criterion 7 named it. What nobody did was ask what *else* changing it would touch.
+
+**Learned — and this is the one nobody predicted: the light benchmark had been measuring a turn in
+which nothing happened, for its whole life.** CI went red on `game/systems/light.bench.test.ts`, and it
+was not a flake. `busyLitFloor()` builds an **uncharged** world and force-wakes six creatures; under
+the old rule they joined at `now + ACTION_COST` = 100, and `medianCost` then re-ran that same
+`now = 0` turn 550 times — so phase 4 found nothing due and merely advanced the clock. *"The most
+expensive turn a floor has"* was a turn in which **no creature took an action**. Under the ruling all
+six act in the measured turn and it costs **8×** more (0.013 → 0.10 ms), which blew a budget that had
+been calibrated against the empty measurement.
+
+**The guard written to prevent exactly this could not see it.** It asserted
+`actors.some(a => a.mind.kind === 'awake')`, under the comment *"a benchmark of a floor of sleepers
+measures the wrong turn entirely"* — and awake-but-**not-due** is not a sleeper. The clock was no help
+either: `elapsed` is 100 under both rules, because phase 4 advances `now` whether or not anything was
+due. The replacement asserts the work itself — that all six creatures' schedule slots advanced by
+`ACTION_COST` and at least one is somewhere new — and it was verified the only way that means
+anything: revert the one line in `behaviour.ts`, watch it go red at `acted = 0 of 6`, restore it. The
+timing assertion passed happily throughout, which is the point.
+
+**And the shutter benchmark was worse.** It toggled *to* `'shuttered'` from an open floor, so phase 3
+took the **dark** path: `lanternLight` returned `DARK` without casting anything and `wakeInLight`
+skipped all six creatures at `isAwake` without asking the light query once. It cost 0.0026 ms — **less
+than a single lit field** — while claiming to benchmark the free action's lighting recompute. Measured
+evidence: `revealed` grew by **0** tiles. Now a flash in the *open* direction, ~13× the cost, with the
+fixture's own preconditions asserted (six dormant going in, `revealed` grew, at least one woke, and
+the clock did **not** move).
+
+So this is a **fourth** verdict change beyond the 9+3, and it is the same lesson as `awaken()` wearing
+a benchmark's clothes: **a fixture is a rule site too.** Two of this repo's performance guards have now
+been found asserting a state rather than the work, and a state that the rules quietly stopped
+implying. Filed as **#137**, with the line-endings trap it exposed as **#141** — a ratio instrument rather than an absolute threshold, since a turn against a lit field
+measures **25.1, 29.2, 31.4, 32.1 and 34.0×** over five readings on two machine classes — a spread of
+**at least ~36%**, against a **4.5×** gap in the absolute numbers.
+
+**That figure is a small lesson in itself, and it is the one this whole session keeps teaching.** It
+was written *7%* from two points, corrected to *16%* from four, and is *~36%* at five — widened by the
+next CI run every single time, each draft an honest reading of the data then in hand. The argument
+survives at all three, which is the tell that the digits were never what mattered: **state it as a
+floor and as unstable**, not as a figure. #137 quotes it that way. The evidence that this is not theoretical: a *real* planted regression
+(recomputing the lit field per light query, the bug `step.bench.test.ts` names) costs **1.4×** and
+sails under the recalibrated threshold. #133 recalibrated the absolute numbers and recorded the
+argument; #137 is the instrument.
+
+**Learned — the fixture re-record was smaller than a `RULES_VERSION` bump implies, and derived rather
+than pasted.** In the combat log the opening wake hands the hunter one command at the start and it
+**spends** it: at command 23 the extra tempo puts it adjacent, it declares, the player steps away, and
+command 24 resolves the attack on empty ground. **A first draft of this entry said the runs are
+identical from command 24 on, and the review measured that it holds only through command 31** — the
+flash at command 32 wakes a Cinder that is now due immediately, so it stands a tile further on for two
+commands and the player's HP differs mid-run. The tell was inside the fixture the whole time: the
+damage sequence it asserts moves 2, 2, 4, 4 → 2, 4, 4, 2, which two runs identical from command 24
+cannot do. The run still *ends* the same — same 27 creature steps, same 4 landed blows, same death on
+command 37, same `now`, `fuel`, `kills` and both vision planes — and what moves in the final frame is
+*which* of two hunters lands the killing blow, so the digest's two minds are **swapped**. And `pursuedInTheDark` 27 → 26 is **not a lost step**: the counter excludes
+a step that ends adjacent, and command 23's now does. Re-derived from both trajectories rather than
+nudged until green — a fixture number changed by hand until the test passes is not a fixture.
+
+**Also found: a sixth prose site** asserting the old instant in English, outside criterion 7's five —
+`commit.test.ts` › *waking is not acting*, which stays green (its command is paid) but stated
+`now + ACTION_COST` as the *general* rule. Same trap as `world.ts`. Narrowed to the paid case. And
+`FLOODLIT`'s denominator moves 247 → **252**, which the spec did not predict and should have: giving
+creatures a command back means slightly more of them get killed awake.
+
+**The playtest approved it and then found something much larger, which is now #139.** Neither of
+ADR-0014's named revisit conditions fired: the flash has **not** become a thing to avoid, and a run
+start that wakes something does not read as unfair — §5's Manhattan-3 floor means the deleted grace
+turn can never manifest at an opening, so the worst case measured was *hold, trade, dead* for 2 HP and
++16 fuel. Every woken kill it resolved cost exactly 2 HP, so **§4's cornerstone sentence is true in
+play now**. It also rates the change a small legibility *gain*: the wake frame draws a box on the
+creature and fills your own tile red, and under the old rule that warning sat unfulfilled for two
+commands. An intent marker that does not fire when you take a turn is a lie.
+
+**But: a zero-strategy bot that never opens the shutter reached the bottom on 9 of 9 seeds, and the
+same bot with the lantern open died in 4 of 4.** A/B on one seed with an identical route: lit ends on
+85 fuel *having taken the cache*, dark on 89 *having forfeited it* — dark gives up 21 fuel and is still
+ahead. The mechanism is **HP, not fuel**: light converts a free dormant kill into a 2 HP woken kill.
+The playtester names it as **§12's arm 2 — *the lantern opened only when lost* — firing, and not a
+hypothesis any more.**
+
+**That is filed as [#139](../../issues/139) and deliberately not ruled here.** ADR-0012 restated the
+trip-wire as two arms bounded by *"the next broad playtest after #123"*, and this is that playtest, so
+the bound is consumed. But ADR-0012 also says the call is a `game-designer`'s to make **deliberately
+rather than inferred**, and three things cut against firing: the playtest itself classifies the
+finding as *tuning* (the same classification #31 got for *dark strictly dominates*, which ADR-0012's
+own table records as tuning, not mechanic); **#109 has not run**, and it is the gate that exists to
+measure invariant 4, so firing now is firing before the diagnosis; and the same playtest answers
+arm **1** emphatically in the negative, naming a retellable moment and putting 13 of 38 sampled turns
+as real decisions. Against all three, ADR-0012 restated the trigger *because* a trip-wire that
+survives its own firing condition is one nobody will ever trip, and arm 2 has no tuning escape clause.
+That tension is the ruling, and it is not mine to make while shipping a build.
+
+**And #133 pushes it the wrong way, which whoever rules #139 should budget rather than discover.**
+Deleting the grace turn removes a discount worth 14.5% of `STALKER`'s woken kills. That is correct and
+it is what #125 ruled — and it makes the too-strong arm **stronger**.
+
+**Next:** **#139 or #109, and they are entangled.** #109 is the `HARVESTER` style, the gate on every
+fuel and combat number; it has been waiting behind three build-order steps and nothing numeric may
+move until it lands. The reason #123, #121 and #125 all went ahead of it holds one last time and then
+stops: the corpus has now been re-measured for the last rule change, so #109 measures the game rather
+than an artefact. But #139 asks whether the mechanic survives at all, and tuning a mechanic that is
+about to be deleted is wasted work — while ruling #139 without #109's measurement is ruling before the
+diagnosis. **My read: rule #139 first and expect it to say "not yet, and #109 is the test"**, because
+that is the shape ADR-0012 already gave the question. Whoever picks it up should decide that
+explicitly rather than let build order decide it.
+
+**Watch:** **`FLOODLIT` 247 → 252 and `STALKER` 386 → 387 are new denominators, and #109 will read
+them.** They moved because the rule gives every woken creature a command back, not because anything
+about fuel changed — but they are the corpus #109 is about to measure invariant 4 against, and a
+figure quoted from a pre-#133 run of this file is now stale by five kills. Also: §4's guard is green
+for the first time, which means **it has never yet caught anything**. A guard that has only ever been
+observed passing is in the same epistemic position as the arithmetic proof it replaced (ADR-0013) —
+the difference is that this one is pinned to a scheduling rule with one call site rather than to an
+argument, and the two reproductions beside it fail loudly if that call site drifts.
+
 ## 2026-08-03 — Reconcile after #134: the ruling was propagated to the blocks it *amended*, not to the ones it *falsified*
 
 **Did:** Archivist sweep over PR #134 (the #125 ruling). No rule, no number and no behaviour moves.

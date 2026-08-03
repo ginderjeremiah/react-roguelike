@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { awaken, playTurn, scenario, SHUTTERED } from '@/tests/unit/support/scenario';
-import { hasActor } from '../systems/schedule';
-import { isDormant, WAIT, type Intent } from './actor';
+import { ACTION_COST, chargeActor, hasActor, nextActAtOf } from '../systems/schedule';
+import { isDormant, PLAYER_ID, WAIT, type Intent } from './actor';
 import { commitNextIntent, nextMind, wakeCreature } from './behaviour';
-import { creatureById, playerOf, withActor, type ActorWorld } from './world';
+import { creatureById, playerOf, withActor, withSchedule, type ActorWorld } from './world';
 
 /**
  * §4's awake-creature rule: **a woken Cinder pursues (#83), and it never stops (#123).** Every test
@@ -72,9 +72,11 @@ describe('an awake Cinder pursues (§4)', () => {
     const creature = creatureById(current, ids[0]);
     if (creature.mind.kind !== 'awake') throw new Error('the creature fell asleep mid-chase');
 
-    // Turn one resolves the wait it was holding; then it walks x=5 → 2 and declares a swing at the
-    // tile the player is standing on.
-    expect(positions).toEqual([5, 5, 4, 3, 2]);
+    // Turn one resolves the wait it was holding — and it is turn *one*, because `awaken` schedules
+    // at the instant the player is next due (ADR-0014) and this world is uncharged. Then it walks
+    // x=5 → 2 and declares a swing at the tile the player is standing on. Before #133 there was a
+    // leading `5` here for a command in which the creature was owed nothing: the deleted grace.
+    expect(positions).toEqual([5, 4, 3, 2]);
     expect(creature.mind.intent).toEqual({ kind: 'attack', at: at('@') });
   });
 
@@ -223,9 +225,11 @@ describe('the retreat procedure, as a regression test', () => {
     expect(chased.at).not.toEqual(parkedByTheOldRule);
     expect(chased.at).not.toEqual(at('c'));
     // It followed: it is west of the tile the old rule pinned it to, and still on the player's heels
-    // rather than eight tiles back down the corridor.
+    // rather than eight tiles back down the corridor. Six commands, six creature turns — the first
+    // spent resolving the `wait` it was holding, five spent walking 12 → 7. It was 8 before #133,
+    // when `awaken` handed it a command in which it was owed nothing.
     expect(chased.at.x).toBeLessThan(parkedByTheOldRule.x);
-    expect(chased.at).toEqual({ x: 8, y: 1 });
+    expect(chased.at).toEqual({ x: 7, y: 1 });
 
     // Now walk back, which under both old rules was the free half of the procedure: three tiles east
     // to a sleeping creature, one bump, twenty fuel. It is not free any more — one step east is
@@ -250,23 +254,22 @@ describe('the retreat procedure, as a regression test', () => {
     // eats 2." Before #123 this same situation cost 0, because the creature could be outwaited and
     // struck asleep for double damage.
     //
-    // **§4 used to end that sentence "every woken Cinder costs exactly 2 HP", and that is false —
-    // see #125.** A creature woken by a command whose phase 4 does not sweep the clock gets two
-    // player commands instead of one, which is two strikes, which is exactly a Cinder. Measured at
-    // one woken kill in seven in the free-action half of the corpus alone.
+    // **§4's sentence is "every woken Cinder costs exactly 2 HP, or the stairs", and since #133 it
+    // is exactly true again.** It was false for three milestones: a creature woken by a command
+    // whose phase 4 did not sweep the clock — a free action, or `beginRun` — got two player commands
+    // instead of one, which is two strikes, which is exactly a 5 HP Cinder. Measured at 56 of 386
+    // woken kills in the free-action half of the corpus alone (#125, ADR-0014).
     //
-    // **This test is sitting in that window and pays the 2 HP anyway, which is the sharp part.**
-    // `awaken()` schedules at `now + ACTION_COST` with `now = 0` and the player uncharged — exactly
-    // `beginRun`'s shape. What it measures is therefore narrower and truer than the struck sentence:
-    // **a woken Cinder costs 2 HP to a player who spends the grace closing the distance instead of
-    // striking.** That is the ordinary case and it is the one §4's pricing argument needs.
+    // **This test used to sit inside that window and pay the 2 HP anyway, which is why it did not
+    // catch it.** `awaken()` hard-coded `now + ACTION_COST` with `now = 0` and the player uncharged
+    // — `beginRun`'s shape exactly — and this player spends the extra command closing the distance
+    // rather than striking, so the window was worth nothing here. Both halves of that are gone:
+    // `awaken()` now joins at the player's due instant, and the window with it. The price is
+    // unchanged at 2 because it was always the *ordinary* case that this test measures.
     //
-    // The free kill is the other case, and state it by its **condition** rather than by adjacency:
-    // you are close enough to land two strikes before the creature resolves an attack on the tile
-    // you are standing on. That is adjacency at wake **or one step away** — Reproduction B in
-    // `economy.test.ts` spends its first grace command closing from distance 2 and still lands both.
-    // (An earlier draft of this line said "already adjacent", which is narrower than this PR's own
-    // evidence.)
+    // The free kill was the other case, and it was a condition rather than an adjacency: close
+    // enough to land two strikes before the creature resolves an attack on the tile you are standing
+    // on. `economy.test.ts` reproduces both routes and pins them at 2 HP now.
     const { world, ids } = scenario(['#######', '#@...c#', '#######']);
     let current: ActorWorld = awaken(world, ids[0], WAIT);
     const startingHp = playerOf(current).hp;
@@ -292,18 +295,43 @@ describe('the retreat procedure, as a regression test', () => {
 describe('waking', () => {
   const { world, ids, at } = scenario(['#######', '#@...c#', '#######']);
 
-  it('declares immediately and joins the schedule for next turn, not this one', () => {
-    // GDD §2 phase 3, and the reason it is expressed through the schedule: a creature woken by the
-    // light you just opened "declares this turn and acts next turn". Joining at `now` instead would
-    // let it act in phase 4 of the very turn it woke — the reactive behaviour §2 forbids.
+  it('declares immediately and joins the schedule at the instant the player is next due', () => {
+    // GDD §2 phase 3 and ADR-0014, and the reason the rule is expressed through the schedule rather
+    // than through the command: **a woken creature is due when the player is due.** This world is
+    // uncharged — nothing has spent a turn — so the player is still due at `now` and so is the
+    // creature, which resolves in phase 4 of the next command the player pays a turn for. That is
+    // *one* paid command after the wake, which is the observable rule.
+    //
+    // **The rationale here used to read**: *"joining at `now` instead would let it act in phase 4 of
+    // the very turn it woke — the reactive behaviour §2 forbids"*. That is the English form of the
+    // defect #133 closed, and it is false as stated: on an **uncharged** command there is no phase 4
+    // to act in, so `now` is not reactive — it is simply the instant the player is still standing
+    // on. The sentence is only true of a command the player was charged for, which is the test
+    // below.
     const woken = wakeCreature(world, creatureById(world, ids[0]));
     const creature = creatureById(woken, ids[0]);
 
     expect(creature.mind.kind).toBe('awake');
     expect(hasActor(woken.schedule, ids[0])).toBe(true);
-    expect(woken.schedule.entries.find((entry) => entry.actorId === ids[0])?.nextActAt).toBe(
-      world.schedule.now + 100,
-    );
+    expect(nextActAtOf(woken.schedule, ids[0])).toBe(nextActAtOf(woken.schedule, PLAYER_ID));
+    expect(nextActAtOf(woken.schedule, ids[0])).toBe(world.schedule.now);
+  });
+
+  it('is never due inside the command that woke it, when the player paid for that command', () => {
+    // **§2's *never zero*, asserted rather than trusted.** It holds by construction — phase 1 charges
+    // the player before phase 3 runs, so the player's due instant is already `now + ACTION_COST`
+    // when the creature inherits it — but "by construction" is a claim about code that can be
+    // rearranged, and a creature due at `now` here would take its turn in the *same* command's phase
+    // 4. That is the reactive behaviour §2 does forbid, and it is the only shape in which joining at
+    // `now` is wrong.
+    const charged = withSchedule(world, chargeActor(world.schedule, PLAYER_ID));
+    const woken = wakeCreature(charged, creatureById(charged, ids[0]));
+
+    expect(nextActAtOf(woken.schedule, ids[0])).toBeGreaterThan(woken.schedule.now);
+    // ...and it is byte for byte what the build computed before #133, which is criterion 2: no paid
+    // command moves.
+    expect(nextActAtOf(woken.schedule, ids[0])).toBe(charged.schedule.now + ACTION_COST);
+    expect(nextActAtOf(woken.schedule, ids[0])).toBe(nextActAtOf(woken.schedule, PLAYER_ID));
   });
 
   it('comes for the player from the moment it wakes', () => {

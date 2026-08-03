@@ -49,7 +49,7 @@ import { step } from './step';
 import { createInitialState, type GameState } from './state';
 
 /** The rules version this build of the simulation implements. See the header. */
-export const RULES_VERSION = 6;
+export const RULES_VERSION = 7;
 
 /**
  * Append-only. One line per bump, newest last, so that a fixture pinned at version N can be
@@ -106,6 +106,29 @@ export const RULES_VERSION_LOG: readonly string[] = [
     '`turnsSinceContact`, so a version-5 *state* carries a field these rules do not produce. Both ' +
     'clauses of the policy above, for the third time — and the second time in two versions that the ' +
     'clause doing the work is a **deletion**.',
+  '7 — §2 phase 3\'s scheduling instant (#125, #133, ADR-0014): a creature woken in phase 3 joins ' +
+    'the schedule at the instant **the player is next due to act**, rather than at ' +
+    '`now + ACTION_COST`. On a command the player was charged for those are the same number, so ' +
+    '**no paid command moves, byte for byte** — the negative control on descent is unedited and ' +
+    'still green. On a command the player was *not* charged for they are not: a free action ' +
+    '(`actorPhase(\'free\')` is `identity`, so phase 4 never runs) and `beginRun` (phase 3 alone) ' +
+    'both leave the player due at `now`, and the build used to schedule the creature a command ' +
+    'beyond that. So the player got **two** phase-1 actions before it resolved anything, which at ' +
+    '§3\'s numbers is two strikes, which is exactly a 5 HP Cinder. Measured: 56 of `STALKER`\'s 386 ' +
+    'woken kills cost 0 HP under version 6 and 0 of 387 do under these rules. A version-6 record ' +
+    'whose log contains a `setShutter` that woke something, or whose run start woke something, ' +
+    'replays differently from that command on — different creature positions, different declared ' +
+    'intents, different HP. Measured on the two stored fixtures that wake anything, and the shape ' +
+    'is worth recording because it is smaller than it sounds: on the combat log the opening wake ' +
+    'gains the hunter one command at the start and **spends it** reaching adjacency early enough ' +
+    'to waste an action on a tile the player has left, so the two runs re-converge four commands ' +
+    'later with the same 27 creature steps, the same 4 landed blows and the same death on the same ' +
+    'turn — what differs in the final frame is **which** of the two hunters struck the killing blow ' +
+    'and therefore which one is frozen holding a `wait` over the body. On the cache log the flash ' +
+    'is followed by a second free action, so under version 6 the creature it woke saw *three* ' +
+    'commands and never moved at all; here it moves once and declares. `GameState` gains and loses ' +
+    'no field, so this is the first bump since version 3 that rests on the changed-rule clause ' +
+    'alone.',
 ];
 
 /**

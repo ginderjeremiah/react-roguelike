@@ -355,121 +355,66 @@ describe('§4 invariant 3: a floor played well nets slightly positive', () => {
   });
 });
 
-// --- §4's regression guard (#121, #123) ----------------------------------------------------------
+// --- §4's regression guard (#121, #123, enabled by #133) -----------------------------------------
 
-describe('§4’s regression guard cannot be enabled yet, and this is the size of the gap (#125)', () => {
+describe('§4’s regression guard: no run banks ember from a creature it woke for nothing', () => {
   /**
    * ═══════════════════════════════════════════════════════════════════════════════════════════════
-   * THE GUARD #123 WAS ASKED FOR, THE INSTRUMENT IT NEEDED, AND WHAT THE INSTRUMENT FOUND
+   * THE GUARD #123 WAS ASKED FOR, THE INSTRUMENT IT NEEDED, WHAT THE INSTRUMENT FOUND, AND THE
+   * RULE THAT CLOSED IT
    * ═══════════════════════════════════════════════════════════════════════════════════════════════
    *
-   * **Status, 2026-08-03: #125 is *ruled* and closed (PR #134, ADR-0014, GDD §4 *The grace turn is
-   * deleted*) and nothing in `game/` moved with it. The build is #133** — it deletes this block and
-   * enables §4's guard, and its acceptance criteria are copied from §4's *What a build owes*. So
-   * "whoever fixes #125" below means #133; the rule is settled and is not to be re-litigated here.
-   *
    * §4 keeps a **regression guard**: *"No run may bank ember from a creature it woke without paying
-   * HP for it."* It is labelled a guard rather than a watch because §4 believes it is zero by
-   * arithmetic — 5 HP against 3 damage is two strikes, and by #121's proof the player is adjacent at
-   * their own decision point only once the creature has already declared on their tile, so the first
-   * strike always eats 2. §4 and the roadmap both say the guard must not be listed as an acceptance
-   * criterion unless the per-creature instrumentation behind it is built.
+   * HP for it."* It is a guard rather than a watch because §4 believes it is zero by arithmetic — 5
+   * HP against 3 damage is two strikes, and by #121's proof the player is adjacent at their own
+   * decision point only once the creature has already declared on their tile, so the first strike
+   * always eats 2.
    *
    * **#123 built the instrumentation** (`WokenKill` / `WakeLedger` in
-   * `tests/unit/support/lantern-run.ts`) **and the guard came back red.** Measured here: 56 of
-   * `STALKER`'s 386 woken kills and 22 of `FLOODLIT`'s 247 cost the player **nothing**.
+   * `tests/unit/support/lantern-run.ts`) **and the guard came back red**: 56 of `STALKER`'s 386
+   * woken kills and 22 of `FLOODLIT`'s 247 cost the player nothing. The cause was **#125**, and it
+   * was a scheduling invariant rather than a fact about flashes:
    *
-   * ## The mechanism is **#125**, and it is a scheduling invariant, not a fact about flashes
+   * > `setMind` scheduled a woken creature at `now + ACTION_COST`. Its first action therefore
+   * > resolved on the first command whose `now` had reached that instant — and whether that was the
+   * > next command or the one after depended on whether the waking command's phase 4 swept past
+   * > `now`. A **free action** (`actorPhase('free')` is `identity`) and **`beginRun`** (phase 3
+   * > alone) do not sweep, so the player got two phase-1 actions before the creature resolved
+   * > anything. Two actions is two strikes and two strikes is exactly a 5 HP Cinder.
    *
-   * It is not a #123 regression — it predates #123 and #83 alike. **State it as the invariant,
-   * because the narrower statement points at a fix that does not close it:**
+   * **Ruled and built 2026-08-03 — #125/#133, ADR-0014, GDD §4 *The grace turn is deleted*.** A
+   * creature woken in phase 3 joins the schedule at the instant **the player is next due to act**,
+   * which is `now + ACTION_COST` on a paid command and `now` on one the player was not charged for.
+   * The observable form: **exactly one paid command stands between a wake and the creature's first
+   * resolution — never two, never zero.**
    *
-   * > `wakeInLight` schedules a woken creature at `now + ACTION_COST`. A creature's first action
-   * > therefore resolves on the first command whose `now` has reached that instant — and **whether
-   * > that is the next command or the one after depends on whether the waking command's phase 4
-   * > swept past `now`.**
+   * ## What this block was, and why its shape is worth keeping
    *
-   * On an ordinary paid command it does: phase 4 finds nothing due, advances the clock to
-   * `now + ACTION_COST`, and the creature is due on the very next command. That is §2's "declares
-   * this turn, acts next turn". **Two commands do not sweep, and they are different in kind:**
+   * Until #133 this was a **characterisation** block asserting the defect was present, in three
+   * tests that had to go red **together**: the corpus assertion and two hand-built reproductions.
+   * They did (measured: 9 of 1167 red across four files, all enumerated in §4). The corpus went from
+   * **56 of 386** free woken kills to **0 of 387**, and both reproductions from 12/12 HP to
+   * **10/12** — §3's 2 HP, on both routes.
    *
-   *   - a **free action** (`actorPhase('free')` is `identity`, so phase 4 never runs); and
-   *   - **`beginRun`**, which runs *phase 3 only* to light the entrance room — no free action
-   *     anywhere, and the shutter never touched.
-   *
-   * In both, `now` is left behind, the next command spends its own phase 4 doing the advance, and
-   * the creature is due only on the one after that. The player gets **two** phase-1 actions instead
-   * of one before the creature resolves anything — and two actions is two strikes, and two strikes
-   * is exactly a 5 HP Cinder against a 3 damage player. `light.ts` has recorded the free-action half
-   * since M1 (*"a creature woken during a free action sees two player commands before its declared
-   * action resolves"*) and nobody multiplied it by §3's damage.
-   *
-   * **What the extra command buys is one of two things, and both are pinned below.** Either the
-   * creature's single action falls outside the interval between the two strikes entirely (the flash
-   * case), or it falls inside but is spent resolving a *stale* declaration — one made at wake time,
-   * before the player's last move — which is a move rather than an attack on the tile the player is
-   * now standing on (the `beginRun` case). A woken kill costs HP only when a creature resolves an
-   * **attack on the player's tile** between the two strikes; the window removes that in both shapes.
-   *
-   * **So #125's option 1 — "schedule a creature woken by a *free action* at `now`" — does not close
-   * this.** `beginRun` has no free action in it. Whoever fixes #125 against the narrow statement will
-   * delete this block, enable §4's one-line guard, and find it still red.
-   *
-   * ## What this corpus cannot see — the mechanism, not more HP
-   *
-   * **`arriveOn` in `tests/unit/support/lantern-run.ts` starts every floor shuttered and never calls
-   * `beginRun`.** So every number below is the **free-action half only**. The `beginRun` route is
-   * structurally invisible to this corpus and is pinned instead by the hand-built reproduction at the
-   * bottom of this block.
-   *
-   * **What that blindness is worth was measured by #134's ruling, and it is the opposite of what this
-   * comment said for two milestones.** It read: *"do not read 14.5% as the size of #125 — read it as
-   * the size of the part a harness that never starts a real run can measure"*, i.e. a **floor** under
-   * a larger unknown. That is now false. `generateFloor` skips any spawn within
-   * `CREATURE_ENTRANCE_EXCLUSION` (2) of the entrance — `game/map/generate.ts`, pinned for every seed
-   * at every depth by `generate.test.ts` — so **every generated opening wake is at Manhattan >= 3**,
-   * and GDD §4's distance table (re-measured as the minimum over every legal line of play) puts the
-   * window at **2 HP** from Manhattan 3 outward. Teaching `arriveOn` to call `beginRun` would add
-   * woken kills that **all cost 2 HP**, which moves the free fraction *down*.
-   *
-   * **The reversal does not depend on how many.** Adding *k* kills that all cost HP raises the
-   * denominator and not the numerator, so the free fraction falls for any *k* > 0 — do not let this
-   * argument come to rest on a figure. The figure quoted elsewhere, ~0.11 a run, is `223/2000`: the
-   * rate at which a run start wakes **at least one** creature. That is an **approximation, not a
-   * bound**, and two corrections run against each other: an opening can wake **more** than one
-   * creature (measured over 2000 seeds, 13 openings wake two, so creatures-woken-per-run exceeds the
-   * runs-that-wake rate by roughly 6%), while a run does **not** kill everything it wakes. Neither
-   * has been measured against the other, so this is not a measurement of the added kills — do not
-   * quote it as *at most*.
-   *
-   * So for this style, **14.5% is essentially the whole of the HP defect, not a floor under it.** The
-   * run start is still part of #125 and the rule still closes it — what it costs there is a
-   * **command**, a tempo hole this corpus could not see even if it did call `beginRun`, because the
-   * corpus measures HP. That is exactly why the reproduction below and not the guard is the signal.
-   *
-   * ## So this is a characterisation test, and it says so
-   *
-   * Asserting §4's guard here would be red. Deleting it and printing a number would be worse — this
-   * file's own rule is that a counter which is only printed is a counter that can be set to zero
-   * without a test going red. So the gap is asserted instead, in both directions:
-   *
-   *   - it is **real** (there is at least one free woken kill), so nobody can quietly claim §4's
-   *     arithmetic holds; and
-   *   - it is not the shape of the game (a **catastrophe** bound — see the assertion, which says
-   *     what it is and is not).
-   *
-   * **When the rule is built this test goes red on its first assertion**, and that is the handover:
-   * whoever builds it deletes this block and replaces it with §4's guard, which is one line —
-   * `expect(kill.hpSpentWhileAwake).toBeGreaterThan(0)` over `wokenKills`. Nothing else has to move.
-   * If it goes red *here* and not in the reproduction below, the fix closed the free-action half and
-   * left `beginRun`'s open.
+   * The two reproductions survive **inverted**, as positive reproductions of the closed rule, and
+   * that is deliberate. A guard over a corpus is only as good as what the corpus can reach, and
+   * **`arriveOn` in `lantern-run.ts` starts every floor shuttered and never calls `beginRun`** — so
+   * the corpus below sees the free-action route and is structurally blind to the run start. Under
+   * the *old* rule that blindness was the trap: #125's opening proposal — *schedule a creature woken
+   * by a free action at `now`* — turned the corpus assertion and the flash reproduction red and left
+   * the `beginRun` one **passing**, which would have enabled the one-line guard over a corpus that
+   * could not see the route still open. **A route the corpus cannot reach needs a reproduction, not
+   * a statistic.** Both are kept for that reason, and so is the descent negative control, which is
+   * the boundary of the claim.
    *
    * ## What the attribution can and cannot see
    *
    * `hpSpentWhileAwake` over-credits when two hunters overlap — §2 has a creature mark a *tile* and
    * two adjacent creatures mark the same one, so nothing in the state says which of them swung. The
-   * error runs one way: a free kill in a crowd reports a cost it did not incur, which makes the
-   * measured 56 a **lower bound** on the real number. See `WokenKill`.
+   * error runs one way: a free kill in a crowd reports a cost it did not incur. That made the old
+   * 56 a **lower bound**, and it means the guard below is the **weaker** of the two directions — it
+   * can be fooled by a crowd but not by a lone creature, which is the shape #125 had. The
+   * reproductions pin the lone case exactly.
    * ═══════════════════════════════════════════════════════════════════════════════════════════════
    */
   const wokenKills = (results: RunResult[]) =>
@@ -502,12 +447,18 @@ describe('§4’s regression guard cannot be enabled yet, and this is the size o
     expect(woken.length).toBeGreaterThan(onSleepers * 5);
   });
 
-  it('still banks woken kills for nothing, soon after the wake, in the half it can see', () => {
-    // **Named for what it measures.** An earlier title said *"all of them the #125 window"*, which
-    // asserted a cause this test never observes: `commandsAwake` counts commands, not mechanisms,
-    // and cannot tell a free-action window from a `beginRun` one from a third thing nobody has
-    // thought of. What is actually pinned is *how soon after the wake* a free kill happens, which
-    // is weaker and true. The mechanism is pinned by the reproductions below, not here.
+  it('charges HP for every woken kill in the corpus — §4’s guard, enabled by #133', () => {
+    // ═══ §4's REGRESSION GUARD, AND IT IS ONE LINE ON PURPOSE ═══
+    //
+    // *"No run may bank ember from a creature it woke without paying HP for it."* This is the whole
+    // of it. It replaced a 40-line characterisation block that asserted the **opposite** — that at
+    // least one free woken kill existed — which is what #125 was, and which #133 closed.
+    //
+    // **This is a guard, not a watch.** §4's own rule: name the state of the world in which the
+    // number comes back different. That state is a *rules* change — a re-tune that lets the player
+    // one-shot an awake Cinder (`PLAYER_ATTACK` >= `CINDER.maxHp`), or a scheduling change that
+    // hands a woken creature back the grace command. It is not a number to read for a trend, and
+    // the console line is here to say *how much* HP a wake costs rather than whether it costs any.
     for (const [name, results] of [
       ['stalker', stalker],
       ['floodlit', floodlit],
@@ -515,48 +466,31 @@ describe('§4’s regression guard cannot be enabled yet, and this is the size o
       const woken = wokenKills(results);
       const free = woken.filter((kill) => kill.hpSpentWhileAwake === 0);
       console.log(
-        `${name}: ${free.length}/${woken.length} woken kills cost 0 HP (#125, free-action half ` +
-          `only — this corpus never calls beginRun); they die ` +
-          `${Math.min(...free.map((k) => k.commandsAwake))}-` +
-          `${Math.max(...free.map((k) => k.commandsAwake))} commands after waking`,
+        `${name}: ${free.length}/${woken.length} woken kills cost 0 HP (§4's guard: must be 0); ` +
+          `HP per woken kill: median ${median(woken.map((kill) => kill.hpSpentWhileAwake))}`,
       );
 
-      // **#125 exists.** Delete this block and enable §4's guard when it does not.
-      expect(free.length, `${name}: §4's guard now holds — enable it and delete this test`)
-        .toBeGreaterThan(0);
-
-      // ═══ A CATASTROPHE BOUND, NOT A REGRESSION BOUND — read the number before trusting it ═══
-      //
-      // Measured today: 56/386 (14.5%) for `stalker`, 22/247 (8.9%) for `floodlit`. This ceiling is
-      // **25%**, so #125 could get roughly 70% worse and stay green. That is deliberate and it is
-      // the weaker of two bad options: pinning near the measurement makes an ordinary tuning change
-      // to `FLASH_THRESHOLD` or a route heuristic go red for a reason that has nothing to do with
-      // the defect, in a file whose entire argument is that thresholds should be relative. What this
-      // catches is a *rules* change that makes free kills the ordinary case — a creature with 3 HP
-      // or less, or a `PLAYER_ATTACK` that one-shots an awake Cinder. It does **not** catch #125
-      // drifting, and the console line above is where drift is read.
-      expect(free.length * 4, `${name}: free woken kills have become the ordinary case`)
-        .toBeLessThan(woken.length);
-
-      // Every free kill happens within a handful of commands of the wake. This is a bound on *when*,
-      // not on *why*: a free kill on a creature that had been awake for twenty commands would be a
-      // different defect, and this is what would notice one arriving.
-      for (const kill of free) {
-        expect(kill.commandsAwake, `${name}: creature ${kill.id} was killed free long after waking`)
-          .toBeLessThanOrEqual(8);
+      for (const kill of woken) {
+        expect(
+          kill.hpSpentWhileAwake,
+          `${name}: creature ${kill.id} was woken, killed and banked for 0 HP (§4, #125)`,
+        ).toBeGreaterThan(0);
       }
     }
   });
 
-  it('reproduces #125 from a flash, which is the half the corpus above measures', () => {
-    // A corpus statistic with no explanation is a number nobody can act on. This is the whole route
-    // in three commands.
+  it('makes a flash-woken kill cost §3’s 2 HP, which is the half the corpus above measures', () => {
+    // The corpus statistic with its mechanism attached: the whole route in three commands.
     //
     // Shuttered, standing next to a sleeper. The flash is **free** (§2), so phase 4 is `identity`
-    // and `now` does not move: the Cinder wakes, declares an attack on the player's tile, and is
-    // scheduled at `now + ACTION_COST` — an instant the *next* command spends its own phase 4
-    // arriving at. So the creature's single action falls after both strikes rather than between
-    // them, and two strikes at 3 damage is a 5 HP Cinder.
+    // and `now` does not move — and **that is exactly why the creature is due at `now` and not at
+    // `now + ACTION_COST`**: the player was not charged, so the player is still due at `now`, so the
+    // creature is too. It therefore acts in phase 4 of the first paid command, *between* the two
+    // strikes, and the kill costs §3's 2 HP like any other.
+    //
+    // This test used to assert the opposite (12/12 HP, `reproduces #125 from a flash`) and is
+    // inverted rather than deleted: the route is the same three commands, and what changed is the
+    // price.
     const built = scenario(['#####', '#@c.#', '#####']);
     let state: LanternWorld = {
       world: built.world,
@@ -568,96 +502,91 @@ describe('§4’s regression guard cannot be enabled yet, and this is the size o
     state = setShutterTurn(state, 'open');
     const declared = creatureById(state.world, built.ids[0]).mind;
     expect(declared).toEqual({ kind: 'awake', intent: { kind: 'attack', at: built.at('@') } });
-    // The tell: the clock has not moved, and the creature it just woke is due at an instant in the
-    // future that the next command will step straight over.
+    // The tell, and the whole of the ruling in two assertions: the clock has not moved, and the
+    // creature it just woke is due at the same instant the player is — `now` — rather than at an
+    // instant the next command would step straight over.
     expect(state.world.schedule.now).toBe(0);
+    expect(state.world.schedule.entries).toEqual([
+      { actorId: PLAYER_ID, nextActAt: 0 },
+      { actorId: built.ids[0], nextActAt: 0 },
+    ]);
 
+    // First strike, and the creature's one action lands in the same command's phase 4 — after the
+    // player's, which is what "never zero" means: it could not resolve inside the *free* command
+    // that woke it, and exactly one paid command separates the wake from this.
     state = strike();
     expect(creatureById(state.world, built.ids[0]).hp).toBe(CINDER.maxHp - PLAYER_ATTACK);
-    state = strike();
+    expect(playerOf(state.world).hp).toBe(PLAYER_MAX_HP - CINDER.attack);
 
+    state = strike();
     expect(state.world.actors.some((actor) => actor.id === built.ids[0])).toBe(false);
-    // ...and the player is untouched, holding an ember it paid 4 fuel and no HP for. §4 says this
-    // costs 2. It does not.
-    expect(playerOf(state.world).hp).toBe(PLAYER_MAX_HP);
+    // ...and the ember is paid for in the currency §4 prices a wake in: 2 HP, not 0.
+    expect(playerOf(state.world).hp).toBe(PLAYER_MAX_HP - CINDER.attack);
     expect(state.world.embers).toEqual([{ at: built.at('c'), amount: CINDER.emberDrop }]);
   });
 
-  it('reproduces #125 from beginRun, with no free action anywhere — the half it cannot', () => {
-    // ═══ THE ASSERTION THAT STOPS #125 BEING FIXED WRONG ═══
+  it('makes a beginRun-woken kill cost the same 2 HP, with no free action anywhere', () => {
+    // ═══ THE REPRODUCTION THAT STOPPED #125 BEING FIXED WRONG, KEPT AS THE ONE THAT PROVES IT WAS
+    //     FIXED RIGHT ═══
     //
     // The route above needs a flash. **This one does not touch the shutter at all.** `beginRun`
     // runs §2 phase 3 and *only* phase 3, to put the entrance room on screen before the first
-    // command — so it wakes whatever the opening light reaches at `now = 0`, schedules it at 100,
-    // and never runs a phase 4 to advance the clock. Same window, no free action, and it is a
-    // property of **every run start** — about **one in nine** of them, 11.2% over 2000 seeds.
+    // command — so it wakes whatever the opening light reaches at `now = 0` and never runs a phase 4
+    // to advance the clock. No free action anywhere, and it is a property of **every run start** —
+    // about **one in nine** of them, 11.2% over 2000 seeds (#127; **not** one in five, which is a
+    // rate over floors 1-8, and a run start is always floor 1).
     //
-    // **Not one in five (#127).** An earlier version of this comment cited GDD's change log at *20%
-    // of arrivals* and applied it here. The citation was accurate and the inference was not: that
-    // 20% is measured over floors 1-8, and **a run start is always floor 1**, which carries
-    // `min(2 + floor, 6)` = 3 creatures against 6 from floor 4 down. Per depth the rate is
-    // 11.2 / 14.7 / 17.9 / 20.6%, flat from floor 4 down because the `min` caps spawn there.
-    // `tests/unit/play-opening.test.ts` and `docs/ARCHITECTURE.md` already said one in ten, and a
-    // documented number overwrote three agreeing sources — ADR-0013 is about exactly this.
+    // **`arriveOn` in `tests/unit/support/lantern-run.ts` starts every floor shuttered and never
+    // calls `beginRun`, so the corpus above cannot reach this route at all.** That is why it is
+    // pinned by hand and why the guard is not enough on its own: #125's opening proposal — *schedule
+    // a creature woken by a free action at `now`* — turned the corpus assertion and the flash
+    // reproduction red and left this one **green**, i.e. it would have enabled a one-line guard over
+    // a corpus blind to the route still open. The rule that shipped is stated over the schedule
+    // instead: a woken creature is due when the **player** is due, which asks nothing about which
+    // command woke it.
     //
-    // The frequency does not change what this test asserts; it changes what #125 is worth.
-    //
-    // **And it is the frequency of the *window*, not of a free kill** — ruled 2026-08-03, ADR-0014.
-    // The floor below is hand-built at Manhattan **2**. §5 step 7 keeps a *generated* opening at
-    // Manhattan 3 or more, and the window is worth 0 HP only at 1-2 (measured as the minimum over
-    // every legal line of play to depth 9), so a real run start already pays the full 2 HP and the
-    // free kill leaks through the **free action** instead. This block still pins the mechanism, which
-    // is the same on both routes; do not quote it as "one run start in nine is a free kill".
-    //
-    // This is why #125's cause has to be stated as the scheduling invariant — and **read the signal
-    // carefully, because an earlier draft of this comment had it backwards.** This test asserts that
-    // the defect is *present*. So:
-    //
-    //   - a fix that special-cases free actions leaves this test **PASSING**, because the `beginRun`
-    //     half is still open. Measured, by implementing that fix as a mutant: the corpus assertion
-    //     and the flash reproduction both go red, and this one stays green.
-    //   - a **complete** fix is what turns this test red.
-    //
-    // **A still-passing test here is the failure signal, not the success signal.** Do not delete this
-    // block while it passes: the handover at the top of this file says whoever fixes #125 deletes the
-    // block and enables §4's one-line guard, and doing that on two reds would enable a guard over a
-    // corpus that cannot see the route this test pins.
-    //
-    // `arriveOn` in `tests/unit/support/lantern-run.ts` starts every floor shuttered and never calls
-    // `beginRun`, so nothing in the corpus above can reach this. It is pinned here instead.
+    // **One in nine is the frequency of the old *grace*, not of a free kill.** The floor below is
+    // hand-built at Manhattan **2**; §5 step 7 keeps a *generated* opening at Manhattan 3 or more,
+    // where the window was worth 0 HP to no line of play. What the ruling took at a real run start
+    // is a **command** of approach, not 2 HP. Do not quote this block as "one run start in nine was
+    // a free kill".
     const built = scenario(['######', '#@.c.#', '######']);
     let state: LanternWorld = beginRun(built.world.floor);
     const woken = creatureById(state.world, built.ids[0]);
 
     // Phase 3 ran and nothing else: the creature is awake and declaring, the clock is untouched, and
-    // the player is still due at the same instant the run began on.
+    // the player is still due at the instant the run began on — so the creature is due there too.
     expect(woken.mind).toEqual({ kind: 'awake', intent: { kind: 'move', to: { x: 2, y: 1 } } });
     expect(state.world.schedule.now).toBe(0);
     expect(state.world.schedule.entries).toEqual([
       { actorId: PLAYER_ID, nextActAt: 0 },
-      { actorId: built.ids[0], nextActAt: ACTION_COST },
+      { actorId: built.ids[0], nextActAt: 0 },
     ]);
 
     const command = (to: { x: number; y: number }): LanternWorld =>
       resolveTurn(state, lanternPhases('costsATurn', moveCommand(to)));
 
-    // Command 1 — step toward it, onto the very tile it declared a move to. Its turn is not due at
-    // `now = 0`, so phase 4 spends this command advancing the clock instead of giving it one.
+    // Command 1 — step toward it, onto the very tile it declared a move to. It *is* due, so phase 4
+    // gives it its action, and the action is the move it declared at `beginRun`: blocked by the
+    // player now standing there, and spent. **Baiting survives the ruling** — a stale declaration is
+    // still wasted on a tile the player has left or taken, which is §2's whole defensive move.
     state = command({ x: 2, y: 1 });
     expect(playerOf(state.world).at).toEqual({ x: 2, y: 1 });
     expect(creatureById(state.world, built.ids[0]).at).toEqual({ x: 3, y: 1 });
+    expect(playerOf(state.world).hp).toBe(PLAYER_MAX_HP);
 
-    // Command 2 — first strike. Now it *is* due, and it gets its one action: resolving the move it
-    // declared back at `beginRun`, which the player is now standing on, so it is blocked and spent.
-    // **A stale declaration is not an attack**, which is the other shape the window takes.
+    // Command 2 — first strike, and the attack it declared after that wasted move now resolves on
+    // the tile the player is standing on. This is the 2 HP the run start used to hand back.
     state = command({ x: 3, y: 1 });
     expect(creatureById(state.world, built.ids[0]).hp).toBe(CINDER.maxHp - PLAYER_ATTACK);
     expect(creatureById(state.world, built.ids[0]).at).toEqual({ x: 3, y: 1 });
+    expect(playerOf(state.world).hp).toBe(PLAYER_MAX_HP - CINDER.attack);
 
-    // Command 3 — second strike, in phase 1, before the attack it has now declared can resolve.
+    // Command 3 — second strike, in phase 1, before the attack it has now declared can resolve. The
+    // kill still takes three commands; what it no longer takes is zero HP.
     state = command({ x: 3, y: 1 });
     expect(state.world.actors.some((actor) => actor.id === built.ids[0])).toBe(false);
-    expect(playerOf(state.world).hp).toBe(PLAYER_MAX_HP);
+    expect(playerOf(state.world).hp).toBe(PLAYER_MAX_HP - CINDER.attack);
     expect(state.world.embers).toEqual([{ at: { x: 3, y: 1 }, amount: CINDER.emberDrop }]);
   });
 

@@ -22,9 +22,19 @@
  *   - **Dormant creatures are not in the queue.** They take no turns, so a phase that walked the
  *     actor list would have to skip them; leaving them out means `runActorPhase` needs no notion of
  *     dormancy at all. It is also what makes GDD §2 phase 3 come out right: a creature woken by
- *     light joins the queue at `now + ACTION_COST`, so it "declares this turn and acts next turn"
- *     rather than acting in phase 4 of the very turn it woke — which would be the reactive
- *     behaviour §2 exists to forbid.
+ *     light joins the queue at **the instant the player is next due to act**, so exactly one *paid*
+ *     command stands between the wake and its first resolution — never two, and never zero.
+ *
+ *     **Never zero is the half this invariant is about, and it is not the same as "never at
+ *     `now`".** On a command the player was charged for, phase 1 has already moved the player to
+ *     `now + ACTION_COST`, so the creature inherits a strictly future instant and cannot act in
+ *     phase 4 of the very turn it woke — the reactive behaviour §2 exists to forbid. On a command
+ *     the player was *not* charged for — a free action, or `beginRun` — the player is still due at
+ *     `now`, so the creature joins **at `now`**, and that is correct rather than a violation:
+ *     such a command has no phase 4, so there is nothing for it to be reactive in, and it resolves
+ *     on the next command the player pays a turn for. This paragraph used to name
+ *     `now + ACTION_COST` as the rule; that read the *consequence on a paid command* as the rule
+ *     itself, which is #125 in one sentence (ADR-0014).
  *   - **Dead actors leave the queue at kill time.** GDD §2 puts deaths at phase 5, and that order
  *     is right — phase 5 is embers dropping and the corpse leaving the world. But a creature killed
  *     in phase 1 is still due at `now`, so it would take its turn in phase 4 and attack from beyond

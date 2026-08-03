@@ -461,7 +461,7 @@ describe('damage and death (§2 phases 4 and 5, §3)', () => {
     // The `who: 'player'` direction, with the tile and the number written out. §3 gives the Cinder
     // attack 2 against an awake target, and the player is standing at (1,1) — so a `damaged` cue
     // hard-coded to `(0,0)`, to `'creature'`, or to `1` fails here on the field that is wrong.
-    const built = scenarioState(['#####', '#@c.#', '#####'], {
+    const built = scenarioState(['#####', '#@c.#', '#...#', '#####'], {
       shutter: 'shuttered',
       perceive: false,
     });
@@ -470,20 +470,25 @@ describe('damage and death (§2 phases 4 and 5, §3)', () => {
       { shutter: 'shuttered' },
     );
 
-    // `awaken` joins the schedule for *next* turn, so the first wait is the Cinder winding up and
-    // the second is the one it lands on. Asserting the quiet turn as well keeps the test honest
-    // about which transition it is making a claim on.
-    const waited = step(state, { kind: 'wait' });
-    const struck = step(waited, { kind: 'wait' });
+    // `awaken` joins the schedule at the instant the player is next due (ADR-0014, #133), and this
+    // world is uncharged — so the Cinder's declared attack resolves in phase 4 of the **first** paid
+    // command, not the second. Before #133 the helper hard-coded `now + ACTION_COST` and this test
+    // spent a wind-up turn getting here; that turn was the grace the ruling deleted.
+    const struck = step(state, { kind: 'wait' });
+    // The quiet transition is still asserted, because a `damaged` cue emitted on every step would
+    // pass the positive assertion alone. It is now the turn *after*, and it is quiet for a better
+    // reason than a scheduling gap: §2's step off the marked tile. The Cinder re-declared on (1,1)
+    // while the player stood there, and the player leaves.
+    const dodged = step(struck, { kind: 'move', dir: 'south' });
 
-    expect(cuesFor(state, waited).filter((cue) => cue.kind === 'damaged')).toEqual([]);
-    expect(playerOf(struck.world).hp).toBe(playerOf(waited.world).hp - 2);
-    expect(cuesFor(waited, struck)).toContainEqual({
+    expect(playerOf(struck.world).hp).toBe(playerOf(state.world).hp - 2);
+    expect(cuesFor(state, struck)).toContainEqual({
       kind: 'damaged',
       at: { x: 1, y: 1 },
       who: 'player',
       amount: 2,
     });
+    expect(cuesFor(struck, dodged).filter((cue) => cue.kind === 'damaged')).toEqual([]);
   });
 
   it('reports a blow a creature survives on the creature’s tile, and calls it a creature', () => {

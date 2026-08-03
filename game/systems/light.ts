@@ -67,9 +67,26 @@
  * So the shape of it: **a free action resolves and is paid for; it just does not hand the floor a
  * turn.** Free of tempo, not free of consequence (§2).
  *
- * A consequence already recorded in the journal, restated because it lives here now: a creature
- * woken *during* a free action sees two player commands before its declared action resolves. That is
- * more conservative than §2 requires and is legible in play.
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
+ * WHAT A FREE ACTION DOES *NOT* BUY, AND THE PARAGRAPH THAT USED TO SAY OTHERWISE
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * A creature woken by a free action resolves its declared action in phase 4 of the **next paid
+ * command** — the same as one woken by a paid command. Skipping phase 4 costs the floor a turn; it
+ * does not hand the player an extra one. That falls out of the scheduling rule and needs no case
+ * here: `setMind` joins a woken creature at the instant the **player** is next due to act, and a
+ * command the player was not charged for leaves the player due at `now` (ADR-0014, §2 phase 3).
+ *
+ * **This header used to say the opposite, and it said it for three milestones:** *"a creature woken
+ * during a free action sees two player commands before its declared action resolves. That is more
+ * conservative than §2 requires and is legible in play."* It was an accurate description of the
+ * build and a wrong reading of the rule. **More conservative** priced the extra command as safety
+ * margin, when §4 prices a wake in HP and the margin *is* the price — two commands is two strikes,
+ * and two strikes is exactly a 5 HP Cinder, so 56 of `STALKER`'s 386 woken kills cost nothing
+ * (#125). The sentence sat here and in GDD §2 and nobody multiplied it by §3's damage. §2 marks it
+ * **do not restore**; it is recorded rather than deleted because a wrong sentence that survived
+ * three milestones is worth being able to recognise.
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
  */
 
 import { CACHE_FUEL } from '../content';

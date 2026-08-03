@@ -125,10 +125,11 @@
  */
 
 import type { Position } from '../map';
-import { ACTION_COST, addActor, hasActor, type ActorId } from '../systems/schedule';
+import { addActor, hasActor, nextActAtOf, type ActorId } from '../systems/schedule';
 import {
   isAdjacent,
   isAlive,
+  PLAYER_ID,
   WAIT,
   type AwakeMind,
   type CreatureActor,
@@ -193,21 +194,31 @@ function pursue(world: ActorWorld, creature: CreatureActor, player: PlayerActor)
  * so nothing ever has to remove one from the queue for falling asleep. The other direction lives
  * where it always did, in `resolveAttack`'s kill-time unschedule.
  *
- * Waking joins the queue at `now + ACTION_COST`, which is what makes §2 phase 3 true: a creature
- * woken by the light you just opened **declares this turn and acts next turn**, never in phase 4 of
- * the turn it woke.
+ * **Waking joins the queue at the instant the player is next due to act** (ADR-0014, §2 phase 3).
+ * Not `now + ACTION_COST`: that is the *player's* due instant only on a command that charged the
+ * player, and two commands do not — a free action (phase 4 is `identity`) and `beginRun` (phase 3
+ * alone). On those the player is still due at `now`, so the creature is too, and it resolves in
+ * phase 4 of the next command the player pays a turn for. The observable rule either way: **exactly
+ * one paid command stands between the wake and the creature's first resolution — never two, never
+ * zero.** Never zero holds by construction, because phase 1 charges the player before phase 3 runs.
+ *
+ * **The read lives inside this branch and must stay there.** `resolveAttack` unschedules a dead
+ * actor *including the player*, and `actOnce` still calls `commitNextIntent` → `setMind` after a
+ * killing blow — at which point the creature is already scheduled and returns above, but the player
+ * is not, so a read hoisted over the early return throws on every run that ends in a death.
  */
 function setMind(world: ActorWorld, creature: CreatureActor, mind: AwakeMind): ActorWorld {
   const updated = withActor(world, { ...creature, mind });
   if (hasActor(updated.schedule, creature.id)) return updated;
   return withSchedule(
     updated,
-    addActor(updated.schedule, creature.id, updated.schedule.now + ACTION_COST),
+    addActor(updated.schedule, creature.id, nextActAtOf(updated.schedule, PLAYER_ID)),
   );
 }
 
 /**
- * Wake a dormant creature: it declares immediately and joins the schedule for next turn.
+ * Wake a dormant creature: it declares immediately and joins the schedule at the instant the player
+ * is next due to act, which is one *paid* command away however this was reached (see `setMind`).
  *
  * The two callers are GDD §2 phase 3 ("any dormant creature now inside the lit radius wakes and
  * immediately declares") and §3's dormant strike ("if the target survives, it wakes"). Already

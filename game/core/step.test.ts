@@ -585,20 +585,25 @@ describe("step — 'descend'", () => {
     // The player starts wounded, so that "took the hit" and "took the hit and then healed the
     // descent's +2" are different numbers. At full HP they are the same number and this test would
     // pass on a rule that resolved the parting shot and then papered over it.
+    //
+    // **The staging lost a turn to #133 and §13's rule did not move.** This used to spend a `wait`
+    // between the flash and the fork, on the strength of a §2 sentence — *"a creature woken during a
+    // free action sees two player commands before its declared action resolves"* — that ADR-0014
+    // marks do-not-restore. Under the ruling the flash's wake is due at the instant the player is
+    // next due, so the woken state **is** the poised state and the fork comes one command earlier.
+    // The control and the rule below are untouched.
     const scene = ['#####', '#@>.#', '#.c.#', '#####'];
     const wounded = withPlayerHp(sceneState(scene, 'shuttered', 40), 6);
     const onStairs = step(wounded, { kind: 'move', dir: 'east' });
-    const woken = step(onStairs, { kind: 'setShutter', to: 'open' });
+    const poised = step(onStairs, { kind: 'setShutter', to: 'open' });
 
-    const cinder = woken.world.actors.find((actor) => actor.kind === 'creature');
+    const cinder = poised.world.actors.find((actor) => actor.kind === 'creature');
     expect(cinder?.kind === 'creature' && cinder.mind.kind === 'awake' && cinder.mind.intent).toEqual({
       kind: 'attack',
-      at: playerAt(woken),
+      at: playerAt(poised),
     });
-
-    // §2: "a creature woken *during* a free action sees two player commands before its declared
-    // action resolves." So one turn passes before the attack is due; this is that turn.
-    const poised = step(woken, { kind: 'wait' });
+    // The flash resolved nothing — it is free, so it has no phase 4 — which is §2's *never zero*
+    // seen from the other side: the wake cannot cost HP inside the command that made it.
     expect(playerOf(poised.world).hp).toBe(6);
 
     // The control: spend the turn here, and the declared attack lands.
@@ -831,11 +836,19 @@ describe('the run tally (§13’s summary numbers)', () => {
     //     thing the player did before dying vanishes off their summary;
     //   - a `fuelBurned` metered at phase 5 or 6 reads **0** for this turn as well.
     //
-    // The scene: the player, two Cinders adjacent, and 2 HP left. The flash wakes both (free, so
-    // they declare and do not act). The first strike puts the north Cinder to 2 HP; the second kills
-    // it in phase 1, and the west one lands the blow that ends the run in phase 4.
+    // The scene: the player and two adjacent Cinders. The flash wakes both — and since #133 a free
+    // action leaves the player due at `now`, so the pair are due there too and act in phase 4 of the
+    // **next** paid command rather than the one after (ADR-0014). Two adjacent Cinders take 4 HP a
+    // turn, so the player starts at 6: the first strike puts the north Cinder to 2 and costs 4, and
+    // the second kills it in phase 1 with 2 HP left while the west one lands the blow that ends the
+    // run in phase 4.
+    //
+    // **6 rather than 2 is the whole of what #133 changed here, and the boundary being pinned did
+    // not move.** Before the ruling the flash bought a command in which neither Cinder acted, so a 2
+    // HP player could take the first swing for free; the staging now has to buy that swing with HP
+    // like everything else.
     const scene = ['#####', '#.c.#', '#c@.#', '#####'];
-    const start = withPlayerHp(sceneState(scene, 'shuttered', 50), 2);
+    const start = withPlayerHp(sceneState(scene, 'shuttered', 50), 6);
     const flashed = step(start, { kind: 'setShutter', to: 'open' });
     expect(
       flashed.world.actors.filter((actor) => actor.kind === 'creature' && actor.mind.kind === 'awake'),

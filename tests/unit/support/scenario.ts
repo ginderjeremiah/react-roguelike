@@ -52,12 +52,12 @@ import {
   type Intent,
 } from '@/game/entities';
 import {
-  ACTION_COST,
   actorPhase,
   addActor,
   bump,
   chargeActor,
   hasActor,
+  nextActAtOf,
   reschedule,
   resolveDeaths,
   resolveTurn,
@@ -161,14 +161,20 @@ export function scenario(lines: readonly string[]): Scenario {
 }
 
 /**
- * Wake a creature with a specific declared intent, joining the schedule for next turn — the state a
- * creature is in after `wakeCreature`, but with the intent chosen by the test rather than by the
- * behaviour rules.
+ * Wake a creature with a specific declared intent — the state a creature is in after `wakeCreature`,
+ * but with the intent chosen by the test rather than by the behaviour rules.
  *
  * Deliberately *not* built on `wakeCreature`: a test for what happens when an attack on tile X
  * resolves must be able to state "it declared an attack on X" without the behaviour that would have
  * chosen X being part of the setup, or the test passes for the wrong reason when that behaviour
  * changes.
+ *
+ * **The scheduling half must nonetheless match `setMind` exactly, and it is the half that is easy to
+ * leave behind.** It joins at **the instant the player is next due to act** (ADR-0014, #133), which
+ * on a charged world is `now + ACTION_COST` and on an uncharged one — the shape a fresh `scenario`
+ * and `beginRun` both have — is `now`. Until #133 this hard-coded `now + ACTION_COST`, and once the
+ * rule shipped that would have been **the deleted grace turn preserved in a helper**: every scenario
+ * built awake would go on handing the player the extra command the rule exists to remove.
  */
 export function awaken(world: ActorWorld, id: ActorId, intent: Intent): ActorWorld {
   const creature = creatureById(world, id);
@@ -176,7 +182,7 @@ export function awaken(world: ActorWorld, id: ActorId, intent: Intent): ActorWor
   if (hasActor(updated.schedule, id)) return updated;
   return {
     ...updated,
-    schedule: addActor(updated.schedule, id, updated.schedule.now + ACTION_COST),
+    schedule: addActor(updated.schedule, id, nextActAtOf(updated.schedule, PLAYER_ID)),
   };
 }
 

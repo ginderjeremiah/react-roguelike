@@ -198,9 +198,16 @@ describe('a committed move', () => {
 describe('waking is not acting', () => {
   it('gives a creature woken by light no turn in the turn it woke', () => {
     // §2 phase 3 runs before phase 4, so this is only true because waking schedules the creature at
-    // `now + ACTION_COST`. Otherwise opening the shutter would wake a room *and* immediately hand
-    // it a turn — the player would take damage on the turn they flashed, from an enemy whose
-    // telegraph they never got to see.
+    // **the instant the player is next due to act** — and `playTurn` charges the player in phase 1,
+    // so by phase 3 that instant is `now + ACTION_COST`. Otherwise opening the shutter would wake a
+    // room *and* immediately hand it a turn — the player would take damage on the turn they
+    // flashed, from an enemy whose telegraph they never got to see.
+    //
+    // **Say "the player's due instant" and not "`now + ACTION_COST`", because the two differ on a
+    // command the player was not charged for** (ADR-0014, #133). This test's command *is* charged,
+    // which is why it never saw the difference and why it is still exactly the right test: §2's
+    // *never zero* is a claim about paid commands, and a free action has no phase 4 to hand a turn
+    // out in.
     const { world, ids, at } = scenario(['#####', '#@c.#', '#####']);
     const flashed = playTurn(world, { kind: 'wait' }, FLOODLIT);
 

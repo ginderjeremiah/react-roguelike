@@ -134,8 +134,16 @@ describe('waking in light', () => {
 
   it('wakes a creature to act next turn, never this one', () => {
     // §2 phase 3 sits before phase 4, so a creature woken by the light you just opened would act in
-    // the same turn if waking scheduled it at `now`. It joins at `now + ACTION_COST` instead:
-    // "opening the shutter woke the room" is a thing you see coming.
+    // the same turn if waking scheduled it at `now`. It joins at the instant **the player is next
+    // due to act** instead, which here is `now + ACTION_COST`: "opening the shutter woke the room"
+    // is a thing you see coming.
+    //
+    // **The paid case, and only the paid case** — `playTurn` charges the player in phase 1, so by
+    // phase 3 the player is due at `now + ACTION_COST` and the creature inherits a strictly future
+    // instant. That is §2's *never zero*, and it is why this test stayed green through #133. On a
+    // command the player is *not* charged for, `now` is the player's own due instant and the
+    // creature joins there — correct, and not the reactive behaviour this test forbids, because
+    // such a command has no phase 4 to be reactive in (ADR-0014).
     const { world, ids, at } = scenario(['#######', '#@...c#', '#######']);
     const lit = playTurn(world, { kind: 'wait' }, FLOODLIT);
 

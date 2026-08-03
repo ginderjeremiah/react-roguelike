@@ -106,7 +106,11 @@ import { resolveTurn } from './turn';
  * | --- | --- | --- |
  * | this file alone, 10 runs | 0.1002-0.1050ms | 9.5x the worst |
  * | the whole suite, 11 runs | 0.1153-0.1982ms | 5.0x the worst |
- * | the whole suite on a GitHub runner | 0.4776ms, once | 2.1x it |
+ * | the whole suite on a GitHub runner | 0.4776ms then 0.5289ms | 1.89x the worse |
+ *
+ * The runner row started as a single reading, `0.4776ms, once`, and the green run after this rewrite
+ * read **0.5289ms** — so the margin is 1.89x and not the 2.1x first written here. Two points, both on
+ * the same box, 11% apart: quote the row, not a single figure.
  *
  * The third is the failing run this rewrite comes from, and it is the one that sets the number: a
  * threshold under ~0.5ms is one the machine CI actually uses has already been observed to cross with
@@ -119,10 +123,13 @@ import { resolveTurn } from './turn';
  * and roughly a doubling on the slowest box we have measured**. It does not catch a 2x algorithmic
  * regression on a fast machine, and nothing absolute can. `step.bench.test.ts` holds a turn to a
  * *ratio* against a lit field measured in the same process for exactly that reason, and the ratio is
- * what survives a change of machine: this turn against `fov.bench.test.ts`'s lit field is 29.2x here
- * (0.105 / 0.0036) and 31.4x on the runner (0.4776 / 0.0152) — 7% apart across a 4.5x machine gap,
- * and that is measured across two files rather than in one process, so the real instrument would be
- * steadier still. Converting this file to it is how these thresholds start to bite; it needs that
+ * what survives a change of machine: this turn against `fov.bench.test.ts`'s lit field measures
+ * **29.2x** and **34.0x** here and **31.4x** and **32.1x** on the runner — three to four points
+ * spanning about **16%**, across a machine gap of **4.5x** in the absolute numbers. (A first draft
+ * said *7% apart*, which was the narrowest reading of a two-point sample; the third point widened it.
+ * The argument does not need 7% — 16% against a 4.5x spread is still an order of magnitude better
+ * than anything absolute — but do not quote the 7%.) That is measured across two files rather than in
+ * one process, so the real instrument would be steadier still. Converting this file to it is how these thresholds start to bite; it needs that
  * harness extracted from `step.bench.test.ts` first, which is more than a benchmark fix.
  */
 const TURN_BUDGET_MS = 1;
@@ -136,10 +143,14 @@ const TURN_BUDGET_MS = 1;
  * cheaper subject is a noisier one even at the same batch duration, which is an argument for keeping
  * its margin generous rather than for trusting it further.
  *
- * No runner has measured this fixture yet. On the turn above a runner read 2.4x the worst whole-suite
- * reading taken here, and the same factor puts a flash at ~0.2ms: 0.4 is **4.7x** the worst reading
- * here and ~2x what a runner implies, which is the posture the turn's limit has — the point of
- * setting the two separately rather than sharing one number.
+ * **A runner has now measured it, and this constant was set before it had.** The first draft reasoned
+ * *"no runner has measured this fixture yet"* and inferred ~0.2ms from the turn's machine factor,
+ * landing on 0.4. The green run reads **0.1070ms**, which makes 0.4 **3.7x** the runner against the
+ * turn's 1.89x — the two constants had drifted into different postures, which is the one thing
+ * setting them separately was supposed to prevent. Tightened to **0.25**: about **2.3x** the runner
+ * and **4x** the worst reading here, matching the turn. An inference left standing where a
+ * measurement exists is [ADR-0013](../../docs/decisions/0013-a-claim-about-the-build-is-established-by-measurement.md)'s
+ * subject, and this file is otherwise scrupulous about it.
  *
  * It is a separate constant rather than a shared one because a single limit across two workloads
  * that differ threefold is a limit that enforces nothing on the cheaper of them — the file's own
@@ -148,11 +159,11 @@ const TURN_BUDGET_MS = 1;
  * there: recomputing the lit field per light query instead of closing over it — the invariant
  * `light.ts`'s header states, and the bug `step.bench.test.ts` says "belongs to
  * `light.bench.test.ts`'s busy floor" — plants six extra casts in this exact fixture and measures
- * 0.0492-0.0515ms, **1.4x**, which sails under 0.4 the same way it sails under the 5x there. This is
+ * 0.0492-0.0515ms, **1.4x**, which sails under 0.25 the same way it sails under the 5x there. This is
  * now the fixture that *asks* the query six times, which it was not before, so a ratio limit here
  * would catch it; an absolute one never will.
  */
-const FLASH_BUDGET_MS = 0.4;
+const FLASH_BUDGET_MS = 0.25;
 
 const WARMUP = 50;
 const BATCHES = 5;
@@ -204,6 +215,17 @@ type CreatureWork = {
   readonly moved: number;
   /** How far the clock moved. Not evidence of anything acting; see the header. */
   readonly elapsed: number;
+  /**
+   * Tiles `revealed` **grew by** — terrain the lit field reached.
+   *
+   * A delta and not a size, deliberately. The first draft of the flash guard asserted
+   * `tileSetSize(revealed) > 0` on the after-state, which is a **state** assertion: the one class
+   * this file exists to remove. It meant the right thing only because the fixture is constructed
+   * fresh two lines above it — a fixture that ran any lit command before the measured flash would
+   * satisfy it vacuously *while phase 3 took the dark path*, which is exactly the failure it was
+   * written to catch. Found in review of #133.
+   */
+  readonly lit: number;
 };
 
 /** Creatures still asleep — the ones §2 phase 3 has to ask the light query about. */
@@ -232,7 +254,13 @@ function creatureWorkIn(before: LanternWorld, after: LanternWorld): CreatureWork
     if (charged === ACTION_COST) acted += 1;
   }
 
-  return { creatures, acted, moved, elapsed: after.world.schedule.now - before.world.schedule.now };
+  return {
+    creatures,
+    acted,
+    moved,
+    elapsed: after.world.schedule.now - before.world.schedule.now,
+    lit: tileSetSize(after.lantern.vision.revealed) - tileSetSize(before.lantern.vision.revealed),
+  };
 }
 
 describe('the light economy inside a turn', () => {
@@ -309,10 +337,11 @@ describe('the light economy inside a turn', () => {
     ).toBe(work.creatures);
     expect(flashed.lantern.vision.shutter).toBe('open');
     expect(
-      tileSetSize(flashed.lantern.vision.revealed),
+      work.lit,
       'the flash must light terrain: `revealed` grows only under `terrainFrom: light`, so a zero ' +
         'here means phase 3 took the dark path and cast no field at all — which is what this ' +
-        'benchmark measured while it toggled the shutter *shut*, at a thirteenth of the cost',
+        'benchmark measured while it toggled the shutter *shut*, at a thirteenth of the cost. ' +
+        'A *delta*, not a size: a size is also satisfied by a fixture that was lit before the flash',
     ).toBeGreaterThan(0);
     expect(
       dormantCreatures(flashed),

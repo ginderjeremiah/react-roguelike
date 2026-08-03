@@ -140,8 +140,10 @@ So this is a **fourth** verdict change beyond the 9+3, and it is the same lesson
 a benchmark's clothes: **a fixture is a rule site too.** Two of this repo's performance guards have now
 been found asserting a state rather than the work, and a state that the rules quietly stopped
 implying. Filed as **#137** — a ratio instrument rather than an absolute threshold, since a turn
-measures 29.2× a lit field here and 31.4× on the runner, **7% apart across a 4.5× machine gap**, while
-absolute numbers vary by 4.5×. The evidence that this is not theoretical: a *real* planted regression
+measures 29.2× and 34.0× a lit field here and 31.4× and 32.1× on the runner — **about 16% apart
+across a 4.5× machine gap** in the absolute numbers. (A first draft of this said *7%*, which was the
+narrowest reading of a two-point sample; the review's third point widened it. The argument does not
+need 7%, and #137 quotes 16%.) The evidence that this is not theoretical: a *real* planted regression
 (recomputing the lit field per light query, the bug `step.bench.test.ts` names) costs **1.4×** and
 sails under the recalibrated threshold. #133 recalibrated the absolute numbers and recorded the
 argument; #137 is the instrument.

@@ -57,6 +57,108 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-08-03 — #125 ruled: the grace turn is deleted, and the rule is stated over the schedule
+
+**Did:** Ruled **#125**, M2 build-order **step 4b**, ahead of #109. Docs only — GDD §2 and §4,
+[ADR-0014](decisions/0014-a-woken-creature-acts-when-the-player-next-acts.md), a change-log row, and
+the follow-on build filed as **#133**. **Ruled, not built:** every touched block carries a *ruled,
+not built* marker and the code still hands out the extra command.
+
+The rule:
+
+> **A creature woken in phase 3 joins the schedule at the instant the player is next due to act.**
+
+On a paid command that instant is `now + ACTION_COST`, which is what the build already computes, so
+**no paid command moves, byte for byte**. On a command the player was *not* charged for — a free
+action, or `beginRun` — the player is still due at `now`, so the creature is due at `now` and
+resolves in phase 4 of the next command the player pays a turn for. Observable form, now in §2:
+**exactly one *paid command* stands between a wake and the creature's first resolution — never two,
+never zero.** *Paid*, because a free action is not a turn — the turn/command conflation is the defect
+itself, so the sentence is stated in the unit the schedule advances on.
+
+**Why stated over the schedule rather than over free actions, which is the whole content of the
+ruling.** #125 opened with *schedule a creature woken by a free action at `now`*. That is the same
+rule read off a single reproduction, and `beginRun` has no free action in it, so it leaves the run
+start open on about one start in nine. Worse than leaving it open: it leaves `economy.test.ts`'s
+`beginRun` reproduction **passing**, which is exactly the signal that would get §4's regression guard
+enabled over a corpus structurally blind to the route still open. *A woken creature is due when the
+player is due* never has to enumerate which commands sweep phase 4, because it does not ask.
+
+**Why not the runner-up — accept it and re-price the wake as "2 HP, or 0 if you spend a flash to set
+it up".** It is a real option and it was close. It costs nothing to build, #123's playtest reproduced
+the route deliberately and rules it *low priority*, and the dominance argument is sound: a dormant
+strike is one turn, 0 HP, 6 damage, no wake and no 4 fuel, so **nobody optimising flashes next to a
+sleeper**. It is a discount on an *accidental* wake, not an exploit. Three arguments beat it, and
+only the third is about the budget:
+
+1. **It is a hidden state machine, and §4 deleted the last one in #121/#123, the build-order step
+   immediately before this one.** The
+   player has no readout of the clock, so two boards that look identical differ in whether the woken
+   `C` hits back — and the difference is which command last advanced a queue nobody can see. That is
+   #121's invisible eight-turn counter re-entering through the scheduler. It runs in the player's
+   favour, which makes it *pleasant* and does not make it legible.
+2. **The rule does not fit the medium.** *A woken Cinder costs 2 HP* teaches itself in one fight;
+   *…unless the command that woke it did not advance the clock* is a paragraph about a mechanism with
+   no representation, in a game with no tutorial text by design.
+3. **It makes the budget partly player-set.** §4 claims the exchange rate is *fixed by arithmetic and
+   not a matter of play* — the only reason 13-against-42 is a design fact rather than a habit. If a
+   fraction *f* of woken kills is free, a run resolves 26 ÷ 2(1−*f*) ≈ **13/(1−f)**, about **15** at
+   `STALKER`'s 14.5%, with *f* set by how often the player flashes beside things. §4 already carries
+   the standing rule that a number the subject sets cannot adjudicate the design; here it would not
+   be a metric, it would be the price list.
+
+**Learned — the claim I nearly shipped unchecked was the one about the *other* system.** The ruling's
+cost paragraph says the opening cannot produce a first-command hit, because §5 step 7 keeps every
+creature at least **Manhattan 3** from the entrance. That is load-bearing: it is the difference
+between "the opening gets harder" and "the opening can now kill you before you have understood the
+lantern". It is true — `game/map/generate.test.ts` pins
+`manhattanDistance(creature.at, floor.entrance) > 2` over 60 seeds × 8 floors — **and the review found
+that I had not followed it far enough**: measured by distance, the window is worth 0 HP only at
+Manhattan 1-2, so that same exclusion means an opening wake **already costs the full 2 HP** and the
+ruling buys a command there rather than HP. One in nine is the frequency of the *grace*, not of a free
+kill. I checked the exclusion
+because the last four sessions in this file are all one shape: a sentence about the build, derived
+correctly from these documents, false of the code. The metric name mattered too; §5's prose says
+*within 2 tiles* without naming one.
+
+**And the review then measured it a third way, which is the part worth copying.** I measured
+close-then-strike, which answers *does this line of play cost HP*. The review answered the stronger
+question — the **minimum over every legal line of play** (all four moves including the bump, `wait`,
+and the free shutter toggle) to depth 9 — and got the same eight cells, so the table is a **bound**
+and not a sample: *no* line of play makes a Manhattan-3 or -4 opening free. It also ran the same
+search from a *flash* wake and got the same four cells, which is the fact that actually explains the
+design: **the two routes are mechanically identical, and what separates them is only the distance
+distribution §5 step 7 imposes on an opening.** That is why the HP leaks through the free action and
+not through the run start, and it is a better statement of #125 than the one the issue was filed
+with.
+
+**Learned — the ruling had to be written from a corrected §4, and that sequencing was real, not
+ceremony.** #127 and #130 landed first for exactly this. Had §4 still priced the opening at the
+descent rate, the `beginRun` route would have been argued at **one start in five** — 2× its size —
+and frequency is most of what separates *a hole to close* from *a tactic to keep*. The two documents
+this was written from both carry *about one in nine*, which was the stated condition for writing it.
+
+**Next:** **#133** — build the ruling. Acceptance criteria are in the issue and in §4's *What a build
+owes*, written so nothing is re-decided: one call site (`setMind`), the instant read from the
+player's `nextActAt` rather than a `TurnCost` threaded down, the paid path byte-identical with the
+descent negative control **unedited**, `RULES_VERSION` 6 → 7 with three fixtures re-recorded, and
+§4's guard enabled as one line **only once the corpus assertion and both hand-built reproductions go
+red together**. Then #109.
+
+**Watch:** **§4's guard must not be enabled on a fix that closes only the free-action half.** That is
+the specific failure this ruling is shaped to prevent and it is easy to walk into, because the
+free-action fix makes the corpus number go to zero while `beginRun` stays open — a green guard over a
+blind corpus. **And the distance measurement makes this trap subtler, not weaker:** at the distances
+§5 actually produces, what a free-action-only fix leaves open at a run start is the **grace**, a
+tempo hole, and the guard measures HP — so the guard would be **honestly** green rather than falsely
+green, and the reproduction is the only thing that would say otherwise. A guard going green for a
+reason it cannot observe is precisely the shape §4 exists to refuse, so the condition stands: all
+three red together, or nothing. `economy.test.ts`'s characterisation block is the enforcement: it is to be **deleted,
+not repaired**, and its two reproductions re-pointed as positive reproductions of the closed rule
+(measured under the rule by hand, both end at **10/12 HP**). Also: the pricing bullet in §4 and every
+*ruled, not built* marker come out the day #133 ships — the bullet becomes exactly true again, and a
+stale *not built* marker is the kind of thing this file has had to correct four times running.
+
 ## 2026-08-03 — #130: an opening is not a descent, and the fourth sweep found five sites
 
 **Did:** Closed **#130**. GDD §4's *Where a run starts* priced the opening at the **descent** rate.

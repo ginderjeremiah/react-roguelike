@@ -363,6 +363,11 @@ describe('§4’s regression guard cannot be enabled yet, and this is the size o
    * THE GUARD #123 WAS ASKED FOR, THE INSTRUMENT IT NEEDED, AND WHAT THE INSTRUMENT FOUND
    * ═══════════════════════════════════════════════════════════════════════════════════════════════
    *
+   * **Status, 2026-08-03: #125 is *ruled* and closed (PR #134, ADR-0014, GDD §4 *The grace turn is
+   * deleted*) and nothing in `game/` moved with it. The build is #133** — it deletes this block and
+   * enables §4's guard, and its acceptance criteria are copied from §4's *What a build owes*. So
+   * "whoever fixes #125" below means #133; the rule is settled and is not to be re-litigated here.
+   *
    * §4 keeps a **regression guard**: *"No run may bank ember from a creature it woke without paying
    * HP for it."* It is labelled a guard rather than a watch because §4 believes it is zero by
    * arithmetic — 5 HP against 3 damage is two strikes, and by #121's proof the player is adjacent at
@@ -410,13 +415,37 @@ describe('§4’s regression guard cannot be enabled yet, and this is the size o
    * this.** `beginRun` has no free action in it. Whoever fixes #125 against the narrow statement will
    * delete this block, enable §4's one-line guard, and find it still red.
    *
-   * ## What this corpus cannot see, and it is half the defect
+   * ## What this corpus cannot see — the mechanism, not more HP
    *
    * **`arriveOn` in `tests/unit/support/lantern-run.ts` starts every floor shuttered and never calls
    * `beginRun`.** So every number below is the **free-action half only**. The `beginRun` route is
    * structurally invisible to this corpus and is pinned instead by the hand-built reproduction at the
-   * bottom of this block. Do not read 14.5% as the size of #125 — read it as the size of the part a
-   * harness that never starts a real run can measure.
+   * bottom of this block.
+   *
+   * **What that blindness is worth was measured by #134's ruling, and it is the opposite of what this
+   * comment said for two milestones.** It read: *"do not read 14.5% as the size of #125 — read it as
+   * the size of the part a harness that never starts a real run can measure"*, i.e. a **floor** under
+   * a larger unknown. That is now false. `generateFloor` skips any spawn within
+   * `CREATURE_ENTRANCE_EXCLUSION` (2) of the entrance — `game/map/generate.ts`, pinned for every seed
+   * at every depth by `generate.test.ts` — so **every generated opening wake is at Manhattan >= 3**,
+   * and GDD §4's distance table (re-measured as the minimum over every legal line of play) puts the
+   * window at **2 HP** from Manhattan 3 outward. Teaching `arriveOn` to call `beginRun` would add
+   * woken kills that **all cost 2 HP**, which moves the free fraction *down*.
+   *
+   * **The reversal does not depend on how many.** Adding *k* kills that all cost HP raises the
+   * denominator and not the numerator, so the free fraction falls for any *k* > 0 — do not let this
+   * argument come to rest on a figure. The figure quoted elsewhere, ~0.11 a run, is `223/2000`: the
+   * rate at which a run start wakes **at least one** creature. That is an **approximation, not a
+   * bound**, and two corrections run against each other: an opening can wake **more** than one
+   * creature (measured over 2000 seeds, 13 openings wake two, so creatures-woken-per-run exceeds the
+   * runs-that-wake rate by roughly 6%), while a run does **not** kill everything it wakes. Neither
+   * has been measured against the other, so this is not a measurement of the added kills — do not
+   * quote it as *at most*.
+   *
+   * So for this style, **14.5% is essentially the whole of the HP defect, not a floor under it.** The
+   * run start is still part of #125 and the rule still closes it — what it costs there is a
+   * **command**, a tempo hole this corpus could not see even if it did call `beginRun`, because the
+   * corpus measures HP. That is exactly why the reproduction below and not the guard is the signal.
    *
    * ## So this is a characterisation test, and it says so
    *
@@ -429,8 +458,8 @@ describe('§4’s regression guard cannot be enabled yet, and this is the size o
    *   - it is not the shape of the game (a **catastrophe** bound — see the assertion, which says
    *     what it is and is not).
    *
-   * **When #125 is fixed this test goes red on its first assertion**, and that is the handover:
-   * whoever fixes it deletes this block and replaces it with §4's guard, which is one line —
+   * **When the rule is built this test goes red on its first assertion**, and that is the handover:
+   * whoever builds it deletes this block and replaces it with §4's guard, which is one line —
    * `expect(kill.hpSpentWhileAwake).toBeGreaterThan(0)` over `wokenKills`. Nothing else has to move.
    * If it goes red *here* and not in the reproduction below, the fix closed the free-action half and
    * left `beginRun`'s open.
@@ -572,6 +601,13 @@ describe('§4’s regression guard cannot be enabled yet, and this is the size o
     // documented number overwrote three agreeing sources — ADR-0013 is about exactly this.
     //
     // The frequency does not change what this test asserts; it changes what #125 is worth.
+    //
+    // **And it is the frequency of the *window*, not of a free kill** — ruled 2026-08-03, ADR-0014.
+    // The floor below is hand-built at Manhattan **2**. §5 step 7 keeps a *generated* opening at
+    // Manhattan 3 or more, and the window is worth 0 HP only at 1-2 (measured as the minimum over
+    // every legal line of play to depth 9), so a real run start already pays the full 2 HP and the
+    // free kill leaks through the **free action** instead. This block still pins the mechanism, which
+    // is the same on both routes; do not quote it as "one run start in nine is a free kill".
     //
     // This is why #125's cause has to be stated as the scheduling invariant — and **read the signal
     // carefully, because an earlier draft of this comment had it backwards.** This test asserts that

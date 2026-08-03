@@ -517,7 +517,7 @@ this milestone, not its method.
       reconcile after #126; *one in five* was §4's arrival figure misapplied to a run start, which is
       always floor 1) but **not** of a descent. Two player commands is two
       strikes, and two strikes is a Cinder. §4's *"every woken Cinder costs exactly 2 HP"* is wrong
-      about one woken kill in seven **in the free-action half alone** — the corpus never calls `beginRun`, so that fraction is a floor rather than the size of the defect. Not a regression — it predates #83 — and the fix is a rule
+      about one woken kill in seven **in the free-action half alone** — the corpus never calls `beginRun`. That was read as *a floor rather than the size of the defect*, and **#134's distance measurement reversed it**: every generated opening wake is at Manhattan ≥ 3, where the window costs 2 HP, so adding `beginRun` would move the free fraction *down*. It is essentially the whole of the **HP** defect for this style; what the run start hides is the **grace**. Not a regression — it predates #83 — and the fix is a rule
       change, so it is #125's to rule. `economy.test.ts` carries a characterisation test in the
       guard's place, with both routes reproduced by hand and a negative control on descent
 - [x] **Rule on the grace turn a wake gets when phase 4 did not sweep — #125, build-order step 4b,
@@ -725,7 +725,11 @@ depends on whether the waking command's **phase 4 swept past `now`**. An ordinar
 **Two do not — a free action (phase 4 is `identity`) and `beginRun` (phase 3 only, no free action
 anywhere).** In both the player gets two phase-1 actions instead of one before the creature resolves
 anything, and two actions is two strikes, and two strikes is exactly a 5 HP Cinder against a 3 damage
-player. **Flash next to a sleeper and it dies for 4 fuel and no HP; or simply start a run.**
+player. **Flash next to a sleeper and it dies for 4 fuel and no HP.** (*Corrected 2026-08-03*: that
+sentence used to end *"or simply start a run"*, which is false of the build. §5 step 7 keeps a
+generated opening at Manhattan 3 or more, and the extra command is worth 0 HP only at Manhattan 1-2,
+so **an opening wake already costs the full 2 HP** — the run start hands out the *grace*, and the HP
+leaks through the free action. Step 4b below, and GDD §4's distance table.)
 `game/systems/light.ts` had recorded the free-action half in plain English since M1 and nobody had
 multiplied it by §3's damage. It predates #123 and #83 alike; re-dormancy hid it, because the dominant
 free kill was the one on a creature that had gone back to sleep.

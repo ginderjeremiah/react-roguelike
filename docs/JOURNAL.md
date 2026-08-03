@@ -57,6 +57,109 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-08-03 — Reconcile after #134: the ruling was propagated to the blocks it *amended*, not to the ones it *falsified*
+
+**Did:** Archivist sweep over PR #134 (the #125 ruling). No rule, no number and no behaviour moves.
+**Six documentation sites** corrected in two families, **one live comment site in `game/`**, plus a
+change-log row.
+
+**Family 1 — *one run start in nine* still read as the frequency of a **free kill** in four places.**
+#134 established that §5 step 7 keeps a generated opening at Manhattan 3 or more, and that the window
+is worth 0 HP only at Manhattan 1-2, so **an opening wake already costs the full 2 HP today** and one
+in nine is the frequency of the **grace**. #134 wrote that into the blocks it was already editing
+(§2, §4's *Where a run starts*, the ruling block, ADR-0014) and left it out of the older blocks that
+state the opposite: §4's *Status is load-bearing here* note, §4's too-weak-arm blockquote,
+`ROADMAP.md`'s step-4a prose (*"flash next to a sleeper… **or simply start a run**"*), and
+ADR-0013's *seventh instance*, which names it "the `beginRun` free-kill route". Each now carries the
+refinement in one or two sentences; none is rewritten, because each was true when written.
+
+**Family 2 — tense.** *"The characterisation test goes red the day #125 closes"* survived in GDD §4
+**twice**. #125 closed on the ruling; the test goes red when **#133** ships. #134's review caught
+this at one `ROADMAP.md` site and did not grep for the sentence.
+
+**One live site outside `docs/`:** `game/systems/economy.test.ts`'s `beginRun` reproduction says the
+window "is a property of every run start — about one in nine of them" directly above a hand-built
+floor at Manhattan **2** that ends 12/12. Comment-only fix, plus a status line at the top of the
+block saying #125 is ruled and closed and the builder it is waiting on is **#133**.
+
+**Why:** the pattern this repo keeps hitting is that a sweep is done when *someone else* greps
+([ADR-0013](decisions/0013-a-claim-about-the-build-is-established-by-measurement.md)). This is the
+fifth consecutive one on this family to find sites the previous pass missed.
+
+**Learned — a ruling makes previously-true sentences false, and that needs a different grep from a
+correction.** #127/#130 were corrections: a phrase (*one in five*) was wrong, so you grep the phrase.
+#134 is a ruling plus a measurement, and it left the phrase (*one in nine*) intact while changing
+**what it is the frequency of**. Grepping "one in nine" finds every site and tells you nothing; every
+hit has to be read for its *conclusion*. That is why four sites survived a review that explicitly
+swept for this number. The transferable rule: after a ruling, grep the conclusions it changed, not
+the strings it corrected.
+
+**And then the review falsified the first draft of that very rule, which is the more useful result.**
+This entry originally stopped at the sentence above, and the review found a **sixth** consecutive
+undercount: a **third** proposition #134 falsified, live in four places including `game/`. GDD §4 said
+56 of 386 was *"a floor on the defect, not its size"* — true when written, because the corpus never
+calls `beginRun` and the run start was believed to be a free-kill route. The distance table reverses
+it: every generated opening wake is at Manhattan ≥ 3, where the window costs **2 HP**, so teaching the
+corpus to call `beginRun` would add woken kills that all *cost* HP and move the free fraction
+**down** — and that reversal does not rest on how many, since adding *k* such kills raises the
+denominator and not the numerator for any *k* > 0. (The ~0.11-a-run figure is `223/2000`, the rate at
+which a run start wakes *at least one* creature — an **approximation, not a bound**, because two
+corrections run against each other: an opening can wake more than one (13 of 2000 wake two, about
++6%), and a run does not kill everything it wakes. Neither is measured against the other. Recorded
+because it will be quoted, and because a figure inferred one step past what was measured is what
+[ADR-0013](decisions/0013-a-claim-about-the-build-is-established-by-measurement.md) is for — this one
+appeared inside a hedge added to prevent it, which the review caught by measuring rather than
+arguing.) For `STALKER` it is essentially the whole of the HP defect. §4 had been
+contradicting itself about this seventeen lines apart since #134, and this pass edited a clause two
+lines above the contradiction without reading down to it.
+
+**So the rule as first written would not have caught this PR's own defect, and the corrected form is
+the point.** *Grep the conclusions* presumes you have enumerated them; this pass enumerated two
+(*the run start is a free kill*, *the test goes red when #125 closes*) and missed the third, which
+contains neither phrase and is invisible to a string grep and to the rule as stated. **The
+enumeration is the step that fails, not the grepping.** So: **after a ruling, enumerate the
+propositions it falsified — then grep each proposition's paraphrases.** A proposition with no
+distinctive string in it is the one that survives, and *"a floor on the defect"* is what one looks
+like.
+
+**Checked and deliberately left alone:** `render/cues.ts` and GDD §10's descent-precedence paragraph
+(both about a *descent*, correctly one in five — excluded explicitly for the fourth time);
+`session/run.test.ts`, `components/play/opening.ts`, `tests/unit/play-opening.test.ts` and
+`ARCHITECTURE.md` (all about the *wake rate* at an opening, which the ruling does not touch); GDD's
+change-log rows and JOURNAL entries carrying the old framing (records of what we believed, corrected
+by a new row rather than edited); and the remaining *"whoever fixes #125"* phrasings inside
+`economy.test.ts`'s handover, which #133 deletes wholesale and which the new status line now scopes.
+
+**Verified:** GDD carries exactly **eight** *ruled, not built* markers from this ruling (§2 phase
+list, §2 boundary block, §4 reason-1 blockquote, §4 pricing bullet, §4 status note, §4 ruling header,
+§4 too-weak-arm blockquote, §4 regression guard) and they match #133's criterion 9 one for one. #125
+is closed, #133 is open in M2 with the acceptance criteria copied from §4, and the roadmap names it
+as the next step with #109 after. No `needs-owner` issue is open, and nothing else in M2 is
+duplicated or made stale by the ruling.
+
+**Next:** **#133** — unchanged by this pass. Build the ruling; then #109.
+
+**Watch:** the *ruled, not built* markers and the "goes red when #133 ships" sentences must move
+together when #133 lands. **There are three of those sentences, not two, and the first draft of this
+Watch named two of the three blocks wrongly** — which is this entry's own subject happening inside the
+note written to prevent it, so the corrected list is stated by the heading each sits under and was
+checked with `grep "goes red the day"`:
+
+1. `GDD.md` — under ***The too-weak arm is structurally closed, and this section no longer watches
+   it.*** (**not** the *Status is load-bearing here* note, which contains no such sentence — that was
+   the slip, and the two are distinct blocks, as this entry's own Verified paragraph lists them).
+2. `GDD.md` — under ***A regression guard, stated as one so nobody mistakes it for a watch***.
+3. `ROADMAP.md` — **step 4a**, #123's record, in the *transferable part is the conditional*
+   paragraph. **Not** step 4b's *§4's honesty is gated on it* bullet, which says *until #133 ships*
+   and carries no "goes red" clause at all.
+
+The first draft of this Watch said *two*, which defeats the purpose of a
+note whose whole job is to be the pointer for the clauses #133's criterion 9 deliberately does not
+enumerate. **And a journal Watch is the wrong home for it**: this file is read three entries deep by
+design, and #133 may not be built within three. The list now also lives as a **comment on #133**,
+which is what the builder actually reads. Criterion 9 stays exact and enumerates only the eight
+markers; the tense clauses hang off the comment.
+
 ## 2026-08-03 — #125 ruled: the grace turn is deleted, and the rule is stated over the schedule
 
 **Did:** Ruled **#125**, M2 build-order **step 4b**, ahead of #109. Docs only — GDD §2 and §4,

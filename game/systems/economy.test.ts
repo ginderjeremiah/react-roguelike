@@ -363,6 +363,11 @@ describe('§4’s regression guard cannot be enabled yet, and this is the size o
    * THE GUARD #123 WAS ASKED FOR, THE INSTRUMENT IT NEEDED, AND WHAT THE INSTRUMENT FOUND
    * ═══════════════════════════════════════════════════════════════════════════════════════════════
    *
+   * **Status, 2026-08-03: #125 is *ruled* and closed (PR #134, ADR-0014, GDD §4 *The grace turn is
+   * deleted*) and nothing in `game/` moved with it. The build is #133** — it deletes this block and
+   * enables §4's guard, and its acceptance criteria are copied from §4's *What a build owes*. So
+   * "whoever fixes #125" below means #133; the rule is settled and is not to be re-litigated here.
+   *
    * §4 keeps a **regression guard**: *"No run may bank ember from a creature it woke without paying
    * HP for it."* It is labelled a guard rather than a watch because §4 believes it is zero by
    * arithmetic — 5 HP against 3 damage is two strikes, and by #121's proof the player is adjacent at
@@ -429,8 +434,8 @@ describe('§4’s regression guard cannot be enabled yet, and this is the size o
    *   - it is not the shape of the game (a **catastrophe** bound — see the assertion, which says
    *     what it is and is not).
    *
-   * **When #125 is fixed this test goes red on its first assertion**, and that is the handover:
-   * whoever fixes it deletes this block and replaces it with §4's guard, which is one line —
+   * **When the rule is built this test goes red on its first assertion**, and that is the handover:
+   * whoever builds it deletes this block and replaces it with §4's guard, which is one line —
    * `expect(kill.hpSpentWhileAwake).toBeGreaterThan(0)` over `wokenKills`. Nothing else has to move.
    * If it goes red *here* and not in the reproduction below, the fix closed the free-action half and
    * left `beginRun`'s open.
@@ -572,6 +577,13 @@ describe('§4’s regression guard cannot be enabled yet, and this is the size o
     // documented number overwrote three agreeing sources — ADR-0013 is about exactly this.
     //
     // The frequency does not change what this test asserts; it changes what #125 is worth.
+    //
+    // **And it is the frequency of the *window*, not of a free kill** — ruled 2026-08-03, ADR-0014.
+    // The floor below is hand-built at Manhattan **2**. §5 step 7 keeps a *generated* opening at
+    // Manhattan 3 or more, and the window is worth 0 HP only at 1-2 (measured as the minimum over
+    // every legal line of play to depth 9), so a real run start already pays the full 2 HP and the
+    // free kill leaks through the **free action** instead. This block still pins the mechanism, which
+    // is the same on both routes; do not quote it as "one run start in nine is a free kill".
     //
     // This is why #125's cause has to be stated as the scheduling invariant — and **read the signal
     // carefully, because an earlier draft of this comment had it backwards.** This test asserts that

@@ -69,6 +69,12 @@ creature on arrival."* The citation is accurate and the inference is wrong. **A 
 floor 1**, and §5 spawns `min(2 + floor, 6)` creatures — three on floor 1 against six from floor 4
 down. Measured over 2000 seeds through `openRun`: **223, or 11.2%** (≈ 11% across seed families at 20 000 — quote *about one in nine*, not three figures; `ARCHITECTURE.md` has the per-family spread and why). Per depth: floor 1 **11.2%**, then 14.7 / 17.9 / **20.6%**, flat from floor 4 down (the `min` caps spawn at 6, so floors 4-8 are structurally identical and measure bit-identically). The 20% is the *deep-floor* rate.
 
+**Naming refined by [ADR-0014](0014-a-woken-creature-acts-when-the-player-next-acts.md), 2026-08-03:
+the `beginRun` route is a *grace*, not a free kill.** At the distances §5 step 7 actually produces
+(Manhattan 3 or more) an opening wake already costs the full 2 HP, so what one start in nine buys is
+an extra *command*; the HP leaks through the free action. **The measurement error this section is
+about is unaffected** — one in nine is still the right frequency, and it is still not one in five.
+
 The correct figure was already in this repository — `tests/unit/play-opening.test.ts` pins *"roughly
 one opening in ten"*, `components/play/opening.ts` explains why it is lower than a descent's, and
 `ARCHITECTURE.md` says "one launch in ten" twice. **So this was not an unmeasured quantity. It was a

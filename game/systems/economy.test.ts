@@ -435,9 +435,12 @@ describe('§4’s regression guard cannot be enabled yet, and this is the size o
    * **The reversal does not depend on how many.** Adding *k* kills that all cost HP raises the
    * denominator and not the numerator, so the free fraction falls for any *k* > 0 — do not let this
    * argument come to rest on a figure. The figure quoted elsewhere, ~0.11 a run, is `223/2000`: the
-   * rate at which a run start wakes **at least one** creature. That is an *upper bound* on added
-   * woken kills, since a run does not kill everything it wakes, and it is not a measurement of the
-   * added kills themselves.
+   * rate at which a run start wakes **at least one** creature. That is an **approximation, not a
+   * bound**, and two corrections run against each other: an opening can wake **more** than one
+   * creature (measured over 2000 seeds, 13 openings wake two, so creatures-woken-per-run exceeds the
+   * runs-that-wake rate by roughly 6%), while a run does **not** kill everything it wakes. Neither
+   * has been measured against the other, so this is not a measurement of the added kills — do not
+   * quote it as *at most*.
    *
    * So for this style, **14.5% is essentially the whole of the HP defect, not a floor under it.** The
    * run start is still part of #125 and the rule still closes it — what it costs there is a

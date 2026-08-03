@@ -103,8 +103,13 @@ it: every generated opening wake is at Manhattan ≥ 3, where the window costs *
 corpus to call `beginRun` would add woken kills that all *cost* HP and move the free fraction
 **down** — and that reversal does not rest on how many, since adding *k* such kills raises the
 denominator and not the numerator for any *k* > 0. (The ~0.11-a-run figure is `223/2000`, the rate at
-which a run start wakes *at least one* creature: an upper bound on added kills, not a count of them.
-Recorded because it will be quoted.) For `STALKER` it is essentially the whole of the HP defect. §4 had been
+which a run start wakes *at least one* creature — an **approximation, not a bound**, because two
+corrections run against each other: an opening can wake more than one (13 of 2000 wake two, about
++6%), and a run does not kill everything it wakes. Neither is measured against the other. Recorded
+because it will be quoted, and because a figure inferred one step past what was measured is what
+[ADR-0013](decisions/0013-a-claim-about-the-build-is-established-by-measurement.md) is for — this one
+appeared inside a hedge added to prevent it, which the review caught by measuring rather than
+arguing.) For `STALKER` it is essentially the whole of the HP defect. §4 had been
 contradicting itself about this seventeen lines apart since #134, and this pass edited a clause two
 lines above the contradiction without reading down to it.
 

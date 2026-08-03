@@ -155,12 +155,19 @@ gets when phase 4 did not sweep should exist. Then **#109**, step 5, still the g
 number. The **broad** playtest that judges §12 is owed and is not blocked by either, but ADR-0012's
 bound is *after #123*, so it can run now.
 
-**Watch:** **the free-kill route now has two frequencies in circulation** and the wrong one is in more
-places than the right one — six sites said "one in five", this pass fixed the live ones in `GDD.md`
-and `ROADMAP.md` and left the historical change-log rows corrected-by-a-newer-row. Two sites are
-**outside these docs and unfixed**: `game/systems/economy.test.ts`'s comment at the run-start
-reproduction, and **issue #125's own body**, which is the document the ruling will be written from.
-Both are filed. **Correct the issue before ruling on it.**
+**Watch:** **the free-kill route had two frequencies in circulation and the sweep for the wrong one
+was asserted complete before it was.** Eight sites said "one in five". This pass fixed the live ones
+in `GDD.md` and `ROADMAP.md`, left the historical change-log rows corrected-by-a-newer-row, and —
+**after review caught that this very paragraph under-counted** — two more in `session/`, which is the
+layer that owns the run start and the first place anyone would look for the number: `session/run.ts`
+and `session/run.test.ts`. Each now carries its own *do not "fix" this back to one in five* note,
+which is the defence at the place the mistake gets made.
+
+**One site is still unfixed and it is the one that matters most: issue #125's own body**, the
+document the ruling will be written from. `game/systems/economy.test.ts`'s run-start comment is the
+other, filed as **#127**. **Correct the issue before ruling on it.** `render/cues.ts` also says one
+arrival in five and is **correct** — its context is `descendTurn`, real arrivals on floors 2-8 at
+14.7-20.6% — so do not sweep it up.
 
 **Also watch:** ADR-0013's scope line is *claims a reader would act on without re-deriving*, and that
 is deliberately not "every number". If a future session finds itself instrumenting a claim nobody

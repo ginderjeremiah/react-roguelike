@@ -1132,7 +1132,7 @@ and nothing may read one into it.**
   about twice a floor at nameable moments) and is **not** VISION's failure condition; **sustained
   light is unaffordable**, and #123 widened that gap rather than narrowing it, because a wake used to
   be a temporary nuisance with a 20-fuel refund and is now a permanent 2-HP debt. **That is the
-  too-strong arm's territory. **It does not meet the arm's stated trigger**, which ADR-0012 defines as
+  too-strong arm's territory.** **It does not meet the arm's stated trigger**, which ADR-0012 defines as
   *the lantern opened only when lost* — and this run opened it deliberately, about twice a floor, at
   moments the playtester could name. **That is a statement about the trigger's wording, not a verdict
   from this playtest**, which was a narrow build-verification brief and is not entitled to one. The

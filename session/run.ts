@@ -296,9 +296,9 @@ function sealed(internals: RunInternals): Run {
  * and it does not apply here.** A run start is always **floor 1**, which carries `min(2 + floor, 6)` =
  * 3 creatures against 6 from floor 4 down, so the opening frame wakes something on about **one run
  * start in nine** (11.2% over 2000 seeds; `tests/unit/play-opening.test.ts` pins one in ten). Still
- * often enough to matter, which is the point this sentence was making. Corrected per ADR-0013 and
- * #127; do not "fix" it back to one in five
- * and rarely enough that it is not noise.
+ * often enough to matter, and rarely enough that it is not noise — which is the point this sentence
+ * was making, and it survives the correction. Per ADR-0013 and #127; do not "fix" it back to one in
+ * five.
  *
  * So this stays as the shared value for the common opening — the one that wakes nothing — and
  * `beginRun` below reaches for `wakesOnArrival` when the light found something.

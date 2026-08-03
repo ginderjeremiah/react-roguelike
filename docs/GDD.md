@@ -947,7 +947,7 @@ shipped would have been the same defect with the sign flipped.
 > change log (*480 floors, 97 = 20% wake on arrival*) and applied it to a **run start**. The citation
 > is right and the inference is not: a run start is always **floor 1**, and §5 spawns
 > `min(2 + floor, 6)`, so floor 1 carries three creatures against six from floor 4 down. Measured
-> over 2000 seeds through `openRun`: **223, or 11.2%** (≈ 11% across seed families at 20 000; see below). Per depth: floor 1 **11.2%**, then 14.7 / 17.9 / **20.6%**, flat from floor 4 down (the `min` caps spawn at 6, so floors 4-8 are structurally identical and measure bit-identically) — so the 20% is the deep-arrival rate. **A run start *is* a floor-1 arrival**, so that is one
+> over 2000 seeds through `openRun`: **223, or 11.2%** (≈ 11% across seed families at 20 000 — quote *about one in nine*, not three figures; `ARCHITECTURE.md` has the per-family spread and why). Per depth: floor 1 **11.2%**, then 14.7 / 17.9 / **20.6%**, flat from floor 4 down (the `min` caps spawn at 6, so floors 4-8 are structurally identical and measure bit-identically) — so the 20% is the deep-arrival rate. **A run start *is* a floor-1 arrival**, so that is one
 > measurement and not two; an earlier draft of this block reported floor 1 separately at 9.5%, which
 > was 400-sample noise on the same quantity and implied a difference that does not exist. The repository
 > already held the right number and it was overwritten by the wrong one: `tests/unit/play-opening.test.ts`

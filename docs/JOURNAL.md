@@ -110,13 +110,53 @@ run measures only the site you mutated.** `awaken()` existed to reproduce the ve
 deletes; left alone it would have gone on reproducing it after the window was gone, which is why
 criterion 7 named it. What nobody did was ask what *else* changing it would touch.
 
+**Learned — and this is the one nobody predicted: the light benchmark had been measuring a turn in
+which nothing happened, for its whole life.** CI went red on `game/systems/light.bench.test.ts`, and it
+was not a flake. `busyLitFloor()` builds an **uncharged** world and force-wakes six creatures; under
+the old rule they joined at `now + ACTION_COST` = 100, and `medianCost` then re-ran that same
+`now = 0` turn 550 times — so phase 4 found nothing due and merely advanced the clock. *"The most
+expensive turn a floor has"* was a turn in which **no creature took an action**. Under the ruling all
+six act in the measured turn and it costs **8×** more (0.013 → 0.10 ms), which blew a budget that had
+been calibrated against the empty measurement.
+
+**The guard written to prevent exactly this could not see it.** It asserted
+`actors.some(a => a.mind.kind === 'awake')`, under the comment *"a benchmark of a floor of sleepers
+measures the wrong turn entirely"* — and awake-but-**not-due** is not a sleeper. The clock was no help
+either: `elapsed` is 100 under both rules, because phase 4 advances `now` whether or not anything was
+due. The replacement asserts the work itself — that all six creatures' schedule slots advanced by
+`ACTION_COST` and at least one is somewhere new — and it was verified the only way that means
+anything: revert the one line in `behaviour.ts`, watch it go red at `acted = 0 of 6`, restore it. The
+timing assertion passed happily throughout, which is the point.
+
+**And the shutter benchmark was worse.** It toggled *to* `'shuttered'` from an open floor, so phase 3
+took the **dark** path: `lanternLight` returned `DARK` without casting anything and `wakeInLight`
+skipped all six creatures at `isAwake` without asking the light query once. It cost 0.0026 ms — **less
+than a single lit field** — while claiming to benchmark the free action's lighting recompute. Measured
+evidence: `revealed` grew by **0** tiles. Now a flash in the *open* direction, ~13× the cost, with the
+fixture's own preconditions asserted (six dormant going in, `revealed` grew, at least one woke, and
+the clock did **not** move).
+
+So this is a **fourth** verdict change beyond the 9+3, and it is the same lesson as `awaken()` wearing
+a benchmark's clothes: **a fixture is a rule site too.** Two of this repo's performance guards have now
+been found asserting a state rather than the work, and a state that the rules quietly stopped
+implying. Filed as **#137** — a ratio instrument rather than an absolute threshold, since a turn
+measures 29.2× a lit field here and 31.4× on the runner, **7% apart across a 4.5× machine gap**, while
+absolute numbers vary by 4.5×. The evidence that this is not theoretical: a *real* planted regression
+(recomputing the lit field per light query, the bug `step.bench.test.ts` names) costs **1.4×** and
+sails under the recalibrated threshold. #133 recalibrated the absolute numbers and recorded the
+argument; #137 is the instrument.
+
 **Learned — the fixture re-record was smaller than a `RULES_VERSION` bump implies, and derived rather
 than pasted.** In the combat log the opening wake hands the hunter one command at the start and it
 **spends** it: at command 23 the extra tempo puts it adjacent, it declares, the player steps away, and
-command 24 resolves the attack on empty ground. From command 24 the two runs are identical — same 27
-creature steps, same 4 landed blows, same death on command 37, same `now`, `fuel`, `kills` and both
-vision planes. What actually moves is *which* of two hunters lands the killing blow, so the digest's
-two minds are **swapped**. And `pursuedInTheDark` 27 → 26 is **not a lost step**: the counter excludes
+command 24 resolves the attack on empty ground. **A first draft of this entry said the runs are
+identical from command 24 on, and the review measured that it holds only through command 31** — the
+flash at command 32 wakes a Cinder that is now due immediately, so it stands a tile further on for two
+commands and the player's HP differs mid-run. The tell was inside the fixture the whole time: the
+damage sequence it asserts moves 2, 2, 4, 4 → 2, 4, 4, 2, which two runs identical from command 24
+cannot do. The run still *ends* the same — same 27 creature steps, same 4 landed blows, same death on
+command 37, same `now`, `fuel`, `kills` and both vision planes — and what moves in the final frame is
+*which* of two hunters lands the killing blow, so the digest's two minds are **swapped**. And `pursuedInTheDark` 27 → 26 is **not a lost step**: the counter excludes
 a step that ends adjacent, and command 23's now does. Re-derived from both trajectories rather than
 nudged until green — a fixture number changed by hand until the test passes is not a fixture.
 

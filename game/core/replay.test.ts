@@ -1101,12 +1101,22 @@ describe('pinned run — the whole combat loop, ending in a death', () => {
    * it steps out of (8, 8) on command **2** instead of command 3 and stays a command ahead all the
    * way round the loop — until command 23, where being a command ahead puts it *adjacent* at (9, 7)
    * while the player is on (10, 7), so it declares an attack, the player steps to (10, 6), and
-   * command 24 is spent resolving that attack on an empty tile. The two runs are **identical from
-   * command 24 onward**: same 27 creature steps over the whole run, same four landed blows, same
-   * `doubleTeamed` of 2, same death on command 37, and the same `now`, `fuel`, `kills`, both vision
-   * planes and the same generator state. §2's *step off the marked tile*, charged to the creature.
+   * command 24 is spent resolving that attack on an empty tile. §2's *step off the marked tile*,
+   * charged to the creature.
    *
-   * **Two things do move and both are in the final frame.** `pursuedInTheDark` goes 27 → **26**, and
+   * **The two runs then re-converge for eight commands and diverge a second time — a first draft of
+   * this comment said "identical from command 24 onward", which is true only through command 31.**
+   * The flash at command **32** wakes a Cinder, and under the ruling it is due immediately: it stands
+   * at (6, 1) and (6, 2) on commands 33-34 where version 6 had it at (6, 0) and (6, 1), and the
+   * player's HP differs mid-run — 6 against 8 on command 35, 2 against 4 on command 36. The run still
+   * ends the same way: same 27 creature steps, same four landed blows, same `doubleTeamed` of 2, same
+   * death on command 37, same `now`, `fuel`, `kills`, both vision planes and the same generator state.
+   * **The correction matters because the *damage sequence* assertion below depends on it** — it reads
+   * 2, 4, 4, 2 where version 6 read 2, 2, 4, 4, which is a mid-run difference and cannot be true of
+   * two runs that are identical from command 24.
+   *
+   * **Two things move in the final frame**, on top of the mid-run divergence above.
+   * `pursuedInTheDark` goes 27 → **26**, and
    * not because a step was lost: the count excludes a step that ends adjacent, and command 23's step
    * now does. And the **killing blow changes hands**. The pair are tied on the clock from command 33,
    * so the flash-woken Cinder (the lower id) swings first each turn; under version 6 it arrived one

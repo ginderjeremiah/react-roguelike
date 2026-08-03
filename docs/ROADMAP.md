@@ -749,7 +749,8 @@ declared zero by argument, relabelled a guard on the strength of the argument, a
 because the measurement did not exist. The rule that no criterion may be claimed until the thing that
 would falsify it can be observed is the only reason this was found — and it fired in the direction
 nobody expected. #125 owns the fix, which is a rule change; `economy.test.ts` carries a
-characterisation test in the guard's place, and it goes red the day #125 closes.
+characterisation test in the guard's place, and it goes red the day the rule is **built** — #133, not
+#125. #125 is the ruling and closes on its own merge; nothing in `game/` moves until #133.
 
 **Step 4b — #125: rule on the grace turn a wake gets when phase 4 did not sweep. Added to this list by
 the reconcile after PR #126; *ruled 2026-08-03 in PR #134, and the build is #133*.**

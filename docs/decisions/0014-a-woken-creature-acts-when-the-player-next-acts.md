@@ -121,8 +121,13 @@ breaking three settled rules, and it does nothing for the free action.
   proof that had a hole in it.
 - **The opening gets a command tighter on about one run start in nine — not 2 HP more expensive, and
   the first draft of this ADR said otherwise.** Measured over a `beginRun` wake played
-  close-then-strike, the window is worth **0 HP at Manhattan 1-2** and is otherwise spent closing the
-  distance (2 HP at 3 and at 4). §5 step 7 keeps every creature at least Manhattan 3 from the
+  close-then-strike, and re-measured by the review as the **minimum over every legal line of play**
+  (moves, the bump, `wait`, and the free shutter toggle) to depth 9: the window is worth **0 HP at
+  Manhattan 1-2** and is otherwise spent closing the
+  distance (2 HP at 3 and at 4), with **no line of play making a Manhattan-3 or -4 opening free**.
+  The same search from a *flash* wake gives the same four cells, so the two routes are mechanically
+  identical and what separates them is only the distance distribution §5 imposes on an opening.
+  §5 step 7 keeps every creature at least Manhattan 3 from the
   entrance, so **an opening wake already costs the full 2 HP** on a generated floor: one in nine is
   the frequency of the *grace*, not of a free kill, and the HP leaks through the **free action**.
   #125's Reproduction B is a hand-built floor at Manhattan 2 — a correct proof of the mechanism, not

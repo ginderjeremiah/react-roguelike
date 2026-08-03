@@ -539,7 +539,10 @@ of them fiction:
    > its **condition** and not by adjacency, as `behaviour.test.ts` already does: the window is worth
    > 0 HP exactly when the player can land **both** strikes before the creature resolves an attack on
    > the tile they are standing on. Measured over a `beginRun` wake played close-then-strike, with the
-   > window and under the rule:
+   > window and under the rule — and then **re-measured by the review as the minimum over *every*
+   > legal line of play** (all four moves including the bump, `wait`, **and the free shutter toggle**)
+   > to depth 9, which is the stronger question and gives the same eight cells. **No line of play
+   > makes a Manhattan-3 or -4 opening free**, so the table is a bound and not a sample:
    >
    > | Manhattan distance at wake | window open (build today) | under the rule |
    > | --- | --- | --- |
@@ -1380,7 +1383,14 @@ whenever it is adjacent. So the guard goes from *zero by an arithmetic proof wit
 **Two conditions on enabling it, both of which the characterisation test is written to enforce:** the
 corpus assertion and **both** hand-built reproductions must go red together — a fix that closes only
 the free-action half leaves the `beginRun` reproduction **passing**, and enabling the guard on that
-would pin it over a corpus that cannot see the route still open. And the characterisation block is
+would pin it over a corpus that cannot see the route still open. **And note precisely what "still
+open" means after the distance measurement, because it is not what it was when this condition was
+written:** at the distances §5 step 7 actually produces, an opening wake costs 2 HP either way, so a
+free-action-only fix would leave the guard **honestly** green in real play rather than falsely green.
+What stays open at a run start is the **grace** — a tempo hole — and the guard measures HP, so it
+cannot see one. **That is the argument for the condition, not against it:** the reproduction is the
+signal precisely because the guard is not, and a guard that goes green for a reason it cannot observe
+is the shape this whole section exists to refuse. And the characterisation block is
 **deleted**, not adjusted: its two reproductions are re-pointed as positive reproductions of the
 closed rule (measured under the rule, both end at 10/12 HP), the descent control stays beside them
 unedited, and the guard replaces the block as one line.

@@ -121,6 +121,17 @@ because the last four sessions in this file are all one shape: a sentence about 
 correctly from these documents, false of the code. The metric name mattered too; §5's prose says
 *within 2 tiles* without naming one.
 
+**And the review then measured it a third way, which is the part worth copying.** I measured
+close-then-strike, which answers *does this line of play cost HP*. The review answered the stronger
+question — the **minimum over every legal line of play** (all four moves including the bump, `wait`,
+and the free shutter toggle) to depth 9 — and got the same eight cells, so the table is a **bound**
+and not a sample: *no* line of play makes a Manhattan-3 or -4 opening free. It also ran the same
+search from a *flash* wake and got the same four cells, which is the fact that actually explains the
+design: **the two routes are mechanically identical, and what separates them is only the distance
+distribution §5 step 7 imposes on an opening.** That is why the HP leaks through the free action and
+not through the run start, and it is a better statement of #125 than the one the issue was filed
+with.
+
 **Learned — the ruling had to be written from a corrected §4, and that sequencing was real, not
 ceremony.** #127 and #130 landed first for exactly this. Had §4 still priced the opening at the
 descent rate, the `beginRun` route would have been argued at **one start in five** — 2× its size —
@@ -137,7 +148,12 @@ red together**. Then #109.
 **Watch:** **§4's guard must not be enabled on a fix that closes only the free-action half.** That is
 the specific failure this ruling is shaped to prevent and it is easy to walk into, because the
 free-action fix makes the corpus number go to zero while `beginRun` stays open — a green guard over a
-blind corpus. `economy.test.ts`'s characterisation block is the enforcement: it is to be **deleted,
+blind corpus. **And the distance measurement makes this trap subtler, not weaker:** at the distances
+§5 actually produces, what a free-action-only fix leaves open at a run start is the **grace**, a
+tempo hole, and the guard measures HP — so the guard would be **honestly** green rather than falsely
+green, and the reproduction is the only thing that would say otherwise. A guard going green for a
+reason it cannot observe is precisely the shape §4 exists to refuse, so the condition stands: all
+three red together, or nothing. `economy.test.ts`'s characterisation block is the enforcement: it is to be **deleted,
 not repaired**, and its two reproductions re-pointed as positive reproductions of the closed rule
 (measured under the rule by hand, both end at **10/12 HP**). Also: the pricing bullet in §4 and every
 *ruled, not built* marker come out the day #133 ships — the bullet becomes exactly true again, and a

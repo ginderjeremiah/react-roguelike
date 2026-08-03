@@ -62,9 +62,17 @@ import { resolveTurn, type TurnPhase } from './turn';
  * Three parts, all of them read off §4 rather than chosen:
  *
  *   - **Open**, not shuttered. §5 step 7 puts no creature in the entrance room or in the room merged
- *     with it, so this is the one flash in the game whose safety the *generator* guarantees. Starting
- *     shuttered would make the correct opening four turns of `wait` while the adaptation ramp climbs
- *     — an obvious optimal sequence at the most visible moment of the run (Pillar 1).
+ *     with it — **but that is a *room* exclusion, not a *light* exclusion, and this docstring used to
+ *     read it as the second.** It said *"this is the one flash in the game whose safety the generator
+ *     guarantees"*, which asserts a rate of **zero**. Measured: about **one opening in nine** wakes
+ *     something (#127, #130; `docs/ARCHITECTURE.md` has the figure and why not to quote it to three places). Line of sight runs through a doorway into the
+ *     next room, which is exactly where §5 is happy to put creatures. §4's *Where a run starts*
+ *     carries the full correction and `run.test.ts` measures it; the third bullet below has always
+ *     said *light still wakes what light wakes*, and this bullet now agrees with it.
+ *
+ *     The reason for **open** is unchanged and never depended on safety: starting shuttered would
+ *     make the correct opening four turns of `wait` while the adaptation ramp climbs — an obvious
+ *     optimal sequence at the most visible moment of the run (Pillar 1).
  *   - **Sense radius at the floor, 1.** "Full adaptation is always earned." `createVision` does this;
  *     nothing here re-states it, so there is one place for it to be wrong.
  *   - **The entrance room already perceived**, by running §2's phase 3 once and *only* phase 3. No

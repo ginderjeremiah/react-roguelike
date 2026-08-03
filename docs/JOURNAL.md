@@ -57,7 +57,82 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
-## 2026-08-02 — #127: the last live site of the frequency, and the Watch it closes
+## 2026-08-03 — #130: an opening is not a descent, and the fourth sweep found five sites
+
+**Did:** Closed **#130**. GDD §4's *Where a run starts* priced the opening at the **descent** rate.
+**Dated 2026-08-03**, and the **#127** entry immediately below it was re-dated from 08-02 to 08-03
+in the same pass: the clock rolled over mid-session and I kept copying the previous heading, which
+is exactly the mechanism this file's own preamble warns about and **#50** owns. Caught by review
+comparing the headings to `git log --date=short`.
+**So: these top two entries are 08-03, and everything from the #128 reconcile entry downward is
+correctly 08-02** — `aa53855` (#128) is an 08-02 commit, `3cb9659` (#129) and `790f3e1` (#131) are
+08-03. A draft of this very note said the entries *above* `aa53855` were 08-02, which is backwards
+and would have walked the next date-check into reverting the fix.
+Corrected to about **one in nine**, with a change-log row. Docs only; no rule and no number in the
+simulation moves.
+
+**Why it mattered enough to do before #125:** §4 is the section a `game-designer` reads when ruling
+on the run start, and **#125 is unruled and is priced by exactly this number.** A ruling written from
+a §4 saying *one in five* would have overstated the `beginRun` free-kill route by roughly 2×, which
+is most of what decides whether it is a hole to close or a rule to accept.
+
+**Learned — the issue named two sites and there were four, which is the fourth consecutive sweep for
+this phrase to find more than the one before it.** #127 fixed `economy.test.ts`; the reconcile before
+it fixed the roadmap and two more in `session/` after review caught the enumeration short; #130 was
+filed for two in §4; and §4 actually held **four** — with a **fifth** outside it, found by review:
+
+1. reason 1's refutation of *the opening flash wakes nothing*;
+2. reason 2's *the lit opening is known to cost something one time in five*;
+3. the *waking arrival* bullet in the awake-creature block, quoting them;
+4. the **#79 legibility bullet**, which conflates the two events inside a single sentence —
+   *"phase 3 runs on `descend` and on the opening of a run, and §4 measures one arrival in five"* —
+   and is the one no grep for a wrong number would have flagged, because the number is **right for
+   half the sentence**;
+5. and **`game/systems/run.ts`'s `beginRun` docstring**, found by the review of this PR and not by
+   me — *"the one flash in the game whose safety the *generator* guarantees"*, a claim of **zero**
+   with no number in it at all. See Watch.
+
+Sites 4 and 5 are the interesting shapes. The fourth is a claim true of one clause and false of the other,
+which no amount of grepping for the figure will surface. It is now split into the two rates.
+
+**Two sites deliberately not changed, and saying so is the point.** §10's descent-precedence
+paragraph is about `You climb down to floor N.` and is **correct** at one in five — a descent really
+is. And the 2026-07-31 **#79 change-log row** carries the original conflation and is corrected *by* a
+newer row rather than edited, per the convention that a change log records what we believed at the
+time. Both are named in the new row so the next sweep does not "fix" them.
+
+**Also worth recording: `render/cues.ts` says one arrival in five and is correct**, for the same
+reason as §10 — its context is `descendTurn`. It has now survived three sweeps by being explicitly
+excluded each time, which is the cheapest possible defence and worth copying.
+
+**Next:** **#125 — the design ruling**, build-order step 4b, ahead of #109. Both documents it will be
+written from now carry the corrected frequency, which was the condition for writing it. One handover
+note for whoever rules it: #125's *"What a fix must do"* refers to *"Option 1 as originally written"*,
+and Options 1-3 are defined only inside the collapsed `<details>` block holding the superseded
+framing — point at it rather than let the agent conclude the options are gone.
+
+**Watch:** **that sentence was written a fourth time in this entry's first draft and was wrong a
+third time.** It read *"the frequency now appears correctly everywhere and incorrectly nowhere I can
+find"*. Review then found the **fifth** site, in `game/systems/run.ts` — and it is the strongest form
+of the error in the repository:
+
+> **Open**, not shuttered. §5 step 7 puts no creature in the entrance room or in the room merged with
+> it, so this is **the one flash in the game whose safety the *generator* guarantees.**
+
+That is a claim of **zero**, with no number in it to grep for, in the docstring of `beginRun` — the
+function #125 is about. Three things make it the worst-placed copy: `game/core/state.ts` points at
+it as the single in-code statement of the opening; `run.test.ts` **quotes this exact sentence,
+measures it false over 480 floors, and concludes "the GDD sentence is the thing that needs
+correcting"** — the GDD sentence was corrected three times over and its sibling in `run.ts` never
+was; and it contradicts its own third bullet eleven lines later (*light still wakes what light
+wakes*). Fixed here, along with the same sentence in `light.bench.test.ts`.
+
+The standing defence is not another sweep; it is that every corrected site now
+carries either a *do not "fix" this back* note or an explicit statement of which event it is about.
+The next person to meet one of these should be told which rate applies before they can get it wrong,
+rather than after.
+
+## 2026-08-03 — #127: the last live site of the frequency, and the Watch it closes
 
 **Did:** Closed **#127**. `game/systems/economy.test.ts`'s run-start block cited GDD's change log at
 *20% of arrivals* and applied it to a **run start** — accurate citation, wrong inference, because a

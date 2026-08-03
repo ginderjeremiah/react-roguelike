@@ -721,8 +721,7 @@ free kill was the one on a creature that had gone back to sleep.
 live on **roughly one run start in nine** (measured at the reconcile after #126: **223 of 2000** seeds
 through `openRun`, 11.2%. *One in five was wrong* — it took §4's change-log figure of 20% of
 **arrivals** and applied it to a **run start**, which is always floor 1 and therefore carries
-`min(2 + floor, 6)` = 3 creatures against 6 from floor 4 down. Per-depth: floor 1 **9.5%**, floors 6-8
-**~21%**. `tests/unit/play-opening.test.ts` and `ARCHITECTURE.md` already said one in ten), so
+`min(2 + floor, 6)` = 3 creatures against 6 from floor 4 down. Per-depth: floor 1 **11.2%**, then 14.7 / 17.9 / **20.6%**, flat from floor 4 down (the `min` caps spawn at 6, so floors 4-8 are structurally identical and measure bit-identically). `tests/unit/play-opening.test.ts` and `ARCHITECTURE.md` already said one in ten), so
 *"schedule a creature woken by a free action at `now`"* — the obvious fix, and the one #125's first
 draft named — **would not close it**. And a **descent does not** open the window: `arriveOnFloor` charges the player
 and `descendTurn` runs the whole phase list, so phase 4 sweeps and the creature acts on the next
@@ -1133,8 +1132,12 @@ and nothing may read one into it.**
   about twice a floor at nameable moments) and is **not** VISION's failure condition; **sustained
   light is unaffordable**, and #123 widened that gap rather than narrowing it, because a wake used to
   be a temporary nuisance with a 20-fuel refund and is now a permanent 2-HP debt. **That is the
-  too-strong arm's territory and it is not the arm firing** — the arm is *the lantern opened only when
-  lost*, and this run opened it deliberately. The judging playtest is what decides it.
+  too-strong arm's territory. **It does not meet the arm's stated trigger**, which ADR-0012 defines as
+  *the lantern opened only when lost* — and this run opened it deliberately, about twice a floor, at
+  moments the playtester could name. **That is a statement about the trigger's wording, not a verdict
+  from this playtest**, which was a narrow build-verification brief and is not entitled to one. The
+  judging playtest decides whether the arm fires; this bullet only records that the observation and
+  the trigger are different claims.
 - **#125 is findable but nobody would seek it.** Reproduced deliberately (flash beside a sleeper, two
   strikes, HP unchanged) and hit accidentally first — the two-turn stillness is very visible. **But
   the dormant strike strictly dominates it:** one turn, 0 HP, 6 damage, no wake, and no 4 fuel spent.

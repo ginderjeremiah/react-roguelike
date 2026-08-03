@@ -292,7 +292,12 @@ function sealed(internals: RunInternals): Run {
  * is `lightingAndWakingPhase(createLanternWorld(floor, 'open', …))`, and §4 starts the lantern
  * **open**, so anything in the entrance room's lit radius really does wake before the player has
  * touched anything. Reporting that is not inventing a turn; it is the one thing that did happen.
- * §4 measures roughly one arrival in five as waking something, so this fires often enough to matter
+ * §4 measures roughly one arrival in five as waking something — **but that is the all-depths rate
+ * and it does not apply here.** A run start is always **floor 1**, which carries `min(2 + floor, 6)` =
+ * 3 creatures against 6 from floor 4 down, so the opening frame wakes something on about **one run
+ * start in nine** (11.2% over 2000 seeds; `tests/unit/play-opening.test.ts` pins one in ten). Still
+ * often enough to matter, which is the point this sentence was making. Corrected per ADR-0013 and
+ * #127; do not "fix" it back to one in five
  * and rarely enough that it is not noise.
  *
  * So this stays as the shared value for the common opening — the one that wakes nothing — and

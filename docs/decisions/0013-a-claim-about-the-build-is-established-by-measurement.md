@@ -28,8 +28,10 @@ about whether the state they named was the only one.
 | 5 | The #125 guard's own signal comment | Written by the author of the guard | Stated backwards — as written, a narrow fix leaves it **passing** |
 | 6 | `felledWithoutEverWaking === felledInOneBlowWhileAsleep` discriminates the clock | "Restoring the clock breaks it" | Restoring the clock measured **1 and 1, equal**. It is an identity by construction |
 
-Four were caught by **building the instrument and running it**; three by **implementing the mutant**
-and looking at what actually went red. None was caught by re-reading the argument, and #1, #2 and #3
+Three were caught by **building the instrument and running it**; three by **implementing the mutant**
+and looking at what actually went red. *(An earlier draft of this line said four and three, over a
+six-row table. Caught in review of this ADR — which is the eighth instance and the first one this
+document committed against itself, so it is recorded here rather than silently corrected.)* None was caught by re-reading the argument, and #1, #2 and #3
 were each re-read by three or more people first.
 
 ## Decision
@@ -65,8 +67,7 @@ in two places and issue #125's body all state that the `beginRun` free-kill rout
 start in five**, citing §4's change log: *"over 480 generated floors, 97 (20%) wake at least one
 creature on arrival."* The citation is accurate and the inference is wrong. **A run start is always
 floor 1**, and §5 spawns `min(2 + floor, 6)` creatures — three on floor 1 against six from floor 4
-down. Measured over 2000 seeds through `openRun`: **223, or 11.2%.** Measured per depth over 400
-floors each: floor 1 **9.5%**, floors 6–8 **~21%**. The 20% is the *deep-floor* rate.
+down. Measured over 2000 seeds through `openRun`: **223, or 11.2%** (11.25% at 20 000). Per depth: floor 1 **11.2%**, then 14.7 / 17.9 / **20.6%**, flat from floor 4 down (the `min` caps spawn at 6, so floors 4-8 are structurally identical and measure bit-identically). The 20% is the *deep-floor* rate.
 
 The correct figure was already in this repository — `tests/unit/play-opening.test.ts` pins *"roughly
 one opening in ten"*, `components/play/opening.ts` explains why it is lower than a descent's, and

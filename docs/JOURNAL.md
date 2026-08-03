@@ -89,8 +89,7 @@ seven.** GDD §4, `ROADMAP.md` twice and #125's body all price the `beginRun` fr
 run start in five**, citing §4's change log: *"over 480 generated floors, 97 (20%) wake at least one
 creature on arrival."* The citation is accurate; the inference is not. **A run start is always floor
 1**, and §5 spawns `min(2 + floor, 6)` — three creatures on floor 1 against six from floor 4 down.
-Measured over 2000 seeds through `openRun`: **223, 11.2%.** Per depth over 400 floors each: floor 1
-**9.5%**, floors 6-8 **~21%**. The 20% is the deep-arrival rate.
+Measured over 2000 seeds through `openRun`: **223, 11.2%** (11.25% at 20 000). Per depth: floor 1 **11.2%**, then 14.7 / 17.9 / **20.6%**, flat from floor 4 down (the `min` caps spawn at 6, so floors 4-8 are structurally identical and measure bit-identically). The 20% is the deep-arrival rate.
 
 **The right number was already in this repository and a documented number overwrote it.**
 `tests/unit/play-opening.test.ts` pins *"roughly one opening in ten"*, `components/play/opening.ts`

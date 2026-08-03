@@ -166,10 +166,47 @@ nudged until green — a fixture number changed by hand until the test passes is
 `FLOODLIT`'s denominator moves 247 → **252**, which the spec did not predict and should have: giving
 creatures a command back means slightly more of them get killed awake.
 
-**Next:** **#109** — the `HARVESTER` style, the gate on every fuel and combat number. It has been
-waiting behind three build-order steps and nothing numeric may move until it lands. The reason #123,
-#121 and #125 all went ahead of it holds one last time and then stops: the corpus has now been
-re-measured for the last rule change, so #109 measures the game rather than an artefact.
+**The playtest approved it and then found something much larger, which is now #139.** Neither of
+ADR-0014's named revisit conditions fired: the flash has **not** become a thing to avoid, and a run
+start that wakes something does not read as unfair — §5's Manhattan-3 floor means the deleted grace
+turn can never manifest at an opening, so the worst case measured was *hold, trade, dead* for 2 HP and
++16 fuel. Every woken kill it resolved cost exactly 2 HP, so **§4's cornerstone sentence is true in
+play now**. It also rates the change a small legibility *gain*: the wake frame draws a box on the
+creature and fills your own tile red, and under the old rule that warning sat unfulfilled for two
+commands. An intent marker that does not fire when you take a turn is a lie.
+
+**But: a zero-strategy bot that never opens the shutter reached the bottom on 9 of 9 seeds, and the
+same bot with the lantern open died in 4 of 4.** A/B on one seed with an identical route: lit ends on
+85 fuel *having taken the cache*, dark on 89 *having forfeited it* — dark gives up 21 fuel and is still
+ahead. The mechanism is **HP, not fuel**: light converts a free dormant kill into a 2 HP woken kill.
+The playtester names it as **§12's arm 2 — *the lantern opened only when lost* — firing, and not a
+hypothesis any more.**
+
+**That is filed as [#139](../../issues/139) and deliberately not ruled here.** ADR-0012 restated the
+trip-wire as two arms bounded by *"the next broad playtest after #123"*, and this is that playtest, so
+the bound is consumed. But ADR-0012 also says the call is a `game-designer`'s to make **deliberately
+rather than inferred**, and three things cut against firing: the playtest itself classifies the
+finding as *tuning* (the same classification #31 got for *dark strictly dominates*, which ADR-0012's
+own table records as tuning, not mechanic); **#109 has not run**, and it is the gate that exists to
+measure invariant 4, so firing now is firing before the diagnosis; and the same playtest answers
+arm **1** emphatically in the negative, naming a retellable moment and putting 13 of 38 sampled turns
+as real decisions. Against all three, ADR-0012 restated the trigger *because* a trip-wire that
+survives its own firing condition is one nobody will ever trip, and arm 2 has no tuning escape clause.
+That tension is the ruling, and it is not mine to make while shipping a build.
+
+**And #133 pushes it the wrong way, which whoever rules #139 should budget rather than discover.**
+Deleting the grace turn removes a discount worth 14.5% of `STALKER`'s woken kills. That is correct and
+it is what #125 ruled — and it makes the too-strong arm **stronger**.
+
+**Next:** **#139 or #109, and they are entangled.** #109 is the `HARVESTER` style, the gate on every
+fuel and combat number; it has been waiting behind three build-order steps and nothing numeric may
+move until it lands. The reason #123, #121 and #125 all went ahead of it holds one last time and then
+stops: the corpus has now been re-measured for the last rule change, so #109 measures the game rather
+than an artefact. But #139 asks whether the mechanic survives at all, and tuning a mechanic that is
+about to be deleted is wasted work — while ruling #139 without #109's measurement is ruling before the
+diagnosis. **My read: rule #139 first and expect it to say "not yet, and #109 is the test"**, because
+that is the shape ADR-0012 already gave the question. Whoever picks it up should decide that
+explicitly rather than let build order decide it.
 
 **Watch:** **`FLOODLIT` 247 → 252 and `STALKER` 386 → 387 are new denominators, and #109 will read
 them.** They moved because the rule gives every woken creature a command back, not because anything

@@ -57,6 +57,56 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-08-02 — #130: an opening is not a descent, and the fourth sweep found four sites
+
+**Did:** Closed **#130**. GDD §4's *Where a run starts* priced the opening at the **descent** rate.
+Corrected to about **one in nine**, with a change-log row. Docs only; no rule and no number in the
+simulation moves.
+
+**Why it mattered enough to do before #125:** §4 is the section a `game-designer` reads when ruling
+on the run start, and **#125 is unruled and is priced by exactly this number.** A ruling written from
+a §4 saying *one in five* would have overstated the `beginRun` free-kill route by roughly 2×, which
+is most of what decides whether it is a hole to close or a rule to accept.
+
+**Learned — the issue named two sites and there were four, which is the fourth consecutive sweep for
+this phrase to find more than the one before it.** #127 fixed `economy.test.ts`; the reconcile before
+it fixed the roadmap and two more in `session/` after review caught the enumeration short; #130 was
+filed for two in §4; and §4 actually held **four**:
+
+1. reason 1's refutation of *the opening flash wakes nothing*;
+2. reason 2's *the lit opening is known to cost something one time in five*;
+3. the *waking arrival* bullet in the awake-creature block, quoting them;
+4. the **#79 legibility bullet**, which conflates the two events inside a single sentence —
+   *"phase 3 runs on `descend` and on the opening of a run, and §4 measures one arrival in five"* —
+   and is the one no grep for a wrong number would have flagged, because the number is **right for
+   half the sentence.**
+
+That fourth one is the interesting shape: a claim that is true of one clause and false of the other,
+which no amount of grepping for the figure will surface. It is now split into the two rates.
+
+**Two sites deliberately not changed, and saying so is the point.** §10's descent-precedence
+paragraph is about `You climb down to floor N.` and is **correct** at one in five — a descent really
+is. And the 2026-07-31 **#79 change-log row** carries the original conflation and is corrected *by* a
+newer row rather than edited, per the convention that a change log records what we believed at the
+time. Both are named in the new row so the next sweep does not "fix" them.
+
+**Also worth recording: `render/cues.ts` says one arrival in five and is correct**, for the same
+reason as §10 — its context is `descendTurn`. It has now survived three sweeps by being explicitly
+excluded each time, which is the cheapest possible defence and worth copying.
+
+**Next:** **#125 — the design ruling**, build-order step 4b, ahead of #109. Both documents it will be
+written from now carry the corrected frequency, which was the condition for writing it. One handover
+note for whoever rules it: #125's *"What a fix must do"* refers to *"Option 1 as originally written"*,
+and Options 1-3 are defined only inside the collapsed `<details>` block holding the superseded
+framing — point at it rather than let the agent conclude the options are gone.
+
+**Watch:** the frequency now appears correctly in `game/`, `session/`, `docs/` and on #125, and
+incorrectly nowhere I can find — **but that sentence has been written three times this session and
+been wrong twice.** The standing defence is not another sweep; it is that every corrected site now
+carries either a *do not "fix" this back* note or an explicit statement of which event it is about.
+The next person to meet one of these should be told which rate applies before they can get it wrong,
+rather than after.
+
 ## 2026-08-02 — #127: the last live site of the frequency, and the Watch it closes
 
 **Did:** Closed **#127**. `game/systems/economy.test.ts`'s run-start block cited GDD's change log at

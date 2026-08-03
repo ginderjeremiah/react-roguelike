@@ -57,13 +57,17 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
-## 2026-08-03 — #130: an opening is not a descent, and the fifth sweep found five sites
+## 2026-08-03 — #130: an opening is not a descent, and the fourth sweep found five sites
 
 **Did:** Closed **#130**. GDD §4's *Where a run starts* priced the opening at the **descent** rate.
-**Dated 2026-08-03**, and the two entries below it were re-dated from 08-02 to 08-03 in the same
-pass: the clock rolled over mid-session and I kept copying the previous heading, which is exactly
-the mechanism this file's own preamble warns about and **#50** owns. Caught by review comparing the
-heading to `git log --date=short`. The entries above `aa53855` are correctly 08-02.
+**Dated 2026-08-03**, and the **#127** entry immediately below it was re-dated from 08-02 to 08-03
+in the same pass: the clock rolled over mid-session and I kept copying the previous heading, which
+is exactly the mechanism this file's own preamble warns about and **#50** owns. Caught by review
+comparing the headings to `git log --date=short`.
+**So: these top two entries are 08-03, and everything from the #128 reconcile entry downward is
+correctly 08-02** — `aa53855` (#128) is an 08-02 commit, `3cb9659` (#129) and `790f3e1` (#131) are
+08-03. A draft of this very note said the entries *above* `aa53855` were 08-02, which is backwards
+and would have walked the next date-check into reverting the fix.
 Corrected to about **one in nine**, with a change-log row. Docs only; no rule and no number in the
 simulation moves.
 
@@ -83,9 +87,12 @@ filed for two in §4; and §4 actually held **four**:
 4. the **#79 legibility bullet**, which conflates the two events inside a single sentence —
    *"phase 3 runs on `descend` and on the opening of a run, and §4 measures one arrival in five"* —
    and is the one no grep for a wrong number would have flagged, because the number is **right for
-   half the sentence.**
+   half the sentence**;
+5. and **`game/systems/run.ts`'s `beginRun` docstring**, found by the review of this PR and not by
+   me — *"the one flash in the game whose safety the *generator* guarantees"*, a claim of **zero**
+   with no number in it at all. See Watch.
 
-That fourth one is the interesting shape: a claim that is true of one clause and false of the other,
+Sites 4 and 5 are the interesting shapes. The fourth is a claim true of one clause and false of the other,
 which no amount of grepping for the figure will surface. It is now split into the two rates.
 
 **Two sites deliberately not changed, and saying so is the point.** §10's descent-precedence
@@ -118,7 +125,9 @@ it as the single in-code statement of the opening; `run.test.ts` **quotes this e
 measures it false over 480 floors, and concludes "the GDD sentence is the thing that needs
 correcting"** — the GDD sentence was corrected three times over and its sibling in `run.ts` never
 was; and it contradicts its own third bullet eleven lines later (*light still wakes what light
-wakes*). Fixed here, along with the same sentence in `light.bench.test.ts`. The standing defence is not another sweep; it is that every corrected site now
+wakes*). Fixed here, along with the same sentence in `light.bench.test.ts`.
+
+The standing defence is not another sweep; it is that every corrected site now
 carries either a *do not "fix" this back* note or an explicit statement of which event it is about.
 The next person to meet one of these should be told which rate applies before they can get it wrong,
 rather than after.

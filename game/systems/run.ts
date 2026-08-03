@@ -65,7 +65,7 @@ import { resolveTurn, type TurnPhase } from './turn';
  *     with it — **but that is a *room* exclusion, not a *light* exclusion, and this docstring used to
  *     read it as the second.** It said *"this is the one flash in the game whose safety the generator
  *     guarantees"*, which asserts a rate of **zero**. Measured: about **one opening in nine** wakes
- *     something (11.2% over 2000 seeds; #127, #130). Line of sight runs through a doorway into the
+ *     something (#127, #130; `docs/ARCHITECTURE.md` has the figure and why not to quote it to three places). Line of sight runs through a doorway into the
  *     next room, which is exactly where §5 is happy to put creatures. §4's *Where a run starts*
  *     carries the full correction and `run.test.ts` measures it; the third bullet below has always
  *     said *light still wakes what light wakes*, and this bullet now agrees with it.

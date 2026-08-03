@@ -218,8 +218,12 @@ pinned loosely in `tests/unit/play-opening.test.ts`. Per depth: floor 1 **11.2%*
 and calls `beginRun` — so there is one number here, not two to compare.
 **Quote it as “about one in nine” and not to three figures:** review measured the same seed family
 extended to 20 000 at 10.87% and four families at 10.87 / 11.15 / 11.47 / 11.52%, so the second
-decimal is seed-family noise. An earlier draft carried “11.25% at 20 000” into four documents,
-which is the over-precision half of the same habit ADR-0013 is about. Stated because the
+decimal is seed-family noise. A fifth family, measured later at **2000** seeds, came back at
+**10.6%** — recorded with its sample size because it is *outside* the four-family spread above and
+the reason is that it is the noisier measurement, not a new fact about the build. **Do not fold a
+2000-seed figure into a 20 000-seed spread**; that is a precision error inside the sentence about
+precision, and a draft of GDD's change-log row made it. An earlier draft also carried “11.25% at
+20 000” into four documents, which is the over-precision half of the same habit ADR-0013 is about. Stated because the
 inference *was* made in the other direction, in three documents at once — see
 [ADR-0013](decisions/0013-a-claim-about-the-build-is-established-by-measurement.md). The decision
 lives in `components/play/` rather

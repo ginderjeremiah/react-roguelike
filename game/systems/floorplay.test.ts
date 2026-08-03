@@ -260,8 +260,15 @@ describe('playing whole floors', () => {
     //
     // This counter used to be asserted **above 2**. It is now asserted at exactly 0, over 2160
     // scripted turns in which the shutter spends three quarters of its cycle shut and the script
-    // regularly walks away from what it woke. Restoring `TURNS_TO_REDORMANCY` and the `DORMANT`
-    // return puts this back in the twenties.
+    // regularly walks away from what it woke.
+    //
+    // **Measured, not guessed: with the clock restored this reads 4** (checked out at `c422315` and
+    // run — the whole tally was `woke 70, moved 168, hitThePlayer 70, missedThePlayer 72, killed
+    // 118, wentDormant 4, closedDistance 141`). An earlier draft of this comment claimed "in the
+    // twenties", which was a guess dressed as a measurement in a file whose neighbour insists on
+    // printing margins rather than guessing them. 4 still kills the mutant, and the margin being
+    // *thin* is the useful thing to know: this corpus kills most creatures long before eight silent
+    // turns can elapse, which is why the pre-#123 assertion here was only `> 2`.
     //
     // Not vacuous: `woke` above is asserted at more than 30 on the same runs, so there is always
     // something awake that *could* have gone back to sleep.

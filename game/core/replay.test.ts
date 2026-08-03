@@ -1073,8 +1073,13 @@ describe('pinned run — the whole combat loop, ending in a death', () => {
    *   5. **command 24** — step onto the corpse's tile and collect the ember. Fuel goes *up*, from
    *      57 to 76, which is the one moment in the game where it does.
    *   6. **commands 25-31** — keep walking, north and west through the doorway at (7, 4) to (6, 3),
-   *      still dark and still followed. Seven turns adjacent to nothing: **movement is safety**
-   *      (§4), so a player who keeps moving takes no damage at any creature speed.
+   *      still dark and still followed. **Seven turns of contact without a scratch, and command 26
+   *      is the one to read**: the player steps from (10, 5) to (9, 5), which is *into* adjacency
+   *      with the hunter at (9, 6), so it declares `attack at (9, 5)` — and command 27 steps to
+   *      (8, 5) and the blow lands on an empty tile. That is §4's *movement is safety* and §2's
+   *      *step off the marked tile* in one pair of commands, and it is a sharper demonstration than
+   *      never being adjacent at all would have been. An earlier draft of this line claimed exactly
+   *      that ("seven turns adjacent to nothing") and was simply false of the log.
    *   7. **command 32** — open. Free, and it wakes the third Cinder at (6, 0), three tiles up a
    *      clear column. This is the flash's price with nothing left to pay it with.
    *   8. **commands 33-37** — stand still, and be killed by the pair. Four landed turns out of five:
@@ -1097,12 +1102,16 @@ describe('pinned run — the whole combat loop, ending in a death', () => {
    * That is the honest disposal of a property whose subject was deleted: say what replaced it, and
    * do not pretend the count still means what it meant.
    *
-   * Everything else the fixture pinned is pinned again, and two things are new. The **HP arithmetic
-   * of the ruling** is visible in the last five turns (§4: every woken Cinder costs 2 HP, and two of
-   * them cost 4 a turn), and the **dead-player gate** is now visible in the final frame twice over:
-   * the creature that struck the killing blow declared a `wait` over the body, while the one that
-   * had already acted this turn still holds the `attack` it declared before the player fell. Two
-   * creatures, two different minds, and the difference is exactly where the sweep stopped (§13).
+   * Everything else the fixture pinned is pinned again, and three things are new. The **HP arithmetic
+   * of the ruling** is visible in the last five commands (§4: a woken Cinder costs 2 HP, and two of
+   * them cost 4 a turn). The **dead-player gate** is now visible in the final frame twice over: the
+   * creature that struck the killing blow declared a `wait` over the body, while the one that had
+   * already acted this turn still holds the `attack` it declared before the player fell — two
+   * creatures, two different minds, and the difference is exactly where the sweep stopped (§13). And
+   * **every creature killed in its sleep is one that was never woken**, asserted as an identity
+   * between two counts reached from opposite directions; that is §1's *free kills exist only in the
+   * dark* with the loophole re-dormancy left in it closed, and it is the assertion that comes apart
+   * if the clock returns.
    *
    * The version-5 log — retreat west nine, walk back east eight, flash, step north twice, wait —
    * cannot be re-pinned onto these rules, and this was **measured rather than assumed**. Replayed
@@ -1215,11 +1224,12 @@ describe('pinned run — the whole combat loop, ending in a death', () => {
     hp: 0,
     creatures: [
       // **The two minds in this list are different, and the difference is §13's halt.** Both
-      // creatures are adjacent to the corpse; ids sweep in ascending order, so this one resolved its
-      // attack (12 -> 2 HP... the fourth of five landed turns), declared another against a player
-      // who was still alive, and then the *next* creature's blow ended the run — so it is frozen
-      // holding an `attack`. It is the one woken by command 32's flash, three tiles up a clear
-      // column from (6, 0).
+      // creatures are adjacent to the corpse; ids sweep in ascending order, so on the last landed
+      // turn — the fourth of four — this one resolved its attack first, taking the player **4 -> 2**,
+      // declared another against a player who was still alive, and then the *next* creature's blow
+      // ended the run at 2 -> 0. So it is frozen holding an `attack`. It is the one woken by command
+      // 32's flash, three tiles up a clear column from (6, 0), and it only reached adjacency after
+      // command 35 — which is why the last two turns cost 4 and the first two cost 2.
       {
         at: { x: 6, y: 2 },
         hp: 5,
@@ -1267,7 +1277,7 @@ describe('pinned run — the whole combat loop, ending in a death', () => {
     let emberDrops = 0;
     let embersCollected = 0;
     let felledInOneBlowWhileAsleep = 0;
-    let felledWithoutEverBeingLit = 0;
+    let felledWithoutEverWaking = 0;
     let pursuedInTheDark = 0;
     const everAwake = new Set<number>();
 
@@ -1292,7 +1302,7 @@ describe('pinned run — the whole combat loop, ending in a death', () => {
           // §3: "a strike against a dormant creature deals double damage." Full HP one command ago,
           // gone the next — 3 x 2 against a 5 HP Cinder, in one blow, while it slept.
           if (actor.mind.kind === 'dormant' && actor.hp === CINDER.maxHp) felledInOneBlowWhileAsleep += 1;
-          if (!everAwake.has(actor.id)) felledWithoutEverBeingLit += 1;
+          if (!everAwake.has(actor.id)) felledWithoutEverWaking += 1;
           continue;
         }
         if (now.kind !== 'creature') continue;
@@ -1331,11 +1341,26 @@ describe('pinned run — the whole combat loop, ending in a death', () => {
     // Cinder survives the blow and none of these four hold.
     expect(alive(start) - alive(final), 'nothing died').toBe(1);
     expect(felledInOneBlowWhileAsleep, 'nothing was killed in its sleep (§3)').toBe(1);
-    // ...and §4's other half of the ruling: the one free kill on this floor is the one creature the
-    // run never lit. Since #123 that is the only way a free kill can happen at all — a creature you
-    // woke can only ever be killed awake — so this is the fixture's statement of *"the dormant
-    // strike is the reward for never having lit it"*.
-    expect(felledWithoutEverBeingLit, 'the free kill was on something that had been awake').toBe(1);
+
+    // ═══ #123's other half, and it is the EQUALITY that is the property, not either count ═══
+    //
+    // §4: a creature you woke can only ever be killed awake, so **every creature killed in its sleep
+    // is one that was never woken**. Asserted as an identity between two counts arrived at from
+    // opposite directions — one reads the mind and the HP at the moment of death, the other watches
+    // whether the id was ever in `everAwake` across the whole run.
+    //
+    // **Named honestly: "never woken", not "never lit."** Nothing in the state says whether a
+    // creature was ever inside the lit radius — a creature woken by a *surviving strike* was never
+    // lit and would still count as woken here — so the counter measures wakefulness and the name
+    // says so. An earlier draft called it `felledWithoutEverBeingLit` and claimed it as a second,
+    // distinct property; it is neither, on its own. **The equality is.**
+    //
+    // Restoring the clock breaks it, which is why it is here: under version 5 this log outwaited a
+    // creature it had woken and struck it asleep, so that kill counts in the first number and not in
+    // the second and the two come apart. That is the whole of what re-dormancy did to §1's "free
+    // kills exist only in the dark", stated as one line.
+    expect(felledWithoutEverWaking, 'a creature was killed asleep after having been awake')
+      .toBe(felledInOneBlowWhileAsleep);
     expect(emberDrops, 'no ember was ever dropped').toBe(1);
     expect(embersCollected, 'the dropped ember was never collected').toBe(1);
 

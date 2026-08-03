@@ -25,8 +25,9 @@ import {
   setShutterTurn,
   type LanternWorld,
 } from './light';
+import { beginRun, descendTurn } from './run';
 import { resolveTurn } from './turn';
-import { chargeActor } from './schedule';
+import { ACTION_COST, chargeActor } from './schedule';
 
 /**
  * GDD §4's three economy invariants, over a corpus of scripted runs.
@@ -373,13 +374,49 @@ describe('§4’s regression guard cannot be enabled yet, and this is the size o
    * `tests/unit/support/lantern-run.ts`) **and the guard came back red.** Measured here: 56 of
    * `STALKER`'s 386 woken kills and 22 of `FLOODLIT`'s 247 cost the player **nothing**.
    *
-   * The mechanism is **#125**, and it is not a #123 regression — it predates it and #83 alike:
-   * a free action skips phase 4, so the clock does not advance, so a creature woken in phase 3 of a
-   * free command is not due on the next command either. `light.ts` already writes this down — *"a
-   * creature woken during a free action sees two player commands before its declared action
-   * resolves"* — and nobody had multiplied it by §3's damage. Two player commands is two strikes,
-   * and two strikes is exactly a Cinder. **Flash while standing next to a sleeper and it dies for
-   * 4 fuel and no HP.**
+   * ## The mechanism is **#125**, and it is a scheduling invariant, not a fact about flashes
+   *
+   * It is not a #123 regression — it predates #123 and #83 alike. **State it as the invariant,
+   * because the narrower statement points at a fix that does not close it:**
+   *
+   * > `wakeInLight` schedules a woken creature at `now + ACTION_COST`. A creature's first action
+   * > therefore resolves on the first command whose `now` has reached that instant — and **whether
+   * > that is the next command or the one after depends on whether the waking command's phase 4
+   * > swept past `now`.**
+   *
+   * On an ordinary paid command it does: phase 4 finds nothing due, advances the clock to
+   * `now + ACTION_COST`, and the creature is due on the very next command. That is §2's "declares
+   * this turn, acts next turn". **Two commands do not sweep, and they are different in kind:**
+   *
+   *   - a **free action** (`actorPhase('free')` is `identity`, so phase 4 never runs); and
+   *   - **`beginRun`**, which runs *phase 3 only* to light the entrance room — no free action
+   *     anywhere, and the shutter never touched.
+   *
+   * In both, `now` is left behind, the next command spends its own phase 4 doing the advance, and
+   * the creature is due only on the one after that. The player gets **two** phase-1 actions instead
+   * of one before the creature resolves anything — and two actions is two strikes, and two strikes
+   * is exactly a 5 HP Cinder against a 3 damage player. `light.ts` has recorded the free-action half
+   * since M1 (*"a creature woken during a free action sees two player commands before its declared
+   * action resolves"*) and nobody multiplied it by §3's damage.
+   *
+   * **What the extra command buys is one of two things, and both are pinned below.** Either the
+   * creature's single action falls outside the interval between the two strikes entirely (the flash
+   * case), or it falls inside but is spent resolving a *stale* declaration — one made at wake time,
+   * before the player's last move — which is a move rather than an attack on the tile the player is
+   * now standing on (the `beginRun` case). A woken kill costs HP only when a creature resolves an
+   * **attack on the player's tile** between the two strikes; the window removes that in both shapes.
+   *
+   * **So #125's option 1 — "schedule a creature woken by a *free action* at `now`" — does not close
+   * this.** `beginRun` has no free action in it. Whoever fixes #125 against the narrow statement will
+   * delete this block, enable §4's one-line guard, and find it still red.
+   *
+   * ## What this corpus cannot see, and it is half the defect
+   *
+   * **`arriveOn` in `tests/unit/support/lantern-run.ts` starts every floor shuttered and never calls
+   * `beginRun`.** So every number below is the **free-action half only**. The `beginRun` route is
+   * structurally invisible to this corpus and is pinned instead by the hand-built reproduction at the
+   * bottom of this block. Do not read 14.5% as the size of #125 — read it as the size of the part a
+   * harness that never starts a real run can measure.
    *
    * ## So this is a characterisation test, and it says so
    *
@@ -389,11 +426,14 @@ describe('§4’s regression guard cannot be enabled yet, and this is the size o
    *
    *   - it is **real** (there is at least one free woken kill), so nobody can quietly claim §4's
    *     arithmetic holds; and
-   *   - it is the **exception** (well under a quarter of woken kills), so #125 getting worse is red.
+   *   - it is not the shape of the game (a **catastrophe** bound — see the assertion, which says
+   *     what it is and is not).
    *
    * **When #125 is fixed this test goes red on its first assertion**, and that is the handover:
    * whoever fixes it deletes this block and replaces it with §4's guard, which is one line —
    * `expect(kill.hpSpentWhileAwake).toBeGreaterThan(0)` over `wokenKills`. Nothing else has to move.
+   * If it goes red *here* and not in the reproduction below, the fix closed the free-action half and
+   * left `beginRun`'s open.
    *
    * ## What the attribution can and cannot see
    *
@@ -433,7 +473,12 @@ describe('§4’s regression guard cannot be enabled yet, and this is the size o
     expect(woken.length).toBeGreaterThan(onSleepers * 5);
   });
 
-  it('still has free woken kills, all of them the #125 window, and they are the exception', () => {
+  it('still banks woken kills for nothing, soon after the wake, in the half it can see', () => {
+    // **Named for what it measures.** An earlier title said *"all of them the #125 window"*, which
+    // asserted a cause this test never observes: `commandsAwake` counts commands, not mechanisms,
+    // and cannot tell a free-action window from a `beginRun` one from a third thing nobody has
+    // thought of. What is actually pinned is *how soon after the wake* a free kill happens, which
+    // is weaker and true. The mechanism is pinned by the reproductions below, not here.
     for (const [name, results] of [
       ['stalker', stalker],
       ['floodlit', floodlit],
@@ -441,23 +486,32 @@ describe('§4’s regression guard cannot be enabled yet, and this is the size o
       const woken = wokenKills(results);
       const free = woken.filter((kill) => kill.hpSpentWhileAwake === 0);
       console.log(
-        `${name}: ${free.length}/${woken.length} woken kills cost 0 HP (#125); ` +
-          `they die ${Math.min(...free.map((k) => k.commandsAwake))}-` +
+        `${name}: ${free.length}/${woken.length} woken kills cost 0 HP (#125, free-action half ` +
+          `only — this corpus never calls beginRun); they die ` +
+          `${Math.min(...free.map((k) => k.commandsAwake))}-` +
           `${Math.max(...free.map((k) => k.commandsAwake))} commands after waking`,
       );
 
       // **#125 exists.** Delete this block and enable §4's guard when it does not.
       expect(free.length, `${name}: §4's guard now holds — enable it and delete this test`)
         .toBeGreaterThan(0);
-      // ...and it is a corner, not the shape of the game. If a re-tune or a rules change made free
-      // kills the ordinary case — a creature with 3 HP or less, or a `PLAYER_ATTACK` that one-shots
-      // an awake Cinder — this is what goes red, which is the guard's job done by the only assertion
-      // that can currently do it.
-      expect(free.length * 4, `${name}: free woken kills have stopped being the exception`)
+
+      // ═══ A CATASTROPHE BOUND, NOT A REGRESSION BOUND — read the number before trusting it ═══
+      //
+      // Measured today: 56/386 (14.5%) for `stalker`, 22/247 (8.9%) for `floodlit`. This ceiling is
+      // **25%**, so #125 could get roughly 70% worse and stay green. That is deliberate and it is
+      // the weaker of two bad options: pinning near the measurement makes an ordinary tuning change
+      // to `FLASH_THRESHOLD` or a route heuristic go red for a reason that has nothing to do with
+      // the defect, in a file whose entire argument is that thresholds should be relative. What this
+      // catches is a *rules* change that makes free kills the ordinary case — a creature with 3 HP
+      // or less, or a `PLAYER_ATTACK` that one-shots an awake Cinder. It does **not** catch #125
+      // drifting, and the console line above is where drift is read.
+      expect(free.length * 4, `${name}: free woken kills have become the ordinary case`)
         .toBeLessThan(woken.length);
-      // Every free kill happens in the first handful of commands after the wake — the grace turn
-      // window, not a stand-up fight. A free kill on a creature that has been awake for twenty
-      // commands would be a different bug and is not this one.
+
+      // Every free kill happens within a handful of commands of the wake. This is a bound on *when*,
+      // not on *why*: a free kill on a creature that had been awake for twenty commands would be a
+      // different defect, and this is what would notice one arriving.
       for (const kill of free) {
         expect(kill.commandsAwake, `${name}: creature ${kill.id} was killed free long after waking`)
           .toBeLessThanOrEqual(8);
@@ -465,14 +519,15 @@ describe('§4’s regression guard cannot be enabled yet, and this is the size o
     }
   });
 
-  it('reproduces #125 from a hand-built situation, so the corpus number has a mechanism', () => {
+  it('reproduces #125 from a flash, which is the half the corpus above measures', () => {
     // A corpus statistic with no explanation is a number nobody can act on. This is the whole route
-    // in four commands, and it is what the issue quotes.
+    // in three commands.
     //
-    // Shuttered, standing next to a sleeper. The flash is **free** (§2), so `now` does not move: the
-    // Cinder wakes, declares an attack on the player's tile, and is scheduled at `now + ACTION_COST`
-    // — one instant the turn loop never reaches, because the next command starts at the old `now`.
-    // Two strikes at 3 damage kill it before it is ever due.
+    // Shuttered, standing next to a sleeper. The flash is **free** (§2), so phase 4 is `identity`
+    // and `now` does not move: the Cinder wakes, declares an attack on the player's tile, and is
+    // scheduled at `now + ACTION_COST` — an instant the *next* command spends its own phase 4
+    // arriving at. So the creature's single action falls after both strikes rather than between
+    // them, and two strikes at 3 damage is a 5 HP Cinder.
     const built = scenario(['#####', '#@c.#', '#####']);
     let state: LanternWorld = {
       world: built.world,
@@ -497,6 +552,81 @@ describe('§4’s regression guard cannot be enabled yet, and this is the size o
     // costs 2. It does not.
     expect(playerOf(state.world).hp).toBe(PLAYER_MAX_HP);
     expect(state.world.embers).toEqual([{ at: built.at('c'), amount: CINDER.emberDrop }]);
+  });
+
+  it('reproduces #125 from beginRun, with no free action anywhere — the half it cannot', () => {
+    // ═══ THE ASSERTION THAT STOPS #125 BEING FIXED WRONG ═══
+    //
+    // The route above needs a flash. **This one does not touch the shutter at all.** `beginRun`
+    // runs §2 phase 3 and *only* phase 3, to put the entrance room on screen before the first
+    // command — so it wakes whatever the opening light reaches at `now = 0`, schedules it at 100,
+    // and never runs a phase 4 to advance the clock. Same window, no free action, and it is a
+    // property of **every run start**: GDD's change log records that 20% of arrivals wake something.
+    //
+    // This is why #125's cause has to be stated as the scheduling invariant. A fix that special-
+    // cases free actions leaves this test red, and this test is the one that says so.
+    //
+    // `arriveOn` in `tests/unit/support/lantern-run.ts` starts every floor shuttered and never calls
+    // `beginRun`, so nothing in the corpus above can reach this. It is pinned here instead.
+    const built = scenario(['######', '#@.c.#', '######']);
+    let state: LanternWorld = beginRun(built.world.floor);
+    const woken = creatureById(state.world, built.ids[0]);
+
+    // Phase 3 ran and nothing else: the creature is awake and declaring, the clock is untouched, and
+    // the player is still due at the same instant the run began on.
+    expect(woken.mind).toEqual({ kind: 'awake', intent: { kind: 'move', to: { x: 2, y: 1 } } });
+    expect(state.world.schedule.now).toBe(0);
+    expect(state.world.schedule.entries).toEqual([
+      { actorId: PLAYER_ID, nextActAt: 0 },
+      { actorId: built.ids[0], nextActAt: ACTION_COST },
+    ]);
+
+    const command = (to: { x: number; y: number }): LanternWorld =>
+      resolveTurn(state, lanternPhases('costsATurn', moveCommand(to)));
+
+    // Command 1 — step toward it, onto the very tile it declared a move to. Its turn is not due at
+    // `now = 0`, so phase 4 spends this command advancing the clock instead of giving it one.
+    state = command({ x: 2, y: 1 });
+    expect(playerOf(state.world).at).toEqual({ x: 2, y: 1 });
+    expect(creatureById(state.world, built.ids[0]).at).toEqual({ x: 3, y: 1 });
+
+    // Command 2 — first strike. Now it *is* due, and it gets its one action: resolving the move it
+    // declared back at `beginRun`, which the player is now standing on, so it is blocked and spent.
+    // **A stale declaration is not an attack**, which is the other shape the window takes.
+    state = command({ x: 3, y: 1 });
+    expect(creatureById(state.world, built.ids[0]).hp).toBe(CINDER.maxHp - PLAYER_ATTACK);
+    expect(creatureById(state.world, built.ids[0]).at).toEqual({ x: 3, y: 1 });
+
+    // Command 3 — second strike, in phase 1, before the attack it has now declared can resolve.
+    state = command({ x: 3, y: 1 });
+    expect(state.world.actors.some((actor) => actor.id === built.ids[0])).toBe(false);
+    expect(playerOf(state.world).hp).toBe(PLAYER_MAX_HP);
+    expect(state.world.embers).toEqual([{ at: { x: 3, y: 1 }, amount: CINDER.emberDrop }]);
+  });
+
+  it('does not open the window on a descent, which is the boundary of the claim', () => {
+    // The negative control, and it stops #125 being restated as "arriving wakes things for free".
+    // `arriveOnFloor` **charges the player** (§13 pays the descent's turn below), and `descendTurn`
+    // runs the whole phase list — so phase 4 *does* sweep, the clock advances with the wake, and the
+    // creature is due on the very next command exactly as §2 promises. A descent that woke something
+    // hands the player one command, not two.
+    //
+    // Without this, the invariant above reads as "any arrival", which is both wrong and the kind of
+    // overstatement that gets a real defect dismissed.
+    const first = scenario(['######', '#@...#', '######']);
+    const next = scenario(['######', '#@.c.#', '######']);
+    const arrived = descendTurn(beginRun(first.world.floor), next.world.floor);
+
+    const creature = creatureById(arrived.world, next.ids[0]);
+    expect(creature.mind.kind).toBe('awake'); // the arriving light woke it
+    // The tell, and the whole difference from `beginRun` above: the clock has already moved to the
+    // instant the creature is due at, so it acts in phase 4 of the next command rather than the one
+    // after.
+    expect(arrived.world.schedule.now).toBe(ACTION_COST);
+    expect(arrived.world.schedule.entries).toEqual([
+      { actorId: PLAYER_ID, nextActAt: ACTION_COST },
+      { actorId: next.ids[0], nextActAt: ACTION_COST },
+    ]);
   });
 });
 

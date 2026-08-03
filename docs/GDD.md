@@ -744,8 +744,23 @@ Three consequences, and each kills one of the proposed fixes:
 **As implemented the threat set is not four tiles, it is one, and the review of this ruling is what
 established that.** `pursue()` declares `{kind: 'attack', at: player.at}` and never any other tile, so
 an adjacent creature names **only the tile you are standing on** — and two adjacent creatures name the
-**same** tile. The "second pursuer covers your exits" case is therefore dead on arrival: a second
-pursuer covers nothing a first did not. This makes the statement below stronger than it was first
+**same** tile. The "second pursuer covers your exits" case is therefore dead on arrival: **a second
+pursuer covers no tile a first did not.**
+
+> **That sentence said "covers nothing a first did not" until the #123 playtest, and the shorter
+> version is false in the way that gets a run killed.** It is true of **tiles** and false of
+> **damage**: two adjacent creatures both resolve, so a turn spent standing still against two costs
+> **`You take 4.`** and not 2. Measured in play — 12 → 8 → 4 across two such turns — and the same
+> playtest measured the consequence, which is that a doorway is now **the price control on every
+> fight**: two woken Cinders held at a chokepoint cost 4 HP, and the same two fought in the open cost
+> roughly double.
+>
+> The claim being made here is narrow and load-bearing and the imprecise form destroys it: **a second
+> pursuer adds no tile to the set you must avoid, so it does not make a *mover* hittable.** It very
+> much adds damage to a turn you spend not moving. Someone reasoning from the loose version to "two
+> is no worse than one" loses a run to it, and §5's loop doorways stop looking necessary.
+
+This makes the statement below stronger than it was first
 written and it is worth having stated precisely, because it says exactly what a future session would
 have to change to reopen the question: **not the creature's speed, not its pathing, but which tile it
 is allowed to name.**
@@ -827,7 +842,19 @@ arm.**
   not a matter of play:** a Cinder has 5 HP against the player's 3 damage, so a woken one takes two
   strikes; and by the proof above the player is adjacent at their own decision point only when the
   creature has already declared on their tile, so **the first strike always eats 2 and the second is
-  free. Every woken Cinder costs exactly 2 HP, or the stairs.** That prices a run: 12 HP plus 2 a
+  free. Every woken Cinder costs exactly 2 HP, or the stairs.**
+
+  > **This bullet is the paragraph the correction below is about, and it is wrong about roughly one
+  > woken kill in seven — [#125](../../issues/125).** The "always" fails whenever a creature's first
+  > action after waking resolves a command later than usual, which happens on every run start
+  > (`beginRun` runs phase 3 and no phase 4) and after every free action. Measured: 56 of 386 woken
+  > kills in the `STALKER` corpus cost 0 HP. The budget arithmetic below is therefore an **upper
+  > bound on the price**, not the price — a run may light and resolve somewhat more than 13. **Nobody
+  > may cite this bullet as authority that a wake always costs something.** The full statement is
+  > under *Status is load-bearing here* and in the regression-guard paragraph; the pointer is here
+  > because this is the bullet a reader meets first.
+
+  That prices a run: 12 HP plus 2 a
   descent is about **13 woken kills across eight floors**, against `min(2 + floor, 6)` creatures a
   floor — **42** across floors 1-8 (3+4+5+6+6+6+6+6; `LAST_FLOOR` is 8). **A run may light and
   resolve roughly a third of what it meets** — 13/42 is 31%, and an earlier draft of this paragraph
@@ -880,18 +907,40 @@ shipped would have been the same defect with the sign flipped.
 > **One thing #123 shipped that this section did not predict, and it is a correction to the
 > arithmetic below rather than to the rule: [#125](../../issues/125).** The instrumentation §4 asked
 > for was built, the regression guard was run against it, and **it came back red** — 56 of 386 woken
-> kills in the `STALKER` corpus and 22 of 247 in `FLOODLIT` cost the player **nothing**. The cause is
-> that a free action skips phase 4 and therefore does not advance the clock, so a creature woken by a
-> *flash* is not due on the next command either; `game/systems/light.ts` has always recorded that a
-> creature woken during a free action "sees two player commands before its declared action resolves",
-> and nobody multiplied it by §3. **Two player commands is two strikes, and two strikes is exactly a
-> Cinder.** So *"every woken Cinder costs exactly 2 HP"* below is **wrong about roughly one woken kill
-> in seven**, and flashing while standing next to a sleeper is a free kill that does not even need it
-> to still be asleep. It predates #123 and #83 alike — re-dormancy hid it, because the dominant free
-> kill was the one on a creature that had gone back to sleep. **Nothing in this section is amended by
-> it yet**: the fix is a rule change (schedule a creature woken by a free action at `now`) and it is
-> #125's ruling to make. `game/systems/economy.test.ts` carries a characterisation test in the
-> guard's place, which fails the day the gap closes so that whoever closes it enables the guard.
+> kills in the `STALKER` corpus and 22 of 247 in `FLOODLIT` cost the player **nothing**.
+>
+> **The cause is a scheduling invariant, and stating it narrowly is how it gets fixed wrong.**
+> `wakeInLight` schedules a woken creature at `now + ACTION_COST`, so its first action resolves on the
+> first command whose `now` has reached that instant. An ordinary paid command's phase 4 advances the
+> clock to exactly that instant, so the creature is due on the very next command — §2's *declares this
+> turn, acts next turn*. **Two commands do not sweep phase 4 past `now`, and they are different in
+> kind: a free action** (phase 4 is `identity`) **and `beginRun`**, which runs *phase 3 only* to put
+> the entrance room on screen. In both, the next command spends its own phase 4 doing the advance and
+> the creature is due only on the one after that — so the player gets **two** phase-1 actions instead
+> of one, and two actions is two strikes, and two strikes is exactly a Cinder.
+> `game/systems/light.ts` has recorded the free-action half in plain English since M1 (*"a creature
+> woken during a free action sees two player commands before its declared action resolves"*) and
+> nobody multiplied it by §3.
+>
+> **The `beginRun` half means this is not a fact about flashes**, and it matters twice over: it is
+> live on **one run start in five** (§4's own change log records 20% of arrivals waking something),
+> and it means the obvious fix — *schedule a creature woken by a free action at `now`* — **would leave
+> the route open**. A descent does **not** open the window, and the distinction is the boundary of the
+> claim: `arriveOnFloor` charges the player and `descendTurn` runs the whole phase list, so phase 4
+> sweeps and the creature is due on the next command as normal.
+>
+> So *"every woken Cinder costs exactly 2 HP"* below is **wrong about roughly one woken kill in
+> seven**, and flashing while standing next to a sleeper is a free kill that does not even need it to
+> still be asleep. It predates #123 and #83 alike — re-dormancy hid it, because the dominant free kill
+> was the one on a creature that had gone back to sleep. **Nothing in this section is amended by it
+> yet**: the fix is a rule change and it is #125's ruling to make. `game/systems/economy.test.ts`
+> carries a characterisation test in the guard's place, with **both** routes reproduced by hand and a
+> negative control on descent, and it fails the day the gap closes so that whoever closes it enables
+> the guard.
+>
+> **One limitation, recorded because the number will be quoted:** the 56/386 and 22/247 figures are
+> the **free-action half only**. `tests/unit/support/lantern-run.ts` starts every floor shuttered via
+> `arriveOn` and never calls `beginRun`, so that corpus is structurally blind to the run-start route.
 
 **Why this replaces a *Settled* rule.** The old rule sent a creature that lost contact to your
 last-known tile, where it waited indefinitely. The exit playtest measured the consequence and it was
@@ -926,26 +975,40 @@ a later edit — which is what the regression guard below is for, and a guard is
 
 > **Corrected by measurement, 2026-08-02 (#123, [#125](../../issues/125)).** This paragraph used to
 > end *"there is no reachable state of this build in which it costs nothing."* **There is**, it is
-> reachable at will, and it is about one woken kill in seven: a flash is a *free* action, a free
-> action does not advance the clock, and a creature woken by one is not due for two player commands —
-> which is exactly the two strikes a 5 HP Cinder takes. The sentence is struck rather than the
+> reachable at will, and it is about one woken kill in seven. The sentence is struck rather than the
 > paragraph rewritten, because part of the argument survives: the price is still fixed by arithmetic
 > rather than by tuning, and it is still not a dial.
+>
+> **The cause is a scheduling invariant, not a fact about flashes, and the difference decides what a
+> fix has to do.** `wakeInLight` schedules a woken creature at `now + ACTION_COST`, so its first
+> action resolves on the first command whose `now` has reached that instant — the **next** command if
+> the waking command's phase 4 swept the clock forward, the one **after** if it did not. Two commands
+> do not sweep: a **free action**, where phase 4 is `identity`, and **`beginRun`**, which runs phase 3
+> alone to put the entrance room on screen and involves no free action at all. Either way the player
+> gets two phase-1 actions before the creature resolves anything, and two actions is two strikes, and
+> two strikes is exactly a 5 HP Cinder. A **descent does not** open the window — `arriveOnFloor`
+> charges the player and the full phase list runs — so the route is `beginRun` and free actions, not
+> arrivals in general.
 >
 > **Whether "structurally closed" survives is now #125's to rule, and this section does not claim it
 > does.** An earlier version of this note said "the arm is still not one to watch in play" — that is
 > a design judgement and it was written by the PR that *found* the defect, which is the wrong author
 > for it. The honest statement is narrower: **the too-weak arm is closed for a wake the player pays
-> the clock for, and open for a wake bought with a free action.** One woken kill in seven is
-> currently free, at will, on a route the player can seek out. Whether that is a hole to close, a
+> the clock for, and open for a wake the clock has not caught up with** — bought with a free action,
+> or handed out by the run's own opening perception. One woken kill in seven is currently free, at
+> will, on a route the player can seek out, and one run start in five arrives inside the other
+> version of it. Whether that is a hole to close, a
 > tactic to keep, or evidence that the arm needs watching after all is exactly what #125 decides —
 > and until it does, **nobody may cite this paragraph as authority that a wake always costs
 > something.**
 >
 > **The guard below is red, and it must not be reported as satisfied.** It is carried in
-> `economy.test.ts` as a characterisation test that asserts the gap is *real* and that it is the
-> *exception*, so it fails in both directions and goes red the day #125 is fixed — at which point
-> the block is deleted and replaced by §4's one-line guard.
+> `economy.test.ts` as a characterisation test that asserts the gap is *real* and that it is not the
+> ordinary case, so it fails in both directions and goes red the day #125 is fixed — at which point
+> the block is deleted and replaced by §4's one-line guard. **Both routes are reproduced there by
+> hand**, with a negative control on descent, because the corpus behind the 56/386 figure can only
+> see one of them: `tests/unit/support/lantern-run.ts` starts every floor shuttered via `arriveOn`
+> and never calls `beginRun`.
 >
 > **And the guard was not a dead metric after all**, which is the part worth carrying furthest. It
 > was written as a watch, demoted to a regression guard on review's arithmetic proof that it could
@@ -955,6 +1018,11 @@ a later edit — which is what the regression guard below is for, and a guard is
 > of the world in which this number comes back different* — was answered correctly by everyone who
 > looked at it, and the state existed anyway.** Arithmetic over the rules is not measurement over the
 > build.
+>
+> **And the first statement of the cause was itself too narrow**, which is the same failure one level
+> down: #123 wrote it as *"a free action skips phase 4"*, review found `beginRun` doing the same thing
+> with no free action anywhere, and the fix that the narrow statement implies would have left the
+> route open and the guard red. A mechanism named from one reproduction is a hypothesis.
 
 **So one arm is watched, and it is the too-strong one: the lantern is opened only when lost.** The
 signal is a playtest that reports opening the shutter on arrival and then not again, with the reason
@@ -1009,10 +1077,15 @@ fuel income, demand and dry-out turns, with no per-creature attribution — so t
 conditional on #123 building it.
 
 **#123 built it, ran it, and the guard failed: 56 of 386 woken kills, and the cause is
-[#125](../../issues/125).** See the note under *Status is load-bearing here* above for the mechanism.
+[#125](../../issues/125)** — a creature's first action resolves a command late whenever the command
+that woke it did not sweep phase 4 past `now`, which is true of a free action and of `beginRun`, and
+not of a descent. See the note under *Status is load-bearing here* above for the full mechanism.
 The instrumentation is in `tests/unit/support/lantern-run.ts` (`WokenKill`, `WakeLedger`) and is
 permanent; what stands in the guard's place is a **characterisation test** that asserts the gap is
-real and is the exception, and that goes red the day #125 closes. **The guard itself is not an
+real and is not the ordinary case, reproduces **both** routes by hand, controls negatively on
+descent, and goes red the day #125 closes. **The 56 of 386 is the free-action half alone** — that
+corpus starts every floor shuttered and never calls `beginRun` — so it is a floor on the defect, not
+a measure of it. **The guard itself is not an
 acceptance criterion of anything until then**, and must not be reported as satisfied — which is what
 the conditional above was written to prevent, working exactly as intended in the one direction nobody
 expected it to fire in.
@@ -1932,4 +2005,4 @@ recorded at the moment we made it, is the part git cannot give us.
 | 2026-08-02 | **§4/§6 implemented, not amended: `nextMind` stops parking a woken Cinder and pursues. No rule moved; the code caught up to the 2026-07-31 ruling** | #83, build-order step 4, and the first step in the wager's build order to change what the simulation *does* rather than what it says. **This row records an implementation because the ruling it implements is one this table already carries** (2026-07-31, same section) — and because §4's own status marker had by then been wrong in both directions, once saying "not built" of built code and once "not implemented" of code about to ship. `nextMind` goes from five cases to three: settle `turnsSinceContact` (0 on contact, else +1), return `DORMANT` at 8, otherwise attack if adjacent and step toward the player if not. **The third case does not consult contact at all**, which is the entire ruling — an awake creature paths at you lit or shuttered, near or far, and the counter is the only thing contact still governs. Subtraction, as the ruling promised: two cases deleted, and with them `Mind.awareness` and the `Awareness` union, which existed solely to hold the last-known tile those cases pathed to. **A dead field is easier to re-add than a forgotten reason**, so the reason it existed moved into `behaviour.ts`'s header as a `SUPERSEDED` block rather than being deleted with it. **One case the ruling did not name, decided here:** a dead player. `hasContact` already answers `false` for one so that creatures do not swing at a corpse, but unconditional pursuit would have them *walk to* it — routing around that guard instead of honouring it — so the declaration is gated on the player being alive and the creature waits out its clock over the body. `turn.ts` halts the actor sweep on the killing blow, so this is nearly unreachable; nearly is not a rule, and the gate is visible in a stored fixture, where the surviving Cinder holds a `wait` that reads `attack` without it. **`RULES_VERSION` 4 → 5**, unambiguous under both clauses of the policy — the rule alters what an existing record replays to, and `GameState`'s shape loses a field. **The combat fixture was re-recorded rather than re-pinned**, and that is the judgement worth keeping: its old log "retreated" by shuffling one tile back and forth, which was a retreat only because breaking contact used to be sufficient. Replayed under pursuit it became a stand-up fight with no re-dormancy, no sleeper, no dormant strike and no death — so re-pinning the digest onto it would have silently deleted three of the six properties the fixture exists for, which is the "update the expected values" failure `replay.ts`'s version policy is written against. The same *intent* was re-recorded against the new rules and every old property is pinned again, with pursuit added. **Nothing was tuned:** the 8 does not move, no fuel number moves (#109 still gates that), and no mechanic, state, glyph, cue or UI was added. **What was still owed when this row was written was the measurement** — the fraction of woken creatures reaching adjacency before re-dormanting. **It was taken, and it does not work: do not run it.** It returned 0.89, which reads as the too-strong arm and is the opposite of the truth, because the player controls adjacency completely (0 of 4 when they walk, 1.0 when they stand). §4's boxed warning has the numbers and #121 owns the replacement. This clause is left standing and corrected in place rather than rewritten, because it is the newest row about #83 and a reader who acts on it goes straight at the metric the box exists to stop. **The box is gone as of the row below; the warning it carried is preserved inside §4's new watch, which is where a reader arriving from here should go.** |
 | 2026-08-02 | **§4/§6/§3: re-dormancy is deleted. A woken Cinder is awake for the rest of the floor — you kill it or you take the stairs. Ruled, not built (#121, build issue #123)** | #121, from the playtest of #83 (PR #119). **The issue asked which of three fixes should make a pursuer able to hit a fleeing player, and the answer is none of them, because it cannot be done.** Under §2 a creature's action is fixed before your command and resolved after it, and an attack names a *tile*; so you are hit only if the tile you choose was already named. From orthogonal adjacency a creature can name its own four neighbours and you can choose your own four, and **those sets intersect only in the tile you are standing on** — which you are leaving. **Cadence loses on Pillar 2, not on feel:** a faster creature that still declares a turn ahead changes nothing, and one that acts twice between your commands declares *after* your move and resolves *before* your next, so the marked tile appears and resolves inside a turn you never got — an undodgeable hit, and a breach of §2's load-bearing clause. **Geometry-aware pathing loses on reach:** predicting where you are going does not let a creature name a tile it cannot touch, and a pursuer is by construction behind you; it also costs the remembered-heading state #83 deleted and buys a creature that is harder to read, which §2 already refused. **Something at the moment of adjacency is rejected explicitly rather than by omission**, as #121 asked: an attack of opportunity, or a blow landing on the tile you left, does not make the marked tile dangerous — it makes it a *lie*, converts §2's one defensive move into the thing that gets you hit, and is by definition damage no turn existed to avoid. `commit.test.ts` keeps existing. **So the true rule, written down for the first time: movement is safety and action is exposure — you can only be hit on a turn you spent doing something else.** That rule is good; the defect is that **fleeing was also *doing something***. Eight turns of walking converted a hunter into a sleeper and pursuit *delivered it to your feet* — one measured seven-tile retreat had a walk back of four — so declining was not a delay, it was a profitable strategy, and #83 moved the optimum without removing the option. **The fix is therefore upstream of every direction offered: delete the clock.** §4 listed three ways out of a wake — outlast it, kill it, take the stairs — and **outlast it was the free one**. **Subtraction, as #83's was:** it removes `TURNS_TO_REDORMANCY`, `turnsSinceContact`, a case of `nextMind`, and — because nothing else in `game/entities/` asks — the whole *contact* concept and the injected `LightQuery` behind it, so the entity layer stops needing to know what light is. It also deletes the game's only **hidden state machine**, an invisible eight-turn counter deciding whether the thing behind you was still a threat through a channel the player cannot read, which is a Pillar 2 gain and closes **#89**. **This is the same edit as #83's rejected runner-up and the reversal is recorded rather than made quietly.** That runner-up lost on one sentence — *"a permanently-awake **parked** Cinder is furniture you route around, the decision rate does not move"* — and every word of it is about parking, which #83 then deleted. The answer to its premise is a number the project already had, and it belongs to the **M1 exit** playtest rather than to #119: with an awake creature inside three tiles it scored **8 of 8 commands as real decisions**, twice, against **5 of 50** everywhere else — so proximity to something awake is exactly when this game is at its best, and the runner-up assumed a permanently-awake creature would not produce proximity, where under pursuit it produces nothing else. (An earlier draft of this row credited that count to #119’s playtest, whose own rate was 8 of 48, or 8 of 21 excluding traversal; the two are different quantities and the roadmap already warns they are not comparable.) Its second argument survives and is paid: **darkness stops being restorative, permanently.** Three more costs, all stated in §4: a waking arrival (one in five) loses the answer §4 used to hand it and keeps only §13's; **invariant 4's gap widens**, because a flashing style now pays HP for every creature it lights while a never-flash fighter still one-shots everything it meets, which makes `CACHE_FUEL` more load-bearing and adds a question to #109; and **auto-travel is disabled for the rest of a floor rather than for eight turns**, which §9 now says out loud because #65 must be built knowing it. **No number moves** — the 8 is deleted rather than tuned, no fuel number moves (#109), and §3's combat numbers are deliberately left alone so that #109's corpus is not confounded, which is the same sequencing argument #121 used to put itself ahead of #109. **§3's "fleeing is hard, and that is a feature" is deleted rather than pointed at**: it was carried for one revision as an aspiration with a `#121` pointer, and the ruling is that it is unreachable rather than unbuilt. **The watch is replaced and §4's boxed warning deleted with it.** The old metric — the fraction of woken creatures reaching adjacency — is a property of the player's policy (0.89 overall; 0 of 4 walking, 1.0 standing). **The playtest's proposed substitute, *unavoidable hits*, is also rejected**, and that is worth more than adopting it: the player cannot fake it, but the rules pin it to 0 by construction, so it is a standing invitation to break §2 in order to move it. **A measurement must not name a quantity the design has already decided.** **The first replacement broke the same rule a third way and was corrected by review inside this PR** — *a count of creatures woken and banked at no HP cost, which must be zero* is decided by the **numbers**: 5 HP against 3 damage is two strikes, and the player is adjacent at their decision point only when the creature has already declared on their tile, so **every woken Cinder costs exactly 2 HP** and the count is 0 by arithmetic rather than by the design working. Three metrics, three ways of being unfalsifiable — set by the **player**, by the **rules**, by the **numbers** — and the transferable question is now written into §4: *name the state of the world in which this number comes back different; if you cannot, it is a guard.* **What §4 carries instead: the too-weak arm is declared structurally closed and is no longer watched**, because a wake cannot cost nothing in any reachable state of this build; the zero-count claim survives **relabelled a regression guard** against a later re-tune reopening a free-kill route, and the claim that `economy.test.ts` can assert it today is **withdrawn as false** — that corpus records per-floor fuel and dry-out turns with no per-creature wake or HP attribution, so #123 owes the instrumentation or the guard is not built. **One arm is watched and it is the too-strong one: a playtest reporting the lantern opened only when lost**, VISION's own failure condition and the arm that spends §12 rather than a constant. **And the largest cost was missing from the first draft, also found by review: HP is the only resource with no in-floor recovery** (§3: no healing within a floor, +2 a descent, 12 max), so this ruling redenominates the flash's price into it — about **13 woken kills across a whole run** against the **42** a run meets (`min(2 + floor, 6)` summed over floors 1-8), and §4's own floor-8 history (*three flashes, five Cinders, 10 HP, resolved for no damage*) becomes **a dead run** |
 | 2026-08-02 | **§12: the trip-wire did not fire; the fallback stays unspent, and its trigger is restated so that "it never trips" is not the next failure** | #121, and [ADR-0012](decisions/0012-the-fallback-trigger-is-a-verdict-not-a-signature.md). `ROADMAP.md` held that if M2's playtest *"also cannot sign it, with #83 landed and measured, the checkpoint has been answered twice with 'not yet' and that is what spends §12."* #83 landed, was measured, a playtest ran on PR #119 and could not sign — so read literally the sentence had fired, and the reconcile after #119 deliberately left the call to a `game-designer`. **Ruled: it did not fire, because "cannot sign the criterion" and "says the wager is not tense" are different findings and only the second is §12's trigger.** Three verdicts exist and they are not the same verdict: M1's exit playtest said *tense and rare*; PR #119's said *tense and declinable*, naming a genuine retellable moment — `ashfall-nine` floor 2, a doorway held for eight turns, **2 HP for 38 ember** — and pointing at the specific turns the exit criterion asks for; §12 asks for *not tense*. **Attribution, because an earlier draft of this row got it wrong and it is the third site where the same slip was caught:** the *8 of 8 commands as real decisions with something awake inside three tiles* belongs to the **M1 exit playtest**, which scored it twice against 5 of 50 elsewhere. **#119 measured 8 of 48 turns, or 8 of 21 excluding traversal** — a whole-run rate, a different quantity, and not comparable. It is worth spelling out here of all places: this is the row a future session cites without re-deriving, and quoting a conditional count as #119's would overstate the evidence *inside the argument that §12 did not fire*. **A fallback that fires on any unsigned criterion fires on every unfinished milestone**, which makes it a deadline, and `ROADMAP.md`'s own sentence says it is not one. **The runner-up was ruling that it fired**, and it is not a weak position: the trip-wire was written *knowing* #83 was the fix, so "it arrives with a named fix" is an argument the sentence already anticipated and rejected once. It loses on the specific evidence — the named fix is not a repair of the same defect but the discovery of a **different** one, and #121's analysis shows the first one was misdiagnosed rather than under-built. **What the ruling costs, and it is why the trigger is restated: a trip-wire that survives its own firing condition is a trip-wire nobody will ever trip.** So it is now two named arms — *a playtest that cannot name a tense turn*, and *a playtest that reports the lantern opened only when lost* — and a bound: **the next *broad* playtest after #123 is the one that judges it** — broad as in PR #119's six lines across three seeds, because a narrow follow-up brief cannot answer a question about how a run felt — since #121's fix is the last unbuilt thing that changes what the wager *costs*. Steps 5 (#109) and 6 (#82) change what it measures and what it draws |
-| 2026-08-02 | **§4/§6: re-dormancy is deleted and the status markers on both blocks flip to *built* (#121 ruled, #123 built)** | The build of the #121 ruling, and it is subtraction: `TURNS_TO_REDORMANCY`, `Mind.turnsSinceContact`, `nextMind`'s `DORMANT` return, and — because nothing in `game/entities/` asked the question any more — the whole *contact* concept including the injected `LightQuery`. The entity layer no longer knows what a shutter is; `LightQuery` moved to `game/systems/light.ts`, where the real one was always built, and §2 phase 3's waking is its one remaining reader. `nextMind` now returns an **awake** mind by type rather than by convention, so re-introducing the clock is a change to a signature rather than an extra branch. `RULES_VERSION` 5 → 6; all three stored fixtures re-recorded, and the combat fixture's log rewritten rather than re-pinned because one of the six properties it existed for — *a creature returned to dormant* — is now impossible, and the assertion is **inverted** rather than deleted. No number moved. **The thing this row exists to record is what the build found: [#125](../../issues/125).** §4 asked #123 to build per-creature wake/HP instrumentation before its regression guard could be claimed, #123 built it, and the guard came back **red** — 56 of 386 woken kills in the `STALKER` corpus cost the player nothing. A free action skips phase 4 and so does not advance the clock, so a creature woken by a *flash* is not due for two more player commands, and two commands is two strikes, and two strikes is exactly a Cinder. `light.ts` had recorded that consequence in plain English three milestones earlier and nobody had multiplied it by §3's damage. **§4's *every woken Cinder costs exactly 2 HP* is wrong about roughly one woken kill in seven**, the fix is a rule change and is #125's to rule, and nothing in §4 is amended by it here beyond striking the sentence that claimed the state was unreachable |
+| 2026-08-02 | **§4/§6: re-dormancy is deleted and the status markers on both blocks flip to *built* (#121 ruled, #123 built)** | The build of the #121 ruling, and it is subtraction: `TURNS_TO_REDORMANCY`, `Mind.turnsSinceContact`, `nextMind`'s `DORMANT` return, and — because nothing in `game/entities/` asked the question any more — the whole *contact* concept including the injected `LightQuery`. The entity layer no longer knows what a shutter is; `LightQuery` moved to `game/systems/light.ts`, where the real one was always built, and §2 phase 3's waking is its one remaining reader. `nextMind` now returns an **awake** mind by type rather than by convention, so re-introducing the clock is a change to a signature rather than an extra branch. `RULES_VERSION` 5 → 6; all three stored fixtures re-recorded, and the combat fixture's log rewritten rather than re-pinned because one of the six properties it existed for — *a creature returned to dormant* — is now impossible, and the assertion is **inverted** rather than deleted. No number moved. **The thing this row exists to record is what the build found: [#125](../../issues/125).** §4 asked #123 to build per-creature wake/HP instrumentation before its regression guard could be claimed, #123 built it, and the guard came back **red** — 56 of 386 woken kills in the `STALKER` corpus cost the player nothing. The cause is a **scheduling invariant** and stating it narrowly is how it gets fixed wrong: a creature's first action after waking resolves a command late whenever the command that woke it did not sweep phase 4 past `now`. Two commands do that and they are different in kind — a **free action** (phase 4 is `identity`) and **`beginRun`** (phase 3 only, no free action anywhere, and live on one run start in five). A **descent does not**, which is the boundary of the claim. Two player commands is two strikes, and two strikes is exactly a Cinder. `light.ts` had recorded the free-action half in plain English three milestones earlier and nobody had multiplied it by §3's damage; the `beginRun` half means the obvious fix (*schedule a creature woken by a free action at `now`*) would not close it. **§4's *every woken Cinder costs exactly 2 HP* is wrong about roughly one woken kill in seven**, the fix is a rule change and is #125's to rule, and nothing in §4 is amended by it here beyond striking the sentence that claimed the state was unreachable and pointing the three paragraphs that restated it at the correction. The 56/386 is the free-action half **only** — `tests/unit/support/lantern-run.ts` never calls `beginRun`, so that corpus is structurally blind to the run-start route |

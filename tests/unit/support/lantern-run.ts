@@ -195,12 +195,17 @@ export type WokenKill = {
   /**
    * How many player commands it was awake for before it died.
    *
-   * The window §4's arithmetic is stated over: 5 HP against 3 damage is two strikes, so a woken
-   * creature killed in **two** commands is one the player reached before it could resolve anything.
+   * A bound on *when* a free kill happens, never on *why*: it counts commands, not mechanisms, and
+   * cannot tell #125's free-action window from its `beginRun` one. `economy.test.ts` asserts it as
+   * "soon after the wake" and pins the mechanisms with hand-built reproductions instead.
+   *
+   * A third field — `actedWhileAwake` — was here and is deleted. It was computed, exported and
+   * asserted by nothing, which this file's own rule forbids; worse, it did not measure what its name
+   * said, because a creature can spend its one action resolving a *stale move* and still never swing.
+   * That is exactly the `beginRun` shape, so the field would have mis-attributed the case it looked
+   * built for.
    */
   readonly commandsAwake: number;
-  /** Did it ever get a turn of its own — resolve a declared action — before it died? */
-  readonly actedWhileAwake: boolean;
 };
 
 /** What one floor cost and paid. */
@@ -433,7 +438,6 @@ export function playFloor(start: LanternWorld, style: Style): FloorResult {
 class WakeLedger {
   private readonly hpWhileAwake = new Map<ActorId, number>();
   private readonly commandsAwake = new Map<ActorId, number>();
-  private readonly acted = new Set<ActorId>();
   private readonly killed: WokenKill[] = [];
 
   /** Fold one resolved command into the ledger. */
@@ -455,15 +459,6 @@ class WakeLedger {
       }
     }
 
-    // Whether a creature got a turn of its own is read off the clock rather than off its mind: a
-    // creature acts exactly when the schedule advanced past the instant it was due at.
-    if (after.schedule.now > before.schedule.now) {
-      for (const id of awakeNow) {
-        const due = before.schedule.entries.find((entry) => entry.actorId === id);
-        if (due !== undefined && due.nextActAt <= before.schedule.now) this.acted.add(id);
-      }
-    }
-
     // Deaths: an id in `before` and gone from `after`. Phase 5 removes the body, so this is the one
     // frame in which a creature's whole history is still available.
     const survivors = new Set<ActorId>(after.actors.map((actor) => actor.id));
@@ -475,7 +470,6 @@ class WakeLedger {
         id: actor.id,
         hpSpentWhileAwake: this.hpWhileAwake.get(actor.id) ?? 0,
         commandsAwake,
-        actedWhileAwake: this.acted.has(actor.id),
       });
     }
   }

@@ -48,10 +48,17 @@ GDD §4 (*Awake-creature behaviour*), with §3's *fleeing is hard* deleted rathe
 
 **The ruling redenominates the flash's price into HP, which is the only resource with no in-floor
 recovery** (§3: no healing within a floor, +2 a descent, 12 max). The exchange rate is arithmetic and
-not tuning: **every woken Cinder costs exactly 2 HP or the stairs**, so a run can light and resolve
-about **13 creatures across eight floors** against the **42** it will meet. That is the wager
-acquiring a currency, and it is also how this rule kills people — §4's own floor-8 history (*three
-flashes, five Cinders, 10 HP, resolved for no damage*) becomes a dead run.
+not tuning: **a woken Cinder costs 2 HP or the stairs**, so a run can light and resolve about **13
+creatures across eight floors** against the **42** it will meet. That is the wager acquiring a
+currency, and it is also how this rule kills people — §4's own floor-8 history (*three flashes, five
+Cinders, 10 HP, resolved for no damage*) becomes a dead run.
+
+> **"Exactly" was struck here, and the 13 is an upper bound — [#125](../../issues/125).** #123's
+> instrumentation measured 56 of 386 woken kills costing **nothing**: a creature's first action
+> resolves a command later than usual whenever the command that woke it did not sweep phase 4 past
+> `now`, which is true of every free action *and* of `beginRun`. Two player commands instead of one
+> is two strikes, and two strikes is a Cinder. The rule below is unaffected; the price it quotes is
+> not yet what the build charges.
 
 **#109 — the `HARVESTER` style, step 5 — remains the gate on everything numeric**, and #123 goes
 ahead of it deliberately: a rule that changes how many turns a run spends and what it spends them on
@@ -68,6 +75,13 @@ which the review of PR #124 caught. **GDD §4 now watches one arm, the too-stron
 opened only when lost), declares the too-weak arm **structurally closed**, keeps the zero-count claim
 as a **regression guard** rather than a watch, and records the question that separates the two:
 *name the state of the world in which this number comes back different.*
+
+> **And then the guard was built and failed — [#125](../../issues/125), PR #126.** *"Structurally
+> closed"* is **not** true as written: 56 of 386 woken kills in the corpus cost 0 HP, because a
+> creature's first action resolves a command late whenever the command that woke it did not sweep
+> phase 4 past `now` — every free action, and every run start. The three rejections above stand and
+> the question above stands; what falls is the confidence that the third quantity was pinned by the
+> numbers. **It was pinned by an argument nobody had run against the build.**
 
 **§12's trip-wire is ruled and did not fire — [ADR-0012](decisions/0012-the-fallback-trigger-is-a-verdict-not-a-signature.md).**
 The fallback is **not** spent, the trigger is restated as two named arms, and the next broad playtest
@@ -462,17 +476,20 @@ this milestone, not its method.
       than made quietly: it lost on *"a permanently-awake **parked** Cinder is furniture"*, and #83
       itself deleted parking. **Its largest cost is stated in §4 and is not the deletion: HP is the
       only resource with no in-floor recovery, and this rule redenominates the flash's price into it
-      at exactly 2 HP a wake** — about 13 woken kills a run against the **42** a run meets. **Built
+      at 2 HP a wake** — about 13 woken kills a run against the **42** a run meets. **Built
       2026-08-02:** `RULES_VERSION` 5 → 6, all three stored fixtures re-recorded (the combat one's log
       rewritten, not re-pinned — *a creature returned to dormant* was one of the six properties it
       existed for and is now impossible, so the assertion is inverted), `nextMind` returns an awake
       mind **by type**, and no number moved. **The per-creature wake/HP instrumentation was carried,
       and it found [#125](../../issues/125):** §4's regression guard came back **red** — 56 of 386
-      woken kills in the `STALKER` corpus cost 0 HP, because a free action does not advance the clock
-      and a creature woken by a flash is therefore not due for two player commands, which is exactly
-      the two strikes a Cinder takes. §4's *"every woken Cinder costs exactly 2 HP"* is wrong about
-      about one woken kill in seven. Not a regression — it predates #83 — and the fix is a rule change,
-      so it is #125's to rule. `economy.test.ts` carries a characterisation test in the guard's place
+      woken kills in the `STALKER` corpus cost 0 HP. The cause is a **scheduling invariant**, not a
+      fact about flashes: a creature's first action resolves a command late whenever the command that
+      woke it did not sweep phase 4 past `now`, which is true of a free action *and* of `beginRun`
+      (phase 3 only, one run start in five) but **not** of a descent. Two player commands is two
+      strikes, and two strikes is a Cinder. §4's *"every woken Cinder costs exactly 2 HP"* is wrong
+      about one woken kill in seven. Not a regression — it predates #83 — and the fix is a rule
+      change, so it is #125's to rule. `economy.test.ts` carries a characterisation test in the
+      guard's place, with both routes reproduced by hand and a negative control on descent
 - [ ] Fuel economy and the risk/reward tuning around it — calibrated once in #17. **#63 is ruled**
       and **no fuel number may move yet.** The first of the two reasons is now discharged: #31/#41
       landed 2026-08-01 and `DARK_PACIFIST`'s take went **119 of 121 → 0 of 121**, so the corpus is
@@ -643,13 +660,28 @@ conditional on #123 building the instrument, and said that without it the guard 
 an acceptance criterion.
 
 **#123 built it and the guard came back red.** 56 of `STALKER`'s 386 woken kills and 22 of
-`FLOODLIT`'s 247 cost the player nothing, and the cause is [#125](../../issues/125): a free action
-skips phase 4 and therefore does not advance the clock, so a creature woken by a *flash* is not due
-for two more player commands — and two commands is two strikes, and two strikes is exactly a 5 HP
-Cinder against a 3 damage player. **Flash next to a sleeper and it dies for 4 fuel and no HP.**
-`game/systems/light.ts` had recorded the scheduling consequence in plain English since M1 and nobody
-had multiplied it by §3's damage. It predates #123 and #83 alike; re-dormancy hid it, because the
-dominant free kill was the one on a creature that had gone back to sleep.
+`FLOODLIT`'s 247 cost the player nothing. The cause is [#125](../../issues/125), and it is a
+**scheduling invariant** rather than a fact about flashes: `wakeInLight` schedules a woken creature at
+`now + ACTION_COST`, and whether its first action resolves on the next command or the one after
+depends on whether the waking command's **phase 4 swept past `now`**. An ordinary paid command's does.
+**Two do not — a free action (phase 4 is `identity`) and `beginRun` (phase 3 only, no free action
+anywhere).** In both the player gets two phase-1 actions instead of one before the creature resolves
+anything, and two actions is two strikes, and two strikes is exactly a 5 HP Cinder against a 3 damage
+player. **Flash next to a sleeper and it dies for 4 fuel and no HP; or simply start a run.**
+`game/systems/light.ts` had recorded the free-action half in plain English since M1 and nobody had
+multiplied it by §3's damage. It predates #123 and #83 alike; re-dormancy hid it, because the dominant
+free kill was the one on a creature that had gone back to sleep.
+
+**Two things about the shape of it, both of which change what a fix must do.** The `beginRun` route is
+live on **one run start in five** (§4's change log: 20% of arrivals wake something), so *"schedule a
+creature woken by a free action at `now`"* — the obvious fix, and the one #125's first draft named —
+**would not close it**. And a **descent does not** open the window: `arriveOnFloor` charges the player
+and `descendTurn` runs the whole phase list, so phase 4 sweeps and the creature acts on the next
+command as §2 promises. The route is `beginRun` and free actions, not arrivals generally.
+
+**And the corpus can only see one half of it.** `arriveOn` in `tests/unit/support/lantern-run.ts`
+starts every floor shuttered and never calls `beginRun`, so the 56/386 figure is the free-action half
+alone. The run-start route is pinned by a hand-built reproduction in `economy.test.ts` instead.
 
 **The transferable part is the conditional, and it is worth keeping the shape of it.** A quantity was
 declared zero by argument, relabelled a guard on the strength of the argument, and never measured
@@ -933,10 +965,19 @@ spend §12. Three things it must be asked, and none of them is "can you sign the
   is **not** an answer to either. If the answer to the first is no, or to the second is yes, the
   fallback is spent and no further evidence is needed.
 - **The too-strong arm is the only arm GDD §4 still watches**, and it is the second question above.
-  §4 declares the **too-weak arm structurally closed**: a woken Cinder costs exactly 2 HP or the
-  stairs, by arithmetic (5 HP against 3 damage is two strikes, and the player is only ever adjacent
-  at their decision point after the creature has declared), so there is no reachable state in which a
-  wake costs nothing. **Nothing is watching for it, deliberately.**
+  §4 declares the **too-weak arm structurally closed**: a woken Cinder costs 2 HP or the stairs, by
+  arithmetic (5 HP against 3 damage is two strikes, and the player is generally adjacent at their
+  decision point only after the creature has declared). **Nothing is watching for it, deliberately.**
+
+  > **Read this bullet with [#125](../../issues/125) in hand — it used to end *"so there is no
+  > reachable state in which a wake costs nothing"*, and that is false.** #123 built the
+  > instrumentation §4 asked for and measured **56 of 386** woken kills at 0 HP. The arm is *mostly*
+  > closed, not structurally closed: a creature's first action resolves a command late whenever the
+  > command that woke it did not sweep phase 4 past `now` — every free action, and every run start,
+  > since `beginRun` runs phase 3 alone. **What this changes for the playtest is one thing and it is
+  > worth stating, because this is the brief for the run that decides §12:** if the playtester
+  > reports a wake that cost nothing, that is **#125, not the too-weak arm firing**, and it is not
+  > evidence about the ruling. Do not spend §12 on it. The arms above are unchanged.
 - **The open band, which is not a trigger: HP spent on woken creatures per floor, against the +2 a
   descent returns.** The exchange rate is decided; **how many wakes a run pays for is not.** Flashing
   freely and still finishing with HP to spare says 2 is not a price at these numbers. Unable to afford
@@ -950,10 +991,11 @@ question that separates a watch from a guard: **name the state of the world in w
 back different.** The third one survives in §4 as a **regression guard** for a later re-tune, and it
 needed per-creature wake and HP instrumentation that did not exist — **#123 owned that or the guard
 was not built.** #123 built it, ran it, and **the guard failed**: 56 of `STALKER`'s 386 woken kills
-cost 0 HP, because a free action does not advance the clock and a creature woken by a flash is not due
-for two player commands. That is [#125](../../issues/125), it predates #83, and it means *"free kills
-on woken creatures"* was never pinned by the numbers at all — the third way of being unfalsifiable
-was itself unverified. Still not a verdict to run a playtest on; now a defect with an issue.
+cost 0 HP, because a creature's first action resolves a command late whenever the command that woke it
+did not sweep phase 4 past `now` — true of every free action **and of `beginRun`**, which is one run
+start in five. That is [#125](../../issues/125), it predates #83, and it means *"free kills on woken
+creatures"* was never pinned by the numbers at all — the third way of being unfalsifiable was itself
+unverified. Still not a verdict to run a playtest on; now a defect with an issue.
 
 **Both numbers the block asked for came back.** **0 fuel has stopped being a dead zone**: dead in 6
 turns from fuel 0 with two hunters, against the 143 inert turns recorded above. That is a total

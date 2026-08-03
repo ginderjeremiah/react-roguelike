@@ -122,9 +122,12 @@ handover: delete the block, enable §4's one-line guard, nothing else moves.
 **The `ember-z` fixture lost a property it existed for, and the loss is recorded rather than
 absorbed.** *"A creature returned to dormant"* is now impossible. The assertion is **inverted** to
 `wentDormant === 0` on a log that spends 27 creature-steps out of contact — which would have driven
-the old clock to expiry three times — and two properties were added in its place:
-`felledWithoutEverBeingLit === 1` (the only free kill is on the creature the run never lit) and the
-death arithmetic, 12 HP in four landed turns. Re-recorded rather than re-pinned, per #83's lesson:
+the old clock to expiry three times — and **three** properties were added in its place:
+`felledWithoutEverWaking === felledInOneBlowWhileAsleep` (every creature killed in its sleep is one
+that was never woken — **the equality is the property**, reached from opposite directions, and
+restoring the clock breaks it because the old log outwaited a creature it had woken and struck it
+asleep), the HP arithmetic of the last four landed turns, and the dead-player gate visible **twice**
+in the final frame. Re-recorded rather than re-pinned, per #83's lesson:
 replayed under the new rules the old log ends `running`, player alive at 10 HP, with no dormant
 strike, no second wake and no death.
 

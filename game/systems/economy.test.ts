@@ -561,7 +561,17 @@ describe('§4’s regression guard cannot be enabled yet, and this is the size o
     // runs §2 phase 3 and *only* phase 3, to put the entrance room on screen before the first
     // command — so it wakes whatever the opening light reaches at `now = 0`, schedules it at 100,
     // and never runs a phase 4 to advance the clock. Same window, no free action, and it is a
-    // property of **every run start**: GDD's change log records that 20% of arrivals wake something.
+    // property of **every run start** — about **one in nine** of them, 11.2% over 2000 seeds.
+    //
+    // **Not one in five (#127).** An earlier version of this comment cited GDD's change log at *20%
+    // of arrivals* and applied it here. The citation was accurate and the inference was not: that
+    // 20% is measured over floors 1-8, and **a run start is always floor 1**, which carries
+    // `min(2 + floor, 6)` = 3 creatures against 6 from floor 4 down. Per depth the rate is
+    // 11.2 / 14.7 / 17.9 / 20.6%, flat from floor 4 down because the `min` caps spawn there.
+    // `tests/unit/play-opening.test.ts` and `docs/ARCHITECTURE.md` already said one in ten, and a
+    // documented number overwrote three agreeing sources — ADR-0013 is about exactly this.
+    //
+    // The frequency does not change what this test asserts; it changes what #125 is worth.
     //
     // This is why #125's cause has to be stated as the scheduling invariant — and **read the signal
     // carefully, because an earlier draft of this comment had it backwards.** This test asserts that

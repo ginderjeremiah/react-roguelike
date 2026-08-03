@@ -212,10 +212,14 @@ computed those cues and dropped them on the floor; the bug was invisible because
 (#47) is one of the nine in ten that wake nothing. **The one-in-ten here is right and GDD §4's
 "one arrival in five" does not apply to it — do not "correct" it.** A run start is always **floor 1**,
 which carries `min(2 + floor, 6)` = 3 creatures against 6 from floor 4 down; §4's 20% is the rate
-across all arrivals. Measured: **11.2%** over 2000 seeds through `openRun` (11.25% at 20 000), and
+across all arrivals. Measured: **11.2%** over 2000 seeds through `openRun` (≈ 11% across seed families at 20 000; see below), and
 pinned loosely in `tests/unit/play-opening.test.ts`. Per depth: floor 1 **11.2%**, then 14.7 / 17.9 / **20.6%**, flat from floor 4 down (the `min` caps spawn at 6, so floors 4-8 are structurally identical and measure bit-identically).
 **A run start and a floor-1 arrival are the same event** — `createInitialState` generates floor 1
-and calls `beginRun` — so there is one number here, not two to compare. Stated because the
+and calls `beginRun` — so there is one number here, not two to compare.
+**Quote it as “about one in nine” and not to three figures:** review measured the same seed family
+extended to 20 000 at 10.87% and four families at 10.87 / 11.15 / 11.47 / 11.52%, so the second
+decimal is seed-family noise. An earlier draft carried “11.25% at 20 000” into four documents,
+which is the over-precision half of the same habit ADR-0013 is about. Stated because the
 inference *was* made in the other direction, in three documents at once — see
 [ADR-0013](decisions/0013-a-claim-about-the-build-is-established-by-measurement.md). The decision
 lives in `components/play/` rather

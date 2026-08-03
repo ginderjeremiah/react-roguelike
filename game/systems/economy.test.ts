@@ -415,13 +415,28 @@ describe('§4’s regression guard cannot be enabled yet, and this is the size o
    * this.** `beginRun` has no free action in it. Whoever fixes #125 against the narrow statement will
    * delete this block, enable §4's one-line guard, and find it still red.
    *
-   * ## What this corpus cannot see, and it is half the defect
+   * ## What this corpus cannot see — the mechanism, not more HP
    *
    * **`arriveOn` in `tests/unit/support/lantern-run.ts` starts every floor shuttered and never calls
    * `beginRun`.** So every number below is the **free-action half only**. The `beginRun` route is
    * structurally invisible to this corpus and is pinned instead by the hand-built reproduction at the
-   * bottom of this block. Do not read 14.5% as the size of #125 — read it as the size of the part a
-   * harness that never starts a real run can measure.
+   * bottom of this block.
+   *
+   * **What that blindness is worth was measured by #134's ruling, and it is the opposite of what this
+   * comment said for two milestones.** It read: *"do not read 14.5% as the size of #125 — read it as
+   * the size of the part a harness that never starts a real run can measure"*, i.e. a **floor** under
+   * a larger unknown. That is now false. `generateFloor` skips any spawn within
+   * `CREATURE_ENTRANCE_EXCLUSION` (2) of the entrance — `game/map/generate.ts`, pinned for every seed
+   * at every depth by `generate.test.ts` — so **every generated opening wake is at Manhattan >= 3**,
+   * and GDD §4's distance table (re-measured as the minimum over every legal line of play) puts the
+   * window at **2 HP** from Manhattan 3 outward. Teaching `arriveOn` to call `beginRun` would add
+   * roughly 0.11 woken kills a run and **every one of them would cost 2 HP**, which moves the free
+   * fraction *down*.
+   *
+   * So for this style, **14.5% is essentially the whole of the HP defect, not a floor under it.** The
+   * run start is still part of #125 and the rule still closes it — what it costs there is a
+   * **command**, a tempo hole this corpus could not see even if it did call `beginRun`, because the
+   * corpus measures HP. That is exactly why the reproduction below and not the guard is the signal.
    *
    * ## So this is a characterisation test, and it says so
    *

@@ -517,7 +517,7 @@ this milestone, not its method.
       reconcile after #126; *one in five* was §4's arrival figure misapplied to a run start, which is
       always floor 1) but **not** of a descent. Two player commands is two
       strikes, and two strikes is a Cinder. §4's *"every woken Cinder costs exactly 2 HP"* is wrong
-      about one woken kill in seven **in the free-action half alone** — the corpus never calls `beginRun`, so that fraction is a floor rather than the size of the defect. Not a regression — it predates #83 — and the fix is a rule
+      about one woken kill in seven **in the free-action half alone** — the corpus never calls `beginRun`. That was read as *a floor rather than the size of the defect*, and **#134's distance measurement reversed it**: every generated opening wake is at Manhattan ≥ 3, where the window costs 2 HP, so adding `beginRun` would move the free fraction *down*. It is essentially the whole of the **HP** defect for this style; what the run start hides is the **grace**. Not a regression — it predates #83 — and the fix is a rule
       change, so it is #125's to rule. `economy.test.ts` carries a characterisation test in the
       guard's place, with both routes reproduced by hand and a negative control on descent
 - [x] **Rule on the grace turn a wake gets when phase 4 did not sweep — #125, build-order step 4b,

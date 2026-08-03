@@ -94,6 +94,26 @@ hit has to be read for its *conclusion*. That is why four sites survived a revie
 swept for this number. The transferable rule: after a ruling, grep the conclusions it changed, not
 the strings it corrected.
 
+**And then the review falsified the first draft of that very rule, which is the more useful result.**
+This entry originally stopped at the sentence above, and the review found a **sixth** consecutive
+undercount: a **third** proposition #134 falsified, live in four places including `game/`. GDD §4 said
+56 of 386 was *"a floor on the defect, not its size"* — true when written, because the corpus never
+calls `beginRun` and the run start was believed to be a free-kill route. The distance table reverses
+it: every generated opening wake is at Manhattan ≥ 3, where the window costs **2 HP**, so teaching the
+corpus to call `beginRun` would add ~0.11 woken kills a run that all *cost* HP and move the free
+fraction **down**. For `STALKER` it is essentially the whole of the HP defect. §4 had been
+contradicting itself about this seventeen lines apart since #134, and this pass edited a clause two
+lines above the contradiction without reading down to it.
+
+**So the rule as first written would not have caught this PR's own defect, and the corrected form is
+the point.** *Grep the conclusions* presumes you have enumerated them; this pass enumerated two
+(*the run start is a free kill*, *the test goes red when #125 closes*) and missed the third, which
+contains neither phrase and is invisible to a string grep and to the rule as stated. **The
+enumeration is the step that fails, not the grepping.** So: **after a ruling, enumerate the
+propositions it falsified — then grep each proposition's paraphrases.** A proposition with no
+distinctive string in it is the one that survives, and *"a floor on the defect"* is what one looks
+like.
+
 **Checked and deliberately left alone:** `render/cues.ts` and GDD §10's descent-precedence paragraph
 (both about a *descent*, correctly one in five — excluded explicitly for the fourth time);
 `session/run.test.ts`, `components/play/opening.ts`, `tests/unit/play-opening.test.ts` and
@@ -111,10 +131,15 @@ duplicated or made stale by the ruling.
 
 **Next:** **#133** — unchanged by this pass. Build the ruling; then #109.
 
-**Watch:** the *ruled, not built* markers and the two "goes red when #133 ships" sentences are now
-**three** places that must move together when #133 lands (the eight markers, §4's pricing blockquote,
-and these tense clauses). #133's criterion 9 enumerates the eight; the tense clauses are not in that
-list, and this note is the only thing pointing at them.
+**Watch:** the *ruled, not built* markers and the "goes red when #133 ships" sentences must move
+together when #133 lands. **There are three of those sentences, not two** — `GDD.md` twice (the
+regression-guard paragraph and the §4 status note) and `ROADMAP.md` once, the last added by #134 and
+outside this pass's diff. The first draft of this Watch said *two*, which defeats the purpose of a
+note whose whole job is to be the pointer for the clauses #133's criterion 9 deliberately does not
+enumerate. **And a journal Watch is the wrong home for it**: this file is read three entries deep by
+design, and #133 may not be built within three. The list now also lives as a **comment on #133**,
+which is what the builder actually reads. Criterion 9 stays exact and enumerates only the eight
+markers; the tense clauses hang off the comment.
 
 ## 2026-08-03 — #125 ruled: the grace turn is deleted, and the rule is stated over the schedule
 

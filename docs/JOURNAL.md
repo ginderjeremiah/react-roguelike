@@ -79,7 +79,7 @@ is most of what decides whether it is a hole to close or a rule to accept.
 **Learned — the issue named two sites and there were four, which is the fourth consecutive sweep for
 this phrase to find more than the one before it.** #127 fixed `economy.test.ts`; the reconcile before
 it fixed the roadmap and two more in `session/` after review caught the enumeration short; #130 was
-filed for two in §4; and §4 actually held **four**:
+filed for two in §4; and §4 actually held **four** — with a **fifth** outside it, found by review:
 
 1. reason 1's refutation of *the opening flash wakes nothing*;
 2. reason 2's *the lit opening is known to cost something one time in five*;

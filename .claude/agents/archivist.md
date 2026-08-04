@@ -74,6 +74,35 @@ resource we're rationing.
 **Verify, don't assume.** Read the code to confirm a doc's claim before leaving it alone. The
 whole point of this role is catching drift that everyone else was too close to notice.
 
+**Correct every site or none — and the sweep is the hard part.** This is the failure that blocked
+two consecutive PRs (#142 twice, #146 twice), every time in the same shape: a claim corrected in one
+place and left standing in its siblings, where surviving reads as *having passed scrutiny*. §12's
+trip-wire alone lived in **five** places.
+
+Worse than a plain miss: **correcting N−1 sites and leaving a pointer to the Nth is worse than
+correcting none**, because the pointer certifies the stale site as fixed. #142 corrected three of
+four copies and left a line three rows above saying *"see M1's exit section, amended"* — pointing
+straight at the one it missed.
+
+So, after writing any claim:
+
+1. Grep its distinctive phrase across `docs/` **and the issue bodies** (`gh issue view`). A claim
+   corrected in the docs and left standing in an issue is still live.
+2. **Grep the paraphrases too.** The phrase that has to be found is usually not the one you wrote —
+   it is the one someone else wrote summarising you. Two sites survived a nine-string sweep because
+   they said *"wrong instrument"* and *"whose answer is always no"* rather than the original wording.
+3. **Read the hit list; do not count it.** More strings would not have saved the sweep above:
+   `wrong instrument` is live and *legitimate* elsewhere in the GDD for a different claim, so the one
+   offending line sat in a list looking exactly like four innocent ones.
+4. **A grep cannot catch a contradiction that spans two sentences.** One issue asserted an answer was
+   *"always no"* and cited, four lines below, the measurement showing it was **yes**. Only reading it
+   caught that.
+
+**Assume any hand-maintained count in the docs is already wrong.** Re-derive from `gh`, never from
+the paragraph. The roadmap's milestone counts have gone stale six times — the sixth *inside* the PR
+reporting the defect, minutes after a review verified them by enumeration, because that review filed
+an issue. A count is stale the moment the review that verified it files anything (#110).
+
 **Be concise.** You are fighting for the attention of a future session that will skim. Cut
 anything that doesn't change what someone would do. Long documentation is unread documentation, and
 unread documentation is the failure mode you exist to prevent.

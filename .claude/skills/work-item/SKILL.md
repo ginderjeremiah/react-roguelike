@@ -13,13 +13,28 @@ current milestone.
 
 ## 1. Orient
 
+**Fetch before you read anything.** A stale local `main` makes merged work look like stranded work:
+
+```bash
+git fetch origin --prune
+git status -sb          # "behind N" here means every judgment below is against the wrong tree
+```
+
+A session opened with `main` three commits behind. A branch whose work had already squash-merged
+looked like five commits of abandoned work, and the roadmap looked like it had drifted when it had
+not. Both readings were wrong and both came from not fetching. **`gh` shows you the remote's truth
+and `git` shows you your checkout's — when they disagree, `git` is the one that is stale.**
+
 ```bash
 gh issue list --milestone "$(gh api repos/:owner/:repo/milestones --jq '.[0].title')" --state open
 gh issue view <n>
 gh pr list --state open
+gh issue list --state open --json number,title,milestone \
+  --jq '.[] | select(.milestone == null) | "#\(.number) \(.title)"'   # untriaged; triage before picking
 ```
 
-Read the last two entries of `docs/JOURNAL.md`. Skip anything labeled `blocked` or `needs-owner`.
+Read the last two entries of `docs/JOURNAL.md`. **The journal is newest-first** — `head`, not `tail`.
+Skip anything labeled `blocked` or `needs-owner`.
 
 Claim it so parallel sessions don't collide:
 
@@ -55,11 +70,27 @@ Delegate to the specialist:
 - `render/`, `components/`, `app/` → **ui-engineer**
 - test infrastructure or coverage → **test-engineer**
 
-Keep the diff scoped to the issue. Unrelated problems you discover become new issues:
+Keep the diff scoped to the issue. Unrelated problems you discover become new issues — **always with
+a milestone and a label**, in the same command:
 
 ```bash
-gh issue create --title "..." --body "Found while working #<n>. ..."
+gh issue create --title "..." --milestone "<milestone>" --label task \
+  --body "Found while working #<n>. ..."
 ```
+
+**An issue filed without a milestone is invisible to the queue** — `gh issue list --milestone ...` is
+how every session finds work, so an untriaged issue is filed and lost in the same motion. Four
+accumulated this way before one session swept them up. If you genuinely cannot place it, file it and
+say so in your report; do not leave it for someone to notice.
+
+**Check it is not a duplicate before filing.** #141 and #76 described the same problem eight weeks
+apart, and consolidating them meant moving two contributions across before closing one. Search first:
+`gh issue list --state all --search "<distinctive phrase>"`.
+
+**And note that filing an issue makes the roadmap's hand-maintained counts stale immediately** — this
+happened *inside* the PR that reported the defect, minutes after a review verified the count. If you
+file into a milestone the roadmap enumerates, either fix the count in the same PR or expect the next
+reconcile to catch it. #110 exists to delete those numbers.
 
 ## 5. Test
 

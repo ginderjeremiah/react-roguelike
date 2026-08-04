@@ -57,6 +57,54 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-08-04 — The #139 cycle's process bill, paid into the agents that will repeat it
+
+**Did:** Four process fixes in `.claude/`, each one a failure this session actually paid for rather
+than a precaution. No rule, number, doc or behaviour moves; `npm run verify` green (1168 tests).
+
+**`game-designer` — check whether the claim you are arguing against was already ruled on.** The
+#139 ruling argued that §12's fallback is *"subtract fuel"*, a reading **#63 corrected 2026-07-31 and
+ADR-0012 restated 2026-08-02**. Two of its four arguments inverted once that was fixed, and the PR
+**deleted the paragraph carrying the correction** while arguing against the version it existed to
+correct. The correction sat *twelve lines above* the block being amended. Also added: **verify
+premises against `game/`, not the docs** — the ruling's other false premise (the player knows a
+flash's exact product) was taken from documentation and contradicted by `perceivedTileAt`,
+`senseCreatures` and a hidden RNG draw, while the §4 passage cited in support said the opposite.
+
+**`archivist` — the sibling sweep, which had no guidance at all.** It is the failure that blocked two
+consecutive PRs, twice each. Four rules now written down, and rules 2-4 are the ones nobody had:
+grep the **paraphrases**, not just your own wording (two sites survived a nine-string sweep by saying
+*wrong instrument* and *whose answer is always no*); **read the hit list, do not count it** (more
+strings would not have helped — `wrong instrument` is live and legitimate elsewhere in the GDD for a
+different claim, so the bad line sat among four innocent ones); and **a grep cannot catch a
+contradiction spanning two sentences** (#144's bullet asserted an answer was *always no* and cited the
+measurement showing **yes** four lines below).
+
+**`work-item` — fetch first, and file issues with a milestone.** The session opened with local `main`
+three commits behind, which made squash-merged work look like five commits of stranded work and made
+the roadmap look drifted when it was not. And four issues had accumulated with no milestone: `gh issue
+list --milestone` is how every session finds work, so **an issue filed without one is filed and lost
+in the same motion.**
+
+**Why:** These agents are the project's memory of *how* to work, the way the journal is its memory of
+*what* was decided. A lesson recorded only in a journal entry is a lesson the next session reads once,
+near the top, for about a week. A lesson in the agent definition is one it cannot avoid.
+
+**Learned:** Writing this up, the four fixes turned out to share a shape — **every one is a case of
+trusting a summary over the source.** The designer trusted the docs over `game/`; the sweep trusted a
+hit *count* over the hit *list*; the roadmap's milestone counts are a summary of `gh` that has now been
+wrong six times; and a stale `main` is a summary of the remote. The general rule is not "check more
+things", it is **prefer the artefact that cannot be stale** — and every one of these has one available.
+
+**Next:** **#144** — rule the wager's cost side, which subtraction makes a never-flash line able to
+die. Unblocked and explicitly not gated on #109.
+
+**Watch:** All four fixes are prose in files an agent is *told* to read, which is the same class of
+defence this repo has watched fail repeatedly (#141's `.gitattributes` argument, #143's ADR-index
+guard, the journal format block that needed seven failures before a test). None of these four is
+mechanically enforceable, so treat them as a floor, not a fix. The stale-`main` one is the exception
+and could become a hook.
+
 ## 2026-08-04 — #139: arm 2 fired, and the fallback it fires is retired rather than spent
 
 **Did:** Ruled **#139**. **§12's arm 2 has fired**, and **§12's fallback is withdrawn rather than

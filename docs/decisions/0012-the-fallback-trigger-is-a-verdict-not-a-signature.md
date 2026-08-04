@@ -55,9 +55,13 @@ ever trip.** It now reads as two arms and a bound:
 > (#109) and 6 (#82) change what it is measured with and what it draws.
 
 **That bound was met on 2026-08-03 and arm 2 was reported — see *The signal that this was wrong* at
-the end of this file. The trigger above is quoted verbatim in GDD §12 and in `ROADMAP.md` in three
-places, and all of them now carry the same note. Nothing has ruled on it: [#139](../../issues/139)
-is open.**
+the end of this file. Nothing has ruled on it: [#139](../../issues/139) is open.**
+
+**The trigger above is restated in four other places and no two are word for word** — GDD §12 (its
+own longer version, different bullet text), `ROADMAP.md`'s M1 exit section (the closest to this
+text), `ROADMAP.md`'s header (a one-sentence summary) and M2's exit criteria (explicitly *"in
+VISION's words"*). **All four now carry the same correction**, which is the part that was checked;
+the wording is not, so read the site rather than assuming this one.
 
 ## Why it did not fire
 

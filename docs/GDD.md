@@ -2189,9 +2189,16 @@ lesson.
 > any more"*, on a never-shutter bot finishing **9 of 9** seeds against **4 of 4** deaths with the
 > lantern open. It also answers arm **1** emphatically in the negative — a named retellable moment,
 > 13 of 38 sampled turns as real decisions. **The two arms disagree, which is precisely why a person
-> rules it and an inference does not.** §4's *the lantern is opened only when lost* watch carries the
-> numbers and the three arguments against firing (the playtest classifies its own finding as
-> *tuning*; #109 has not run; arm 1 says no).
+> rules it and an inference does not.**
+>
+> **Both sides, because this note is the one most likely to be the only one read.** Against firing:
+> the playtest classifies its own finding as *tuning* — the classification the table above gives the
+> first playtest's *dark strictly dominates*; **#109 has not run**, and it is the gate that exists to
+> measure invariant 4, so firing now is firing before the diagnosis; and arm 1 says no. **For
+> firing:** ADR-0012 restated this trigger *because* a trip-wire that survives its own firing
+> condition is one nobody will ever trip, and **arm 2 has no tuning escape clause**. §4's *the
+> lantern is opened only when lost* watch carries the same four points with the measurements under
+> them.
 >
 > **What a reader arriving here for the fallback needs:** spending §12 is a rebuild — a different
 > enemy, a different generator, a different win condition — and it would need an ADR superseding

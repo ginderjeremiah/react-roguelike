@@ -67,8 +67,11 @@ composite** — and one case makes the difference visible. A lit turn *is* compo
 lit field `fov.bench.test.ts` budgets at 0.05ms, and `step.bench.test.ts` measures exactly that
 decomposition as a ratio (`A_LIT_TURN_CONTAINS_A_FIELD`). Yet `light.bench.test.ts` holds the same
 operation to an absolute budget (**1ms** — 0.2ms when this was written; #133 found the fixture was
-measuring a turn in which no creature acted, rebuilt it and recalibrated by a factor of 8, and
-`step.bench.test.ts`'s header carries the same correction), and that is correct, because **a
+measuring a turn in which no creature acted, rebuilt it, and re-derived the budget as **half of
+ARCHITECTURE's 2ms** rather than by scaling the old number. Do not read a single factor off that
+pair: the *fixture* got ~8x more expensive once creatures actually acted in it, while the *budget*
+moved 0.2 → 1 because 0.2 had failed on a runner at 0.4776ms. `step.bench.test.ts`'s header and
+`light.bench.test.ts`'s own constant carry the measurements), and that is correct, because **a
 subsystem benchmark anchors the layer it owns in real time even where that layer decomposes**. The ratio form is for whole-`step()`
 composites, where hardware spread is worst and where an absolute figure has already been shown to be
 unsettable. So the same operation is legitimately measured both ways, by two files with two

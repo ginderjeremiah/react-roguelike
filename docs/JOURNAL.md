@@ -82,6 +82,17 @@ correction says "see M1's exit section, amended" and a session following that po
 uncorrected one. **The durable form: when a claim is stated in N places, correcting N−1 of them and
 leaving a pointer to the Nth is worse than correcting none** — the pointer certifies the stale site.)*
 
+*(**And then that rule failed a third time in the same session, on a different claim, in the file
+with the worst odds.** The fix for the one-sided arm-2 case balanced `ROADMAP.md` and `VISION.md` and
+left **GDD §12** — the one section ADR-0012 says a person reaching for the fallback reaches for —
+as the only site still listing three arguments against firing and none for. `grep -rn "tuning escape
+clause" docs/` named the six sites that carried the counterweight and §12 was not among them; §12's
+pointer also described §4 as carrying *"the three arguments against firing"* when §4 carries four
+points including the counterweight. Both fixed. **The transferable bit is the grep**: after writing a
+balancing clause, grep its distinctive phrase and check the hit list against the sites that state the
+claim — a fix applied by hand is an N−1 correction by default, and this session produced three of
+them.)*
+
 **What is next is genuinely contested, and it is recorded as contested rather than resolved.**
 #139 (has §12's arm 2 fired?) and #109 (the `HARVESTER` style, build-order step 5) are entangled:
 tuning a mechanic that may be about to be deleted is wasted work, and ruling on the mechanic before
@@ -109,8 +120,12 @@ form: triage checks issues against issues, and nothing checks them against `docs
 *(And the routing table that check would use was itself stale within the hour — review finding.
 Annotating two ADRs' `Status:` lines left `docs/decisions/README.md`'s index showing both as plain
 `Accepted`, which is the index a session scans to decide whether an ADR is live. Both rows are fixed
-and the index now carries the instruction to change both in one edit. Nothing guards it; the failure
-is one edit away, permanently.)*
+and the index now carries the instruction to change both in one edit. **That instruction is
+decoration and should be read as one** — a written rule is what failed here. The real fix is an
+assertion, and the harness already exists: `tests/unit/infrastructure.test.ts` scans files, so it can
+parse each `docs/decisions/NNNN-*.md`'s `**Status:**` line and assert the index row's status cell
+starts with the same word. Filed as its own issue by the session that reviewed this one; do not
+mistake the instruction for the guard.)*
 
 **Learned — `ARCHITECTURE.md` and ADR-0008 have contradicted each other since the commit that wrote
 both of them.** `a7ee7d4` (PR #37) added ARCHITECTURE's *"Write benchmark thresholds as ratios,

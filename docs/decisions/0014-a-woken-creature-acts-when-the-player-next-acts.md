@@ -156,6 +156,15 @@ The signal that would **not** reopen it is the too-strong arm — a playtest rep
 only when lost. That arm is already watched in §4, it spends §12 rather than a constant, and §3's
 combat numbers are its answer, after #109.
 
+> **That arm fired on 2026-08-03 and was ruled on 2026-08-04
+> ([ADR-0015](0015-arm-2-fired-and-the-fallback-is-retired.md)), and this paragraph's conclusion holds
+> while its last clause does not.** This ADR is **not reopened**: the ruling records #133 as having
+> pushed the arm the wrong way *deliberately and correctly* — deleting the grace turn removed a
+> discount worth 14.5% of `STALKER`'s woken kills, which is what #125 ruled and what §4's cornerstone
+> sentence requires. What is wrong is *"§3's combat numbers are its answer"*: ADR-0015 rules that **no
+> number is the answer**, and the response is a rule change ([#144](../../issues/144)) aimed at the
+> wager's cost side.
+
 ### How this was verified
 
 Twice, because ADR-0013 says the arithmetic is not to be trusted on its own.

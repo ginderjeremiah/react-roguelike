@@ -15,10 +15,13 @@ was wrong"**, so M2 opens with the build order the #83 ruling specifies. Four M1
 determinism-gate debt (see the split below). So `gh issue list --milestone "M2: The light loop"`
 will not show you #12 — that is deliberate, not a lost issue.
 
-**M2 is four steps into a build order of six, plus 3a, 4a and 4b — all done.** 4b (#125) was ruled
-2026-08-03 in PR #134 and **built the same day in #133 (PR #136, `78ee0e5`)**. **What is next is
-contested between #139 and #109, and this file's answer is #139 first** — see the block under
-*#109 — the `HARVESTER` style* below, which carries the reason and the entanglement.
+**M2 is four steps into a build order of six, plus 3a, 4a and 4b — all done — and it has grown a
+step 5b.** 4b (#125) was ruled 2026-08-03 in PR #134 and **built the same day in #133 (PR #136,
+`78ee0e5`)**. **#139 is ruled — 2026-08-04, arm 2 fired
+([ADR-0015](decisions/0015-arm-2-fired-and-the-fallback-is-retired.md)) — and §12's fallback is
+retired rather than spent. What is next is #109 (now a before-number, not a gate), then
+[#144](../../issues/144) (the cost-side lever), then its build, then [#145](../../issues/145) (the new
+trip-wire's judging playtest).** See the ruled block under *#109 — the `HARVESTER` style* below.
 #79 (PR #92) made a wake announce itself, with a
 count; #94 (PR #101) gave that announcement two emphasis levels so it is read first; **#31/#41 made a
 cache terrain the lantern has to have shown you**, which un-contaminates the fuel corpus; #107 made a
@@ -76,6 +79,47 @@ fuel number may move until #109**, and §3's combat numbers should not move befo
 same attribution reason — which now matters more, because §3's numbers are where the too-strong arm
 gets answered if it fires.
 
+> **The last clause is now wrong, and the freeze is stronger than it was — *2026-08-04, #139,
+> [ADR-0015](decisions/0015-arm-2-fired-and-the-fallback-is-retired.md)*.** The arm fired, and §3's
+> numbers are **not** where it gets answered. ADR-0015 rules that no number answers it: with §4's
+> containment the flash's price in creatures and its product are both known integers at the decision
+> point, and combat has no rolls, so a constant only moves which side of a fixed comparison always
+> wins. **The response is a rule change** ([#144](../../issues/144)). *No number moves* therefore stops
+> meaning "wait for the instrument" and starts meaning "the instrument is not the fix" — a re-tune may
+> follow the rule change, it may not replace it. **And #109 changes job**: from the gate on a re-tune
+> to the **before-number** the rebuild is measured against, taken while the old rules still stand.
+
+> **#139 IS RULED — 2026-08-04. Arm 2 fired.
+> [ADR-0015](decisions/0015-arm-2-fired-and-the-fallback-is-retired.md) supersedes ADR-0012, and it
+> did not come out the way this file's read expected.** The read recorded below was *"not yet, and
+> #109 is the test"*; it is kept, wrong, because the whole point of writing it down as a read was that
+> it might be.
+>
+> **What was decided, in four lines:**
+>
+> - **Arm 2 fired.** A broad playtest inside the bound reported it in its own words with numbers. The
+>   three arguments against firing all fail — see the ADR; the load-bearing one is that **tuning cannot
+>   reach this**, because §4's containment makes the flash decision a comparison of two integers the
+>   player already knows.
+> - **§12's fallback is retired rather than spent.** It prescribes *subtract fuel*; the measured
+>   mechanism is **HP, not fuel**. It goes back to being an ordinary alternative that lost, and **the
+>   project no longer has a designated fallback.**
+> - **What replaces it is a rebuild of the wager's cost side**, at milestone scale, against two
+>   propositions: *a run that never opens the shutter must be able to die of the dark*, and *waking
+>   something must be able to be worth it*. Constraint: a subtraction from an existing rule, never a
+>   new system. **The lever is [#144](../../issues/144)** and **no measurement clears the commitment**
+>   — a rule changes whatever #109 returns.
+> - **The new trip-wire's bound is an issue, [#145](../../issues/145)**, not a sentence — establishing
+>   that the *last* bound had been consumed took three sweeps and a ruling.
+>
+> **What is next: #109, then #144, then the build, then #145.** #109 goes first only because it is
+> cheap and it is the **before-number**; it is no longer a gate, and #144 is explicitly not blocked on
+> it. Step 6 (#82) stays last. **The unnumbered fuel-economy re-tune is deleted from the plan** — it
+> was gated on step 5 for a job ADR-0015 rules it cannot do.
+
+> **Superseded — the pre-ruling note, kept because the entanglement argument is still the right shape
+> and the read in it is a useful record of being wrong.**
+>
 > **What is next: #139, and then #109. Recorded here, 2026-08-04, replacing this file's *"what is
 > next is #133"* note — #133 is built, merged (PR #136) and closed, so that note now misdirects.**
 > It is written down rather than inferred because the journal's `Next:` and this list disagreeing is
@@ -112,6 +156,10 @@ which the review of PR #124 caught. **GDD §4 now watches one arm, the too-stron
 opened only when lost), declares the too-weak arm **structurally closed**, keeps the zero-count claim
 as a **regression guard** rather than a watch, and records the question that separates the two:
 *name the state of the world in which this number comes back different.*
+**That watch is now retired because the arm it watched *fired* — 2026-08-04, #139,
+[ADR-0015](decisions/0015-arm-2-fired-and-the-fallback-is-retired.md).** §4 keeps the paragraph as the
+statement of what was being watched for, with the answer (*yes*) under it, and the one clause it got
+wrong corrected: *"§3's combat numbers are the response"* — they are not, no number is.
 
 > **And then the guard was built and failed — [#125](../../issues/125), PR #126.** *"Structurally
 > closed"* is **not** true as written: 56 of 386 woken kills in the corpus cost 0 HP, because a
@@ -127,20 +175,27 @@ as a **regression guard** rather than a watch, and records the question that sep
 > epistemic position the proof was in — the difference is that two hand-built reproductions sit
 > beside it and fail loudly if the call site drifts.
 
-**§12's trip-wire is ruled and did not fire — [ADR-0012](decisions/0012-the-fallback-trigger-is-a-verdict-not-a-signature.md).**
-The fallback is **not** spent, the trigger is restated as two named arms, and the next broad playtest
-after #123 is the one that judges it. See M1's exit section and M2's exit criteria, both amended.
+**§12's trip-wire fired on its second arm, and it is ruled —
+[ADR-0015](decisions/0015-arm-2-fired-and-the-fallback-is-retired.md), 2026-08-04, superseding
+[ADR-0012](decisions/0012-the-fallback-trigger-is-a-verdict-not-a-signature.md).** The broad playtest
+on PR #136 reported *the lantern opened only when lost* in as many words and with numbers; #139 ruled
+that it fired.
 
-**That playtest has now run — PR #136, #133's — and it reports arm 2 with numbers. The bound is
-consumed and the ruling is [#139](../../issues/139), open and unruled as of 2026-08-04.** Nothing may
-read the report as the ruling: ADR-0012 says in terms that this call is a `game-designer`'s to make
-deliberately rather than inferred. Three things cut against firing — the playtest classifies its own
-finding as *tuning*; #109 has not run, and it is the gate that measures invariant 4; the same
-playtest answers arm 1 emphatically in the negative. **And one thing cuts hard the other way, which
-belongs here or this list pre-loads the verdict:** ADR-0012 restated the trigger *because* a
-trip-wire that survives its own firing condition is one nobody will ever trip, and **arm 2 has no
-tuning escape clause**. That tension is the ruling and it is #139's. The blocks below that call the
-judging playtest "still owed" predate it and are corrected in place.
+**And the fallback the arm points at is retired, not spent.** §12's *pure positional tactics, no
+resource at all* prescribes **subtract fuel**, and the playtest's own measurement is that the mechanism
+is **HP, not fuel** — a dark line forfeits a 21-fuel cache on an identical route and still finishes
+ahead. So the prescription is withdrawn and becomes an ordinary alternative that lost; what survives is
+its direction, as a constraint: **subtraction and rebuild, never a second mechanic on top.** The
+project no longer has a designated fallback, which ADR-0015 records as a real loss rather than a
+tidy-up.
+
+**What arm 2 fires instead: the wager's cost side is rebuilt, at milestone scale.** Two propositions
+must become true — *a run that never opens the shutter must be able to die of the dark*, and *waking
+something must be able to be worth it* — because nothing wakes in the dark and a pursuer cannot hit a
+moving player, so **darkness is safe** and not merely cheap. The lever is [#144](../../issues/144); the
+new trip-wire and its bound are [#145](../../issues/145). **No measurement clears the commitment:** a
+rule changes regardless of what #109 returns. See M1's exit section and M2's exit criteria, both
+amended again.
 
 ---
 
@@ -351,7 +406,10 @@ simulation is already committed. The cheap discovery M2 was designed to buy has 
 `playtester` run is the first moment any of this is judged by something other than a passing test.
 Everything the wager needs is already implemented — fuel, waking, ember-sense, the dark crawl — so
 the question "is this actually the reason to play" is answerable the day there is a screen. If the
-answer is no, that is the moment to spend §12's fallback, not a milestone later.
+answer is no, that is the moment to spend §12's fallback, not a milestone later. *(The answer came
+back **not the concept, the cost side** — and on 2026-08-04 §12's fallback was **retired** rather than
+spent, because it prescribes subtracting the resource the measurement exonerates.
+[ADR-0015](decisions/0015-arm-2-fired-and-the-fallback-is-retired.md).)*
 
 **That checkpoint has now been passed, and it did not return a clean yes.** The verdict is on #31,
 the re-ruling it forces is #63, and both are summarised under M2 below: the parts work and produce
@@ -434,16 +492,32 @@ checkpoint has been answered twice with "not yet" and *that* is what spends §12
 >
 > **That playtest has run and the bound is spent — PR #136 (#133), 2026-08-03 — and it reports the
 > second arm.** *The lantern opened only when lost*, in as many words, on a never-shutter bot
-> finishing **9 of 9** seeds against **4 of 4** deaths with the lantern open. **It is not ruled here
-> or anywhere yet: the ruling is [#139](../../issues/139) and it is open.** The same playtest answers
+> finishing **9 of 9** seeds against **4 of 4** deaths with the lantern open. The same playtest answers
 > the *first* arm emphatically in the negative, and three things cut against firing — it classifies
 > its own finding as *tuning*, #109 has not run, and arm 1 says no — against which stands ADR-0012's
 > own reason for restating the trigger: **a trip-wire that survives its own firing condition is one
-> nobody will ever trip, and arm 2 has no tuning escape clause.** That tension is what #139 rules.
+> nobody will ever trip, and arm 2 has no tuning escape clause.**
 > **The bound is stated in five places** — here, at the top of this file, in M2's exit criteria, in
-> GDD §12 and in ADR-0012 — and all five now carry this correction. This one was missed by the
+> GDD §12 and in ADR-0012 — and all five carry this correction. This one was missed by the
 > reconcile that corrected the other four, which is the same undercount every sweep in this family
 > has made.
+>
+> **RULED 2026-08-04 (#139): arm 2 fired —
+> [ADR-0015](decisions/0015-arm-2-fired-and-the-fallback-is-retired.md), superseding ADR-0012.** The
+> three arguments against all fail. *Tuning* is not the playtester's classification to make, and
+> **tuning cannot reach this**: §4's containment makes the flash's price in creatures and its product
+> both known integers at the decision point, and combat has no rolls, so a constant only moves which
+> side of a fixed comparison always wins. **#109** measures how far a never-flash fighter out-earns a
+> flashing one — precision, not permission. **Arm 1** was satisfied *by darkness*: the retellable
+> moment named is a turn on which the shutter never opened.
+>
+> **And the trigger's consequent is withdrawn in the same ruling.** §12's fallback prescribes
+> *subtract fuel*; the mechanism is **HP, not fuel**. So it is **retired**, and what arm 2 fires is a
+> rebuild of the wager's **cost side** — [#144](../../issues/144) for the lever,
+> [#145](../../issues/145) for the new trip-wire and its bound. **This section's sentence *"that is
+> what spends §12"* has now been answered twice and both answers were surprising**: ADR-0012 said the
+> condition had not fired when it looked as though it had; ADR-0015 says it fired and the consequent
+> was wrong. Neither is the deadline this section refused to become.
 
 **Two instructions the playtest brief must carry, both because auto-travel is deliberately absent
 (ADR-0009).** Both were carried by the first brief and both did their job — keeping them here
@@ -471,6 +545,14 @@ a milestone early and the first playtest is the first honest judgement of it. §
 fallback (strip fuel, keep the positional tactics) is still what "change direction" means; it is
 just spent at M1's exit if it is spent at all. What M2 is *now* is where the wager is made tense,
 having already been judged not-dead.
+
+> **The third sentence is dead — *2026-08-04, #139,
+> [ADR-0015](decisions/0015-arm-2-fired-and-the-fallback-is-retired.md)*.** §12's fallback is
+> **retired**: it prescribes *subtract fuel* and the measured mechanism is **HP, not fuel**, so
+> "change direction" no longer means *strip fuel, keep the positional tactics*. It now means what
+> `VISION.md` says and nothing more: **subtraction and rebuild, never a second mechanic bolted on
+> top.** The rest of the paragraph stands — M2 is still where the wager is made tense, and it has
+> grown a step (5b, the cost-side rule change) to do it.
 
 **And "tuned" is the wrong word for it, which this paragraph used to use.** The M1 exit playtest
 re-classified the problem as a **rule** one, not a tuning one — #83 deletes two cases of `nextMind`
@@ -604,12 +686,23 @@ this milestone, not its method.
       the condition §4 set. **#109 stays after it**, for the attribution reason above — but it is no
       longer *next*: this build's playtest produced **#139**, and the block under *#109 — the
       `HARVESTER` style* at the top of this file carries the sequencing decision
-- [ ] **Has §12's arm 2 fired? — [#139](../../issues/139)**, a `game-designer` ruling filed out of
-      #133's playtest and deliberately not ruled by it. ADR-0012's bound (*the next broad playtest
-      after #123*) is **consumed** by that playtest, which reports *the lantern opened only when
-      lost* with numbers. **This is the next thing M2 does, and it is a ruling rather than a build.**
-      Its most likely outcome — recorded as a read and not as a finding — is *not yet, and #109 is
-      the test*, which would hand the order back to #109 with a re-set bound
+- [x] **Has §12's arm 2 fired? — [#139](../../issues/139). Yes. Ruled 2026-08-04,
+      [ADR-0015](decisions/0015-arm-2-fired-and-the-fallback-is-retired.md), superseding ADR-0012.**
+      The read recorded here was *not yet, and #109 is the test*, and it was wrong — kept, because it
+      was written down as a read for exactly this reason. **The fallback is retired rather than
+      spent**: it prescribes *subtract fuel* and the measured mechanism is **HP, not fuel**, so it
+      returns to being an alternative that lost and the project has no designated fallback. What arm 2
+      fires instead is a **rebuild of the wager's cost side** — *a run that never opens the shutter
+      must be able to die of the dark*, and *waking something must be able to be worth it*, by
+      subtraction and not by a new system
+- [ ] **Rule the cost-side lever — [#144](../../issues/144)** (`design`). Which rule is subtracted.
+      Leading candidate: light-gate the creature ember drop, mirroring #31/#41's cache rule; runner-up:
+      a dark strike wakes what can feel it. **Not blocked on #109** — no measurement can return
+      "nothing to fix"
+- [ ] **The judging playtest after the rebuild — [#145](../../issues/145)**, which **is** ADR-0015's
+      trip-wire bound. Blocked on #144's build. Fires on either arm, on the rebuild needing an added
+      mechanic, or on `HARVESTER` still out-earning `STALKER`; clears on three criteria stated in
+      advance, of which the load-bearing one is **a never-open-shutter line must be able to die**
 - [ ] Fuel economy and the risk/reward tuning around it — calibrated once in #17. **#63 is ruled**
       and **no fuel number may move yet.** The first of the two reasons is now discharged: #31/#41
       landed 2026-08-01 and `DARK_PACIFIST`'s take went **119 of 121 → 0 of 121**, so the corpus is
@@ -622,7 +715,14 @@ this milestone, not its method.
       which is exactly the difference #109 exists to close. It is the Watch §4 already carried,
       arriving early with numbers, and it is **not** a contradiction of the cache ruling, which said
       necessary-and-not-sufficient and named the never-flash fighter as the case it does not reach.
-      What it changes is urgency, not the rule
+      What it changes is urgency, not the rule.
+      **This bullet is superseded as a *plan* — 2026-08-04, #139,
+      [ADR-0015](decisions/0015-arm-2-fired-and-the-fallback-is-retired.md).** The freeze stands and
+      hardens; what goes is the idea that a re-tune is what happens once #109 lands. With §4's
+      containment the flash's price and product are both known integers at the decision point and
+      combat has no rolls, so a constant only moves which side of a fixed comparison always wins.
+      **A re-tune may follow step 5b's rule change; it may not replace it.** Left unchecked because
+      the box is still open — just not next
 - [ ] Sound/haptic feedback for moving blind — **untouched.** #79 is adjacent and does not discharge
       it: a wake is announced in *text*, which is neither sound nor haptic, and #94 is about the
       pixels of that text. Nothing here has been built
@@ -730,7 +830,10 @@ on **#83**.
    defensively.
 3. ~~**#31/#41** — caches are invisible while shuttered, per §4.~~ **Done, 2026-08-01.** It did what
    it was sequenced to do: `DARK_PACIFIST` 119/121 → **0/121**, `STALKER` 121/121 → 114/121 and net
-   +8 → +7. **No fuel number moved**, per the rule above. Two things worth carrying forward. The
+   +8 → +7. **No fuel number moved**, per the rule above. *(The two `STALKER` figures are as measured
+   at PR #106 and are stale by three rule changes — #83, #123, #133. Re-run 2026-08-04 they are
+   **117/121** and **+6**; the conclusion, that the flashing style barely moved, is more true at 117
+   than at 114. GDD §4 carries the same correction.)* Two things worth carrying forward. The
    corpus's `driedAfterTurns` had to be *re-instrumented* — it summed whole floors, and once every
    pacifist style dried on floor 1 it was measuring floor length rather than solvency; that is
    #105's "a threshold in the harness is instrument calibration" applied to the quantity rather than
@@ -882,6 +985,21 @@ stays after it.**
    ember-sense contact, one-shots each dormant — which is what §4's invariant 4 is asserted against.
    **Filed as #109** by the reconcile after #106: it was the one step in this list with no issue behind it,
    and #108 has since measured what it will be asked to confirm.
+
+   > **Its job changed on 2026-08-04 (#139,
+   > [ADR-0015](decisions/0015-arm-2-fired-and-the-fallback-is-retired.md)) and the step survives.** It
+   > is no longer *the gate on a re-tune* — ADR-0015 rules that no number is the fix — it is the
+   > **before-number the cost-side rebuild is measured against**, and it is worth taking while the old
+   > rules still stand, which is the same argument #133 made for measuring the corpus on both sides of
+   > a rule change. It is cheap, so it goes next. It does **not** block [#144](../../issues/144).
+   > Invariant 4's passing condition is unchanged: `HARVESTER` must not out-earn `STALKER`.
+
+5b. **The cost-side rule change — [#144](../../issues/144) rules the lever, and a build issue follows
+   it.** Inserted 2026-08-04 by #139's ruling. Two propositions must become true: *a run that never
+   opens the shutter must be able to die of the dark*, and *waking something must be able to be worth
+   it*. Constraint: a subtraction from an existing rule, not a new system. **Numbered 5b rather than
+   renumbering, for the reason this list already gives twice: `ROADMAP.md`, GDD §4 and M2's exit
+   criterion all cite "step 5"/"step 6" and renumbering silently redirects them.**
 6. **#82 last, unchanged and still explicitly last.** Shipping it before #83 makes the game *worse*:
    drawing the radius-4 footprint turns the containment read into exactly the clean binary the first
    playtest complained about. Correct and desirable, but only once waking has a price.
@@ -892,6 +1010,15 @@ closing #105 ("re-derivation remains roadmap step 6") both mean **the fuel-econo
 has never been a numbered step in this list — it is the M2 checklist bullet above, gated on step 5
 by §4's *no number moves until the corpus contains a never-flash fighter*. Recorded rather than
 renumbered: this list is about what to *build*, and the re-tune is what happens once it is built.
+
+> **And the re-tune is now deleted from the plan — *2026-08-04, #139,
+> [ADR-0015](decisions/0015-arm-2-fired-and-the-fallback-is-retired.md)*.** It was gated on step 5 to
+> do a job the ruling says it cannot do: with §4's containment the flash's price and product are both
+> known integers at the decision point and combat has no rolls, so moving `CACHE_FUEL` only moves which
+> side of a fixed comparison always wins — too low is the arm that fired, too high is *flashing because
+> it must*. **A re-tune may follow step 5b's rule change; it may not replace it**, and it is not what
+> comes back after #109. The three records above are left as written because each was true when
+> written; this note is what a session following any of them needs.
 
 **#89 is deliberately not in that list, and its parked question is now answered — against building
 it.** Re-dormancy is as silent as waking was, so a shuttered player cannot tell *it gave up* from *it
@@ -1241,14 +1368,30 @@ spend §12. Three things it must be asked, and none of them is "can you sign the
 > against the same bot dying **4 of 4** with the lantern open, and an A/B where dark forfeits 21 fuel
 > of cache and is still ahead because the mechanism is **HP, not fuel**. **It also answers arm 1
 > emphatically no** (a named retellable moment, 13 of 38 sampled turns as real decisions), which is
-> why this is a ruling and not an arithmetic consequence. **The ruling is [#139](../../issues/139)
-> and it is open.** Nothing here fires §12; the bound being spent means the *question* can no longer
-> be deferred, not that the answer is yes.
+> why this is a ruling and not an arithmetic consequence. Nothing here fires §12; the bound being
+> spent means the *question* can no longer be deferred, not that the answer is yes.
+>
+> **The ruling landed 2026-08-04 (#139): arm 2 fired, and §12's fallback is retired rather than spent
+> — [ADR-0015](decisions/0015-arm-2-fired-and-the-fallback-is-retired.md).** The exit criterion below
+> is **unchanged for the third time** and is still the right question; what changed is that the reason
+> it cannot be signed is now named. The wager's cost side is rebuilt ([#144](../../issues/144)) and the
+> playtest that judges the result is [#145](../../issues/145) — which **is** the new bound, an issue
+> rather than a sentence, because establishing that *this* bound had been consumed took three
+> documentation sweeps and a ruling. **Do not run a judging playtest before #144's build merges**: it
+> would re-measure a finding that is already ruled.
+
+> **The three bullets below are the brief for the playtest that has now run, and they are kept as the
+> record of it. The brief for the *next* judging playtest is [#145](../../issues/145)**, which carries
+> them forward with one change that matters: the first bullet's *can you name a turn where the light
+> decision mattered?* was answered **yes, by a turn on which the shutter never opened**, so #145 asks
+> the sharper form — *can you name a flash you were glad you made?*
 
 - **Both arms of §12's restated trigger, in VISION's words** (ADR-0012): *can you name a turn where
   the light decision mattered?* and *did you open the lantern only when lost?* An unsigned criterion
   is **not** an answer to either. If the answer to the first is no, or to the second is yes, the
-  fallback is spent and no further evidence is needed.
+  fallback is spent and no further evidence is needed. *(Answered: no to the first, **yes** to the
+  second — and the ruling on 2026-08-04 is that the second firing does **not** spend this fallback,
+  because the fallback is the wrong instrument. ADR-0015.)*
 - **The too-strong arm is the only arm GDD §4 still watches**, and it is the second question above.
   §4 declares the **too-weak arm structurally closed**: a woken Cinder costs 2 HP or the stairs, by
   arithmetic (5 HP against 3 damage is two strikes, and the player is generally adjacent at their
@@ -1328,6 +1471,13 @@ and nothing may read one into it.**
   from this playtest**, which was a narrow build-verification brief and is not entitled to one. The
   judging playtest decides whether the arm fires; this bullet only records that the observation and
   the trigger are different claims.
+  **The judging playtest ran (PR #136) and the arm fired (#139, 2026-08-04,
+  [ADR-0015](decisions/0015-arm-2-fired-and-the-fallback-is-retired.md)).** Keep this bullet's
+  distinction and note what moved between the two runs: *about twice a floor, at moments the
+  playtester could name* became **twice across four runs, glad neither time**. The playtester's read
+  here — *the flash-peek is well priced; sustained light is unaffordable* — is half right and the
+  ruling names the other half: the peek is well priced **in fuel**, and it is the **HP** it costs that
+  nobody will pay.
 - **#125 is findable but nobody would seek it.** Reproduced deliberately (flash beside a sleeper, two
   strikes, HP unchanged) and hit accidentally first — the two-turn stillness is very visible. **But
   the dormant strike strictly dominates it:** one turn, 0 HP, 6 damage, no wake, and no 4 fuel spent.

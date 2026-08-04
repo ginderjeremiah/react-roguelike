@@ -59,6 +59,25 @@ what you woke. Repeat down eight floors — taking the stairs on the last one is
 | Do you ever want to wake an enemy? | Constantly. Fuel comes from kills, so combat is not optional; it is the income side of the economy. Light is not defensive — light is how you find things to kill and where to kill them. |
 | How do you map unlit space? | Remembered terrain (permanent once seen) + touch (radius 1) + ember-sense for creatures. No sound system, no new mechanic. |
 
+> **Two rows of that table are false of the build, measured — *2026-08-04, #139,
+> [ADR-0015](decisions/0015-arm-2-fired-and-the-fallback-is-retired.md)*.** Recorded here rather than
+> rewritten, because [#144](../../issues/144) rules which side changes and this section must not
+> pre-empt it.
+>
+> - ***"Light spends fuel to preserve HP."*** In the build, **light spends HP**: opening the shutter
+>   wakes everything in radius 4, and a woken Cinder costs 2 HP to kill where a dormant one costs 0
+>   (§3). Light is the only source of danger in the game.
+> - ***"Do you ever want to wake an enemy? Constantly."*** Never, at these rules: a woken Cinder drops
+>   the same 20 ember a sleeper does, so waking has a cost and no benefit. **Waking is a pure loss.**
+>
+> Together with two rules that are *not* in question — nothing wakes in the dark (§4), and a pursuer
+> cannot hit a moving player (§4) — the consequence is that **darkness is not merely the cheap option,
+> it is the safe one**, and dark took both the offensive role it was designed for and the defensive
+> role light was designed for. That is why a zero-strategy bot that never opens the shutter finished
+> **9 of 9** seeds while the same bot with the lantern open died in **4 of 4**, and why §12's arm 2
+> fired. **The loop described three paragraphs above — *flash and crawl* — is the design's intent and
+> is not what the numbers currently reward;** the half the numbers punish is the flash.
+
 *What this rejects from the concept seed:* the seed said unlit tiles "hide the map" and moving dark
 is "faster and cheaper but blind". Dark being *only* a cost saving is what would have flattened
 this into "keep the lantern off unless lost". Ember-sense is the fix, and it is why the concept
@@ -284,9 +303,21 @@ under player control, not under the RNG's.
 
 *Open:* status effects (none in M1), any second player attack option, ranged anything.
 
-## 4. Light, fuel, and ember-sense — *Settled for M1-M2*
+## 4. Light, fuel, and ember-sense — *Settled for M1-M2, except the wager's **cost side**, which is now **Open***
 
 The signature system.
+
+> **What is open, and it is not everything — *2026-08-04, #139,
+> [ADR-0015](decisions/0015-arm-2-fired-and-the-fallback-is-retired.md)*.** §12's arm 2 fired: a broad
+> playtest reports the lantern opened only when lost, and the never-flash line dominates because
+> **darkness is safe** — nothing wakes in the dark, and a pursuer cannot hit a moving player, so the
+> only creature that can damage a never-flash player is one the run start woke. **One rule in this
+> section will be subtracted to fix that** ([#144](../../issues/144); leading candidate is
+> light-gating the creature ember drop, mirroring the cache rule below). Everything else here —
+> the two vision states, the Chebyshev metric, containment, the adaptation ramp, the cache rule, the
+> 0-fuel rules, pursuit — is **settled and is not reopened by this**. No number in this section moves;
+> see the freeze under the four tuning invariants, which is now a ruling rather than a sequencing
+> courtesy.
 
 **Every vision radius is Chebyshev — a square.** `max(|dx|, |dy|) ≤ r`. This holds for the lit
 radius, the dark touch radius, the ember-sense radius, and every value the dark-adaptation ramp
@@ -739,7 +770,11 @@ play, is strictly worse than a line a human found by accident.
 > shipped as the previous version of it demanded.** What it removed is the half of invariant 4 that
 > was a bug rather than a number: dark play is no longer handed light's income stream. Measured over
 > the same corpus, before and after, `DARK_PACIFIST`'s cache take went **119 of 121 → 0 of 121** and
-> its income to zero, while `STALKER`'s went 121/121 → 114/121 and its net per floor +8 → +7. That
+> its income to zero, while `STALKER`'s went 121/121 → 114/121 and its net per floor +8 → +7. **Those
+> two `STALKER` figures were measured at PR #106 and are stale by three rule changes (#83, #123,
+> #133); re-run 2026-08-04 they are 117/121 and +6.** Nothing about the conclusion moves — it rested
+> on the flashing style *barely* moving, which is more true at 117 than at 114 — and the before/after
+> pair is left as it was measured, because a change log records what was measured on the day. That
 > is the ruling's own prediction and not its falsifier: the flashing style barely moved, so the
 > intervention is aimed where it was pointed rather than at §5's leaf-room bias. **The rest of
 > invariant 4 is still open**, exactly as the ruling said it would be — it was necessary and not
@@ -757,6 +792,21 @@ play, is strictly worse than a line a human found by accident.
 > measurement in this project where light wins anything. Neither half is a ruling and **nothing in §4
 > is amended by them.** Converting the ceiling into what a fighter actually banks is **#109**, which
 > is why invariant 4 is still estimated rather than asserted.
+>
+> **The freeze above is now a ruling rather than a sequencing courtesy — *2026-08-04, #139,
+> [ADR-0015](decisions/0015-arm-2-fired-and-the-fallback-is-retired.md)*.** §12's arm 2 fired, and the
+> ruling is that **no number in §4 is the fix**: containment (above) means the flash's price in
+> creatures and its product are both known integers at the moment of the decision, and combat has no
+> rolls, so moving `CACHE_FUEL` only moves which side of a fixed comparison always wins — too low is
+> the arm that fired, too high is *flashing because it must*. So *no number in §4 moves* stops meaning
+> "wait for the instrument" and starts meaning "the instrument is not what this needs". **A re-tune may
+> follow [#144](../../issues/144)'s rule change. It may not replace it.**
+>
+> **#109 survives and its job changes.** It is no longer the gate on a re-tune; it is the
+> **before-number** the rebuild is measured against, and it should be taken while the old rules are
+> still in place — the same argument #133 made for measuring the corpus on both sides of a rule
+> change. Invariant 4 is still the assertion that says whether the rebuild worked, and its passing
+> condition is unchanged: **`HARVESTER` must not out-earn `STALKER`.**
 
 **Awake-creature behaviour — *pursuit ruled 2026-07-31 and implemented 2026-08-02 (#83); re-dormancy
 deleted 2026-08-02 (#121) and implemented the same day (#123)*. Both halves are now built.**
@@ -1343,26 +1393,41 @@ light and resolve about **13 creatures across eight floors** against the **42** 
 own floor-8 history (*three flashes, five Cinders, 10 HP*) becomes a dead run under this rule. If the
 arm fires, §3's combat numbers are the response and **#109 gates them**.
 
-> **The arm has a report against it, 2026-08-03, and the ruling is [#139](../../issues/139) — open.**
-> #133's playtest (PR #136) is the broad one ADR-0012 bound the trip-wire to, and it names arm 2 in
-> as many words. The measurement: a zero-strategy bot that **never opens the shutter** reached the
-> bottom on **9 of 9** seeds; the same bot with the lantern open **died in 4 of 4**; and an A/B on
-> one seed with an identical route has dark forfeiting **21 fuel** of cache and still finishing
-> ahead. **The mechanism is HP, not fuel** — light converts a free dormant kill into a 2 HP woken
-> kill, which is this section's own arithmetic doing exactly what it says and one arm too much of it.
-> **#133 pushed it further the wrong way**, deliberately: deleting the grace turn removed a discount
-> worth 14.5% of `STALKER`'s woken kills, so every woken kill now costs the 2 HP.
+> **THE ARM FIRED — reported 2026-08-03 (PR #136), ruled 2026-08-04 ([#139](../../issues/139),
+> [ADR-0015](decisions/0015-arm-2-fired-and-the-fallback-is-retired.md)).** This watch has done its
+> job and is retired as a watch. The paragraph above is kept because it is the statement of what was
+> being watched for, and the answer is *yes*.
 >
-> **This is a report, not a verdict, and nothing here rules it.** ADR-0012 makes the call a
-> `game-designer`'s to make deliberately rather than inferred, and three things cut against firing:
-> the playtest classifies its own finding as *tuning* (the classification ADR-0012's table gives
-> #31's *dark strictly dominates*); **#109 has not run**, and it is the gate that exists to measure
-> invariant 4, so firing now is firing before the diagnosis; and the same playtest answers arm **1**
-> emphatically in the negative. Against those, ADR-0012 restated the trigger *because* a trip-wire
-> that survives its own firing condition never fires, and arm 2 has no tuning escape clause. **That
-> tension is what #139 rules.**
+> **The measurement:** a zero-strategy bot that **never opens the shutter** reached the bottom on **9
+> of 9** seeds; the same bot with the lantern open **died in 4 of 4**; an A/B on one seed with an
+> identical route has dark forfeiting **21 fuel** of cache and still finishing ahead; and across four
+> hand-played runs the shutter was opened on purpose **twice**, glad neither time. **The mechanism is
+> HP, not fuel** — light converts a free dormant kill into a 2 HP woken kill, which is this section's
+> own arithmetic doing exactly what it says and one arm too much of it. **#133 pushed it further the
+> wrong way**, deliberately: deleting the grace turn removed a discount worth 14.5% of `STALKER`'s
+> woken kills, so every woken kill now costs the 2 HP.
+>
+> **The last sentence of the paragraph above is now wrong and it is the important correction.** It
+> says *"if the arm fires, §3's combat numbers are the response and #109 gates them."* They are not.
+> ADR-0015 rules that **no number is the response**: with containment (§4) the player knows the
+> flash's exact price in creatures and its exact product before paying, and combat has no rolls, so
+> the flash decision is a comparison of two known integers. A constant only moves which side always
+> wins — too low is the arm that just fired, too high is *flashing because it must*. **The response is
+> a rule change, and it happens regardless of what #109 returns.**
+>
+> **What the rule change is aimed at**, stated here because this is the section that owns the arm:
+> nothing wakes in the dark (this section), and a pursuer cannot hit a moving player (this section,
+> below) — so **the only creature that can ever damage a never-flash player is one the run start woke**,
+> about one run start in nine. Darkness is not cheap, it is **safe**. The two propositions the rebuild
+> must make true are *a run that never opens the shutter must be able to die of the dark* and *waking
+> something must be able to be worth it*; the lever is [#144](../../issues/144) and the trip-wire that
+> judges the result is [#145](../../issues/145).
 
-**What is genuinely open, and it is a tuning band rather than an arm: does 2 HP bind?** The arm above
+**What is genuinely open, and it is a tuning band rather than an arm: does 2 HP bind?** *(Read with
+the ruling above: **the arm has fired**, so the band's answer is already known on one side — 2 HP
+binds so hard the price is not paid at all. What the band is still worth measuring is the same
+quantity **after** [#144](../../issues/144)'s rule change, as one of the readings that says whether the
+rebuild worked. Until then it fires nothing, exactly as it says below.)* The arm above
 asks whether the price is unpayable. The opposite question is not *is there a price* — that is decided
 — but *is the price felt*, and it is answerable without a metric the design has already fixed:
 **HP spent on woken creatures per floor, against the +2 a descent returns.** The exchange rate is
@@ -1394,6 +1459,11 @@ anything moves**, which is why this is recorded as a band to observe and not as 
 > **The real distinction is actionability.** An arm fires a decision on its own: it spends §12, or it
 > sends §3's numbers to #109. This band fires nothing — it cannot be acted on without the policy that
 > produced it, and nothing acts on it before #109 in any case. *Report it; re-tune nothing.*
+>
+> *(The second half of the first sentence is now wrong: the arm fired on 2026-08-04 and it did **not**
+> send §3's numbers anywhere — ADR-0015 rules that no number is the response. The distinction it draws
+> survives; only its example of an arm's payload was wrong. What an arm actually fired here was a rule
+> change, [#144](../../issues/144).)*
 
 **A regression guard, stated as one so nobody mistakes it for a watch — it came back *red*, which
 nobody expected, and it is green again only because a rule changed.** *No run may bank ember from a
@@ -2101,13 +2171,25 @@ Kept so we do not relitigate, and so we know what to fall back to.
 movement patterns; tension entirely from geometry). The genuine runner-up, and the strongest
 Pillar 1 and Pillar 3 fit of anything considered. It lost on Pillar 4 — a puzzle produces "I played
 well", not "the lantern died on floor six and I crawled to the stairs" — and because it makes the
-glyph grid's signature look (ADR-0003) irrelevant. **This is the designated fallback:** if the
-**first** playtest says the light wager is not tense, the move is to strip fuel and keep the
-tactics, not to add a second resource. (This said "the M2 playtest". `ROADMAP.md` moved the concept
-checkpoint up to **M1's exit** when the simulation finished a milestone early, so the fallback is
-now spent — if it is spent — one milestone sooner than this section assumed.) Its lesson has been
-stolen regardless: combat should be positionally tight, and §2's commit-one-turn-ahead is that
-lesson.
+glyph grid's signature look (ADR-0003) irrelevant. Its lesson has been stolen regardless: combat
+should be positionally tight, and §2's commit-one-turn-ahead is that lesson.
+
+> **This entry used to end *"This is the designated fallback"*, and it does not any more — *ruled
+> 2026-08-04 (#139), [ADR-0015](decisions/0015-arm-2-fired-and-the-fallback-is-retired.md)*.** The
+> trigger fired and the prescription was withdrawn in the same ruling, which is an unusual pair and is
+> the whole of what ADR-0015 decides. **This is now an ordinary alternative that lost**, like the four
+> below it. The paragraph above is exactly the text that lost the M0 review, unamended.
+>
+> **Why it was withdrawn rather than adopted, in one sentence:** the fallback prescribes *subtract
+> fuel*, and the playtest that fired the trigger measured the mechanism as **HP, not fuel** — a dark
+> line forfeits a whole 21-fuel cache on an identical route and still finishes ahead — so the
+> prescription deletes the part the measurement exonerates. **What survives is the direction, and it is
+> now a hard constraint on the rebuild:** the answer to a failed wager is subtraction and rebuild,
+> never a second mechanic bolted on top. `VISION.md`'s *If this fails* paragraph now says that and
+> nothing more.
+>
+> **The project therefore has no designated fallback.** That is a real loss — a named fallback is what
+> stops a failing project dithering — and ADR-0015 records it as one rather than pretending otherwise.
 
 > **Ruled 2026-07-31 on #63 and #83: the fallback is NOT spent.** Two playtests have run. The first
 > recommended keeping fuel for a reason that was false (it believed re-dormancy unimplemented); the
@@ -2182,28 +2264,45 @@ lesson.
 > costs. If that playtest reports either arm, the fallback is spent and nobody needs a fourth
 > milestone of evidence.
 
-> **The bound is consumed and arm 2 has been reported — 2026-08-03, PR #136. The ruling is
-> [#139](../../issues/139), it is open, and this note does not rule it.** The broad playtest of #133
-> (6 hand-played runs across 7 seeds, 13 automated full runs on 9 seeds — broad by the bar above and
-> then some) says *"§12's 'the lantern opened only when lost' arm firing, and it is not a hypothesis
-> any more"*, on a never-shutter bot finishing **9 of 9** seeds against **4 of 4** deaths with the
-> lantern open. It also answers arm **1** emphatically in the negative — a named retellable moment,
-> 13 of 38 sampled turns as real decisions. **The two arms disagree, which is precisely why a person
-> rules it and an inference does not.**
+> **RULED 2026-08-04 (#139): arm 2 fired. The trigger above is spent and it is no longer the live
+> one — [ADR-0015](decisions/0015-arm-2-fired-and-the-fallback-is-retired.md) supersedes ADR-0012 and
+> carries the replacement.** Everything above this line is history. Read it for the reasoning; do not
+> act on it.
 >
-> **Both sides, because this note is the one most likely to be the only one read.** Against firing:
-> the playtest classifies its own finding as *tuning* — the classification the table above gives the
-> first playtest's *dark strictly dominates*; **#109 has not run**, and it is the gate that exists to
-> measure invariant 4, so firing now is firing before the diagnosis; and arm 1 says no. **For
-> firing:** ADR-0012 restated this trigger *because* a trip-wire that survives its own firing
-> condition is one nobody will ever trip, and **arm 2 has no tuning escape clause**. §4's *the
-> lantern is opened only when lost* watch carries the same four points with the measurements under
-> them.
+> **What fired it.** The broad playtest of #133 (PR #136, 2026-08-03 — 6 hand-played runs across 7
+> seeds, 13 automated full runs on 9 seeds) says *"§12's 'the lantern opened only when lost' arm
+> firing, and it is not a hypothesis any more"*, on a never-shutter bot finishing **9 of 9** seeds
+> against **4 of 4** deaths with the lantern open, and an A/B on an identical route where dark
+> forfeits **21 fuel** of cache and still finishes ahead. Across four hand-played runs the shutter was
+> opened on purpose **twice**, and the playtester was glad neither time.
 >
-> **What a reader arriving here for the fallback needs:** spending §12 is a rebuild — a different
-> enemy, a different generator, a different win condition — and it would need an ADR superseding
-> ADR-0012. **Do not spend it off this note.** And #139 owes a second thing if it rules *not fired*:
-> a bound that is spent and not re-set leaves a trip-wire that can no longer fire at all.
+> **The three arguments against firing, and why none survived.** *It classifies its own finding as
+> tuning* — that classification is not the playtester's to make, and tuning cannot reach this one:
+> containment (§4) means the player knows the flash's exact price in creatures and its exact product
+> before paying, and combat has no rolls, so **the flash decision is a comparison of two known
+> integers**. Moving `CACHE_FUEL` does not create a band, it moves which side always wins — too low is
+> where we are, too high is §4's other watch (*flashing because it must*). *#109 has not run* —
+> #109 measures **how far** a never-flash fighter out-earns a flashing one; **that** it does is
+> established three independent ways already, so #109 adds precision, not permission. *Arm 1 came back
+> negative* — it did, and it was satisfied **by darkness**: the retellable moment named is feeling a
+> `*` through a wall and killing it blind, a turn on which the shutter never opened. A concept whose
+> best moment requires never using half of itself has half a concept working.
+>
+> **What firing spends, and it is not the entry above.** §12's fallback is **retired, not adopted** —
+> see the note under *Pure positional tactics* — and what arm 2 fires instead is a **rebuild of the
+> wager's cost side**, at milestone scale, against two propositions: *a run that never opens the
+> shutter must be able to die of the dark*, and *waking something must be able to be worth it*.
+> Constraint: it is a subtraction from an existing rule, not a new system. Which rule is
+> [#144](../../issues/144). **No measurement can clear it** — a rule changes regardless of what #109
+> returns; #109 decides which lever and by how much.
+>
+> **The live trip-wire is ADR-0015's, and its bound is [#145](../../issues/145)** — an issue rather
+> than a sentence, because establishing that the last bound had been consumed took three sweeps and a
+> ruling. It fires if the playtest after the rebuild reports either arm, if the rebuild needs an added
+> mechanic to work, or if `HARVESTER` still out-earns `STALKER` afterwards. It clears on three
+> measured criteria stated in advance, including the one this section cares about: **a never-open-shutter
+> line must be able to die**, where today it reaches floor 8 on 9 of 9 seeds and took no damage in 824
+> turns.
 
 **Light as a ward — things hunt you in the dark, light repels them.** Rejected: it makes darkness a
 pure cost saving, which is precisely the flaw that nearly killed the original seed. A "pay money
@@ -2403,3 +2502,4 @@ recorded at the moment we made it, is the part git cannot give us.
 | 2026-08-03 | **Correction, propagated: three claims the ruling above superseded were left standing in older blocks — *one run start in nine yields a free kill*, *56 of 386 is a floor on the defect*, and *the characterisation test goes red the day #125 closes*** | The reconcile after PR #134. **No rule and no number moves.** (1) **Four blocks written before the distance measurement still read the run start as a *free-kill* route at one in nine** — §4's *Status is load-bearing here* note, §4's too-weak-arm blockquote, `ROADMAP.md`'s step-4a prose (*"flash next to a sleeper… **or simply start a run**"*), and ADR-0013's *seventh instance* paragraph, which names it *the `beginRun` free-kill route* (its measurement stands; only the name was wrong) — **plus one live site outside `docs/`**: the `beginRun` reproduction's comment in `game/systems/economy.test.ts`, which calls the window "a property of every run start — about one in nine of them" directly above a hand-built floor at Manhattan **2** that ends 12/12. §5 step 7 keeps a *generated* opening at Manhattan 3 or more, where the window is worth 0 HP to no line of play, so **an opening wake already costs the full 2 HP today**: one in nine is the frequency of the **grace**, and the HP leaks through the **free action**. (2) **Tense:** #125 closed on the ruling and the characterisation test is still green — it goes red when **#133** ships. PR #134's own review caught this at one `ROADMAP.md` site and left the two identical sentences in §4, which is the same one-site-fixed-others-missed shape as the *one in five* sweeps. **This is the fifth consecutive sweep on this family of phrases to find sites the previous one missed** ([ADR-0013](decisions/0013-a-claim-about-the-build-is-established-by-measurement.md)) — and the first where the sites were **not wrong when they were written**: the ruling and its distance measurement made them wrong, which is a different failure from a claim that was always false and needs a different sweep. (3) **And the review of this very row found a *third* superseded proposition, in four places including `game/`, which is the sixth consecutive undercount.** §4 twice, `ROADMAP.md`'s step-4a bullet and `economy.test.ts`'s corpus header all said 56 of 386 was **a floor on the defect, not its size**, on the reasoning that the corpus never calls `beginRun` and the run start was a further free-kill route. The distance table **reverses** it: `generateFloor` skips any spawn within `CREATURE_ENTRANCE_EXCLUSION` (2) of the entrance, pinned for every seed at every depth, so every *generated* opening wake is at Manhattan >= 3 where the window costs **2 HP** — teaching `arriveOn` to call `beginRun` would add woken kills that **all cost HP** and move the free fraction *down*. **The reversal does not rest on how many:** adding *k* such kills raises the denominator and not the numerator, so the fraction falls for any *k* > 0. (The ~0.11-a-run figure quoted alongside is `223/2000`, the rate at which a run start wakes *at least one* creature — an **approximation, not a bound**: an opening can wake more than one, measured at 13 of 2000 openings waking two (about +6%), while a run does not kill everything it wakes, and neither correction has been measured against the other. Do not quote it as *at most*.) For `STALKER` the 14.5% is essentially the whole of the **HP** defect. What the corpus cannot see at a run start is the **grace**, and a corpus that measures HP cannot see a tempo hole. §4 had contradicted itself about this seventeen lines apart since #134, and this reconcile edited a clause two lines above the contradiction without reading down to it. **The lesson is the correction to this row's own lesson.** *Grep the conclusion, not the string* presumes the conclusions have been enumerated; this pass enumerated two and missed the third, which contains no distinctive phrase and is invisible to both a string grep and the rule as first stated. The durable form: **after a ruling, enumerate the propositions it falsified, then grep each proposition's paraphrases** — the enumeration is the step that fails |
 | 2026-08-03 | **§2/§4: the grace turn is deleted in `game/`, and every *ruled, not built* marker the ruling above added flips to *built* (#125 ruled, #133 built)** | The build of the #125 ruling. **One call site and one line**: `setMind` in `game/entities/behaviour.ts` schedules a woken creature at `nextActAtOf(schedule, PLAYER_ID)` instead of `now + ACTION_COST`, read from the **state** rather than from a `TurnCost` threaded down — `wakeInLight` and `lanternPhases` gained no arguments. **The read lives inside the not-already-scheduled branch and the placement is load-bearing**: `resolveAttack` unschedules a dead actor *including the player* and `actOnce` still calls `commitNextIntent` → `setMind` after a killing blow, so hoisting it above the `hasActor` early return throws `schedule: no actor 0 is scheduled` on every run that ends in a death (33 tests, measured as a mutant before the build). **No paid command moved, byte for byte** — the descent negative control in `economy.test.ts` is green and unedited, the `descent in the dark` fixture reproduced its digest unchanged, and the new paid-case test pins `now + ACTION_COST` and *strictly greater than `now`*, which is §2's **never zero** asserted rather than trusted. §4's *What a build owes* predicted **9 reds in 4 files** and the build met exactly those 9; **item 7's separate instruction to bring `tests/unit/support/scenario.ts`'s `awaken()` to the same instant added 3 more that the list did not enumerate**, because the mutant was measured in `setMind` alone — all three the same class of verdict change (a chase loses the leading frame in which the creature was owed nothing; a six-command retreat leaves the hunter one tile closer; a hand-built wind-up turn in `render/cues.test.ts` no longer exists), and all three exactly the *window preserved in a helper* that item 7 warned about. **§4's regression guard is enabled in the characterisation block's place, as one line** — `expect(kill.hpSpentWhileAwake).toBeGreaterThan(0)` over `wokenKills` — and only after all three characterisation assertions were confirmed red **together**, which was the condition §4 set: free woken kills go **56/386 → 0/387** (`STALKER`) and **22/247 → 0/252** (`FLOODLIT`), and both hand-built reproductions are inverted as positive reproductions ending at **10/12 HP**, §3's 2, with the descent control kept beside them. **`RULES_VERSION` 6 → 7** with all three fixtures re-recorded, and the shape of what moved is smaller than the bump suggests: the shuttered crawl reproduced **unchanged** (nothing wakes in it); on the combat log the opening wake gains the hunter one command at the start and **spends** it, declaring an attack from a tile the player walks out of, so the two runs re-converge four commands later with the same 27 creature steps, the same four landed blows and the same death on the same turn. **They diverge a second time and a first draft of this row missed it** — the flash at command 32 wakes a Cinder that is now due immediately, so it stands a tile further on for two commands and the player's HP differs mid-run (6 against 8, then 2 against 4); the *damage sequence* the fixture asserts moves 2, 2, 4, 4 → 2, 4, 4, 2, which is by itself proof the runs are not identical after command 24. What differs in the **final frame** is *which* of two hunters struck the killing blow, and `pursuedInTheDark` goes 27 → **26** because one of those same 27 steps now ends adjacent and the counter excludes adjacency; on the cache log, where a flash is followed by a second free action, the woken creature used to see **three** commands and never move at all, and now moves once and declares. **No number in §3 or §4 moves** — #109 still gates every constant. Five prose sites that asserted the old instant in English were corrected, including the one §4 flagged as the trap (`world.ts`'s scheduling invariant, where joining at `now` is *correct* on an uncharged command), plus a **sixth the list did not enumerate**: `commit.test.ts`'s *waking is not acting* comment, which stays green because its command is paid and gave `now + ACTION_COST` as the general rule |
 | 2026-08-04 | **§4/§12: the arm this section watches has a report against it, and the bound that governed it is spent. Nothing is ruled — [#139](../../issues/139) is** | The reconcile after PR #136. **No rule, no number and no marker moves.** #133's playtest is the broad one [ADR-0012](decisions/0012-the-fallback-trigger-is-a-verdict-not-a-signature.md) bound §12's trip-wire to, and it names **arm 2** — *the lantern opened only when lost* — in as many words, with numbers: a zero-strategy bot that never opens the shutter reached the bottom on **9 of 9** seeds, the same bot with the lantern open **died in 4 of 4**, and an A/B on one route has dark forfeiting **21 fuel** of cache and still finishing ahead. **The mechanism is HP, not fuel** — light converts a free dormant kill into a 2 HP woken kill — so this is §4's own exchange rate working, one arm too well, and **#133 pushed it further the wrong way on purpose** by deleting a discount worth 14.5% of `STALKER`'s woken kills. **Two sites gained the report and neither gained a verdict**: §4's too-strong-arm watch and §12's trigger block. It is filed rather than concluded because ADR-0012 makes the call a `game-designer`'s *"to be made deliberately rather than inferred"*, and three things cut against firing — the playtest classifies its own finding as **tuning** (ADR-0012's table gives #31's *dark strictly dominates* the same classification); **#109 has not run**, and it is the gate that exists to measure invariant 4, so firing now is firing before the diagnosis; and the same playtest answers arm **1** emphatically in the negative. Against those, ADR-0012 restated the trigger *because* a trip-wire that survives its own firing condition never fires, and arm 2 carries no tuning escape clause. **That tension is the ruling and it is #139's.** Recorded here because a session reaching for the fallback reaches for §12, and the failure this row exists to prevent is that session reading a watch with no report under it and concluding the arm is quiet |
+| 2026-08-04 | **§12/§4/§1: arm 2 has FIRED. §12's fallback is retired rather than spent, and the wager's cost side is reopened for a rebuild** | The ruling on [#139](../../issues/139), reasoned in [ADR-0015](decisions/0015-arm-2-fired-and-the-fallback-is-retired.md), which supersedes ADR-0012. **The arm fired**: a broad playtest inside ADR-0012's bound (PR #136) reported *the lantern opened only when lost* in its own words, with a never-shutter bot finishing 9 of 9 seeds against 4 of 4 deaths with the lantern open, and the shutter opened on purpose twice across four hand-played runs, glad neither time. The three recorded arguments against firing all fail: *tuning* is not a classification the playtester makes, and **tuning cannot reach this** — containment means the flash's price and product are both known integers at the decision point and combat has no rolls, so a constant only moves which side of a fixed comparison always wins; **#109** measures *how far* a never-flash fighter out-earns a flashing one, which adds precision and not permission; and **arm 1** was satisfied *by darkness* (the retellable moment is a turn on which the shutter never opened). **What fired is not what was prescribed.** §12's fallback says *subtract fuel* and the measured mechanism is **HP, not fuel**, so the fallback is **withdrawn** and becomes an ordinary alternative that lost — taking ADR-0012's own branch, *"either the condition is wrong or the conclusion is"*, on the conclusion. What survives is the direction, as a hard constraint: subtraction and rebuild, never a second mechanic. **What replaces it:** a rebuild of the wager's cost side against two propositions — *a run that never opens the shutter must be able to die of the dark*, and *waking something must be able to be worth it* — because nothing wakes in the dark and a pursuer cannot hit a moving player, so darkness is **safe** and not merely cheap. Lever is [#144](../../issues/144), trip-wire and its bound are [#145](../../issues/145). **No measurement clears it**; the freeze on §4's numbers hardens from a sequencing courtesy into a ruling, and **#109 changes job** from the gate on a re-tune to the before-number the rebuild is measured against. Also corrected here: §4 carried `STALKER` 114/121 and +7 from PR #106, stale through three rule changes — re-run 2026-08-04 it is **117/121** and **+6** |

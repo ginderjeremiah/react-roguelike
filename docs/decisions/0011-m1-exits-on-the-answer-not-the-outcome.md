@@ -1,9 +1,11 @@
 # ADR-0011: M1 exits on the concept checkpoint being *answered*, not on the wager being tense
 
 **Status:** Accepted — **its trip-wire ("The signal that this was wrong", below) is restated by
-[ADR-0012](0012-the-fallback-trigger-is-a-verdict-not-a-signature.md), which ruled that the condition
-did not fire on PR #119's playtest and replaced it with two named arms and a bound.** Do not act on
-the last section of this document without reading that one. Nothing else here is superseded.
+[ADR-0012](0012-the-fallback-trigger-is-a-verdict-not-a-signature.md) and the restated version has now
+**fired**: [ADR-0015](0015-arm-2-fired-and-the-fallback-is-retired.md) ruled arm 2 fired on 2026-08-04
+(#139), and §12's fallback is **retired rather than spent**. Do not act on the last section of this
+document without reading ADR-0015; ADR-0012 is itself superseded. Nothing else here is superseded, and
+M1's exit stands.
 **Date:** 2026-07-31
 
 Decided after M1's exit playtest (issue #87) and the `game-designer` ruling on #83/#63. It amends a

@@ -49,6 +49,11 @@ You descend a lightless ruin carrying a lantern. Light is the core resource and 
 but the wager is not "see or be blind", it is **which half of the truth you want**:
 
 - Your lantern burns fuel every turn, faster when open than when shuttered. Fuel is the run timer.
+  **(Measured 2026-08-04: the second sentence is not true of the build.** GDD §4 rules 0 fuel *a
+  desperate state, not a loss state*, and `game/systems/economy.test.ts` asserts a dry crawl reaches
+  the stairs on **80 of 80** floors. Fuel gates the lantern and nothing else, so a style that does not
+  want the lantern has no clock at all. Recorded rather than rewritten because
+  [#144](../../issues/144) rules whether the sentence or the rule is what changes.)
 - **Open, you see stone:** terrain, items, creatures, and their intent — but only within a short
   radius, and not through walls. Light is also what wakes the ruin's dormant inhabitants, so an
   open lantern announces you.
@@ -68,24 +73,25 @@ grid renders light falloff beautifully as pure cell tinting, and ember-sense is 
 unknown tile — so our cheapest rendering primitive becomes the game's signature look. A small
 vision radius means a small grid, which is exactly what a phone screen wants.
 
-**If this fails:** GDD §12 records pure positional tactics with no resource clock as the designated
-fallback. If the M2 playtest reports the light decision is not tense, or that the lantern is opened
-only when lost, the response is to *subtract* fuel — not to add another mechanic on top.
+**If this fails:** the response is **subtraction and rebuild — never a second mechanic bolted on top.**
+That is the whole of what this paragraph promises, and it is a constraint rather than a plan.
 
-> **A playtest has now reported the second condition** (2026-08-03, PR #136), and whether that
-> spends the fallback is being ruled on [#139](../../issues/139) — **open, and not to be inferred
-> from this line.** ADR-0012 restated the trigger as two arms and a bound; the bound is now spent.
-> Cutting against firing: arm 1 came back emphatically negative and the playtest classifies its own
-> finding as *tuning*, with #109 — the measurement of the invariant at issue — not yet run. Cutting
-> for it: ADR-0012 restated the trigger precisely because a trip-wire that survives its own firing
-> condition never trips, and **arm 2 has no tuning escape clause**.
+> **This paragraph used to name a designated fallback — *pure positional tactics with no resource
+> clock*, from GDD §12 — and it no longer does.** A broad playtest reported the second failure
+> condition on 2026-08-03 (PR #136), and [#139](../../issues/139) ruled on 2026-08-04 that **it
+> fired**: [ADR-0015](decisions/0015-arm-2-fired-and-the-fallback-is-retired.md) supersedes ADR-0012.
 >
-> **One clarification on the word above, because this note is not overruling it.** *Subtract* is
-> right about the **direction** — the answer to a failed wager is never a second mechanic bolted on.
-> What §12 and #63 add is the **size**: subtracting fuel means deleting the lantern and the economy
-> that makes killing pay, then rebuilding the enemy, the generator and the win condition around
-> forced contact. A rebuild, in the subtractive direction. **Read GDD §12 before acting on either
-> paragraph.**
+> **What fired is not what was prescribed.** The fallback said *subtract fuel*, and the playtest's own
+> measurement says the mechanism is **HP, not fuel** — a dark line forfeits a whole 21-fuel cache on an
+> identical route and still finishes ahead, because what it is buying is not being hit. So the
+> fallback is **retired**, and it goes back to being what the rest of GDD §12 is: an alternative that
+> lost. The project no longer has a designated fallback, which is a real loss and is recorded as one.
+>
+> **What is being done instead:** the wager's **cost side** is rebuilt, at milestone scale, against two
+> propositions — *a run that never opens the shutter must be able to die of the dark*, and *waking
+> something must be able to be worth it* — under the constraint above. Which rule is subtracted is
+> [#144](../../issues/144); the trip-wire that judges the result is [#145](../../issues/145).
+> **Read ADR-0015 and GDD §12 before acting on any of this.**
 
 ## Non-goals
 

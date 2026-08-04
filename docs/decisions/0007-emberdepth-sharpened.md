@@ -1,6 +1,12 @@
 # ADR-0007: Emberdepth sharpened — darkness carries information, and fuel is earned
 
-**Status:** Accepted
+**Status:** Accepted — **its *Revisit if* signal has fired** (2026-08-03, PR #136; ruled 2026-08-04 by
+[ADR-0015](0015-arm-2-fired-and-the-fallback-is-retired.md)). The concept survives and is not
+superseded; its **cost side** is being rebuilt. **This file mentions §12's fallback in three places —
+*Context*, *Alternatives considered*, and *Revisit if* — and all three are superseded by the same
+fact: the fallback is retired, not spent.** Each described GDD §12 accurately on the day; none is
+edited, and the note under *Consequences* is the correction for all three. One further sentence of
+this ADR is falsified by the build and is called out there too.
 **Date:** 2026-07-29
 
 ## Context
@@ -123,3 +129,25 @@ read as an unexplained bug rather than a mechanic. Both are named with cut signa
 **Revisit if:** the M2 playtest reports the light decision is not tense, or reports that the
 lantern is opened only when lost. Either signal means the flatness was not actually fixed, and the
 fallback in GDD §12 is the response — not another mechanic on top.
+
+> **The second signal has fired — 2026-08-03, PR #136 — and it was ruled on 2026-08-04 (#139,
+> [ADR-0015](0015-arm-2-fired-and-the-fallback-is-retired.md)). The last clause of the paragraph above
+> is now wrong and the rest of it is right.** GDD §12's fallback is **not** the response: it is
+> retired, because the measured mechanism is **HP, not fuel**, and *subtract fuel* does not reach it.
+> What survives is the sentence's direction — *not another mechanic on top* — which ADR-0015 keeps as
+> a hard constraint on the rebuild.
+>
+> **This ADR's concept is not superseded and its central claim is still standing:** darkness carries
+> information, and light is offensive rather than defensive. What the measurement found is that
+> darkness carries *everything* — intel through walls, free kills, cheap burn **and safety** — because
+> nothing wakes in the dark and a moving player cannot be hit. The flatness this ADR fixed is fixed;
+> what replaced it is a one-sided wager. The rebuild ([#144](../../issues/144)) is aimed at the cost
+> side of exactly the concept this ADR sharpened, not at replacing it.
+>
+> **One sentence of this ADR is falsified by the build, and it is under *Alternatives considered*
+> above: *"'Fuel is the run timer' survives — fuel still burns every turn, just at two rates."*** It
+> does burn at two rates, and it is not a timer: GDD §4 subsequently ruled 0 fuel *a desperate state,
+> not a loss state*, and `game/systems/economy.test.ts` asserts a dry crawl reaches the stairs on
+> **80 of 80** floors (re-run 2026-08-04). A style that does not want the lantern therefore has no
+> clock at all, which is half of why the never-flash line dominates. Annotated rather than edited,
+> per this directory's rule; [#144](../../issues/144) rules whether the sentence or the rule changes.

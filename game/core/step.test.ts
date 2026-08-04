@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { scenario } from '@/tests/unit/support/scenario';
-import { atTheStairs, diveToTheBottom, standUntilDead } from '@/tests/unit/support/run-script';
+import {
+  atTheStairs,
+  diveToTheBottom,
+  lightTheWayDown,
+  standUntilDead,
+} from '@/tests/unit/support/run-script';
 import {
   CACHE_FUEL,
   CINDER,
@@ -27,7 +32,7 @@ import { expectedDrawCount, generateFloor, samePosition, tileAt, type Floor, typ
 import { createRng, next, type Rng } from '../rng';
 import { ACTION_COST, createLantern } from '../systems';
 import { COMMAND_KINDS, DIRECTIONS, neighbourOf, SHUTTER_STATES, type Command } from './command';
-import { findFieldDivergence } from './divergence';
+import { findFieldDivergence, runStates } from './divergence';
 import { replay, runCommands } from './replay';
 import { createInitialState, floorNumberOf, RUNNING, withWorld, worldOf, type GameState } from './state';
 import { step } from './step';
@@ -100,11 +105,15 @@ const CACHE_SCENE = ['#####', '#@♦.#', '#####'];
  * again, which is the state §4's *ever lit* reading is about and the one no sequence of commands
  * can produce inside a 5×3 corridor.
  *
+ * **Named for the predicate rather than for the cache**: since *The dark can take nothing*
+ * (#144/#149) both halves of phase 5 read it, so this builds the precondition of a drop's payout as
+ * well as a cache's.
+ *
  * Built by folding a lit field into `vision.revealed` through the real `revealByLight`, rather than
  * by writing flags, so a test cannot reveal a tile in a way the simulation could not.
  */
-function cacheAlreadyFound(lines: readonly string[], at: Position): GameState {
-  const state = sceneState(lines);
+function alreadyLit(lines: readonly string[], at: Position, fuel = 40): GameState {
+  const state = sceneState(lines, 'shuttered', fuel);
   const grid = state.world.floor.grid;
   return {
     ...state,
@@ -280,7 +289,9 @@ describe("step — 'move'", () => {
     // decided by what is standing there, never by a mode". A `move` that resolved through
     // `resolveMove` instead of `bump` would leave the Cinder untouched and the player in place,
     // spending the turn on nothing — and every determinism property would still pass.
-    const start = sceneState(['#####', '#@c.#', '#####']);
+    // On ground the lantern has lit, so the collection half below is about *where* the ember is
+    // rather than about §4's *The dark can take nothing*, which is `light.test.ts`'s subject.
+    const start = alreadyLit(['#####', '#@c.#', '#####'], { x: 2, y: 1 });
     const after = step(start, { kind: 'move', dir: 'east' });
     const cinder = after.world.actors.find((actor) => actor.kind === 'creature');
 
@@ -326,7 +337,7 @@ describe("step — 'move'", () => {
     // Phase 5 runs on a move, and the tile stops being a cache. Included here rather than only in
     // `light.test.ts` because collection is the one thing in the game that *mutates the generated
     // floor*, and `Floor` lives inside `GameState` precisely so that mutation is replayed.
-    const found = cacheAlreadyFound(CACHE_SCENE, { x: 2, y: 1 });
+    const found = alreadyLit(CACHE_SCENE, { x: 2, y: 1 });
     const after = step(found, { kind: 'move', dir: 'east' });
     expect(after.lantern.fuel).toBe(found.lantern.fuel - FUEL_BURN_SHUTTERED + CACHE_FUEL);
     expect(tileAt(after.world.floor.grid, 2, 1).kind).toBe('floor');
@@ -666,6 +677,95 @@ describe('the end of a run', () => {
     expect(step(final, { kind: 'wait' })).toBe(final);
   });
 
+  it('ends the run when the lantern goes out, and refuses everything after', () => {
+    // ═══ §4's *The dark can take nothing*, clause 2 (#144, ruled 2026-08-04; built by #149) ═══
+    //
+    // §13 lists it beside HP death: **fuel reaching 0 ends the run**. This bullet used to say the
+    // exact opposite — "0 fuel is not an ending" — and what falsified it was measurement: the state
+    // it produced was survivable on 80 of 80 corpus floors, which made fuel a resource with no
+    // consequence and darkness a strategy with no clock.
+    const start = sceneState(['#####', '#@..#', '#####'], 'shuttered', 1);
+    const out = step(start, { kind: 'wait' });
+
+    expect(out.lantern.fuel).toBe(0);
+    expect(out.status).toEqual({ kind: 'died' });
+    // The turn was spent and the command resolved: the lamp goes out *at the end of* the command,
+    // not instead of it.
+    expect(out.turnsElapsed).toBe(start.turnsElapsed + 1);
+    expect(out.commandsResolved).toBe(start.commandsResolved + 1);
+    // ...and it is a death, so §13's "once the run has ended it accepts no more commands" applies.
+    expect(step(out, { kind: 'wait' })).toBe(out);
+    expect(isAlive(playerOf(out.world))).toBe(true); // it was not the HP ending
+  });
+
+  it('ends the run on the flash that empties the lantern, free action or not', () => {
+    // A free action is a command, and §4 prices a flash at 4 fuel — so a lantern with exactly the
+    // rate left goes out on the command that asks for light and gives none (`burn` clamps at 0 and
+    // shuts the shutter, which is unchanged and is the lantern going out mid-command).
+    //
+    // Worth its own test because the ending is evaluated per *command* rather than per turn, and a
+    // check hung off `turnsElapsed` — or off `perTurn` — would pass every other assertion here.
+    const start = sceneState(['#####', '#@..#', '#####'], 'shuttered', FUEL_BURN_LIT);
+    const flashed = step(start, { kind: 'setShutter', to: 'open' });
+
+    expect(flashed.turnsElapsed).toBe(0); // still free of tempo...
+    expect(flashed.lantern.fuel).toBe(0);
+    expect(flashed.status).toEqual({ kind: 'died' }); // ...and still the end of the run
+  });
+
+  it('lets the ember collected as the lamp gutters carry the run past zero', () => {
+    // ═══ WHY THE ENDING IS `statusAfterTurn`'s AND NOT `isRunOver`'s ═══
+    //
+    // §13: the fuel ending "does not stop the turn; it is evaluated at the end of it... Fuel reaching
+    // 0 must let **phase 5** run first, so that ember collected on the same command still counts and
+    // can carry the lantern back above zero — *the kill that landed as the lamp guttered* is the
+    // retellable moment this ending exists to produce."
+    //
+    // So this is the test that fails if the condition is put in `isRunOver`, which halts the actor
+    // sweep and gates phases 5 and 6 through `unlessTheRunEnded`. There the drop underfoot would
+    // never be collected and this run would be over with 20 fuel it had earned.
+    const start = alreadyLit(['#####', '#@c.#', '#####'], { x: 2, y: 1 }, 2);
+    const struck = step(start, { kind: 'move', dir: 'east' }); // §3's dormant strike one-shots it
+    expect(struck.lantern.fuel).toBe(1);
+    expect(struck.world.embers).toEqual([{ at: { x: 2, y: 1 }, amount: CINDER.emberDrop }]);
+
+    const saved = step(struck, { kind: 'move', dir: 'east' });
+    expect(saved.status).toEqual({ kind: 'running' });
+    // Phase 2 took the last fuel and phase 5 gave it back, in that order, inside one command.
+    expect(saved.fuelBurned).toBe(2);
+    expect(saved.lantern.fuel).toBe(CINDER.emberDrop);
+    expect(saved.world.embers).toEqual([]);
+  });
+
+  it('ends the run on the same command when that ember is on ground the lantern never lit', () => {
+    // The controlled comparison for the pair of clauses, and the reason they are one ruling: the
+    // same scene, the same two commands, and the **only** difference is `vision.revealed`. Clause 1
+    // says the dark cannot bank the drop; clause 2 says the turn it could not bank it on is the last
+    // one. Either clause alone leaves this run alive.
+    const start = sceneState(['#####', '#@c.#', '#####'], 'shuttered', 2);
+    const struck = step(start, { kind: 'move', dir: 'east' });
+    const out = step(struck, { kind: 'move', dir: 'east' });
+
+    expect(out.status).toEqual({ kind: 'died' });
+    expect(out.lantern.fuel).toBe(0);
+    // Standing on 20 fuel it made itself and cannot take. The drop is left where it fell.
+    expect(out.world.embers).toEqual([{ at: { x: 2, y: 1 }, amount: CINDER.emberDrop }]);
+    expect(samePosition(playerAt(out), { x: 2, y: 1 })).toBe(true);
+  });
+
+  it('never leaves a running state with an empty lantern, which is what re-ruled §13’s win copy', () => {
+    // The invariant the ending creates, stated once: 0 fuel cannot persist across a command, so
+    // every state a command is accepted in has fuel >= 1. §13 re-ruled the win headline on it — the
+    // winning descent resolves in phase 1 and burns nothing, so **every legal win has fuel >= 1**
+    // and `The lantern still burns.` would be true wherever it could be shown. (It loses anyway, on
+    // §13's structural reason; see `render/hud.ts`.)
+    const record = lightTheWayDown(SEED);
+    for (const state of runStates(record.seed, record.commands)) {
+      if (state.status.kind === 'running') expect(state.lantern.fuel).toBeGreaterThan(0);
+    }
+    expect(replay(record).lantern.fuel).toBeGreaterThan(0);
+  });
+
   it('stops the turn where the killing blow lands: the clock does not advance past it', () => {
     // §13, and the part of it that is genuinely easy to ship wrong, because the wrong version looks
     // like nothing at all: `runActorPhase` returns without `advanceToNextActor`, so `schedule.now`
@@ -692,10 +792,19 @@ describe('the end of a run', () => {
     expect(before.world.schedule.now).toBe(before.turnsElapsed * ACTION_COST);
   });
 
-  it('runs a whole eight-floor run to the bottom', () => {
+  it('runs a whole eight-floor run to the bottom, and pays for the light that got it there', () => {
     // The full loop, end to end, through the real `step()`. Everything below is a property of a
     // *run* rather than of a turn, and none of it is checkable one command at a time.
-    const record = diveToTheBottom(SEED);
+    //
+    // ═══ THE FIXTURE CHANGED WITH THE RULE, AND THE OLD ASSERTION WAS AN IMPOSSIBLE RUN ═══
+    //
+    // This ran on `diveToTheBottom` — shutter on command 1, never opened again — and ended:
+    // `expect(final.lantern.fuel).toBe(0)`, commented *"§4: 0 fuel is not an ending. This run reaches
+    // the bottom on an empty lantern."* Under §4's *The dark can take nothing* that is not a number
+    // to re-record, it is **a run that cannot happen**: the never-flash line earns nothing and dies
+    // around floor four. So the fixture is re-authored rather than re-pointed — a winning dive has to
+    // buy light — and the assertion it ends on is inverted with it.
+    const record = lightTheWayDown(SEED);
     const final = replay(record);
 
     expect(final.status).toEqual({ kind: 'reachedBottom' });
@@ -703,13 +812,17 @@ describe('the end of a run', () => {
     expect(isAlive(playerOf(final.world))).toBe(true);
     // Seven descents plus the eighth that wins it — so the floor number moved exactly seven times.
     expect(record.commands.filter((command) => command.kind === 'descend')).toHaveLength(LAST_FLOOR);
-    // A free action is in there, so the two counters must disagree by exactly the number of them.
+    // Free actions are in there, so the two counters must disagree by exactly the number of them.
     const free = record.commands.filter((command) => command.kind === 'setShutter').length;
+    expect(free).toBeGreaterThan(LAST_FLOOR); // ...and there are some: this run flashes to earn
     expect(final.commandsResolved).toBe(record.commands.length);
     expect(final.turnsElapsed).toBe(record.commands.length - free);
-    // §4: 0 fuel is not an ending. This run reaches the bottom on an empty lantern, which is the
-    // situation §4 says is desperate rather than lost — and the assertion that says so.
-    expect(final.lantern.fuel).toBe(0);
+    // §4/§13: fuel reaching 0 ends the run, so a run that reached the bottom necessarily has fuel
+    // left — and the winning descent burns none of it. This is the assertion the old one inverted.
+    expect(final.lantern.fuel).toBeGreaterThan(0);
+    // It earned its way down rather than coasting on the opening reserve: the light it bought paid
+    // for itself, which is the whole of §4's wager and is what makes this a *run* and not a walk.
+    expect(final.fuelBurned).toBeGreaterThan(STARTING_FUEL);
   });
 });
 
@@ -775,7 +888,7 @@ describe('the run tally (§13’s summary numbers)', () => {
     // Phase 5's income is not a discount on phase 2's cost. The turn below *gains* 24 net fuel, so a
     // meter reading the turn's fuel difference would book a burn of -24 and a summary would show a
     // number that goes backwards when the run goes well.
-    const withCache = cacheAlreadyFound(CACHE_SCENE, { x: 2, y: 1 });
+    const withCache = alreadyLit(CACHE_SCENE, { x: 2, y: 1 });
     const after = step(withCache, { kind: 'move', dir: 'east' });
     expect(after.lantern.fuel).toBeGreaterThan(withCache.lantern.fuel); // the reserve went up...
     expect(after.fuelBurned).toBe(FUEL_BURN_SHUTTERED); // ...and the burn is still one turn's worth

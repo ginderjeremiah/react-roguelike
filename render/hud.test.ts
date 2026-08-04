@@ -13,7 +13,12 @@ import { playerOf, withActor, withHp } from '@/game/entities';
 import { ADAPTATION_FLOOR, EMBER_SENSE_RADIUS, TURNS_TO_FULL_ADAPTATION } from '@/game/fov';
 import { burnRate, isOnStairs } from '@/game/systems';
 import { scenarioState } from '@/tests/unit/support/presentation';
-import { atTheStairs, diveToTheBottom, standUntilDead } from '@/tests/unit/support/run-script';
+import {
+  atTheStairs,
+  diveToTheBottom,
+  lightTheWayDown,
+  standUntilDead,
+} from '@/tests/unit/support/run-script';
 import {
   CRITICAL_FRACTION,
   CRITICAL_TURNS_OF_FUEL,
@@ -100,10 +105,18 @@ describe('fuel is read in turns, because there is no maximum to be a fraction of
     expect(presentHud(state).fuel.turnsRemaining).toBe(10);
   });
 
-  it('reports a dry lantern as dry, unopenable, and not an ending', () => {
-    // §4: 0 fuel is "a desperate state, not a loss state". The control must show itself dead —
+  it('reports a dry lantern as dry and unopenable, on the one frame it can be shown', () => {
+    // §4: at 0 fuel the shutter can no longer be opened, and the control must show itself dead —
     // `game/systems/lantern.ts`: "a control that silently does nothing is worse than one that is
     // visibly dead."
+    //
+    // **The state below is the terminal frame of a run that ran dry, and nothing else.** Since §4's
+    // *The dark can take nothing* (#149) fuel reaching 0 ends the run, so `dry` is never true of a
+    // *running* state — it used to be a whole style of play. The readouts still have to be right,
+    // because §13 draws the board underneath the summary panel: the last thing on screen is the frame
+    // the run ended in, and `! 0` beside a shutter that reads STUCK is what a fuel death looks like.
+    // The `status` here is the scenario's, which is why this test says nothing about the outcome —
+    // `the two endings (§13)` does, from a real run.
     const { state } = scenarioState(['###', '#@#', '###'], { shutter: 'shuttered', fuel: 0 });
     const hud = presentHud(state);
 
@@ -111,7 +124,6 @@ describe('fuel is read in turns, because there is no maximum to be a fraction of
     expect(hud.fuel.turnsRemaining).toBe(0);
     expect(hud.fuel.level).toBe('critical');
     expect(hud.shutter.canOpen).toBe(false);
-    expect(hud.outcome.kind).toBe('running');
   });
 
   it('says the shutter can be opened whenever there is anything left to burn', () => {
@@ -252,7 +264,7 @@ describe('the descend control (§9: present only while you are standing on the s
 describe('the two endings (§13)', () => {
   it('tells a death from a win, with words for each', () => {
     const died = replay(DEATH);
-    const won = replay(diveToTheBottom('win', LAST_FLOOR));
+    const won = replay(lightTheWayDown('win'));
 
     expect(died.status.kind).toBe('died');
     expect(won.status.kind).toBe('reachedBottom');

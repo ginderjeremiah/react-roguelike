@@ -121,12 +121,19 @@ export function actOnce(world: ActorWorld, id: ActorId): ActorWorld {
 /**
  * GDD §13: the run is over the moment the player's HP reaches 0.
  *
- * The *only* ending this layer can see. The other one — taking the stairs on the last floor — is a
- * fact about which floor you are on, which an `ActorWorld` does not know and `game/systems/run.ts`
- * does; and it ends the turn in phase 1, before this could be asked. So there is deliberately no
- * "or the run was won" branch here to fall out of date.
+ * The *only* ending this layer can see. The other two are not its business: taking the stairs on the
+ * last floor is a fact about which floor you are on, which an `ActorWorld` does not know and
+ * `game/systems/run.ts` does, and it ends the turn in phase 1 before this could be asked; and the
+ * lantern going out is a fact about a `Lantern`, which an `ActorWorld` does not hold either. So there
+ * is deliberately no "or the run was otherwise over" branch here to fall out of date.
  *
- * **0 fuel is not an ending** (§4, §13), which is why fuel is not consulted and cannot be.
+ * **0 fuel is an ending and is deliberately not consulted here** (§4's *The dark can take nothing*,
+ * §13, ruled 2026-08-04). *This comment used to say 0 fuel was not an ending; it is now wrong about
+ * the rule and still right about the function.* What this predicate does is halt the actor sweep and
+ * gate phases 5 and 6 (`unlessTheRunEnded`), and §13 requires the fuel ending to let **phase 5 run**
+ * so the turn's ember still counts. Consulting fuel here would forfeit exactly the moment the ending
+ * exists to produce. It belongs beside HP death in `game/core/state.ts`'s `statusAfterTurn`, which
+ * runs after the whole phase list — and it is there.
  */
 export function isRunOver(world: ActorWorld): boolean {
   return !isAlive(playerOf(world));

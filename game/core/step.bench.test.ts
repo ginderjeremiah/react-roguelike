@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { atTheStairs } from '@/tests/unit/support/run-script';
+import { atTheStairs, lightTheWayDown } from '@/tests/unit/support/run-script';
 import { LAST_FLOOR } from '../content';
 import { playerOf } from '../entities';
 import { computeLitField } from '../fov';
@@ -597,7 +597,7 @@ describe('step() against the 2ms turn budget', () => {
   it('resolves a descent for little more than the floor generation it contains', () => {
     // The deepest floor a run reaches minus one, so the floor being *generated* is the most
     // populated one §8 produces.
-    const state = atTheStairs('step-bench', LAST_FLOOR - 1);
+    const state = atTheStairs('step-bench', LAST_FLOOR - 1, lightTheWayDown);
     expect(floorNumberOf(state)).toBe(LAST_FLOOR - 1);
 
     const descend = commandSubject('descend', state, { kind: 'descend' }, FLOOR_BATCH);

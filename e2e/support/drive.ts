@@ -161,8 +161,20 @@ export type WanderOptions = {
   readonly onContact: 'strike' | 'endure';
   /** Take the stairs whenever §9 offers them. */
   readonly descend: boolean;
-  /** Keep the lantern open, re-opening it whenever there is fuel to (§4). */
-  readonly relight: boolean;
+  /**
+   * What kind of player this is about the lantern (§4). One line each, and since #149 the choice
+   * decides how the run **ends** rather than only how much it sees:
+   *
+   *   - `hold` — keep it open, re-opening whenever there is fuel to. 4 a turn, so under §4's *The
+   *     dark can take nothing* it is 20 turns from a full reserve to a fuel death. It used to be 20
+   *     turns to 0 and then an unlimited free crawl, which is the rule that was deleted.
+   *   - `crawl` — shutter at the first opportunity and never open again. 1 a turn and no income at
+   *     all: **the never-flash line**, and it has 80 turns.
+   *   - `flash` — crawl, but open the shutter for one command whenever there is a `♦` on or beside
+   *     the player, which is what makes a drop takeable (§4). 5 fuel a flash against a 20-fuel drop.
+   *     The only one of the three that earns anything.
+   */
+  readonly light: 'hold' | 'crawl' | 'flash';
   /** Give up after this many presses rather than hanging. Generous; failure is loud. */
   readonly limit: number;
 };
@@ -175,11 +187,27 @@ export type WanderOptions = {
  */
 export async function wander(page: Page, options: WanderOptions): Promise<number> {
   const visits = new Map<string, number>();
+  // Tiles this run has already flashed from. Without it a `flash` wander re-buys the same 4 fuel
+  // every time it steps back beside a drop it did not manage to pick up, which is how a bot that is
+  // supposed to be earning ends up spending twice what it takes. Cleared on a descent with `visits`.
+  const flashedFrom = new Set<string>();
+
+  const worthAFlash = async (): Promise<boolean> => {
+    const at = await playerCell(page);
+    const here = `${at.x},${at.y}`;
+    if (flashedFrom.has(here) || !(await dropWithinReach(page))) return false;
+    flashedFrom.add(here);
+    return true;
+  };
 
   for (let pressed = 0; pressed < options.limit; pressed += 1) {
     if (await options.stop(page)) return pressed;
 
-    if (options.relight && (await shutterIsShut(page))) {
+    const shut = await shutterIsShut(page);
+    const wantsOpen = options.light === 'hold' || (options.light === 'flash' && (await worthAFlash()));
+    // The shutter is where it should not be: shut when this policy wants light, or open when it
+    // wants the dark. Either way the fix is the same one press.
+    if (shut === wantsOpen) {
       const control = page.getByTestId('control-shutter');
       if (await control.isEnabled()) {
         await press(page, control);
@@ -191,6 +219,7 @@ export async function wander(page: Page, options: WanderOptions): Promise<number
       await press(page, page.getByTestId('control-descend'));
       // A new floor is a new map; where this walked upstairs says nothing about it.
       visits.clear();
+      flashedFrom.clear();
       continue;
     }
 
@@ -215,6 +244,36 @@ export async function wander(page: Page, options: WanderOptions): Promise<number
 
 async function shutterIsShut(page: Page): Promise<boolean> {
   return (await page.getByTestId('hud-shutter').textContent()) === 'SHUT';
+}
+
+/**
+ * Is there a `♦` on the player's tile or one of the eight around it?
+ *
+ * Read off the **glyphs**, which is only possible because #81 draws an uncollected drop wherever its
+ * tile is perceived or remembered — lit or not. Before that ruling this function could not have been
+ * written at all, and that is the point: the information a flash-to-collect decision needs is
+ * information the player has.
+ *
+ * It cannot tell a drop from a lit cache, and does not need to: both are worth a flash and neither
+ * is worth two, because the flash resolves whichever it was.
+ */
+async function dropWithinReach(page: Page): Promise<boolean> {
+  const at = await playerCell(page);
+  return page.evaluate((player) => {
+    const steps = [
+      { x: 0, y: -1 },
+      { x: 1, y: 0 },
+      { x: 0, y: 1 },
+      { x: -1, y: 0 },
+    ];
+    for (const step of steps) {
+      const node = document.querySelector(
+        `[data-testid="cell-${player.x + step.x}-${player.y + step.y}"]`,
+      );
+      if ((node?.textContent ?? '').trim() === '♦') return true;
+    }
+    return false;
+  }, at);
 }
 
 async function markerIds(page: Page, prefix: string): Promise<readonly string[]> {

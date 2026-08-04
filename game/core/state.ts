@@ -44,23 +44,37 @@ import { FIRST_FLOOR } from '../content';
 import { isAlive, playerOf, type ActorWorld } from '../entities';
 import { generateFloor } from '../map';
 import { createRng, type Rng } from '../rng';
-import { beginRun, type Lantern, type LanternWorld } from '../systems';
+import { beginRun, isDry, type Lantern, type LanternWorld } from '../systems';
 
 /**
- * How a run ended, or that it has not. GDD §13: **a run ends in exactly two ways.**
+ * How a run ended, or that it has not. GDD §13: **a run ends in exactly three ways, and two of them
+ * are deaths.**
  *
- * A union rather than `over: boolean`, because the two endings are different states that a summary
+ * A union rather than `over: boolean`, because the endings are different states that a summary
  * screen, a stored record, and a future statistics table all have to tell apart — and because
  * `{ over: true }` with no cause is a state that would compile.
  *
- * **0 fuel is deliberately not here.** §4 and §13 are both explicit: it is a desperate state and not
- * a loss state, it is recoverable from a kill or a cache, and "it is the first thing anyone
- * assumes". A third variant is what someone will reach for; there is nowhere to put it.
+ * **The two deaths deliberately share one variant.** HP reaching 0 and the lantern's fuel reaching 0
+ * are `died`, and §13 rules that the summary "must not name which death it was" — the panel already
+ * shows fuel spent and HP, and the headline names no number. A third variant would be a field
+ * nothing may read, which is worse than no field at all.
+ *
+ * > **This block said the opposite until #144, and the sentence is kept because it was wrong for
+ * > three milestones:** *"**0 fuel is deliberately not here.** §4 and §13 are both explicit: it is a
+ * > desperate state and not a loss state… A third variant is what someone will reach for; there is
+ * > nowhere to put it."* The thing everyone reached for turned out to be the rule the design needed —
+ * > measured, the dry state was survivable on 80 of 80 corpus floors, which made fuel a resource with
+ * > no consequence. §4's *The dark can take nothing* carries the argument. The half of the old note
+ * > that survives is the last clause: there is still nowhere to put a third variant, and now there is
+ * > no reason to want one.
  */
 export type RunStatus =
   /** Still playing. Commands resolve. */
   | { readonly kind: 'running' }
-  /** §13: the player's HP reached 0. Permanent — there is no continue and no rewind. */
+  /**
+   * §13: the player's HP reached 0, **or** the lantern's fuel did. Permanent — there is no continue
+   * and no rewind. `statusAfterTurn` is where both are decided; see it for why they differ in *when*.
+   */
   | { readonly kind: 'died' }
   /** §13: the stairs on floor `LAST_FLOOR` were taken. A win; there is no floor 9. */
   | { readonly kind: 'reachedBottom' };
@@ -97,12 +111,19 @@ export type GameState = {
    * increments nothing, because §2 says a refused action produces "no change to any field of the
    * state" and a counter is a field.
    *
-   * That makes this the observable that distinguishes a *resolved* free action from a *refused*
-   * one in the one case where nothing else does: `setShutter('open')` on a dry lantern resolves
-   * (§4 — the player pressed the control and it had nothing to give), burns its 1 fuel against a
-   * reserve that is already 0, and changes nothing else at all. Without this counter that command
-   * would be byte-identical to a refusal, and "byte-identical to its predecessor means refused"
-   * — which the replay suite asserts — would be false.
+   * That makes it the one field that can tell a command which did *almost* nothing from one that did
+   * nothing at all, which is what "byte-identical to its predecessor means refused" — asserted by the
+   * replay suite — rests on.
+   *
+   * > **The example this counter was argued from is gone, and the argument is not.** It read:
+   * > *"`setShutter('open')` on a dry lantern resolves (§4 — the player pressed the control and it had
+   * > nothing to give), burns its 1 fuel against a reserve that is already 0, and changes nothing else
+   * > at all. Without this counter that command would be byte-identical to a refusal."* Under §4's
+   * > *The dark can take nothing* fuel reaching 0 **ends the run**, so a live run never holds a
+   * > lantern at 0 and that command cannot be issued: every resolved command now moves the fuel, the
+   * > shutter or the clock as well. The counter stays because its job is the replay's cross-check on
+   * > its own position, which never depended on the example — and because a rule that made a resolved
+   * > no-op reachable again would find the field already here rather than needing it invented.
    */
   readonly commandsResolved: number;
 
@@ -242,15 +263,35 @@ export function isRunning(state: GameState): boolean {
 }
 
 /**
- * The status a resolved turn leaves behind: `died` if the player's HP reached 0, else unchanged.
+ * The status a resolved turn leaves behind: `died` if the player's HP reached 0 **or the lantern's
+ * fuel did**, else unchanged.
  *
- * The *other* ending never comes through here — taking the last floor's stairs ends the run in
- * phase 1 and runs no phases at all (§13), so `step` sets it directly. Handling only the ending
+ * The *third* ending never comes through here — taking the last floor's stairs ends the run in
+ * phase 1 and runs no phases at all (§13), so `step` sets it directly. Handling only the endings
  * that a resolved turn can produce is what keeps this function from having to know what floor it
  * is on.
+ *
+ * ## Why the fuel ending is *here* and not in `isRunOver` (§4, §13, ruled 2026-08-04)
+ *
+ * This function runs after the whole phase list. `isRunOver` runs *inside* it: it halts the actor
+ * sweep and gates phases 5 and 6 through `unlessTheRunEnded`. The two are not interchangeable and
+ * §13 names the difference as deliberate.
+ *
+ * HP reaching 0 **stops the turn where it happens** — the final state is the frame of the killing
+ * blow. Fuel reaching 0 must let **phase 5** run first, so that ember collected on the same command
+ * still counts and can carry the lantern back above zero. *The kill that landed as the lamp guttered*
+ * is the retellable moment the ending exists to produce (Pillar 4); a check in phase 2 would forfeit
+ * it and make the ending arbitrary. So `isRunOver` still consults HP and nothing else, and that is a
+ * property of the function rather than of the rule.
+ *
+ * **The consequence worth knowing:** 0 fuel cannot persist across a command, so every state that
+ * accepts a command has `lantern.fuel >= 1`. `canOpen` and `isDry` are therefore false and true of
+ * nothing a live run can reach — they remain because a fixture or a test can still construct one, and
+ * because `createLantern` guards the same state at the other end.
  */
 export function statusAfterTurn(state: GameState, resolved: LanternWorld): RunStatus {
   if (!isAlive(playerOf(resolved.world))) return { kind: 'died' };
+  if (isDry(resolved.lantern)) return { kind: 'died' };
   return state.status;
 }
 

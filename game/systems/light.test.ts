@@ -248,14 +248,18 @@ const CACHE_SCENE = ['#####', '#@♦.#', '#####'];
 const CACHE_AT: Position = { x: 2, y: 1 };
 
 /**
- * The same scene, shuttered, but the lantern has already lit `at`: a room flashed earlier and shut
- * again. That is the state §4's **ever lit** reading is about, and no sequence of commands can
- * produce it inside a 5×3 corridor, so it is built here.
+ * A scene, shuttered, but the lantern has already lit `at`: a room flashed earlier and shut again.
+ * That is the state §4's **ever lit** reading is about, and no sequence of commands can produce it
+ * inside a 5×3 corridor, so it is built here.
+ *
+ * **Named for the predicate rather than for the cache**, because since *The dark can take nothing*
+ * (#144/#149) it is the precondition of both halves of phase 5: a cache pays where the lantern has
+ * been and so does a drop.
  *
  * Through the real `revealByLight` and a real lit field rather than by writing flags, so that a
  * test cannot reveal a tile in a shape the simulation could not produce.
  */
-function cacheAlreadyFound(lines: readonly string[], at: Position, fuel: number): LanternWorld {
+function alreadyLit(lines: readonly string[], at: Position, fuel: number): LanternWorld {
   const state = lit(lines, 'shuttered', fuel);
   const grid = state.world.floor.grid;
   return {
@@ -463,7 +467,9 @@ function countTiles(flags: readonly boolean[]): number {
 
 describe('phase 5: embers and caches', () => {
   it('collects the ember a kill dropped, once the player walks onto it', () => {
-    const start = lit(['#####', '#@c.#', '#####'], 'shuttered', 10);
+    // The lantern has lit the tile the Cinder is standing on, which is what makes the drop takeable
+    // at all (§4, *The dark can take nothing*). The unlit case is its own test, below.
+    const start = alreadyLit(['#####', '#@c.#', '#####'], { x: 2, y: 1 }, 10);
     const struck = turn(start, { x: 2, y: 1 });
 
     // A dormant Cinder dies to one strike (§3), drops its ember where it stood, and the player is
@@ -478,8 +484,9 @@ describe('phase 5: embers and caches', () => {
 
   it('leaves an ember alone until it is actually stood on', () => {
     // The negative half. Collection "by walking over them" (§2) is a rule about a tile, not about
-    // proximity, and a radius here would make the last strike of a fight refuel you for free.
-    const start = lit(['#####', '#@c.#', '#####'], 'shuttered', 10);
+    // proximity, and a radius here would make the last strike of a fight refuel you for free. Run on
+    // lit ground so that the *only* reason nothing is collected is the tile the player is on.
+    const start = alreadyLit(['#####', '#@c.#', '#####'], { x: 2, y: 1 }, 10);
     const struck = turn(start, { x: 2, y: 1 });
     const waited = turn(struck);
     expect(waited.world.embers).toHaveLength(1);
@@ -487,7 +494,7 @@ describe('phase 5: embers and caches', () => {
   });
 
   it('takes a cache the lantern found by standing on it, and the cache stops existing', () => {
-    const withCache = cacheAlreadyFound(CACHE_SCENE, CACHE_AT, 10);
+    const withCache = alreadyLit(CACHE_SCENE, CACHE_AT, 10);
     expect(withCache.world.floor.caches).toEqual([CACHE_AT]);
 
     const taken = turn(withCache, CACHE_AT);
@@ -507,18 +514,22 @@ describe('phase 5: embers and caches', () => {
     //
     // The distinguishing case, and the only one that separates the two readings: the tile is in
     // `revealed`, the lantern is **shut**, and no light falls anywhere during the turn that pays.
-    // Under *currently lit* this collects nothing, and §4's "a kill or a cache re-opens the shutter
-    // the moment it lands" would be false at 0 fuel — where the shutter cannot be opened at all.
+    // Under *currently lit* this collects nothing.
     //
-    // Run at **0 fuel**, which is exactly that state, so the assertion is the sentence rather than
-    // an approximation of it: a dry lantern is paid by a cache it found before it died.
-    const dry = cacheAlreadyFound(CACHE_SCENE, CACHE_AT, 0);
-    expect(canOpen(dry.lantern)).toBe(false); // the positive control on "it cannot be relit"
+    // > **It used to be run at 0 fuel, to make the assertion "the sentence rather than an
+    // > approximation of it".** The sentence it quoted — §4's *"a kill or a cache re-opens the
+    // > shutter the moment it lands"*, protecting the desperate state — is spent: fuel reaching 0
+    // > ends the run (#149), so a lantern cannot sit at 0 waiting to be paid. The distinction the
+    // > test pins is untouched, so it is re-pointed at a **low** fuel rather than deleted. What
+    // > carries *ever lit* now is the autopilot argument, which never depended on the fuel rule:
+    // > the shutter is free and §2 runs phase 5 on a free action, so *currently lit* would make
+    // > `open`-`shut` on the tile a pickup for 4 fuel and no turns.
+    const low = alreadyLit(CACHE_SCENE, CACHE_AT, 2);
+    expect(canOpen(low.lantern)).toBe(true);
 
-    const taken = turn(dry, CACHE_AT);
-    expect(taken.lantern.vision.shutter).toBe('shuttered');
-    expect(taken.lantern.fuel).toBe(CACHE_FUEL);
-    expect(canOpen(taken.lantern)).toBe(true); // ...and the lantern is alive again (§4)
+    const taken = turn(low, CACHE_AT);
+    expect(taken.lantern.vision.shutter).toBe('shuttered'); // no light fell during the turn that paid
+    expect(taken.lantern.fuel).toBe(2 - FUEL_BURN_SHUTTERED + CACHE_FUEL);
   });
 
   it('pays nothing for a cache the lantern never found, and leaves it where it is', () => {
@@ -540,19 +551,66 @@ describe('phase 5: embers and caches', () => {
     expect(again.world.floor.caches).toEqual([CACHE_AT]);
   });
 
-  it('collects an ember a kill dropped in the dark, which the cache rule does not cover', () => {
-    // §4 excludes drops from the rule **explicitly**, and this is the assertion that keeps the
-    // exclusion: the tile has never been lit, and the ember pays anyway. A `hasBeenLit` guard that
-    // slipped from the cache branch onto the whole of phase 5 would delete the dormant strike's
-    // payout — darkness's one capability — and every other test here would stay green.
+  it('leaves an ember a kill dropped in the dark exactly where it fell', () => {
+    // ═══ §4's *The dark can take nothing*, clause 1 (#144, ruled 2026-08-04; built by #149) ═══
+    //
+    // This test asserted the **opposite** for two milestones — "the tile has never been lit, and the
+    // ember pays anyway" — because §4 excluded drops from the cache rule by name. That exclusion is
+    // reversed: *ember the ruin hid, the lantern finds; ember you made, the lantern claims; neither
+    // is yours in the dark.* Both branches of phase 5 now read one predicate on one plane.
+    //
+    // **The drop is left, not destroyed.** Nothing about the tile changes, so it is still there to be
+    // lit and taken later — which is what makes the fuel left in the lantern a number of turns to
+    // reach a destination rather than a countdown to nothing (§4).
     const start = lit(['#####', '#@c.#', '#####'], 'shuttered', 10);
     const struck = turn(start, { x: 2, y: 1 });
     expect(struck.world.embers).toEqual([{ at: { x: 2, y: 1 }, amount: CINDER.emberDrop }]);
 
+    const stoodOn = turn(struck, { x: 2, y: 1 });
+    expect(playerOf(stoodOn.world).at).toEqual({ x: 2, y: 1 }); // standing right on it...
+    expect(hasBeenLit(stoodOn.lantern.vision, 2, 1)).toBe(false); // ...on ground never lit...
+    expect(stoodOn.lantern.fuel).toBe(10 - 2 * FUEL_BURN_SHUTTERED); // ...and it paid nothing.
+    expect(stoodOn.world.embers).toEqual([{ at: { x: 2, y: 1 }, amount: CINDER.emberDrop }]);
+
+    // Standing there a second time changes nothing either: there is no counter being decremented,
+    // exactly as there is none for a cache the lantern has not found.
+    const again = turn(stoodOn);
+    expect(again.lantern.fuel).toBe(10 - 3 * FUEL_BURN_SHUTTERED);
+    expect(again.world.embers).toHaveLength(1);
+  });
+
+  it('pays for a drop on ground the lantern lit, with the shutter shut now', () => {
+    // The other half of clause 1, and the one that says the predicate is **ever** lit rather than
+    // *currently* lit — the same distinction the cache branch is keyed on, now shared. The room was
+    // flashed before the kill; the shutter is shut for every turn below, so no light falls on the
+    // tile during the turn that pays.
+    //
+    // The controlled comparison against the test above: same scene, same three commands, same
+    // shuttered lantern, and the **only** difference is `vision.revealed`.
+    const start = alreadyLit(['#####', '#@c.#', '#####'], { x: 2, y: 1 }, 10);
+    expect(start.lantern.vision.shutter).toBe('shuttered');
+    const struck = turn(start, { x: 2, y: 1 });
+    expect(struck.world.embers).toEqual([{ at: { x: 2, y: 1 }, amount: CINDER.emberDrop }]);
+
     const collected = turn(struck, { x: 2, y: 1 });
-    expect(hasBeenLit(collected.lantern.vision, 2, 1)).toBe(false); // never lit, and still paid
+    expect(hasBeenLit(collected.lantern.vision, 2, 1)).toBe(true);
     expect(collected.lantern.fuel).toBe(10 - 2 * FUEL_BURN_SHUTTERED + CINDER.emberDrop);
     expect(collected.world.embers).toEqual([]);
+  });
+
+  it('does not touch the map when the only thing underfoot is a drop it may not take', () => {
+    // The identity shortcut, on the drop branch — the mirror of the cache one below it. An
+    // implementation that filtered `world.embers` before consulting the predicate would rebuild the
+    // actor world on every turn a dark crawler stands on its own kill, which no assertion above
+    // would notice and which costs a fresh object per turn on the commonest path in dark play.
+    const start = lit(['#####', '#@c.#', '#####'], 'shuttered', 10);
+    const struck = turn(start, { x: 2, y: 1 });
+    const standing: LanternWorld = {
+      lantern: struck.lantern,
+      world: withActor(struck.world, { ...playerOf(struck.world), at: { x: 2, y: 1 } }),
+    };
+    expect(standing.world.embers).toHaveLength(1); // it really is underfoot
+    expect(collectFuelUnderfoot(standing)).toBe(standing);
   });
 
   it('does not touch the map on a turn that collects nothing', () => {
@@ -567,7 +625,7 @@ describe('phase 5: embers and caches', () => {
     // that rebuilt the world before checking `hasBeenLit` would allocate a fresh 165-tile grid on
     // every turn a dark crawler stands on a cache — invisible to every assertion above, and a real
     // divergence risk the day anything compares by reference.
-    const onIt = cacheAlreadyFound(CACHE_SCENE, CACHE_AT, 10);
+    const onIt = alreadyLit(CACHE_SCENE, CACHE_AT, 10);
     const unlit: LanternWorld = {
       lantern: lit(CACHE_SCENE, 'shuttered', 10).lantern,
       world: withActor(onIt.world, { ...playerOf(onIt.world), at: CACHE_AT }),

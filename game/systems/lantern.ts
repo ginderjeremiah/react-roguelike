@@ -2,23 +2,35 @@
  * The lantern: fuel, the shutter, and the one rule that binds them. GDD §4.
  *
  * ═══════════════════════════════════════════════════════════════════════════════════════════════
- * FUEL AT 0 IS NOT A LOSS STATE
+ * EMBER-SENSE IS NOT THE LAMP — AND FUEL AT 0 IS THE END OF THE RUN
  * ═══════════════════════════════════════════════════════════════════════════════════════════════
  *
- * §4: "Fuel reaching 0: the shutter can no longer be opened. You are not dead — you can still crawl
- * at radius 1 with ember-sense, and the stairs are still findable. It is a desperate state, not a
- * loss state, and it is exactly the situation Pillar 4 wants people retelling."
+ * §4, ruled 2026-08-04 (*The dark can take nothing*, #144/#149): **fuel reaching 0 ends the run.**
+ * §13 lists it beside HP death. Nothing in *this* file implements that — the ending is one condition
+ * in `game/core/state.ts`'s `statusAfterTurn`, evaluated after the whole phase list so that ember
+ * collected on the same command still counts. What this file owns is unchanged: the reserve, the
+ * shutter, the burn, and the clamp.
  *
- * The implementation takes the smallest possible reading of that, and it is the reading that adds no
- * rule at all: **a dry lantern is the shuttered column of §4's vision table, permanently.** Touch
- * still reaches one tile, ember-sense still ramps back to five, the dormant strike still works, and
- * a kill or a cache re-opens the shutter the moment it lands. Nothing here special-cases zero except
- * `canOpen`.
+ * **What survives the ruling, whole, is the rule this banner was really about: ember-sense is the
+ * player's dark-adapted eyes and not the lamp.** It does not shrink with the fuel. A shuttered player
+ * at 1 fuel senses at the radius the ramp has earned them, touch still reaches one tile, and the
+ * dormant strike still works. The alternative — that ember-sense is powered by the lantern and
+ * collapses to 1 as it empties — would make the last turns of a run a state in which the player can
+ * neither see a destination nor reach one, which is the *unplayable rather than desperate* failure §4
+ * has guarded against from the beginning. That guard is why the ending had to be short rather than
+ * survivable, and it is why it is stated over the *run* rather than over the vision table.
  *
- * The alternative reading — that ember-sense is also powered by the lantern and collapses to 1 —
- * would make 0 fuel unrecoverable in practice (you cannot find a creature to kill if you cannot feel
- * one), which is the "unplayable rather than desperate" failure §4 is explicitly guarding against.
- * Ember-sense is the player's dark-adapted eyes, not the lamp.
+ * > **This banner read `FUEL AT 0 IS NOT A LOSS STATE` for three milestones, and argued that a dry
+ * > lantern was "the shuttered column of §4's vision table, permanently".** It was right about the
+ * > failure it was guarding against and wrong about the cure: measured, a dry crawl reached the
+ * > stairs on **80 of 80** corpus floors, and *a state a corpus survives 80 times out of 80 is not a
+ * > desperate state, it is the absence of a clock*. §4 carries the argument, the runner-up and the
+ * > cost. Recorded rather than deleted because the half that survives is the half that is easy to
+ * > delete by accident.
+ *
+ * **`canOpen` and `isDry` are now true of nothing a live run can reach**, since 0 fuel cannot persist
+ * across a command. They stay: `createLantern` guards the same state at the other end, a fixture or a
+ * test can still construct one, and `isDry` is what `statusAfterTurn` asks.
  * ═══════════════════════════════════════════════════════════════════════════════════════════════
  *
  * ## Running dry shuts the shutter
@@ -26,9 +38,10 @@
  * `game/systems/turn.ts` already wrote this rule down, as the justification for GDD §2's phase
  * order: "Fuel burns (2) *before* lighting recomputes (3), so the turn you run dry is the turn the
  * shutter shuts, not the turn after." A lantern with no fuel is not lit — so `burn` closes the
- * shutter on the turn the fuel reaches 0, and because closing is what resets dark adaptation, the
- * player is blind for the four turns that follow. That is the retellable moment, and it costs one
- * line.
+ * shutter on the command the fuel reaches 0, which is why a flash asked for with 4 fuel or less
+ * produces no light at all. **That is the lantern going out mid-command and it is not a bug**: it
+ * costs one line, it is what the phase order is for, and since #149 the same command is the last one
+ * the run resolves unless phase 5 finds fuel underfoot.
  *
  * ## What is state and what is a rule
  *
@@ -54,7 +67,11 @@ import type { Grid } from '../map';
  * `Set`, for the reason `fov/tileset.ts` gives.
  */
 export type Lantern = {
-  /** Ember remaining. Never negative; 0 is a legal, playable state. */
+  /**
+   * Ember remaining. Never negative, and **0 is the end of the run** (§4, §13) rather than a state
+   * to be played from — though it is a legal *intermediate* value, reached in phase 2 and possibly
+   * left behind by phase 5 on the same command.
+   */
   readonly fuel: number;
   /** Where the shutter is, how far ember-sense currently reaches, and what has been seen. */
   readonly vision: Vision;
@@ -105,7 +122,12 @@ export function burnRate(shutter: ShutterState): number {
   }
 }
 
-/** No fuel left. Not dead — see the header. */
+/**
+ * No fuel left — **the lamp is out, and the run with it** (§4, §13).
+ *
+ * Asked by `statusAfterTurn` once the whole phase list has run, which is the only place the answer
+ * decides anything. Everywhere else it is a question about a hand-built lantern.
+ */
 export function isDry(lantern: Lantern): boolean {
   return lantern.fuel === 0;
 }
@@ -116,6 +138,10 @@ export function isDry(lantern: Lantern): boolean {
  * Stated as its own predicate because the renderer needs it too — §9's thumb toggle has to be able
  * to show itself as unavailable, and a control that silently does nothing is worse than one that is
  * visibly dead.
+ *
+ * **No live run reaches the state it is false in**, since fuel reaching 0 ends the run. It is kept
+ * rather than deleted for the reason `createLantern`'s guard is: the state is still constructible,
+ * and the alternative to a guard is `open` returning a lantern that is lit and dry at once.
  */
 export function canOpen(lantern: Lantern): boolean {
   return lantern.fuel > 0;

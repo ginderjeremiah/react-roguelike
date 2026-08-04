@@ -14,8 +14,11 @@
  *      one thing the dark ever tells them. (It cannot collide with 3: identity and touch are the
  *      two columns of §4's table and the shutter is in one position at a time.)
  *   3. **A seen creature** (`c`/`C`). §4's lit column: "visible in the lit radius, **identified**".
- *   4. **An ember drop**, with the shutter open. §4: "Items / ember caches — visible in the lit
- *      radius / **invisible**" while shuttered.
+ *   4. **An ember drop**, on any tile the player has perceived or remembers — lit or not (#81,
+ *      ruled with §4's *The dark can take nothing*). §4's "Items / ember caches — visible in the lit
+ *      radius / **invisible**" is about a **cache**, which is terrain the lantern has to have shown
+ *      you; a drop's position is information the player *created*, and hiding it would hide a fact
+ *      the player already holds.
  *   5. **The terrain the player knows**, if the cell is `visible` or `remembered`. See below — it
  *      is not always the terrain that is there.
  *   6. **Nothing.** `unknown` cells are blank. Not a dot, not a shade of the wall behind them.
@@ -151,7 +154,10 @@ type Overlays = {
   readonly contacts: ReadonlyMap<number, CreatureSense['kind']>;
   /** Tile index -> the creature there, **only for tiles perceived as `seen`**. */
   readonly identified: ReadonlyMap<number, CreatureActor>;
-  /** Tile index -> total ember waiting there. Empty while shuttered (§4: items are invisible). */
+  /**
+   * Tile index -> a drop waiting there. **Every uncollected drop, lit or not** (#81, ruled with §4's
+   * *The dark can take nothing*) — a drop's position is information the player created.
+   */
   readonly embers: ReadonlySet<number>;
   /** Tile index -> a declared action marking it. Empty while shuttered (§4: intent is hidden). */
   readonly telegraphs: ReadonlyMap<number, Telegraph>;
@@ -265,10 +271,20 @@ function gatherOverlays(state: GameState): Overlays {
 
   const lamplit = vision.shutter === 'open';
 
+  // ═══ #81, CLOSED AS A RULE RATHER THAN AS A PRESENTATION FIX (§4, #144, built by #149) ═══
+  //
+  // This used to be gated on `lamplit`, which was §4's vision table read literally: "Items / ember
+  // caches — visible in the lit radius / **invisible**". That row is about a **cache**, and it
+  // stands; a drop is not a cache, and the difference is now load-bearing. Under *The dark can take
+  // nothing* a drop on unlit ground cannot be collected, so hiding it as well would leave the player
+  // standing on fuel they made, cannot take, and cannot see — a chore rather than a decision.
+  //
+  // **A drop's position is information the player created.** That is why drawing it is not the scuff
+  // cue §4 rejects for caches: hiding it hides a fact the player already holds. Every drop goes in
+  // here; `faceOf` draws it wherever its tile is perceived or remembered, so the cell state still
+  // decides whether the player is looking at it or remembering it.
   const embers = new Set<number>();
-  if (lamplit) {
-    for (const drop of world.embers) embers.add(tileIndex(grid, drop.at.x, drop.at.y));
-  }
+  for (const drop of world.embers) embers.add(tileIndex(grid, drop.at.x, drop.at.y));
 
   return {
     perceived: perception.terrain,
@@ -396,7 +412,10 @@ function faceOf(
   const creature = overlays.identified.get(index) ?? null;
   if (creature !== null) return { glyph: glyphForCreature(creature), fg: 'creature' };
 
-  if (state === 'visible' && overlays.embers.has(index)) {
+  // Perceived **or remembered** (#81/#144): a drop you made two rooms ago is a destination, and the
+  // dimming `remembered` already carries is what says you are remembering it rather than looking at
+  // it. `unknown` is still blank — the player has never been there and cannot have made anything.
+  if ((state === 'visible' || state === 'remembered') && overlays.embers.has(index)) {
     return { glyph: GLYPHS.ember, fg: 'ember' };
   }
   if (state === 'visible' || state === 'remembered') {

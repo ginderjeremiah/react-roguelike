@@ -49,7 +49,7 @@ import { step } from './step';
 import { createInitialState, type GameState } from './state';
 
 /** The rules version this build of the simulation implements. See the header. */
-export const RULES_VERSION = 7;
+export const RULES_VERSION = 8;
 
 /**
  * Append-only. One line per bump, newest last, so that a fixture pinned at version N can be
@@ -129,6 +129,23 @@ export const RULES_VERSION_LOG: readonly string[] = [
     'commands and never moved at all; here it moves once and declares. `GameState` gains and loses ' +
     'no field, so this is the first bump since version 3 that rests on the changed-rule clause ' +
     'alone.',
+  '8 — §4\'s *The dark can take nothing* (#144, #149): **a kill\'s ember is takeable only once its ' +
+    'tile has been lit, and fuel reaching 0 ends the run.** Two deleted clauses, no new state and no ' +
+    'new command. `collectFuelUnderfoot` gates both of its branches on `hasBeenLit` over ' +
+    '`Vision.revealed` — the predicate the cache branch already used and which #31/#41 built the ' +
+    'plane for — so a version-7 record that struck a sleeper in the dark and walked onto the drop ' +
+    'replays to a lower reserve, with the drop still lying in `world.embers`. And `statusAfterTurn` ' +
+    'gains one condition beside HP death, evaluated after the whole phase list so §2 phase 5 still ' +
+    'runs and the ember collected on the guttering turn still counts; **not** in `isRunOver`, which ' +
+    'halts the actor sweep and would forfeit exactly that. So a version-7 record that played on ' +
+    'past 0 fuel replays to a run that ended there and refused everything after it. ' +
+    'Measured on the three stored fixtures: the dark-descent log and the cache-haul log are ' +
+    '**byte-identical** (neither kills anything, and a cache was already light-gated), and the ' +
+    'combat log diverges in exactly two fields — `fuel` 45 -> 25 and one uncollected 20-fuel drop ' +
+    'left at (10, 6). Every other field, including the **generator state**, is unchanged, which is ' +
+    'the shape to expect: nothing here draws, nothing here touches the schedule, and neither branch ' +
+    'of phase 5 consumes entropy on either side of its new guard. `GameState` gains and loses no ' +
+    'field, so this rests on the changed-rule clause alone, as version 7 did.',
 ];
 
 /**

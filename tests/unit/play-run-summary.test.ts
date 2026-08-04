@@ -1,11 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { LAST_FLOOR } from '@/game/content';
 import { replay } from '@/game/core';
 import { presentHud, presentSummary, type RunSummary } from '@/render';
 import { DARK_THEME, LIGHT_THEME, type GameTheme } from '@/components/play/theme';
 import { RUN_OVER_MESSAGE } from '@/components/play/messages';
 import { monoWidth, verdictTone } from '@/components/play/summary-style';
-import { diveToTheBottom, standUntilDead } from '@/tests/unit/support/run-script';
+import { lightTheWayDown, standUntilDead } from '@/tests/unit/support/run-script';
 
 /**
  * The run summary's two testable halves: what colour an ending is, and whether the words fit a
@@ -22,7 +21,7 @@ import { diveToTheBottom, standUntilDead } from '@/tests/unit/support/run-script
  */
 
 const DIED = replay(standUntilDead('grave', 1));
-const WON = replay(diveToTheBottom('win', LAST_FLOOR));
+const WON = replay(lightTheWayDown('win'));
 
 const THEMES: readonly (readonly [string, GameTheme])[] = [
   ['dark', DARK_THEME],

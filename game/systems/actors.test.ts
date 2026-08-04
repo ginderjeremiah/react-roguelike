@@ -163,9 +163,13 @@ describe('waking in light', () => {
 
 describe('the run ends where the killing blow lands (§13)', () => {
   it('reports the run over exactly when the player has no HP left', () => {
-    // The predicate that phase 4 and phases 5-6 both consult. **Fuel is deliberately not in it**:
-    // §4 and §13 are explicit that 0 fuel is a desperate state and not a loss state, and it is the
-    // first thing anyone assumes, so it is asserted rather than merely left out.
+    // The predicate that phase 4 and phases 5-6 both consult. **Fuel is deliberately not in it, and
+    // the reason changed under #149 while the assertion did not.** 0 fuel *is* an ending now (§4's
+    // *The dark can take nothing*, §13) — but this predicate is what halts the actor sweep and gates
+    // phases 5 and 6 through `unlessTheRunEnded`, and §13 requires the fuel ending to let phase 5
+    // run so the turn's ember still counts. Putting it here would forfeit exactly the moment the
+    // ending exists to produce. It lives in `game/core/state.ts`'s `statusAfterTurn`, after the whole
+    // phase list, and this line is what says it did not creep back down here.
     const { world } = scenario(['#####', '#@c.#', '#####']);
     expect(isRunOver(world)).toBe(false);
     expect(isRunOver(withActor(world, withHp(playerOf(world), 1)))).toBe(false);

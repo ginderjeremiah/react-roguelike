@@ -157,10 +157,21 @@ export const FLOODLIT_PACIFIST: Style = {
 export const DARK_PACIFIST: Style = { name: 'dark-pacifist', fights: false, light: 'never' };
 
 /**
- * §4's desperate state, as a style: a lantern with nothing in it. Never opens the shutter — it
- * cannot — and fights whatever stands between it and the stairs. Run with `startFuel` 0.
+ * **The never-flash fighter** — the line §4's invariant 4 and ADR-0015's first clear criterion are
+ * asserted against. Never opens the shutter, routes to every ember-sense contact, one-shots each
+ * sleeper (§3's dormant strike is double damage against 5 HP), and takes the stairs when there is
+ * nothing left to hunt.
+ *
+ * It is `STALKER` with the light policy removed and nothing else changed, which is what makes the
+ * comparison between them *at comparable combat* — both clear every creature on every floor.
+ *
+ * > **This slot used to hold `DRY_CRAWL`** — the same two flags, run with `startFuel` 0, described as
+ * > "§4's desperate state, as a style". The desperate state is deleted (§4, *The dark can take
+ * > nothing*: fuel reaching 0 ends the run), so a run that starts at 0 is a run that cannot exist. The
+ * > style is re-pointed at a full lantern rather than deleted, because at a full lantern it is
+ * > exactly the fighter [#109](../../issues/109) exists to add and invariant 4 has never had.
  */
-export const DRY_CRAWL: Style = { name: 'dry-crawl', fights: true, light: 'never' };
+export const HARVESTER: Style = { name: 'harvester', fights: true, light: 'never' };
 
 /**
  * One creature that was woken and then killed, and what the player spent on it.
@@ -395,7 +406,15 @@ export function playFloor(start: LanternWorld, style: Style): FloorResult {
     const cachesNow = before.world.floor.caches.length - state.world.floor.caches.length;
     kills += killedNow;
     cachesTaken += cachesNow;
-    income += killedNow * CINDER.emberDrop + cachesNow * CACHE_FUEL;
+    // **Income is what was *collected*, not what was killed** (§4, *The dark can take nothing*).
+    // Until #149 those were the same number and this line read
+    // `killedNow * CINDER.emberDrop + cachesNow * CACHE_FUEL`; now a drop on unlit ground is left on
+    // the floor, so counting the kill would credit the style with fuel it never received — and
+    // `economy.test.ts`'s own instrument check (`demand === spend` on a solvent floor) caught it,
+    // exactly as that check exists to. A drop leaves `world.embers` only by being picked up, so the
+    // difference across the command, plus whatever this command's deaths added, is the take.
+    const dropped = killedNow * CINDER.emberDrop;
+    income += emberOnFloor(before.world) + dropped - emberOnFloor(state.world) + cachesNow * CACHE_FUEL;
     if (isDry(state.lantern)) {
       if (!ranDry) driedOnTurn = turns;
       ranDry = true;
@@ -508,6 +527,13 @@ function countLiving(world: ActorWorld): number {
   return livingCreatures(world).length;
 }
 
+/** Uncollected drop fuel lying on this floor. A sum, so the order of `embers` cannot matter. */
+function emberOnFloor(world: ActorWorld): number {
+  let total = 0;
+  for (const drop of world.embers) total += drop.amount;
+  return total;
+}
+
 // --- the script ---------------------------------------------------------------------------------
 
 type Action =
@@ -567,7 +593,7 @@ function chooseAction(state: LanternWorld, style: Style, memory: ScriptMemory): 
 
   const errands = [
     ...knownCaches(state),
-    ...state.world.embers.map((drop) => drop.at),
+    ...collectableDrops(state),
     ...(style.fights ? creatures : []),
     ...frontierTiles(grid, known),
   ];
@@ -594,6 +620,34 @@ function chooseAction(state: LanternWorld, style: Style, memory: ScriptMemory): 
  *   - **Never twice from the same tile.** A flash reveals what the walls allow and no more; looking
  *     again from where you already looked buys nothing.
  *
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
+ * THE SECOND REASON TO FLASH: TO GET PAID (§4, *The dark can take nothing*, #144/#149)
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * Until #149 a flash was **only** a scouting move here, because a kill's ember paid in the dark and
+ * light bought nothing but terrain. Under the ruling that is exactly backwards: light is the whole of
+ * income, and §4 promotes #108's measured best line — *"clear the room dark, **then** flash"* — from a
+ * habit to the rule, with *"clearing first means lighting every room you killed in"* stated in as many
+ * words.
+ *
+ * **So this policy grows one clause: flash when there is a drop underfoot or beside you that the
+ * lantern has not lit.** It is the smallest thing that makes `STALKER` a competent player under the
+ * new rules rather than under the old ones, and it is deliberately *pessimistic* about light: a
+ * player who lit the whole room they cleared would flash once for several drops, where this pays 5
+ * fuel per cluster it stumbles into. If invariant 3 is green with this script it is green with room to
+ * spare.
+ *
+ * **This is an instrument change and not a tuning one, and the distinction is worth being exact
+ * about.** No game constant moves (§4's freeze). What moved is that the script was written to model
+ * "a floor played well" under a rule that has been deleted: measured, without this clause `STALKER`
+ * abandons **163 of its 420 kills' drops** on unlit ground — 3260 fuel — and invariant 3 (*a floor
+ * played well nets slightly positive*) comes back at **−12 a floor**. That is not the economy being
+ * wrong, it is the corpus playing the previous game. Both numbers are in the journal.
+ *
+ * **`HARVESTER` deliberately does not get this**, because it is `light: 'never'` and the whole of
+ * invariant 4 is the comparison between a style that can buy light and one that will not.
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
+ *
  * Closing is unconditional on the very next command, and that is not a shortcut: phase 3 has already
  * folded the whole lit room into terrain memory, so there is nothing further to buy by holding the
  * shutter open — except enemy intent, which is what `FLOODLIT` is for. A flash therefore costs
@@ -615,13 +669,36 @@ function chooseShutter(state: LanternWorld, style: Style, memory: ScriptMemory):
       if (open) return { kind: 'toggle' };
       const at = playerOf(state.world).at;
       if (memory.flashedFrom.some((seen) => samePosition(seen, at))) return null;
-      const unknown = unknownNearby(state.world.floor.grid, state.lantern.vision.remembered, at);
       const adapted = state.lantern.vision.senseRadius >= EMBER_SENSE_RADIUS;
-      return unknown >= FLASH_THRESHOLD && adapted && couldOpen ? { kind: 'toggle' } : null;
+      if (!adapted || !couldOpen) return null;
+      // To get paid: a drop the player is standing on or beside, on ground the lantern has never
+      // lit. One flash from here reaches it (Chebyshev 1 against a lit radius of 4, no wall between
+      // a tile and its own neighbour), so the drop is takeable from the next command on.
+      if (unlitDropNearby(state, at)) return { kind: 'toggle' };
+      // To see: §4's flash-and-crawl, unchanged.
+      const unknown = unknownNearby(state.world.floor.grid, state.lantern.vision.remembered, at);
+      return unknown >= FLASH_THRESHOLD ? { kind: 'toggle' } : null;
     }
     default:
       return null;
   }
+}
+
+/**
+ * Is there a drop within touch — on this tile or one of the eight around it — that the lantern has
+ * not lit? The trigger for §4's *"one flash per room you killed in"*.
+ *
+ * Chebyshev 1 rather than the lit radius, so the answer is about something the player can *feel*
+ * (§4's dark column) rather than about the actor list, and so that the flash that follows is
+ * guaranteed to reach it. It is also what makes this terminate: the flash resolves the drop it was
+ * triggered by, so it cannot fire again for the same one.
+ */
+function unlitDropNearby(state: LanternWorld, at: Position): boolean {
+  const vision = state.lantern.vision;
+  return state.world.embers.some(
+    (drop) =>
+      chebyshevDistance(at, drop.at) <= 1 && !hasBeenLit(vision, drop.at.x, drop.at.y),
+  );
 }
 
 function unknownNearby(grid: Grid, known: TileSet, at: Position): number {
@@ -646,6 +723,36 @@ function unknownNearby(grid: Grid, known: TileSet, at: Position): number {
 function knownCaches(state: LanternWorld): Position[] {
   const vision = state.lantern.vision;
   return state.world.floor.caches.filter((cache) => hasBeenLit(vision, cache.x, cache.y));
+}
+
+/**
+ * Drops the player can actually **take**: on ground the lantern has lit (§4, *The dark can take
+ * nothing*, #144/#149). The same predicate on the same plane as `knownCaches`, which is the whole
+ * point of the ruling.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
+ * THIS IS NOT A KNOWLEDGE FILTER, AND WITHOUT IT THE SCRIPTS DO NOT TERMINATE
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * The scripts may **see** every drop — #81 draws one wherever its tile is perceived or remembered,
+ * because its position is information the player created. What changed is that walking onto an unlit
+ * one does nothing, and the errand list is a list of *things to do*.
+ *
+ * Before this filter, `chooseAction` listed `world.embers` unconditionally. Under the new rule the
+ * script walked onto a drop it could not take, the drop stayed on the tile, and the errand was still
+ * top of the list next command — so every fighting style circled its own first kill until
+ * `TURN_CAP_PER_FLOOR`. Measured, before the filter: `STALKER`'s median floor went from 81 turns to
+ * **200** (the cap), its cache take from 117/121 to 44/121, and its net from +6 to **−140** a floor.
+ * Every one of those looks like the ruling being catastrophic and none of them is about the game.
+ * Recorded here because a corpus that reports a floor at exactly the cap is reporting a stuck script,
+ * and that is the first thing to check when a rule change moves these numbers a long way.
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
+ */
+function collectableDrops(state: LanternWorld): Position[] {
+  const vision = state.lantern.vision;
+  return state.world.embers
+    .map((drop) => drop.at)
+    .filter((at) => hasBeenLit(vision, at.x, at.y));
 }
 
 function knownStairs(grid: Grid, known: TileSet): Position | null {

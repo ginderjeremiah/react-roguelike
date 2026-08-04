@@ -199,12 +199,12 @@ export function remember(vision: Vision, perceived: TileSet): Vision {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════════
-// WHAT THE LANTERN HAS SHOWN YOU — GDD §4, ruled 2026-08-01 (#31, #41)
+// WHAT THE LANTERN HAS SHOWN YOU — GDD §4, ruled 2026-08-01 (#31, #41), widened 2026-08-04 (#144)
 // ═══════════════════════════════════════════════════════════════════════════════════════════════
 //
-// > **A cache is terrain the lantern has to have shown you. Until it has, the tile is floor to you
-// > — you feel it, you walk over it, and nothing happens. Once it has, it is yours whenever you
-// > stand on it, lit or not.**
+// > **The dark can take nothing. Fuel is taken only from a tile the lantern has lit. Until it has,
+// > the tile is floor to you — you feel it, you walk over it, and nothing happens. Once it has, what
+// > is on it is yours whenever you stand there, lit or not.**
 //
 // Both halves of that rule read one bit, which is why it is one plane and not two mechanisms:
 //
@@ -213,15 +213,23 @@ export function remember(vision: Vision, perceived: TileSet): Vision {
 //     a permanent blank cell in ground you have crawled is a **better** cache detector than the `♦`
 //     would have been, and because it would break §4's *"you always know your own four
 //     neighbours"*, which §2 spends to refuse an illegal move for free.
-//   - **Collection.** `game/systems/light.ts` phase 5 pays a cache only where `hasBeenLit`. Keyed
-//     on **ever** lit rather than *currently* lit: at 0 fuel the shutter cannot open, so the
-//     stricter reading would falsify §4's own "a kill or a cache re-opens the shutter the moment it
-//     lands" in exactly the desperate state that sentence protects — and it would manufacture an
-//     autopilot, since the shutter is free and §2 runs phase 5 on free actions, so `open`-`shut` on
-//     a cache tile would take it for 4 fuel and no turns.
+//   - **Collection.** `game/systems/light.ts` phase 5 pays a cache **and a kill's drop** only where
+//     `hasBeenLit`. Keyed on **ever** lit rather than *currently* lit, because the stricter reading
+//     would manufacture an autopilot: the shutter is free and §2 runs phase 5 on free actions, so
+//     `open`-`shut` on the tile would take whatever is on it for 4 fuel and no turns.
 //
-// **Ember a kill drops is not covered and must not be.** A drop is an actor-layer value on a tile
-// you chose to fight on; you know it is there because you made it (§4, and #81 for drawing it).
+//     *The other original argument for **ever** lit is spent, and is recorded rather than restated:*
+//     it was that at 0 fuel the shutter cannot open, so *currently* lit would falsify §4's "a kill or
+//     a cache re-opens the shutter the moment it lands" in exactly the desperate state that sentence
+//     protects. §4's *The dark can take nothing* deletes the desperate state — fuel reaching 0 ends
+//     the run — so that argument has lost its premise. The autopilot argument carries the clause
+//     alone, and it never depended on the fuel rule at all.
+//
+// **A kill's drop used to be excluded from this and is now covered** (#144, ruled 2026-08-04). §4
+// read *"ember you made is yours; ember the ruin hid belongs to the lantern"*; it now reads *"ember
+// the ruin hid, the lantern finds; ember you made, the lantern claims; neither is yours in the
+// dark"*. The drop is still **drawn** where its tile is perceived or remembered, which is #81 and is
+// what keeps the uncollected drop a destination rather than a secret.
 //
 // This plane is **monotone and per floor**, exactly like `remembered`: it only grows, and §13 says
 // a descent leaves the map behind, so `arriveOnFloor` rebuilds it from the new grid rather than

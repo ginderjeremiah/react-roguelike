@@ -310,7 +310,7 @@ under player control, not under the RNG's.
 
 *Open:* status effects (none in M1), any second player attack option, ranged anything.
 
-## 4. Light, fuel, and ember-sense — *Settled for M1-M2; the wager's **cost side** was Open and is now **ruled and awaiting its build***
+## 4. Light, fuel, and ember-sense — *Settled for M1-M2; the wager's **cost side** was Open, and is now **ruled and built***
 
 The signature system.
 
@@ -318,9 +318,10 @@ The signature system.
 > [ADR-0015](decisions/0015-arm-2-fired-and-the-fallback-is-retired.md)) because **darkness is safe**:
 > nothing wakes in the dark, and a pursuer cannot hit a moving player, so the only creature that can
 > damage a never-flash player is one the run start woke. The subtraction that answers it is ***The
-> dark can take nothing***, below — two deleted clauses in one ruling. **It is ruled and not yet
-> built**; every number below is the
-> pre-change number until the build lands. Everything else here — the two vision states, the
+> dark can take nothing***, below — two deleted clauses in one ruling. **Ruled 2026-08-04 and built
+> the same day by [#149](../../issues/149)**, at `RULES_VERSION` 8. Numbers below it that predate the
+> build are the pre-change ones; **the measured before/after corpus is in the 2026-08-04 journal
+> entry for #149 and is the figure to quote**. Everything else here — the two vision states, the
 > Chebyshev metric, containment, the adaptation ramp, the cache rule's *ever lit* predicate, pursuit
 > — is **settled and is not reopened by it**. No number in this section moves; see the freeze under
 > the four tuning invariants, which is now a ruling rather than a sequencing courtesy.
@@ -629,8 +630,9 @@ rejected.
 - Sources: **kills** (Cinder drops 20, tuning) and **ember caches** in the level (25 each, 1-2 per
   floor, tuning). Caches are terrain, and **the lantern has to have found them** — the rule and its
   three clauses are below. Start of run: 80 (tuning).
-- **Fuel reaching 0 ends the run — *ruled 2026-08-04 (#144); the ruling and its whole argument are
-  below*.** The lantern going out is a death, and §13 lists it beside HP reaching 0. It is evaluated
+- **Fuel reaching 0 ends the run — *ruled 2026-08-04 (#144), built by [#149](../../issues/149); the
+  ruling and its whole argument are below*.** The lantern going out is a death, and §13 lists it
+  beside HP reaching 0. It is evaluated
   at the **end of the command**, after phase 5, so ember collected on the turn you ran dry still
   counts and can still save you — see *The dark can take nothing*.
   **Ember-sense is still not the lamp.** It is the player's dark-adapted eyes: it does not shrink
@@ -655,8 +657,8 @@ rejected.
   > many turns you have to reach one. That is the shape Pillar 4 wanted out of 0 fuel, moved to where
   > the player can still act on it.
 
-**The dark can take nothing — *ruled 2026-08-04 (#144); built by [#149](../../issues/149), not yet
-merged*.** This is the wager's cost side, rebuilt as
+**The dark can take nothing — *ruled 2026-08-04 (#144); built the same day by
+[#149](../../issues/149), `RULES_VERSION` 8*.** This is the wager's cost side, rebuilt as
 [ADR-0015](decisions/0015-arm-2-fired-and-the-fallback-is-retired.md) requires, and judged by
 [#145](../../issues/145). It is **two deletions in one ruling**, and the argument for it is that
 neither half works alone.
@@ -2675,7 +2677,7 @@ everything else is not.
   run — Pillar 1's autopilot turn with a fresh coat of paint.
 
 **A run ends in exactly three ways, and two of them are deaths — *the fuel ending ruled 2026-08-04
-([#144](../../issues/144)), not yet built*.**
+([#144](../../issues/144)) and built by [#149](../../issues/149) the same day*.**
 
 | Ending | When |
 | --- | --- |

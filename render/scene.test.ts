@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { runStates, step, type GameState } from '@/game/core';
-import { creatureById, withActor, withHp } from '@/game/entities';
+import { creatureById, playerOf, withActor, withHp } from '@/game/entities';
 import { EMBER_SENSE_RADIUS, hasBeenLit, hasTile } from '@/game/fov';
 import { chebyshevDistance, FLOOR_HEIGHT, FLOOR_WIDTH } from '@/game/map';
 import { awaken } from '@/tests/unit/support/scenario';
@@ -19,11 +19,17 @@ import { cellAt, presentScene, type Scene } from './scene';
  * tests that all exercise the same eight cells.
  *
  *   - **Real runs** (`darkDive`, `litDeath`) drive the actual `step()` over generated floors and
- *     produce hundreds of states across eight floors, in both vision states, with kills, deaths,
- *     caches walked over in the dark, descents and a dry lantern in them. Everything phrased as
+ *     produce hundreds of states across several floors, in both vision states, with kills, deaths,
+ *     caches and drops walked over in the dark, and descents in them. Everything phrased as
  *     *this must be true of every
  *     cell of every state* is asserted here, because a property that holds only on a hand-built
  *     3×7 room is a property about that room.
+ *
+ *     **`darkDive` stops at three floors and no longer runs the lantern dry**, and the change is
+ *     §4's rather than this file's: since *The dark can take nothing* (#149) a never-flash line that
+ *     reaches 0 fuel is a **dead** line, so "a dry lantern in them" is now a property of the *last*
+ *     state of a longer dive rather than of a stretch of play. `litDeath` is what supplies the
+ *     terminal frames here.
  *   - **Scenarios** construct the exact situation a rule is about — a creature at distance three
  *     with the shutter shut, a declared attack on a specific tile. Used where the point is a
  *     particular arrangement, per `tests/unit/support/scenario.ts`'s own reasoning.
@@ -342,7 +348,7 @@ describe('creatures seen in light (GDD §4: identified)', () => {
   });
 });
 
-describe('ember on the ground (GDD §4: items are invisible while shuttered)', () => {
+describe('ember on the ground (#81, ruled with §4’s *The dark can take nothing*)', () => {
   const withEmber = (shutter: 'open' | 'shuttered') => {
     const built = scenarioState(['#####', '#@..#', '#####'], { shutter, perceive: false });
     return stateFrom(
@@ -375,18 +381,43 @@ describe('ember on the ground (GDD §4: items are invisible while shuttered)', (
     expect(cell.glyph).toBe(GLYPHS.blank);
   });
 
-  it('hides a drop you are standing next to in the dark', () => {
-    // §4's table: "Items / ember caches | Visible in the lit radius | **Invisible**". The tile is
-    // perceived — it is one step away and touch reaches it — so this is not a knowledge question. It
-    // is that you cannot see ember by feeling the floor, and finding fuel is what light is *for*.
+  it('draws a drop you are standing next to in the dark', () => {
+    // ═══ #81, CLOSED AS A RULE (§4's *The dark can take nothing*, #144, built by #149) ═══
     //
-    // A *drop* is hidden by the shutter's current position, and that is the whole of the rule for
-    // it: this layer draws it only while `lamplit`. A **cache** is a different rule keyed on a
-    // different thing — see the block below — and the two are deliberately not merged.
+    // This test asserted the opposite, on §4's table row *"Items / ember caches | Visible in the lit
+    // radius | **Invisible**"*. That row is about a **cache** — terrain the lantern has to have shown
+    // you — and it is untouched; the block below still pins it. A *drop* is not a cache: **its
+    // position is information the player created**, and under the ruling the player cannot pick it up
+    // in the dark either, so hiding it as well would leave them standing on fuel they made, cannot
+    // take, and cannot see. That is the *chore rather than a decision* the ruling's own Watch names.
     const cell = cellAt(presentScene(withEmber('shuttered')).grid, 2, 1);
     expect(cell.state).toBe('visible');
-    expect(cell.glyph).not.toBe(GLYPHS.ember);
-    expect(cell.fg).not.toBe('ember');
+    expect(cell.glyph).toBe(GLYPHS.ember);
+    expect(cell.fg).toBe('ember');
+  });
+
+  it('goes on drawing a drop on a tile the player only remembers', () => {
+    // The other half of "you go on seeing it": the drop is a **destination**, and the fuel left in
+    // the lantern is how many turns you have to reach one (§4). Drawn on `remembered` as well as
+    // `visible`, so walking away from your own kill does not erase it — and `unknown` is still blank,
+    // because a tile the player has never been to cannot hold something they made.
+    const built = scenarioState(['########', '#@.....#', '########'], { shutter: 'shuttered' });
+    const start = stateFrom(
+      { ...built.state.world, embers: [{ at: { x: 4, y: 1 }, amount: 20 }] },
+      { shutter: 'shuttered' },
+    );
+
+    // Five steps east: over the drop on step 3 — which takes nothing, because nothing here has ever
+    // been lit — and two tiles past it, so (4,1) is outside the Chebyshev-1 touch radius and is
+    // memory rather than perception.
+    let state = start;
+    for (let i = 0; i < 5; i += 1) state = step(state, { kind: 'move', dir: 'east' });
+    expect(playerOf(state.world).at).toEqual({ x: 6, y: 1 });
+    expect(state.world.embers).toHaveLength(1); // walked over and left where it fell
+
+    const cell = cellAt(presentScene(state).grid, 4, 1);
+    expect(cell.state).toBe('remembered');
+    expect(cell.glyph).toBe(GLYPHS.ember);
   });
 });
 

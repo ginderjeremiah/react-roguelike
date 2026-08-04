@@ -72,7 +72,11 @@ export type FuelHud = {
   readonly burnRate: number;
   /** §4: "read it as a number of turns". `floor(fuel / burnRate)` at the current setting. */
   readonly turnsRemaining: number;
-  /** §4: 0 fuel is a desperate state, **not a loss state**. The shutter is stuck shut. */
+  /**
+   * §4: the lantern is out. Since *The dark can take nothing* (#144) that **ends the run**, so a
+   * running state never reports it — the only states this can be true of are the terminal frame of a
+   * run that ran dry, and a hand-built one.
+   */
   readonly dry: boolean;
   readonly level: MeterLevel;
 };
@@ -184,9 +188,19 @@ function outcomeOf(state: GameState): OutcomeHud {
     // question a player has on winning a roguelike with no boss: *is that it, or did I miss
     // something?*
     //
-    // It must also stay true at 0 fuel, which kills the tempting mirror of the death line: §4 says
-    // a dry lantern is a desperate state and not a loss state, so a win with no fuel is legal and
-    // `The lantern still burns.` would be false in exactly the most retellable runs.
+    // **The tempting mirror of the death line — `The lantern still burns.` — is still rejected, and
+    // #144 forced a new reason for it (§13, re-ruled 2026-08-04).** This comment used to read: "it
+    // must also stay true at 0 fuel… §4 says a dry lantern is a desperate state and not a loss state,
+    // so a win with no fuel is legal and `The lantern still burns.` would be false in exactly the
+    // most retellable runs." That is now **false, and it was the whole of the rejection**: under §4's
+    // *The dark can take nothing* fuel reaching 0 ends the run, and the winning descent resolves in
+    // phase 1 and runs no phases, so no fuel burns on the winning command and **every legal win has
+    // fuel >= 1**. The mirror would be true wherever it could be shown.
+    //
+    // It loses anyway, on the reason that retired `You reach the bottom.`: the verdict names the
+    // player's fate and the headline is an image of the **world**. `The lantern still burns.` is a
+    // fact about the thing in your hand — it takes the verdict's subject and says it twice. A truer
+    // sentence that restates the verdict is worse than a true one that adds a fact.
     case 'died':
       return { kind: 'died', headline: 'The lantern goes out.' };
     case 'reachedBottom':

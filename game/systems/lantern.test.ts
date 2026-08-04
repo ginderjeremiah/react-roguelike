@@ -122,8 +122,11 @@ describe('the shutter', () => {
   });
 
   it('opens again the moment a kill or a cache refuels it', () => {
-    // §4: 0 fuel is "a desperate state, not a loss state". The recovery has to work, and it has to
-    // work through the ordinary refuel path rather than through a special resurrection rule.
+    // §4: fuel arriving in phase 5 re-opens the shutter, and it does so through the ordinary refuel
+    // path rather than through a special rule. **The state below is not one a live run can hold** —
+    // fuel reaching 0 ends the run (§4's *The dark can take nothing*, #149) — but it is exactly the
+    // state phase 5 sees *inside* the command that ran the lantern dry, which is the command §13
+    // gives the ember a chance to save. This is that recovery, at the unit tier.
     const dry = lantern(0);
     expect(canOpen(dry)).toBe(false);
     const paid = refuel(dry, CACHE_FUEL);

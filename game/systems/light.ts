@@ -290,18 +290,27 @@ export function lightingAndWakingPhase(state: LanternWorld): LanternWorld {
  * other source: "ember caches in the level". Both are collected the same way — by being
  * stood on — so they are collected in the same place.
  *
- * ## The two sources are not collected under the same condition (#31/#41)
+ * ## One predicate, one plane, both sources (§4, *The dark can take nothing*, ruled 2026-08-04)
  *
- * §4, ruled 2026-08-01: **"a cache is terrain the lantern has to have shown you"**. So a cache pays
- * only where `hasBeenLit`, and standing on an unlit one in the dark does nothing at all — no fuel,
- * no cue, and the tile is untouched, so it is still there to be found later. **Ever lit, not
- * currently lit**: the tile stays yours once the lantern has shown it to you, which is what keeps
- * §4's "a kill or *a cache* re-opens the shutter" true at 0 fuel, where the shutter cannot open.
+ * **The dark can take nothing.** Fuel is taken only from a tile the lantern has lit — `hasBeenLit`
+ * over `Vision.revealed` — and standing on an unlit cache *or an unlit drop* in the dark does
+ * nothing at all: no fuel, no cue, and the tile is untouched, so both are still there to be found
+ * later. That is what makes the fuel left in the lantern a number of turns to reach a destination
+ * rather than a countdown to nothing.
  *
- * **An ember a kill dropped is explicitly excluded from that rule and pays in the dark.** You know
- * it is there because you made it, and a dormant strike whose ember you could not collect would
- * delete darkness's one capability (§4). The asymmetry is the ruling, not an oversight: ember you
- * made is yours; ember the ruin hid belongs to the lantern.
+ * **Ever lit, not currently lit.** The tile stays yours once the lantern has shown it to you; a drop
+ * on ground you flashed ten turns ago pays the moment you stand on it, with the shutter shut. The
+ * stricter reading would also manufacture an autopilot, since the shutter is free and §2 runs phase
+ * 5 on a free action, so `open`-`shut` on the tile would buy the pickup for 4 fuel and no turns.
+ *
+ * **The drop used to be excluded from this rule, by name, and the exclusion is reversed (#144).**
+ * §4 read *"ember you made is yours; ember the ruin hid belongs to the lantern"* for two milestones.
+ * Measured, that asymmetry was half of why a never-flash line dominated: it banked 20 a kill with no
+ * light, and nothing else in a shuttered floor could hurt a moving player. What replaces it is
+ * *ember the ruin hid, the lantern finds; ember you made, the lantern claims; **neither is yours in
+ * the dark***. The compensation is presentational and is #81: an uncollected drop is **drawn**
+ * wherever its tile is perceived or remembered, lit or not, because its position is information the
+ * player created.
  *
  * **A collected cache stops being a cache.** The tile becomes floor and the position leaves
  * `floor.caches`, rather than being tracked in a parallel "already taken" list somewhere in run
@@ -316,10 +325,13 @@ export function lightingAndWakingPhase(state: LanternWorld): LanternWorld {
  */
 export function collectFuelUnderfoot(state: LanternWorld): LanternWorld {
   const at = playerOf(state.world).at;
+  // The whole of the rule, asked once, before anything is filtered or rebuilt: both branches below
+  // are gated on it, and the early return is what keeps a dark crawler standing on its own kill from
+  // allocating a fresh world every turn.
+  if (!hasBeenLit(state.lantern.vision, at.x, at.y)) return state;
+
   const embers = state.world.embers.filter((drop) => samePosition(drop.at, at));
-  const cache =
-    tileAt(state.world.floor.grid, at.x, at.y).kind === 'cache' &&
-    hasBeenLit(state.lantern.vision, at.x, at.y);
+  const cache = tileAt(state.world.floor.grid, at.x, at.y).kind === 'cache';
   if (embers.length === 0 && !cache) return state;
 
   let gained = 0;

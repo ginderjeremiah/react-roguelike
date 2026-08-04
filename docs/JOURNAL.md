@@ -69,10 +69,18 @@ comments (#109, #137).
 said step 4b's build "is #133 and it is next" while three blocks further down correctly recorded it
 as done, and the block that said so was the one carrying this warning: *"the journal's `Next:` and
 this list disagreeing is how the order has drifted twice before."* It had become the disagreement it
-was written to prevent. Same shape in three more places — §12's *"the judging playtest is still
-owed"*, the *"13 is an upper bound"* note, and ADR-0012's revisit signal — each a correct sentence
-whose subject had shipped underneath it. **A note written to be read once and then deleted does not
-delete itself.**
+was written to prevent. Same shape in four more places — §12's *"the judging playtest is still
+owed"*, the *"13 is an upper bound"* note, ADR-0012's revisit signal, and **M1's exit section, which
+this entry first said was three places and undercounted** — each a correct sentence whose subject had
+shipped underneath it. **A note written to be read once and then deleted does not delete itself.**
+
+*(Corrected in review, same session: the count above was three and the review found the fourth. The
+unspent bound is stated in **five** places — the top of `ROADMAP.md`, M1's exit section, M2's exit
+criteria, GDD §12 and ADR-0012 — and the first pass corrected four of them, which is the undercount
+every sweep in this family has made. It is worse than an off-by-one, because `ROADMAP.md`'s own
+correction says "see M1's exit section, amended" and a session following that pointer landed on the
+uncorrected one. **The durable form: when a claim is stated in N places, correcting N−1 of them and
+leaving a pointer to the Nth is worse than correcting none** — the pointer certifies the stale site.)*
 
 **What is next is genuinely contested, and it is recorded as contested rather than resolved.**
 #139 (has §12's arm 2 fired?) and #109 (the `HARVESTER` style, build-order step 5) are entangled:
@@ -98,6 +106,12 @@ noticing would have deleted an anchor on purpose-built reasoning nobody re-read.
 ADR-0008, in `ARCHITECTURE.md`, in the roadmap bullet and as a comment on the issue. **The general
 form: triage checks issues against issues, and nothing checks them against `docs/decisions/`.**
 
+*(And the routing table that check would use was itself stale within the hour — review finding.
+Annotating two ADRs' `Status:` lines left `docs/decisions/README.md`'s index showing both as plain
+`Accepted`, which is the index a session scans to decide whether an ADR is live. Both rows are fixed
+and the index now carries the instruction to change both in one edit. Nothing guards it; the failure
+is one edit away, permanently.)*
+
 **Learned — `ARCHITECTURE.md` and ADR-0008 have contradicted each other since the commit that wrote
 both of them.** `a7ee7d4` (PR #37) added ARCHITECTURE's *"Write benchmark thresholds as ratios,
 **never** as milliseconds"* and ADR-0008's *"the subsystem benchmarks keep their absolute millisecond
@@ -105,7 +119,18 @@ budgets, and that is deliberate"* in the same diff. Four bench files have assert
 since, so the flat sentence was false of the repository on the day it was written and has stayed
 false through every sweep since. **A summary of an ADR that drops the ADR's scoping clause is not a
 summary, it is a second, wrong rule** — the summary is what a session writing a new benchmark reads.
-ARCHITECTURE now states the composite/leaf split and points at the challenge.
+
+**And the first fix committed the same sin one level down, which is the sharpest thing in this
+entry.** The replacement said *"a **composite** operation gets a ratio, a **leaf** keeps an
+absolute"* — and ADR-0008 writes a whole paragraph saying that is **not** the test: *"the taxonomy is
+about which benchmark owns the anchor, not about which operations happen to be composite."* A lit
+turn **is** composite (`step.bench.test.ts` measures exactly that decomposition as
+`A_LIT_TURN_CONTAINS_A_FIELD`) and `light.bench.test.ts` still holds it to an absolute budget, on
+purpose. So an agent following the replacement would have classified correctly and converted the
+file — the exact conversion ADR-0008 exists to prevent. **Paraphrasing a rule drops its exceptions,
+and the exception is usually the reason the rule needed writing down.** ARCHITECTURE now names the
+anchor as the test and states the lit-turn case explicitly. Caught by `code-reviewer`, one paragraph
+after this entry named the failure.
 
 **Learned — the count list drifted again, and the paragraph that predicts it was read instead of
 run.** *Contract and tooling* is **20 open**, not the seventeen recorded. Four moves: #137/#140/#141

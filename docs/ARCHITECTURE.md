@@ -376,9 +376,20 @@ same process, which divides the machine out. Two corollaries, both paid for:
 **The subsystem benchmarks are still absolute, deliberately, and that is under challenge.** The
 sentence above used to read *"never as milliseconds"* flatly, which contradicted the code:
 `fov`, `generate`, `light` and `actors` bench files all assert milliseconds.
-[ADR-0008](decisions/0008-benchmark-thresholds-as-ratios.md) scopes the rule — a **composite**
-operation gets a ratio to its dominant part, a **leaf** keeps an absolute budget, because a ratio
-alone cannot notice everything getting slower together. **#137 argues the leaf side is toothless**:
+[ADR-0008](decisions/0008-benchmark-thresholds-as-ratios.md) scopes the rule, and **the scope is
+which benchmark owns the anchor, not which operations happen to be composite.** Read the ADR before
+writing a benchmark; the short form is:
+
+- **`game/core/step.bench.test.ts` asserts ratios**, because a whole-`step()` operation is where
+  hardware spread is worst and where an absolute figure has already been shown to be unsettable.
+- **A subsystem benchmark asserts milliseconds, even for an operation that decomposes.** A lit turn
+  *is* composite — `step.bench.test.ts` measures exactly that decomposition as
+  `A_LIT_TURN_CONTAINS_A_FIELD` — and `light.bench.test.ts` still holds it to an absolute 1ms. That
+  is correct and deliberate: a ratio alone cannot notice everything getting slower together, so the
+  absolute budgets are the real-time anchor the ratios are interpreted against. **"It is composite,
+  therefore it should be a ratio" is the conversion ADR-0008 exists to prevent.**
+
+**#137 argues the leaf side is toothless**:
 the same lit turn measures 0.100ms locally and 0.529ms on a runner, so any absolute limit that a
 runner cannot trip is one a real 1.4x regression sails under — measured, with the regression planted.
 That is an argument to **amend ADR-0008**, not a licence to convert a file; the anchor those absolute

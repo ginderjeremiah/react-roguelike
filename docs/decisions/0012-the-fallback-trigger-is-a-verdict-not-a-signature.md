@@ -54,6 +54,11 @@ ever trip.** It now reads as two arms and a bound:
 > it. #121's fix is the last unbuilt thing that changes what the wager *costs*; build-order steps 5
 > (#109) and 6 (#82) change what it is measured with and what it draws.
 
+**That bound was met on 2026-08-03 and arm 2 was reported — see *The signal that this was wrong* at
+the end of this file. The trigger above is quoted verbatim in GDD §12 and in `ROADMAP.md` in three
+places, and all of them now carry the same note. Nothing has ruled on it: [#139](../../issues/139)
+is open.**
+
 ## Why it did not fire
 
 **Because "cannot sign the criterion" and "says the wager is not tense" are different findings, and
@@ -134,7 +139,9 @@ above is two named arms and a bound rather than a ruling on one playtest.
   not finished, not that the concept is dead.
 - **The next broad playtest is a judging one and should be briefed as such.** It runs after #123
   (#121's build) and it is asked both arms explicitly, in VISION's words, rather than being asked
-  whether it can sign a criterion.
+  whether it can sign a criterion. **(It ran on PR #136 and was briefed this way; it answered arm 1
+  no and arm 2 yes. The consequence this bullet did not anticipate is that the two arms can
+  disagree, which is why #139 is a ruling rather than a readout.)**
 - **§12 carries the restated trigger**, not just this ADR, because a session reaching for the
   fallback reaches for §12.
 - **The fallback's cost is now written down where the trigger is.** It was previously easy to read

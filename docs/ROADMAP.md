@@ -134,10 +134,13 @@ after #123 is the one that judges it. See M1's exit section and M2's exit criter
 **That playtest has now run — PR #136, #133's — and it reports arm 2 with numbers. The bound is
 consumed and the ruling is [#139](../../issues/139), open and unruled as of 2026-08-04.** Nothing may
 read the report as the ruling: ADR-0012 says in terms that this call is a `game-designer`'s to make
-deliberately rather than inferred, and three things cut against firing (the playtest classifies its
-own finding as *tuning*; #109 has not run; the same playtest answers arm 1 emphatically in the
-negative). The blocks below that call the judging playtest "still owed" predate it and are corrected
-in place.
+deliberately rather than inferred. Three things cut against firing — the playtest classifies its own
+finding as *tuning*; #109 has not run, and it is the gate that measures invariant 4; the same
+playtest answers arm 1 emphatically in the negative. **And one thing cuts hard the other way, which
+belongs here or this list pre-loads the verdict:** ADR-0012 restated the trigger *because* a
+trip-wire that survives its own firing condition is one nobody will ever trip, and **arm 2 has no
+tuning escape clause**. That tension is the ruling and it is #139's. The blocks below that call the
+judging playtest "still owed" predate it and are corrected in place.
 
 ---
 
@@ -428,6 +431,19 @@ checkpoint has been answered twice with "not yet" and *that* is what spends §12
 > lantern being opened only when lost** — VISION's own failure condition, and §4's too-strong arm.
 > **Bound: the next broad playtest after #123 is the one that judges it**, because #121's build is
 > the last unbuilt thing that changes what the wager *costs*. §12 carries the same text.
+>
+> **That playtest has run and the bound is spent — PR #136 (#133), 2026-08-03 — and it reports the
+> second arm.** *The lantern opened only when lost*, in as many words, on a never-shutter bot
+> finishing **9 of 9** seeds against **4 of 4** deaths with the lantern open. **It is not ruled here
+> or anywhere yet: the ruling is [#139](../../issues/139) and it is open.** The same playtest answers
+> the *first* arm emphatically in the negative, and three things cut against firing — it classifies
+> its own finding as *tuning*, #109 has not run, and arm 1 says no — against which stands ADR-0012's
+> own reason for restating the trigger: **a trip-wire that survives its own firing condition is one
+> nobody will ever trip, and arm 2 has no tuning escape clause.** That tension is what #139 rules.
+> **The bound is stated in five places** — here, at the top of this file, in M2's exit criteria, in
+> GDD §12 and in ADR-0012 — and all five now carry this correction. This one was missed by the
+> reconcile that corrected the other four, which is the same undercount every sweep in this family
+> has made.
 
 **Two instructions the playtest brief must carry, both because auto-travel is deliberately absent
 (ADR-0009).** Both were carried by the first brief and both did their job — keeping them here

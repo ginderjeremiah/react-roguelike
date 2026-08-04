@@ -184,7 +184,7 @@ decision, move on.
 
 ## Session hygiene
 
-Starting a session: read the last few `JOURNAL.md` entries, check `gh pr list` for anything you
+Starting a session: read the last few `JOURNAL.md` entries, check `gh pr list --limit 200` for anything you
 left open, check `gh issue list --label blocked --limit 200`.
 
 Ending a session: run the `archivist` agent. It reconciles the journal, roadmap, and issue state

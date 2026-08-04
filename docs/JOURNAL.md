@@ -111,7 +111,7 @@ of them written from my summary of the session rather than from the record:
 | --- | --- | --- |
 | #76 and #141 filed *"eight weeks apart"* | **three days** (2026-07-31 → 2026-08-03) | the repo is not eight weeks old |
 | #142 corrected *"three of four"* sites, pointer *"three rows above"* | **four of five**, pointer **297 lines** away | contradicted the paragraph directly above it |
-| §12's correction *"twelve lines above"* the amended block | **eight** (GDD 2134 → 2142 at `06b1735^`) | close, and never measured |
+| §12's correction *"twelve lines above"* the amended block | **eight**, above the #121 trigger block superseded (GDD 2134 → 2142 at `06b1735^`) | close, wrong anchor, never measured |
 
 **The second is the one worth keeping.** A rule warning that N−1 corrections are dangerous, stating N
 wrong, in a file agents are told to trust — and the correct N was already written in the paragraph

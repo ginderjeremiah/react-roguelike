@@ -4,9 +4,10 @@
 [ADR-0015](0015-arm-2-fired-and-the-fallback-is-retired.md)). The concept survives and is not
 superseded; its **cost side** is being rebuilt. **This file mentions §12's fallback in three places —
 *Context*, *Alternatives considered*, and *Revisit if* — and all three are superseded by the same
-fact: the fallback is retired, not spent.** Each described GDD §12 accurately on the day; none is
-edited, and the note under *Consequences* is the correction for all three. One further sentence of
-this ADR is falsified by the build and is called out there too.
+fact: what the fallback lost is its *automatic* character, not its place.** Each described GDD §12
+accurately on the day; none is edited, and the note under *Consequences* is the correction for all
+three — including the ***subtract fuel* misreading** two of them repeat. One further sentence of this
+ADR is falsified by the build and is called out there too.
 **Date:** 2026-07-29
 
 ## Context
@@ -132,10 +133,20 @@ fallback in GDD §12 is the response — not another mechanic on top.
 
 > **The second signal has fired — 2026-08-03, PR #136 — and it was ruled on 2026-08-04 (#139,
 > [ADR-0015](0015-arm-2-fired-and-the-fallback-is-retired.md)). The last clause of the paragraph above
-> is now wrong and the rest of it is right.** GDD §12's fallback is **not** the response: it is
-> retired, because the measured mechanism is **HP, not fuel**, and *subtract fuel* does not reach it.
-> What survives is the sentence's direction — *not another mechanic on top* — which ADR-0015 keeps as
-> a hard constraint on the rebuild.
+> is now wrong and the rest of it is right.** GDD §12's fallback is not *the* response any more: what
+> is withdrawn is its **automatic** character, not the design. It loses on **proportionality** — it
+> abandons a concept the same playtest measures as serving Pillars 1 and 4, before one clause has been
+> deleted — and it remains the strongest named alternative and the leading candidate if the cheap
+> subtraction fails ([#145](../../issues/145)). What survives of the sentence is its direction, *not
+> another mechanic on top*, which ADR-0015 keeps as a hard constraint.
+>
+> **And this ADR states the *subtract fuel* misreading twice** — under *Alternatives considered*
+> (*"the correct move is to subtract fuel, not to add another resource"*) and in the *Revisit if*
+> clause. #63 corrected it and GDD §12 carries the correction: the fallback is **pure positional
+> tactics with enemies whose fixed patterns force contact** — a different enemy, generator and win
+> condition. A first draft of ADR-0015 argued against the misreading rather than against §12's text,
+> and two of its four arguments **inverted** when that was caught in review. Read the corrected version
+> before citing either sentence here.
 >
 > **This ADR's concept is not superseded and its central claim is still standing:** darkness carries
 > information, and light is offensive rather than defensive. What the measurement found is that

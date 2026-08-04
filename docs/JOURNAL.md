@@ -73,14 +73,14 @@ words with numbers, and arm 2 was written without a tuning escape clause precise
 be reasoned away. The three recorded arguments against firing all fail:
 
 - ***"The playtest classifies its own finding as tuning."*** Not the playtester's classification to
-  make, and **tuning cannot reach this one.** §4's containment guarantee — *everything a flash can
-  wake, you can already feel*, because `EMBER_SENSE_RADIUS` 5 > `LIT_RADIUS` 4 — means the player
-  knows the flash's **exact** price in creatures and its **exact** product before paying, and combat
-  is deterministic. **A comparison of two known integers is not a wager.** `CACHE_FUEL` does not
-  create a band; it moves which side always wins. Too low is the arm that just fired; too high is §4's
-  other watch, *flashing because it must*. §4 already refused a proposal of exactly this shape (a cue
-  on an unlit cache) for *"makes the wager a permission check"* — and the game's dominant line **is**
-  that permission check.
+  make, and **tuning cannot reach either of the two propositions the rebuild is against.** (a) No
+  constant puts a threat into a shuttered floor: *nothing wakes in the dark* is a rule, and *a pursuer
+  cannot hit a moving player* falls out of §2's commit rule, which #121 ruled unreachable by speed or
+  by cleverness. (b) `resolveDeaths` pushes `creatureDefinition(actor.species).emberDrop` **with no
+  reference to mind state** (`game/systems/combat.ts`), so a sleeper and a hunter pay the identical 20
+  — **no value of `emberDrop`, `PLAYER_ATTACK` or `CINDER.maxHp` makes waking beneficial, because the
+  same number stands on both sides.** Making them differ is a branch that does not exist: a rule
+  change, not a number.
 - ***"#109 has not run."*** #109 measures *how far* a never-flash fighter out-earns a flashing one.
   *That* it does is established three independent ways already — 9 of 9 bot seeds against 4 of 4
   deaths, a hand A/B where dark forfeits a whole 21-fuel cache and still wins, and arithmetic on
@@ -91,21 +91,34 @@ be reasoned away. The three recorded arguments against firing all fail:
   best moment requires never using half of itself has half a concept working**, which is the state arm
   2 names.
 
-**Why the fallback was withdrawn instead of adopted, which is the part that is not a formality.**
-§12's fallback prescribes *subtract fuel*; the playtest's own finding is that **the mechanism is HP,
-not fuel**. It also trades a measured pillar success for a documented pillar regression — §12 records
-that positional tactics **lost on Pillar 4**, and Pillar 1 and Pillar 4 are currently being served (13
-of 38 sampled turns as real decisions, a named retellable moment) by the same report that fires arm 2.
-And #63's ruling still stands and is fatal to it: *strip fuel and nothing pays for a fight.*
+**Why the fallback lost the word *designated* instead of being adopted, which is the part that is not
+a formality.** **Read correctly it would work, and that has to be said first.** §12's fallback is not
+*subtract fuel* — #63 corrected that reading and §12 carries the correction — it is **enemies whose
+fixed patterns force contact**, a different enemy, generator and win condition. Forced contact is an
+**HP** mechanism, so it delivers proposition (a) *by construction*: there is no shutter to decline.
+**It loses on proportionality, not relevance.** It abandons a concept the same report measures as
+serving Pillar 1 and Pillar 4 (13 of 38 turns as real decisions, a named retellable moment) for a
+design §12 records as **losing on Pillar 4** and as making ADR-0003's glyph-grid signature irrelevant
+— and it does so before anyone has deleted **one clause**. Four rulings have moved rules *adjacent* to
+the cause (#83, #121/#123, #31/#41, #125/#133); none has touched the cause. So the design stays the
+strongest named alternative and is #145's leading candidate; what the project no longer has is an
+**automatic** fallback.
 
 **This is not the *fired-and-overridden* evasion ADR-0012 rejected, and the distinction is in
 ADR-0012's own sentence:** *"Either the condition is wrong or the conclusion is; here the condition
-was."* This ruling takes the other branch — the condition was sound and fired, the **conclusion** is
-wrong, and it is deleted rather than left in the document as a threat that never lands. **The test I
-held it to: does the ruling cost as much as firing, and does it have a forcing bound?** It commits to
-an M2-scale rule change with **no measurement that can clear it** — a rule changes whatever #109
-returns; #109 only decides which lever and by how much. A ruling of *not yet, re-set the bound to
-after #109* would have been the evasion, and it was the runner-up.
+was."* This ruling takes the other branch — the condition was sound and fired, and what is wrong is
+the **automatic consequent**, which is deleted rather than left in the document as a threat that never
+lands.
+
+**And the anti-evasion defence is *not* cost parity, which is where a first draft of this entry put
+it.** The consequent I prescribe is **one rule change, its build and a playtest** — roughly #31/#41 or
+#83, **far cheaper than the fallback, and that is the point**: the whole ruling is that the cheap
+experiment has never been run. The defence rests on two checkable things instead. **#145 is a real
+bound**: an issue rather than a sentence, three fire criteria and three clear criteria stated in
+advance, one falsifiable in the corpus (*over ≥9 seeds the never-flash line must not reach floor 8 on
+every seed at full HP*). And **#144 cannot be discharged by a tuning pass**: it rejects `CACHE_FUEL`
+and 0-fuel-lethality by name and requires a §4 rule change with a change-log row. A ruling of *not
+yet, re-set the bound to after #109* would have been the evasion, and it was the runner-up.
 
 **Learned — the failure is one sentence and nobody had written it down.** *Nothing wakes in the dark*
 (§4) plus *a pursuer cannot hit a moving player* (§4, ruled on #121) means **the only creature that
@@ -122,6 +135,42 @@ woken kill costs 2 HP. Both were right, both were built, and together they made 
 while nothing was making dark worse. **A ruling that checks its own interactions is not enough; the
 composition has to be measured**, which is ADR-0013 arriving from a new direction.
 
+**Learned — two premises of the first draft were false, and `code-reviewer` caught both after the
+ruling had been propagated to ten sites each. Recorded in full because the failure mode is the one
+this repo keeps hitting: a claim derived correctly from these documents and false of the build.**
+
+1. ***"§12's fallback is written as subtract fuel."*** It is not, and **this project has now made that
+   misreading three times.** §12's fallback is *pure positional tactics with enemies whose fixed
+   patterns **force contact***; #63 corrected the reading, GDD §12 carries the correction **twelve
+   lines above the block this PR amends**, and ADR-0012 says the whole weight of ruling *not fired*
+   rested on it. Worse, **the first draft's `VISION.md` diff deleted the paragraph carrying that
+   correction** and replaced it with a note whose stated reason was the misreading. Under the correct
+   reading, two of the four arguments against the fallback **invert**: forced contact *is* an HP
+   mechanism, and #63's *"strip fuel and nothing pays for a fight"* is aimed at stripping fuel from
+   *this* game, not at a design with a different win condition. Both are deleted, the correction is
+   restored in `VISION.md`, and the ruling now rests on the two that survive. **The general form: the
+   sentence you are about to argue against may have been corrected in the same section you are
+   editing.** Grep the section you are amending, not only the phrase you are changing.
+2. ***"The player knows the flash's exact price and product, so it is a comparison of two known
+   integers."*** The product half is **false of the build and §4 made it false on purpose**:
+   `perceivedTileAt` returns `FLOOR` for any unlit cache, `render/scene.ts`'s `buildCell` calls it
+   rather than indexing `grid.tiles`, ember-sense senses creatures and nothing else, and whether a room
+   holds a cache is a hidden draw. §4 rejected the scuff cue **to keep it that way**, so citing that
+   rejection as proof the game is already a permission check has it backwards. The price half is true
+   only in principle: #82 measured the containment read as *"unexecutable on screen"* — a playtester who
+   had read §4 miscounted a column and woke a Cinder — and it is suspended for the four turns of the
+   adaptation ramp. **So the flash is a real decision, and *"`CACHE_FUEL` cannot open a band"* is
+   retracted: it can.** The conclusion survives on a better argument that was already in the ADR and
+   is verified in code — **`resolveDeaths` pays `emberDrop` with no reference to mind state**, so a
+   sleeper and a hunter pay the identical 20 and no value of any constant makes waking beneficial.
+
+**And the second correction produced the sharpest thing in this session, which the first draft did not
+have.** Raising `CACHE_FUEL` *would* satisfy §4's **invariant 4** — a flashing style out-earning a
+never-flash one — while leaving both propositions false, because what it pays for is flashing **away**
+from creatures: clear the room dark, *then* flash for the cache, which is #108's measured best line.
+**So invariant 4 is necessary and not sufficient**, and a re-tune aimed at it buys a green assertion and
+no game. Recorded in §4, in the roadmap and on #109, because #109 is about to produce that number.
+
 **Also corrected, verified by re-running the corpus today:** GDD §4 and `ROADMAP.md` both carried
 `STALKER` **114/121** caches and net **+7** a floor from PR #106. Those are stale by three rule
 changes (#83, #123, #133) — re-measured they are **117/121** and **+6**. The conclusion they support
@@ -131,10 +180,10 @@ asserts a dry crawl reaches the stairs on **80 of 80** floors. ADR-0007 asserts 
 survives; it is annotated there too.
 
 **Next: #109**, which survives with a changed job — no longer the gate on a re-tune (ADR-0015 rules
-that no number is the fix) but the **before-number** the rebuild is measured against, taken while the
-old rules still stand. Then **#144** (which is explicitly *not* blocked on it), then its build, then
-**#145**. Build order gains a **step 5b**; the unnumbered fuel-economy re-tune is deleted from the
-plan.
+that no constant reaches either proposition) but the **before-number** the rebuild is measured against,
+taken while the old rules still stand, and with invariant 4 demoted to necessary-not-sufficient. Then
+**#144** (which is explicitly *not* blocked on it), then its build, then **#145**. Build order gains a
+**step 5b**; the unnumbered fuel-economy re-tune is deleted from the plan.
 
 **Watch:** **the project no longer has a designated fallback**, and that is a real loss recorded as
 one rather than tidied away — a named fallback is what stops a failing project dithering. The

@@ -76,22 +76,31 @@ vision radius means a small grid, which is exactly what a phone screen wants.
 **If this fails:** the response is **subtraction and rebuild — never a second mechanic bolted on top.**
 That is the whole of what this paragraph promises, and it is a constraint rather than a plan.
 
-> **This paragraph used to name a designated fallback — *pure positional tactics with no resource
-> clock*, from GDD §12 — and it no longer does.** A broad playtest reported the second failure
-> condition on 2026-08-03 (PR #136), and [#139](../../issues/139) ruled on 2026-08-04 that **it
-> fired**: [ADR-0015](decisions/0015-arm-2-fired-and-the-fallback-is-retired.md) supersedes ADR-0012.
+> **What *subtract* means, kept verbatim from #63's correction, because deleting it is how the next
+> mistake gets made.** *Subtract* is right about the **direction**. What §12 and #63 add is the
+> **size**: GDD §12's fallback is **not** "subtract fuel" — it is **pure positional tactics with
+> enemies whose fixed patterns force contact**, which means deleting the lantern and the economy that
+> makes killing pay and then rebuilding **the enemy, the level generator and the win condition**. A
+> rebuild, in the subtractive direction. **Read GDD §12 before acting on this paragraph.**
 >
-> **What fired is not what was prescribed.** The fallback said *subtract fuel*, and the playtest's own
-> measurement says the mechanism is **HP, not fuel** — a dark line forfeits a whole 21-fuel cache on an
-> identical route and still finishes ahead, because what it is buying is not being hit. So the
-> fallback is **retired**, and it goes back to being what the rest of GDD §12 is: an alternative that
-> lost. The project no longer has a designated fallback, which is a real loss and is recorded as one.
+> **This paragraph used to name that design as the *designated* fallback, and it no longer does.** A
+> broad playtest reported the second failure condition on 2026-08-03 (PR #136), and
+> [#139](../../issues/139) ruled on 2026-08-04 that **it fired**:
+> [ADR-0015](decisions/0015-arm-2-fired-and-the-fallback-is-retired.md) supersedes ADR-0012.
 >
-> **What is being done instead:** the wager's **cost side** is rebuilt, at milestone scale, against two
-> propositions — *a run that never opens the shutter must be able to die of the dark*, and *waking
-> something must be able to be worth it* — under the constraint above. Which rule is subtracted is
-> [#144](../../issues/144); the trip-wire that judges the result is [#145](../../issues/145).
-> **Read ADR-0015 and GDD §12 before acting on any of this.**
+> **What is withdrawn is the *automatic* consequent — "if the trigger fires, do this, without further
+> argument" — and not the design.** Read correctly, the fallback would work: forced contact is an HP
+> mechanism, and the finding that fired the arm is about HP. What it loses on is **proportionality**.
+> It abandons a concept that the same playtest measures as serving Pillar 1 and Pillar 4 (13 of 38
+> sampled turns as real decisions, a named retellable moment) for a design GDD §12 records as losing on
+> Pillar 4 — and it does so **before anyone has tried deleting a single clause.** The design stays on
+> the table as the strongest named alternative; what it no longer is, is automatic.
+>
+> **What is being done instead:** the wager's **cost side** is rebuilt — one rule change, its build and
+> a playtest, which is far cheaper than the fallback and is the point — against two propositions: *a
+> run that never opens the shutter must be able to die of the dark*, and *waking something must be able
+> to be worth it*. Which rule is subtracted is [#144](../../issues/144); the trip-wire that judges the
+> result is [#145](../../issues/145), and it names the fallback as the leading candidate if this fails.
 
 ## Non-goals
 

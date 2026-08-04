@@ -194,7 +194,17 @@ become.
 > this ADR did not anticipate, and the turn is inside this ADR's own words. Under *Alternatives* above,
 > *fired-and-overridden* is rejected with the sentence **"Either the condition is wrong or the
 > conclusion is; here the condition was."** ADR-0015 takes the other branch: the condition was sound and
-> it fired, and **the conclusion — §12's positional-tactics fallback — is what is wrong.** The fallback
-> is therefore *retired* rather than spent, and what arm 2 fires instead is a rebuild of the wager's
-> **cost side**, because the playtest's own finding is that the mechanism is **HP, not fuel**, and
-> "subtract fuel" does not reach it. Read ADR-0015 before citing any sentence on this page.
+> it fired, and **what is wrong is the conclusion — that firing licenses §12's rebuild automatically.**
+>
+> **And the bullet four lines above this one is the reason the first draft of ADR-0015 had to be
+> corrected in review.** *"It was previously easy to read §12 as 'subtract fuel'; #63 already corrected
+> that"* — the draft read it as *subtract fuel* anyway, and argued that the fallback "does not address
+> the measured cause" because the mechanism is **HP, not fuel**. **That inverts under the correct
+> reading**: enemies whose fixed patterns *force contact* are an HP mechanism, and the fallback would
+> deliver *a run that never opens the shutter can die* by construction. The argument is deleted.
+>
+> **What ADR-0015 rules instead** is that the fallback loses only its *automatic* character, on
+> **proportionality**: it abandons a concept measuring well on Pillars 1 and 4 before one clause has
+> been deleted. It stays the strongest named alternative and the leading candidate if the cheap
+> subtraction fails. What arm 2 fires is a rebuild of the wager's **cost side** — one rule change, its
+> build and a playtest. Read ADR-0015 before citing any sentence on this page.

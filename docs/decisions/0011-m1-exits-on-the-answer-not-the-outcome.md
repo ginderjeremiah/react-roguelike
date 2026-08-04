@@ -3,7 +3,8 @@
 **Status:** Accepted — **its trip-wire ("The signal that this was wrong", below) is restated by
 [ADR-0012](0012-the-fallback-trigger-is-a-verdict-not-a-signature.md) and the restated version has now
 **fired**: [ADR-0015](0015-arm-2-fired-and-the-fallback-is-retired.md) ruled arm 2 fired on 2026-08-04
-(#139), and §12's fallback is **retired rather than spent**. Do not act on the last section of this
+(#139), and §12's fallback **lost its *automatic* character rather than being spent** — it remains
+the strongest named alternative. Do not act on the last section of this
 document without reading ADR-0015; ADR-0012 is itself superseded. Nothing else here is superseded, and
 M1's exit stands.
 **Date:** 2026-07-31

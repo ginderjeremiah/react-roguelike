@@ -109,8 +109,8 @@ of them written from my summary of the session rather than from the record:
 | claimed | actual | how it was wrong |
 | --- | --- | --- |
 | #76 and #141 filed *"eight weeks apart"* | **three days** (2026-07-31 → 2026-08-03) | the repo is not eight weeks old |
-| #142 corrected *"three of four"* sites, pointer *"three rows above"* | **four of five**, pointer **297 lines** away | contradicted the same file two paragraphs up |
-| §12's correction *"twelve lines above"* the amended block | **a few** | close, and still not measured |
+| #142 corrected *"three of four"* sites, pointer *"three rows above"* | **four of five**, pointer **297 lines** away | contradicted the paragraph directly above it |
+| §12's correction *"twelve lines above"* the amended block | **eight** (GDD 2134 → 2142 at `06b1735^`) | close, and never measured |
 
 **The second is the one worth keeping.** A rule warning that N−1 corrections are dangerous, stating N
 wrong, in a file agents are told to trust — and the correct N was already written two paragraphs
@@ -120,7 +120,7 @@ the real, transferable failure is a pointer **297 lines** from the site it certi
 **And two shell snippets did not do what the prose beside them claimed**, both reproduced by the
 reviewer in this repo. `git status -sb` reports on the branch you are *on*, so in the leftover-branch
 state the check exists for, it prints a clean line and teaches the opposite of the lesson. And
-`gh issue list` defaults to **30** where this repo has **56** open, so the untriaged sweep silently
+`gh issue list` defaults to **30** where this repo has well over that open, so the untriaged sweep silently
 inspected one page — an untriaged issue aging past it becomes invisible to the command written to
 find it. Both now fixed and both worth remembering as a class: **a plausible-looking command in a
 process doc gets copied for a year before anyone runs it in the failing case.**
@@ -128,6 +128,43 @@ process doc gets copied for a year before anyone runs it in the failing case.**
 So the honest summary of this PR is that **its thesis was demonstrated on itself, by the review,
 before it merged.** Prefer the artefact that cannot be stale — including when the summary you are
 trusting is your own memory of a session you just finished.
+
+**And then the fix commit did it again, twice, in the shape the fix commit was adding a rule about.**
+The third review found that `0b4b728` had:
+
+- added `--limit 200` to **two of the three** `gh issue list` calls, missing the milestone-queue
+  command at the top of step 1 — the one a session actually runs to find work. It returns 30 of M2's
+  33, silently dropping **#28, #35 and #46**: the *oldest*, because `gh` sorts newest-first. The fix
+  commit even added a paragraph explaining the 30-item default, scoped to "the untriaged check", so a
+  reader was told the rule and shown the unfixed command in the same code block.
+- narrowed *"the doc is wrong — fix it"* at **one of the two** sites in `game-designer.md` stating
+  that rule. The un-narrowed one is in the **Output** section — the paragraph a designer is reading
+  *at the moment they open `GDD.md`* — so it was the more proximate instruction of the two.
+
+**So the third fix enumerated mechanically instead of from memory, and immediately found four more
+sites the review had not named** — including `CLAUDE.md`'s step 3, the single highest-traffic queue
+command in the repo, and `archivist.md`'s own `gh issue list --state open`. Also `WORKFLOW.md` ×2.
+One `grep -rn "gh issue list"` over tracked files found all of them in a second; three rounds of
+careful reading had not.
+
+*Scope, stated rather than silently taken:* every **runnable command block** in the process docs now
+carries `--limit 200`. Narrative references in `JOURNAL.md` (append-only history) and `ROADMAP.md`
+(prose) deliberately do not. One of those is a live instruction — `ROADMAP.md`'s *"re-derive this
+list from `gh issue list --milestone "Contract and tooling"`"* — which works today only because that
+milestone is under 30. **It will break silently when it crosses**, and it belongs to the next
+reconcile or to #110, not to this PR.
+
+**N−1 twice, in the commit adding "correct every site or none" to the archivist.** That is not
+irony worth a joke, it is the measurement: this failure is not a lapse of care, because the care was
+maximal and specifically directed at this failure. It is what happens when a fix is applied by
+memory of where the problem was rather than by enumerating where the claim *is*. The rule in
+`archivist.md` is right and it is not sufficient — **the enumeration has to be mechanical**, which is
+the argument #143 makes for the ADR index and #110 for the roadmap counts.
+
+The corrected numbers were also worth measuring rather than hedging. *"Twelve lines above"* became
+*"a few"* on the first fix, which the review correctly called out as trading a wrong number for no
+number: it is **eight** (`docs/GDD.md` 2134 → 2142 at `06b1735^`), now stated at both sites including
+ADR-0015's, which had kept the wrong figure while this entry declared it wrong.
 
 **Next:** **#144** — rule the wager's cost side, which subtraction makes a never-flash line able to
 die. Unblocked and explicitly not gated on #109.

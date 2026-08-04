@@ -32,7 +32,7 @@ your checkout is the stale copy** — though `gh` cannot see unpushed local comm
 a rule about merged history, not about your working tree.
 
 ```bash
-gh issue list --milestone "$(gh api repos/:owner/:repo/milestones --jq '.[0].title')" --state open
+gh issue list --milestone "$(gh api repos/:owner/:repo/milestones --jq '.[0].title')" --state open --limit 200
 gh issue view <n>
 gh pr list --state open
 gh issue list --state open --limit 200 --json number,title,milestone \

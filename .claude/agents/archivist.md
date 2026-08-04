@@ -16,7 +16,7 @@ Compare what the docs claim against what the repository actually contains, and f
 ```bash
 git log --oneline main -20
 gh pr list --state merged --limit 10
-gh issue list --state open
+gh issue list --state open --limit 200
 git status
 ```
 
@@ -84,7 +84,7 @@ writing any claim:
    live.
 2. **Grep the stable tokens, not your wording** — citations, `§` marks, issue and ADR numbers. Those
    survive summarising; adjectives do not. A nine-phrase sweep missed two sites that had paraphrased
-   the claim; both cited `ADR-0015` and `#108`, which one grep would have found.
+   the claim; one cited `ADR-0015` and the other `#108`, either of which one grep would have found.
 3. **Read the hit list, do not count it.** More strings would not have saved that sweep — the
    paraphrase reused vocabulary the GDD still uses correctly for a *different* claim, so the bad line
    sat among four innocent ones.

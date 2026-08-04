@@ -66,8 +66,8 @@ misreading and inverted once it was fixed. Worse, the PR **deleted the paragraph
 correction** while arguing against the version that paragraph existed to correct.
 
 - **Grep the claim's vocabulary across `docs/decisions/` and the GDD change log**, not just the
-  section you are editing. A correction usually sits next to the thing corrected — §12's was a few
-  lines above the block being amended, and still went unread.
+  section you are editing. A correction usually sits next to the thing corrected — §12's was **eight
+  lines** above the block being amended, and still went unread.
 - **Before deleting or replacing a paragraph, work out what it is for.** A paragraph that reads as
   redundant is often a correction someone was paid to learn; deleting it restores the error.
 
@@ -113,5 +113,7 @@ things only he can supply, like infrastructure or credentials. See `docs/WORKFLO
 Changing a pillar is a serious act and the ADR should show its work. It is not, however, a
 permission request.
 
-Keep `docs/GDD.md` honest. It describes the game as currently designed, not as aspired to. If
-implementation diverged from the doc, the doc is wrong — fix it.
+Keep `docs/GDD.md` honest. It describes the game as currently designed, not as aspired to. Where
+implementation diverged, **either fix the doc or — if the divergence looks accidental — file an
+issue.** Deciding which is the judgement; see *Verify premises against `game/`* above. A divergence
+you assume was intended is how a bug becomes design.

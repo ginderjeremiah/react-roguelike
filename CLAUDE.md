@@ -11,7 +11,9 @@ Read it fully before doing anything.
 
 1. Read `docs/JOURNAL.md` — **the last 2-3 entries only**. This is where you left off.
 2. Read `docs/ROADMAP.md` — what milestone are we in, what is the current focus.
-3. `gh issue list --milestone "<current milestone>"` — the actual work queue.
+3. `gh issue list --milestone "<current milestone>" --limit 200` — the actual work queue. **Keep the
+   `--limit`:** `gh` defaults to 30 and sorts newest-first, so without it the oldest issues in a
+   milestone are silently invisible to the command you use to find work.
 
 You do not need to read every doc every time. Pull the rest on demand:
 

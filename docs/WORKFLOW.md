@@ -45,7 +45,7 @@ pick issue -> branch -> design note -> implement -> test -> verify -> PR -> CI -
 ### 1. Pick
 
 ```bash
-gh issue list --milestone "M1: Playable core" --state open
+gh issue list --milestone "M1: Playable core" --state open --limit 200
 gh issue view <n>
 ```
 
@@ -185,7 +185,7 @@ decision, move on.
 ## Session hygiene
 
 Starting a session: read the last few `JOURNAL.md` entries, check `gh pr list` for anything you
-left open, check `gh issue list --label blocked`.
+left open, check `gh issue list --label blocked --limit 200`.
 
 Ending a session: run the `archivist` agent. It reconciles the journal, roadmap, and issue state
 so the next session starts from truth rather than from a half-finished thought.

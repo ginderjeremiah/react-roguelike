@@ -138,8 +138,10 @@ assertion are here; what is not here is #109's own write-up, which this row is.
 > **And the *second* pass got the provenance wrong, which is its own lesson.** The correction in
 > `economy.test.ts` blamed the stale after-column on *"a mid-work snapshot before `chooseShutter`
 > learned to flash for a drop"*. True of `STALKER` — its old row reproduces exactly, three-for-three,
-> at that intermediate. **Impossible for `HARVESTER`**, which is `light: 'never'`, so no change to
-> `chooseShutter` can move any `HARVESTER` figure at all. **A claimed provenance has to be *possible*,
+> at that intermediate. **Impossible for `HARVESTER`**: the clause blamed lives inside
+> `chooseShutter`'s `case 'flash'`, and `HARVESTER` is `light: 'never'`, so it never reaches that arm.
+> (Not that *no* edit to `chooseShutter` could move it — `case 'never'` is in there too.)
+> **A claimed provenance has to be *possible*,
 > not merely plausible** — and that is checkable against the config without re-running anything, the
 > same way `8600 ≠ 420 × 20` was. Two cheap arithmetic checks have now caught two fabrications in this
 > entry; running the corpus caught neither first.
@@ -251,14 +253,15 @@ own, **not** a nag — §4's prediction held and the ruling's own Watch did not 
 
 Five issues came out of it. **[#154](../../issues/154) is the gate**: the playtester's condition is
 that it closes **before #145 is judged**, not before this merged. The others:
-[#153](../../issues/153) (opening the shutter at ≤4 fuel ends the run on the press, unannounced — the
-one unavoidable death in the build), [#155](../../issues/155) (`You gather N ember.` is net of burn,
+[#153](../../issues/153) (opening the shutter at ≤4 fuel ends the run on the press — the
+information needed to avoid it was on screen in a form that said the opposite), [#155](../../issues/155) (`You gather N ember.` is net of burn,
 so a drop's value is unlearnable — worse after this ruling than before it, because §4's case is that
 the player now weighs HP against fuel turn by turn), [#156](../../issues/156) (`! 1 turns`), and
 [#157](../../issues/157) (5 of 55 sampled turns were decisions; the drag is the stretch between
 clearing a room and finding the stairs, which is **not** this ruling's doing but is now the biggest
 Pillar 1 cost). The playtest explicitly recommends **no tuning yet** — the freeze is right, and the
 two things that felt off are structural rather than numeric.
+
 `lightTheWayDown` is the new winning script: crawl dark, flash beside each cache, haul it, take the
 stairs. It wins on 15 of 15 seeds with **47-159** fuel left, and it is a better fixture than the one it
 replaced — it wakes things, fights and takes damage, where the dark dive never produced a single
@@ -280,8 +283,8 @@ asserted in `economy.test.ts` and named there as clear-1 and clear-2.
 
 **Watch — three, and the first is a design question rather than a defect.**
 
-**The claim loop is a two-press ceremony at provably zero risk — and it is *not* the turn-free
-arbitrage this entry first claimed it was.**
+**The claim loop is a two-press ceremony, at zero risk *once ember-sense has caught up* — and it is
+*not* the turn-free arbitrage this entry first claimed it was.**
 
 > **Correction, from the #145 playtest (PR #152).** This Watch read: *"Standing **beside** your own
 > kill and flashing is a **turn-free** 4-fuel-for-20 trade — a free action, phase 5 runs on it, and
@@ -296,9 +299,10 @@ arbitrage this entry first claimed it was.**
 
 **What is actually worth watching, stated as the playtest measured it.** The loop is `strike` →
 `OPEN` → `CLOSE` → `step`: **one turn beyond the kill** (the strike costs its own — `step.ts` prices a
-bump-attack as `costsATurn`), 5 fuel, two free presses. The presses are at zero risk **at full
-adaptation, and only there** — ember-sense is radius 5 through walls against a lit field of radius 4
-with LOS, so §4's containment means *everything a flash can wake, you can already feel*. Of ~10
+bump-attack as `costsATurn`), 5 fuel, two free presses. The presses are at zero risk **once ember-sense
+has climbed back to the lit radius — `sense >= 4`, which is three turns after a shutter, not four** —
+because containment is `sense >= lit`, not `sense == 5`. There it holds absolutely: §4's guarantee
+means *everything a flash can wake, you can already feel*. Of ~10
 claimed kills in the playtest, only **3** had anything within radius 4 to wake; on the other 7 the two
 presses could not have cost anything and the player knew it before pressing.
 
@@ -310,9 +314,15 @@ presses could not have cost anything and the player knew it before pressing.
 > guarantee when it repeats:** strike → `OPEN` → `CLOSE` (sense → 1) → step (2) → strike (3) →
 > `OPEN` — that second flash lights radius 4 against a sense of **3**, and can wake something the
 > player could not feel. The codebase already knew: `lantern-run.ts` refuses to flash unless
-> `senseRadius >= EMBER_SENSE_RADIUS`. **A claim of *provable* zero risk in the file every session
-> reads first is a claim a `game-designer` will act on**, so it had better carry the condition it
-> holds under. **The playtester's own classification is ceremony rather than a Pillar 1 violation, and
+> `senseRadius >= EMBER_SENSE_RADIUS` — but that is the *script* being conservative, not the rule:
+> §4's guard is `sense >= lit`, and `containment.test.ts` says so in as many words
+> (*"still holds at the exact radius the guarantee needs, not just at full reach"*). **A claim of
+> *provable* zero risk in the file every session reads first is a claim a `game-designer` will act
+> on**, so it had better carry the condition it holds under — and the first attempt at the condition
+> was wrong in the *other* direction, saying "full adaptation, and only there" when containment
+> returns a turn earlier at `sense >= 4`.
+
+**The playtester's own classification is ceremony rather than a Pillar 1 violation, and
 explicitly not worth cutting**: the same flash is doing real exploration work, and the three occasions
 it *was* a decision were the best turns of the session. Recorded that way rather than as an
 exploit — if #145's broader pass reports flashing on a timer, this is still the first place to look,

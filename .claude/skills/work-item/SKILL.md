@@ -17,21 +17,31 @@ current milestone.
 
 ```bash
 git fetch origin --prune
-git status -sb          # "behind N" here means every judgment below is against the wrong tree
+git log --oneline main..origin/main     # any output = your main is behind; every judgment below is
+                                        # against the wrong tree
 ```
 
+Ask about `main` explicitly. **`git status -sb` reports only the branch you are on**, so if you are
+sitting on a leftover branch — the exact state this check exists for — it prints a clean line and
+tells you nothing.
+
 A session opened with `main` three commits behind. A branch whose work had already squash-merged
-looked like five commits of abandoned work, and the roadmap looked like it had drifted when it had
-not. Both readings were wrong and both came from not fetching. **`gh` shows you the remote's truth
-and `git` shows you your checkout's — when they disagree, `git` is the one that is stale.**
+looked like five commits of abandoned work, and the roadmap looked drifted when it was not. Both
+readings were wrong, both from not fetching. **For anything already merged, `gh` has the truth and
+your checkout is the stale copy** — though `gh` cannot see unpushed local commits at all, so this is
+a rule about merged history, not about your working tree.
 
 ```bash
 gh issue list --milestone "$(gh api repos/:owner/:repo/milestones --jq '.[0].title')" --state open
 gh issue view <n>
 gh pr list --state open
-gh issue list --state open --json number,title,milestone \
+gh issue list --state open --limit 200 --json number,title,milestone \
   --jq '.[] | select(.milestone == null) | "#\(.number) \(.title)"'   # untriaged; triage before picking
 ```
+
+**Note the `--limit`.** `gh issue list` defaults to **30** and this repo has more open issues than
+that, so without it the untriaged check silently inspects only the newest page — and an untriaged
+issue that ages past it becomes permanently invisible to the one command meant to find it.
 
 Read the last two entries of `docs/JOURNAL.md`. **The journal is newest-first** — `head`, not `tail`.
 Skip anything labeled `blocked` or `needs-owner`.
@@ -83,14 +93,14 @@ how every session finds work, so an untriaged issue is filed and lost in the sam
 accumulated this way before one session swept them up. If you genuinely cannot place it, file it and
 say so in your report; do not leave it for someone to notice.
 
-**Check it is not a duplicate before filing.** #141 and #76 described the same problem eight weeks
-apart, and consolidating them meant moving two contributions across before closing one. Search first:
-`gh issue list --state all --search "<distinctive phrase>"`.
+**Check it is not a duplicate before filing:** `gh issue list --state all --limit 200 --search "<phrase>"`.
+#141 and #76 described the same problem **three days apart** — close enough that the same working
+memory should have caught it, which is why the search step is worth the ten seconds. Consolidating
+them later meant moving two contributions across before closing one.
 
-**And note that filing an issue makes the roadmap's hand-maintained counts stale immediately** — this
-happened *inside* the PR that reported the defect, minutes after a review verified the count. If you
-file into a milestone the roadmap enumerates, either fix the count in the same PR or expect the next
-reconcile to catch it. #110 exists to delete those numbers.
+**Filing also makes the roadmap's hand-maintained counts stale immediately** — that happened *inside*
+the PR reporting the defect, minutes after a review had verified the count by enumeration. Expect the
+next reconcile to catch it; do not widen your PR to chase it. #110 exists to delete those numbers.
 
 ## 5. Test
 

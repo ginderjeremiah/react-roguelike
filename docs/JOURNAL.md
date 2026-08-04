@@ -66,19 +66,25 @@ than a precaution. No rule, number, doc or behaviour moves; `npm run verify` gre
 #139 ruling argued that §12's fallback is *"subtract fuel"*, a reading **#63 corrected 2026-07-31 and
 ADR-0012 restated 2026-08-02**. Two of its four arguments inverted once that was fixed, and the PR
 **deleted the paragraph carrying the correction** while arguing against the version it existed to
-correct. The correction sat *twelve lines above* the block being amended. Also added: **verify
+correct. The correction sat a few lines above the block being amended, and still went unread. Also added: **verify
 premises against `game/`, not the docs** — the ruling's other false premise (the player knows a
 flash's exact product) was taken from documentation and contradicted by `perceivedTileAt`,
 `senseCreatures` and a hidden RNG draw, while the §4 passage cited in support said the opposite.
 
 **`archivist` — the sibling sweep, which had no guidance at all.** It is the failure that blocked two
 consecutive PRs, twice each. Four rules now written down, and rules 2-4 are the ones nobody had:
-grep the **paraphrases**, not just your own wording (two sites survived a nine-string sweep by saying
-*wrong instrument* and *whose answer is always no*); **read the hit list, do not count it** (more
-strings would not have helped — `wrong instrument` is live and legitimate elsewhere in the GDD for a
-different claim, so the bad line sat among four innocent ones); and **a grep cannot catch a
-contradiction spanning two sentences** (#144's bullet asserted an answer was *always no* and cited the
-measurement showing **yes** four lines below).
+grep the **stable tokens** a paraphrase must keep — citations, `§` marks, issue and ADR numbers —
+rather than your own wording; **read the hit list, do not count it** (more strings would not have
+helped, because the paraphrase reused vocabulary the GDD still uses correctly for a *different*
+claim, so the bad line sat among four innocent ones); and **a grep cannot catch a contradiction
+spanning two sentences** (#144's bullet asserted an answer was *always no* and cited the measurement
+showing **yes** four lines below).
+
+> **Rule 2 is the reviewer's formulation, not mine, and mine was not actionable.** I had written
+> *"grep the paraphrases someone else would use"* — which cannot be enumerated in advance, by
+> definition, and which rule 3 then concedes would not have worked anyway. The reviewer's version is
+> followable: both missed sites cited **`ADR-0015`** and **`#108`**, and one grep for those finds what
+> nine hand-guessed phrasings missed. **Citations survive summarising; adjectives do not.**
 
 **`work-item` — fetch first, and file issues with a milestone.** The session opened with local `main`
 three commits behind, which made squash-merged work look like five commits of stranded work and made
@@ -95,6 +101,33 @@ trusting a summary over the source.** The designer trusted the docs over `game/`
 hit *count* over the hit *list*; the roadmap's milestone counts are a summary of `gh` that has now been
 wrong six times; and a stale `main` is a summary of the remote. The general rule is not "check more
 things", it is **prefer the artefact that cannot be stale** — and every one of these has one available.
+
+**Learned, the hard way, in the same PR: this entry's first draft broke its own thesis three times.**
+The review checked all eleven cited incidents. Nine held. Three restated *numbers* did not, every one
+of them written from my summary of the session rather than from the record:
+
+| claimed | actual | how it was wrong |
+| --- | --- | --- |
+| #76 and #141 filed *"eight weeks apart"* | **three days** (2026-07-31 → 2026-08-03) | the repo is not eight weeks old |
+| #142 corrected *"three of four"* sites, pointer *"three rows above"* | **four of five**, pointer **297 lines** away | contradicted the same file two paragraphs up |
+| §12's correction *"twelve lines above"* the amended block | **a few** | close, and still not measured |
+
+**The second is the one worth keeping.** A rule warning that N−1 corrections are dangerous, stating N
+wrong, in a file agents are told to trust — and the correct N was already written two paragraphs
+above it in that same file. *"Three rows above"* also reframed the incident as an adjacency slip when
+the real, transferable failure is a pointer **297 lines** from the site it certifies: nobody scrolled.
+
+**And two shell snippets did not do what the prose beside them claimed**, both reproduced by the
+reviewer in this repo. `git status -sb` reports on the branch you are *on*, so in the leftover-branch
+state the check exists for, it prints a clean line and teaches the opposite of the lesson. And
+`gh issue list` defaults to **30** where this repo has **56** open, so the untriaged sweep silently
+inspected one page — an untriaged issue aging past it becomes invisible to the command written to
+find it. Both now fixed and both worth remembering as a class: **a plausible-looking command in a
+process doc gets copied for a year before anyone runs it in the failing case.**
+
+So the honest summary of this PR is that **its thesis was demonstrated on itself, by the review,
+before it merged.** Prefer the artefact that cannot be stale — including when the summary you are
+trusting is your own memory of a session you just finished.
 
 **Next:** **#144** — rule the wager's cost side, which subtraction makes a never-flash line able to
 die. Unblocked and explicitly not gated on #109.

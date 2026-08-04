@@ -717,10 +717,17 @@ describe('ADR-0015 clear-1: a style that never opens the shutter does not out-ea
     // clause 2 takes the impunity, which is why the two are one ruling and not two.
     //
     // *An earlier version of this comment read `+30 -> -117` and called `HARVESTER` "the dominant
-    // line". **Neither number was measured** — the before-column was never run, and the after-column
-    // was a mid-work snapshot taken before `chooseShutter` learned to flash for a drop. Recorded
-    // rather than quietly replaced, because a fabricated before-number is the exact failure this
-    // block exists to supply the cure for.*
+    // line". **Neither number was measured**, and the account of *where they came from* was itself
+    // wrong on the second pass — recorded rather than quietly replaced, because a fabricated
+    // before-number is the exact failure this block exists to supply the cure for.*
+    //
+    // *`STALKER`'s old after-row (`+9 / 10450 / 82-121`) does reproduce, exactly and three-for-three,
+    // at one intermediate: the kill-based income counter **and** no drop-flash clause. So that half
+    // was a mid-work snapshot. **`HARVESTER`'s `-117` reproduces nowhere** — and it cannot have come
+    // from the `chooseShutter` clause the first correction blamed, because `HARVESTER` is
+    // `light: 'never'` and **no change to `chooseShutter` can move any `HARVESTER` figure at all**.
+    // Saying so is the standard this block imposes on everyone else: name the build a number came
+    // from, or say plainly that you could not find one.*
     //
     // `STALKER` is barely moved on every axis — same 420 kills, 878 -> 836 flashes, income −7.2%
     // against demand −1% — which is the ruling's own prediction and **not** its third Watch firing.
@@ -771,8 +778,9 @@ describe('ADR-0015 clear-2: a line that never opens the shutter dies', () => {
    * case — the line ran the reserve to nothing and then kept walking, for dozens of turns, because
    * nothing happened when it did. (ADR-0015 and #149 quote **824 turns at 12/12** for this criterion.
    * That is #108's hand-played *wandering* autoplay and not this script; the two are different bots
-   * and the numbers must not be pooled. What they agree on is the only thing being asserted: 9 of 9,
-   * at full HP.)
+   * and the numbers must not be pooled. The *9 of 9* is this suite's own sweep, **not** #108's — its
+   * autoplay is a single run. What the two agree on is only the shape: a never-flash line finished,
+   * at full HP, with the reserve run to nothing.)
    *
    * The corpus above is **structurally blind to it**, twice over: `lantern-run.ts` takes liberty 1
    * (the player is immortal, so the fuel economy rather than survival is what it measures) and it

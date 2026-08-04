@@ -134,6 +134,15 @@ assertion are here; what is not here is #109's own write-up, which this row is.
 > figure is **8400** and a net of **0**. Recorded rather than silently replaced, because this entry
 > tells a future session *"do not re-derive them"*, and a number that says that had better be one
 > somebody actually took.
+>
+> **And the *second* pass got the provenance wrong, which is its own lesson.** The correction in
+> `economy.test.ts` blamed the stale after-column on *"a mid-work snapshot before `chooseShutter`
+> learned to flash for a drop"*. True of `STALKER` — its old row reproduces exactly, three-for-three,
+> at that intermediate. **Impossible for `HARVESTER`**, which is `light: 'never'`, so no change to
+> `chooseShutter` can move any `HARVESTER` figure at all. **A claimed provenance has to be *possible*,
+> not merely plausible** — and that is checkable against the config without re-running anything, the
+> same way `8600 ≠ 420 × 20` was. Two cheap arithmetic checks have now caught two fabrications in this
+> entry; running the corpus caught neither first.
 
 **And the corrected before-number makes the ruling's case sharper rather than weaker.** The claim that
 went with the fabricated row was *"`HARVESTER` was the dominant line and is now insolvent"*. It was not

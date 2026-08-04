@@ -215,6 +215,10 @@ export async function wander(page: Page, options: WanderOptions): Promise<number
     // wants the dark. Either way the fix is the same one press.
     if (shut === wantsOpen) {
       const control = page.getByTestId('control-shutter');
+      // Kept, and unconditionally true since #149 deleted `ControlButton`'s `disabled` prop: a
+      // running state has fuel >= 1, so the shutter can never report disabled. It stays because
+      // Playwright's `isEnabled()` also goes false if the control is detached mid-run — a real
+      // failure this driver should skip rather than throw on — not because the game can grey it.
       if (await control.isEnabled()) {
         await press(page, control);
         continue;

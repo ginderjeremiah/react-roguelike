@@ -1123,7 +1123,9 @@ than a gamble; and light's only unique product — terrain and items — can be 
 because touch radius 1 plus the four-neighbour guarantee lets you crawl anywhere forever.
 
 > **Read the second cause precisely, because a draft of ADR-0015 over-read it and had to retract —
-> *2026-08-04, #139*.** It is true of the flash's **price** and false of its **product**. Containment
+> *2026-08-04, #139*.** It is true of the flash's **price** — *in principle*, because #82 measured the
+> containment read as **unexecutable on screen** and `vision.ts` suspends the guarantee outright for the
+> four turns of the adaptation ramp — and false of its **product**. Containment
 > tells you what a flash would *wake*; nothing tells you what it would *find*, and §4 keeps it that way
 > deliberately (an unlit cache reads as floor, ember-sense senses no caches, and whether a room holds
 > one is a hidden draw). So the flash is a **permission check on safety and a gamble on payoff** — the
@@ -1147,7 +1149,10 @@ named tense light moments and complained about their *frequency*. The classifica
 
 **Two levers it offered and did not decide**, both real trades: charging a turn for the shutter
 toggle (§2 argues against it on Pillar 3 grounds), and cutting ember-sense below 4, which breaks the
-containment guarantee's use as a permission check without breaking its use as legibility. Also
+containment guarantee's use as a permission check without breaking its use as legibility. **The
+second of those is not undecided any more — it was rejected in GDD's 2026-07-31 change-log row, for
+the reason the qualifier above carries: *you cannot tune away a permission check nobody can
+perform*.** Read it as a rejected lever, not an open one. Also
 observed and unfiled as its own thing: six rapid shutter taps burn 15 fuel with zero turns elapsed
 and no warning, so a fumbled double-tap costs 5 fuel.
 

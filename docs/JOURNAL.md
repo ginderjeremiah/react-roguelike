@@ -153,7 +153,7 @@ this repo keeps hitting: a claim derived correctly from these documents and fals
    editing.** Grep the section you are amending, not only the phrase you are changing.
    *(And the restored `VISION.md` note first claimed to keep #63's correction **"verbatim"** when it
    is a rewrite that adds a clause. Corrected to *kept in substance and sharpened*, with #63's actual
-   sentence quoted — in a paragraph whose whole job is* this is the sentence people keep deleting*, an
+   sentence quoted — in a paragraph whose whole job is *this is the sentence people keep deleting*, an
    inaccurate "verbatim" is exactly the small false claim this repo catches.)*
 2. ***"The player knows the flash's exact price and product, so it is a comparison of two known
    integers."*** The product half is **false of the build and §4 made it false on purpose**:
@@ -184,6 +184,15 @@ usually not the phrase you wrote — it is the phrase someone else wrote when su
 enumerate the *paraphrases a summary would use* before sweeping, and sweep the **issue bodies** too,
 not just `docs/`. The strings that would have caught these: `wrong instrument`, `relevance`,
 `always no`, `two integers`.
+
+> **More strings would not have been sufficient, and the review sharpened this after the fact — take
+> the sharpened version.** The ROADMAP paraphrase used the phrase `wrong instrument`, which is *live
+> and legitimate* in `GDD.md` in four other places for a **different** claim (the turn-line copy, and
+> #63's still-true *wrong instrument for a frequency problem*). So a sweep that **did** include the
+> string returns a hit list in which the one offending line looks exactly like four innocent ones.
+> **A retraction sweep's hit list has to be read, not counted** — a paraphrase will often collide with
+> vocabulary the docs still use correctly for something else. Read as "just add more strings", the
+> paragraph above is wrong.
 
 **And #144's bullet was self-refuting in its own two sentences, which nothing but reading it caught.**
 It called the flash *"a comparison of two integers whose answer is always no"* and then cited

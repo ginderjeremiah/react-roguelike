@@ -122,7 +122,8 @@ That is the whole of what this paragraph promises, and it is a constraint rather
 > *ember pays only where the lantern has been, and a lantern that goes out ends the run.* It is one
 > rule change by size, in two halves, because each half is the other's escape hatch: light-gating the
 > ember alone leaves a never-flash line earning nothing and still not dying, and a lethal dry lantern
-> alone leaves a never-flash **fighter** solvent. Built by [#149](../../issues/149).
+> alone changes only *when* you die — `resolveDeaths` pays a creature's ember with no reference to its
+> mind, so no fuel rule can make waking pay. Built by [#149](../../issues/149).
 
 ## Non-goals
 

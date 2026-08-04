@@ -176,7 +176,15 @@ deeper.` is a fact about the ruin and answers the question a boss-less roguelike
 lantern still burns.` is a fact about the thing in your hand, restating the verdict's subject — which
 is exactly the defect that retired `You reach the bottom.` when #21 put the verdict above it. **A truer
 sentence that restates the verdict is worse than a true one that adds a fact.** The old reason was
-contingent on a rule and died with it; this one was available the whole time and nobody reached for it.
+contingent on a rule and died with it. **The new one is *enabled by* this ruling, not overlooked since
+#21** — a distinction the review caught me eliding, and it matters, because "available the whole time"
+converts a newly-enabled argument into a lapse and indicts a ruling that did nothing wrong. #21 had
+the principle (it wrote *the verdict names the player's fate and the headline is an image of the
+world* on the same day) **and considered the mirror by name**. It did not reach for the principle
+because it did not yet apply: a dry lantern was survivable then, so the sentence was a fact about
+equipment that restated nothing. The identity that makes it restate the verdict — **lantern state *is*
+the player's fate** — is manufactured by *The dark can take nothing*. #21 killed it on truth and
+called it *tempting*, which is exactly right for a mirror that was not yet structurally wrong.
 
 **The transferable form, and it is the repo's own sweep rule with the emphasis moved: *check the
 document you are writing the correction in* is not the same as *check the paragraph you are

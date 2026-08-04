@@ -2744,9 +2744,16 @@ defect that retired `You reach the bottom.` when #21 put `> REACHED THE BOTTOM` 
 **A truer sentence that restates the verdict is worse than a true one that adds a fact**, and the
 mirror is additionally a claim about *survival* where §13's win is *arrival*.
 
-**Recorded rather than quietly re-argued because the two reasons are not interchangeable.** The old
-one was contingent on a rule and died with it; this one is structural and was available the whole
-time. `render/hud.ts` carries the dead reason in a comment, which will not go red —
+**Recorded rather than quietly re-argued because the two reasons are not interchangeable, and because
+the new one is *enabled by this ruling* rather than overlooked since #21.** The **principle** predates
+— #21 wrote *the verdict names the player's fate and the headline is an image of the world* on
+2026-07-31. Its **application to this string** does not: before the ruling a dry lantern was
+survivable, so `The lantern still burns.` was a fact about equipment that restated nothing, which is
+why #21 killed it on **truth** and called it *tempting* rather than wrong. The identity that makes it
+restate the verdict — lantern state *is* the player's fate — is created by *The dark can take nothing*.
+So #21 is not indicted: it considered the mirror by name, held the principle in the same row, and did
+not reach for it because it did not yet apply. `render/hud.ts` carries the dead reason in a comment,
+which will not go red —
 [#149](../../issues/149) lists it.
 
 *Watch — **discharged in the player's favour by #144, and the history is the point**.* It read: *"§4

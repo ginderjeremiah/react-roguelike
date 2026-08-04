@@ -73,9 +73,9 @@ are each answered below and none of them survives.
 §12's designated fallback is **pure positional tactics with enemies whose fixed patterns force
 contact** — a different enemy, a different level generator, a different win condition. **It is not
 "subtract fuel", this ADR does not argue against that strawman, and the distinction is load-bearing.**
-#63 corrected the misreading, GDD §12 carries the correction twelve lines above the block this ruling
-amends, and ADR-0012 records that *"the whole weight of ruling not fired rests on the fallback being a
-rebuild rather than an adjustment."*
+#63 corrected the misreading, GDD §12 carries the correction eight lines above the #121 trigger block
+this ruling supersedes, and ADR-0012 records that *"the whole weight of ruling not fired rests on the
+fallback being a rebuild rather than an adjustment."*
 
 **Read correctly, the fallback would work, and that has to be said before anything else.** Forced
 contact is an HP mechanism. It delivers proposition (a) below — *a run that never opens the shutter can

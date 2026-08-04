@@ -13,13 +13,40 @@ current milestone.
 
 ## 1. Orient
 
+**Fetch before you read anything.** A stale local `main` makes merged work look like stranded work:
+
 ```bash
-gh issue list --milestone "$(gh api repos/:owner/:repo/milestones --jq '.[0].title')" --state open
-gh issue view <n>
-gh pr list --state open
+git fetch origin --prune
+git log --oneline main..origin/main     # any output = your main is behind; every judgment below is
+                                        # against the wrong tree
 ```
 
-Read the last two entries of `docs/JOURNAL.md`. Skip anything labeled `blocked` or `needs-owner`.
+Ask about `main` explicitly. **`git status -sb` reports only the branch you are on**, so if you are
+sitting on a leftover branch — the exact state this check exists for — it prints a clean line and
+tells you nothing.
+
+A session opened with `main` three commits behind. A branch whose work had already squash-merged
+looked like five commits of abandoned work, and the roadmap looked drifted when it was not. Both
+readings were wrong, both from not fetching. **For anything already merged, `gh` has the truth and
+your checkout is the stale copy** — though `gh` cannot see unpushed local commits at all, so this is
+a rule about merged history, not about your working tree.
+
+```bash
+gh issue list --milestone "$(gh api repos/:owner/:repo/milestones --jq '.[0].title')" --state open --limit 200
+gh issue view <n>
+gh pr list --state open --limit 200
+gh issue list --state open --limit 200 --json number,title,milestone \
+  --jq '.[] | select(.milestone == null) | "#\(.number) \(.title)"'   # untriaged; triage before picking
+```
+
+**Note the `--limit` on every one of them.** `gh issue list` and `gh pr list` both default to **30**
+and sort newest-first, and this repo has more open issues than that. Without the flag each command
+silently inspects only the newest page — so the *oldest* items in a milestone, and any untriaged
+issue that ages past the cut, become invisible to the very commands you run to find work. **The
+default is silent: you get 30 rows and no indication there were more.**
+
+Read the last two entries of `docs/JOURNAL.md`. **The journal is newest-first** — `head`, not `tail`.
+Skip anything labeled `blocked` or `needs-owner`.
 
 Claim it so parallel sessions don't collide:
 
@@ -55,11 +82,27 @@ Delegate to the specialist:
 - `render/`, `components/`, `app/` → **ui-engineer**
 - test infrastructure or coverage → **test-engineer**
 
-Keep the diff scoped to the issue. Unrelated problems you discover become new issues:
+Keep the diff scoped to the issue. Unrelated problems you discover become new issues — **always with
+a milestone and a label**, in the same command:
 
 ```bash
-gh issue create --title "..." --body "Found while working #<n>. ..."
+gh issue create --title "..." --milestone "<milestone>" --label task \
+  --body "Found while working #<n>. ..."
 ```
+
+**An issue filed without a milestone is invisible to the queue** — `gh issue list --milestone ...` is
+how every session finds work, so an untriaged issue is filed and lost in the same motion. Four
+accumulated this way before one session swept them up. If you genuinely cannot place it, file it and
+say so in your report; do not leave it for someone to notice.
+
+**Check it is not a duplicate before filing:** `gh issue list --state all --limit 200 --search "<phrase>"`.
+#141 and #76 described the same problem **three days apart** — close enough that the same working
+memory should have caught it, which is why the search step is worth the ten seconds. Consolidating
+them later meant moving two contributions across before closing one.
+
+**Filing also makes the roadmap's hand-maintained counts stale immediately** — that happened *inside*
+the PR reporting the defect, minutes after a review had verified the count by enumeration. Expect the
+next reconcile to catch it; do not widen your PR to chase it. #110 exists to delete those numbers.
 
 ## 5. Test
 

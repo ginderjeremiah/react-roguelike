@@ -57,6 +57,142 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-08-04 — The #139 cycle's process bill, paid into the agents that will repeat it
+
+**Did:** Four process fixes in `.claude/`, each one a failure this session actually paid for rather
+than a precaution. No rule, number, doc or behaviour moves; `npm run verify` green (1168 tests).
+
+**`game-designer` — check whether the claim you are arguing against was already ruled on.** The
+#139 ruling argued that §12's fallback is *"subtract fuel"*, a reading **#63 corrected 2026-07-31 and
+ADR-0012 restated 2026-08-02**. Two of its four arguments inverted once that was fixed, and the PR
+**deleted the paragraph carrying the correction** while arguing against the version it existed to
+correct. The correction sat **eight lines** above the #121 trigger block the ruling supersedes, and
+still went unread. Also added: **verify
+premises against `game/`, not the docs** — the ruling's other false premise (the player knows a
+flash's exact product) was taken from documentation and contradicted by `perceivedTileAt`,
+`senseCreatures` and a hidden RNG draw, while the §4 passage cited in support said the opposite.
+
+**`archivist` — the sibling sweep, which had no guidance at all.** It is the failure that blocked two
+consecutive PRs, twice each. Four rules now written down, and rules 2-4 are the ones nobody had:
+grep the **stable tokens** a paraphrase must keep — citations, `§` marks, issue and ADR numbers —
+rather than your own wording; **read the hit list, do not count it** (more strings would not have
+helped, because the paraphrase reused vocabulary the GDD still uses correctly for a *different*
+claim, so the bad line sat among four innocent ones); and **a grep cannot catch a contradiction
+spanning two sentences** (#144's bullet asserted an answer was *always no* and cited the measurement
+showing **yes** four lines below).
+
+> **Rule 2 is the reviewer's formulation, not mine, and mine was not actionable.** I had written
+> *"grep the paraphrases someone else would use"* — which cannot be enumerated in advance, by
+> definition, and which rule 3 then concedes would not have worked anyway. The reviewer's version is
+> followable: one missed site cited **`ADR-0015`** and the other **`#108`**, and one grep finds what
+> nine hand-guessed phrasings missed. **Citations survive summarising; adjectives do not.**
+
+**`work-item` — fetch first, and file issues with a milestone.** The session opened with local `main`
+three commits behind, which made squash-merged work look like five commits of stranded work and made
+the roadmap look drifted when it was not. And four issues had accumulated with no milestone: `gh issue
+list --milestone` is how every session finds work, so **an issue filed without one is filed and lost
+in the same motion.**
+
+**Why:** These agents are the project's memory of *how* to work, the way the journal is its memory of
+*what* was decided. A lesson recorded only in a journal entry is a lesson the next session reads once,
+near the top, for about a week. A lesson in the agent definition is one it cannot avoid.
+
+**Learned:** Writing this up, the four fixes turned out to share a shape — **every one is a case of
+trusting a summary over the source.** The designer trusted the docs over `game/`; the sweep trusted a
+hit *count* over the hit *list*; the roadmap's milestone counts are a summary of `gh` that has now been
+wrong six times; and a stale `main` is a summary of the remote. The general rule is not "check more
+things", it is **prefer the artefact that cannot be stale** — and every one of these has one available.
+
+**Learned, the hard way, in the same PR: this entry's first draft broke its own thesis three times.**
+The review checked all eleven cited incidents. Nine held. Three restated *numbers* did not, every one
+of them written from my summary of the session rather than from the record:
+
+| claimed | actual | how it was wrong |
+| --- | --- | --- |
+| #76 and #141 filed *"eight weeks apart"* | **three days** (2026-07-31 → 2026-08-03) | the repo is not eight weeks old |
+| #142 corrected *"three of four"* sites, pointer *"three rows above"* | **four of five**, pointer **297 lines** away | contradicted the paragraph directly above it |
+| §12's correction *"twelve lines above"* the amended block | **eight**, above the #121 trigger block superseded (GDD 2134 → 2142 at `06b1735^`) | close, wrong anchor, never measured |
+
+**The second is the one worth keeping.** A rule warning that N−1 corrections are dangerous, stating N
+wrong, in a file agents are told to trust — and the correct N was already written in the paragraph
+directly above it in that same file. *"Three rows above"* also reframed the incident as an adjacency slip when
+the real, transferable failure is a pointer **297 lines** from the site it certifies: nobody scrolled.
+
+**And two shell snippets did not do what the prose beside them claimed**, both reproduced by the
+reviewer in this repo. `git status -sb` reports on the branch you are *on*, so in the leftover-branch
+state the check exists for, it prints a clean line and teaches the opposite of the lesson. And
+`gh issue list` defaults to **30** where this repo has well over that open, so the untriaged sweep silently
+inspected one page — an untriaged issue aging past it becomes invisible to the command written to
+find it. Both now fixed and both worth remembering as a class: **a plausible-looking command in a
+process doc gets copied for a year before anyone runs it in the failing case.**
+
+So the honest summary of this PR is that **its thesis was demonstrated on itself, by the review,
+before it merged.** Prefer the artefact that cannot be stale — including when the summary you are
+trusting is your own memory of a session you just finished.
+
+**And then the fix commit did it again, twice, in the shape the fix commit was adding a rule about.**
+The third review found that `0b4b728` had:
+
+- added `--limit 200` to **two of the three** `gh issue list` calls, missing the milestone-queue
+  command at the top of step 1 — the one a session actually runs to find work. It returns 30 of M2's
+  33, silently dropping **#28, #35 and #46**: the *oldest*, because `gh` sorts newest-first. The fix
+  commit even added a paragraph explaining the 30-item default, scoped to "the untriaged check", so a
+  reader was told the rule and shown the unfixed command in the same code block.
+- narrowed *"the doc is wrong — fix it"* at **one of the two** sites in `game-designer.md` stating
+  that rule. The un-narrowed one is in the **Output** section — the paragraph a designer is reading
+  *at the moment they open `GDD.md`* — so it was the more proximate instruction of the two.
+
+**So the third fix enumerated mechanically instead of from memory, and immediately found four more
+sites the review had not named** — including `CLAUDE.md`'s step 3, the single highest-traffic queue
+command in the repo, and `archivist.md`'s own `gh issue list --state open`. Also `WORKFLOW.md` ×2.
+One `grep -rn "gh issue list"` over tracked files found all of them in a second; three rounds of
+careful reading had not.
+
+*Scope, stated rather than silently taken:* every **runnable command block** in the process docs now
+carries `--limit 200`. Narrative references in `JOURNAL.md` (append-only history) and `ROADMAP.md`
+(prose) deliberately do not. One of those is a live instruction — `ROADMAP.md`'s *"re-derive this
+list from `gh issue list --milestone "Contract and tooling"`"* — which works today only because that
+milestone is under 30. **It will break silently when it crosses**, and it belongs to the next
+reconcile or to #110, not to this PR.
+
+**N−1 twice, in the commit adding "correct every site or none" to the archivist.** That is not
+irony worth a joke, it is the measurement: this failure is not a lapse of care, because the care was
+maximal and specifically directed at this failure. It is what happens when a fix is applied by
+memory of where the problem was rather than by enumerating where the claim *is*. The rule in
+`archivist.md` is right and it is not sufficient — **the enumeration has to be mechanical**, which is
+the argument #143 makes for the ADR index and #110 for the roadmap counts.
+
+**And then a fourth time, which is what finally isolated the variable.** The commit above *did*
+enumerate mechanically — but only for `gh issue list`, because a command is greppable. Its three
+**prose** corrections were applied from memory, and all three left their journal sibling stale: the
+line count still said *"a few"* at the top of the entry while the table below called that wrong and a
+paragraph below *that* claimed both sites were fixed; *"two paragraphs above"* survived four lines
+from the cell correcting it; and the citation sentence kept the distributive reading. **One claim
+managed to contradict itself twice within 100 lines of a single entry.**
+
+So the variable is not care, and it is not even mechanism-in-general — it is **which claims got the
+mechanism**. Greppable ones converged in one pass. Prose ones took four, and were still wrong at the
+fourth. The rule that follows is narrow and usable: **after correcting any claim, grep the corrected
+phrase *and* the phrase you corrected away from, and read every hit — including in the document you
+are writing the correction in.** That last clause is the one four rounds were spent learning: the
+entry describing a sibling-miss is itself a site of the claim, and it is the site nobody checks.
+
+The corrected numbers were also worth measuring rather than hedging. *"Twelve lines above"* became
+*"a few"* on the first fix, which the review correctly called out as trading a wrong number for no
+number: it is **eight** — `docs/GDD.md` 2134 → 2142 at `06b1735^`, and the anchor matters, because
+2142 opens the **#121 trigger block this ruling supersedes**, not the block the diff textually edits
+(§12's hunks are 24 lines above and 51 below). Now stated with that anchor at **all three** live
+sites: this entry, ADR-0015, and `game-designer.md`.
+
+**Next:** **#144** — rule the wager's cost side, which subtraction makes a never-flash line able to
+die. Unblocked and explicitly not gated on #109.
+
+**Watch:** All four fixes are prose in files an agent is *told* to read, which is the same class of
+defence this repo has watched fail repeatedly (#141's `.gitattributes` argument, #143's ADR-index
+guard, the journal format block that needed seven failures before a test). None of these four is
+mechanically enforceable, so treat them as a floor, not a fix. The stale-`main` one is the exception
+and could become a hook.
+
 ## 2026-08-04 — #139: arm 2 fired, and the fallback it fires is retired rather than spent
 
 **Did:** Ruled **#139**. **§12's arm 2 has fired**, and **§12's fallback is withdrawn rather than

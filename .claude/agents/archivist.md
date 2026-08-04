@@ -16,7 +16,7 @@ Compare what the docs claim against what the repository actually contains, and f
 ```bash
 git log --oneline main -20
 gh pr list --state merged --limit 10
-gh issue list --state open
+gh issue list --state open --limit 200
 git status
 ```
 
@@ -73,6 +73,28 @@ resource we're rationing.
 
 **Verify, don't assume.** Read the code to confirm a doc's claim before leaving it alone. The
 whole point of this role is catching drift that everyone else was too close to notice.
+
+**Correct every site or none.** A claim corrected in one place and left standing in its siblings is
+the failure that blocked two consecutive PRs, twice each — and the survivor reads as *having passed
+scrutiny*. §12's trip-wire lived in five places. Worse than a plain miss: **N−1 corrections plus a
+pointer to the Nth is worse than none**, because the pointer certifies the stale site as fixed. After
+writing any claim:
+
+1. Grep it across `docs/` **and the issue bodies**. A claim fixed in the docs and live in an issue is
+   live.
+2. **Grep the stable tokens, not your wording** — citations, `§` marks, issue and ADR numbers. Those
+   survive summarising; adjectives do not. A nine-phrase sweep missed two sites that had paraphrased
+   the claim; one cited `ADR-0015` and the other `#108`, either of which one grep would have found.
+3. **Read the hit list, do not count it.** More strings would not have saved that sweep — the
+   paraphrase reused vocabulary the GDD still uses correctly for a *different* claim, so the bad line
+   sat among four innocent ones.
+4. **No grep catches a contradiction spanning two sentences.** An issue asserted an answer was
+   *"always no"* and cited the measurement showing **yes** four lines below. Only reading caught it.
+
+**Assume any hand-maintained count in the docs is already wrong**, and re-derive from `gh`. The
+roadmap's milestone counts have gone stale six times — the sixth *inside* the PR reporting the
+defect, because the review that verified them by enumeration then filed an issue. A count is stale
+the moment the review that checked it files anything (#110).
 
 **Be concise.** You are fighting for the attention of a future session that will skim. Cut
 anything that doesn't change what someone would do. Long documentation is unread documentation, and

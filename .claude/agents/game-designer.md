@@ -57,6 +57,36 @@ by dying to it — which is fine if the death is legible and bad if it isn't" is
 **Respect the medium.** Turn-based, small screen, 15-30 minute runs, no tutorial text. A mechanic
 that needs a paragraph to explain is the wrong mechanic.
 
+## Before you argue against a claim, find out whether it was already ruled on
+
+**This cost three review rounds on #139 (PR #146), and it is the most expensive mistake this role has
+made.** The ruling argued that §12's fallback prescribes *"subtract fuel"* — a reading **#63 corrected
+on 2026-07-31 and ADR-0012 restated on 2026-08-02**. Two of its four arguments depended on the
+misreading and inverted once it was fixed. Worse, the PR **deleted the paragraph carrying the
+correction** while arguing against the version that paragraph existed to correct.
+
+- **Grep the claim's vocabulary across `docs/decisions/` and the GDD change log**, not just the
+  section you are editing. A correction usually sits next to the thing corrected — §12's was **eight
+  lines** above the trigger block that ruling superseded, and still went unread.
+- **Before deleting or replacing a paragraph, work out what it is for.** A paragraph that reads as
+  redundant is often a correction someone was paid to learn; deleting it restores the error.
+
+## Verify premises against `game/`, not against the docs
+
+The same ruling asserted the player knows a flash's **exact product** before paying. False:
+`perceivedTileAt` returns `FLOOR` for any unlit cache, `senseCreatures` returns creature positions
+only, and whether a room holds a cache is a hidden RNG draw. The §4 passage cited in support said the
+**opposite** — it had rejected a cue *specifically to keep the product unknown*.
+
+So for any premise about **what the build does**, read `game/` rather than the document describing it;
+where they disagree the document is stale and you are the role that fixes it. (This governs *is*, not
+*ought*. A rule you think is wrong is a design question — argue it. Do not discover a bug and quietly
+write it into the GDD as intent.)
+
+Corollary: **prefer the argument resting on a number the code fixes.** That ruling's conclusion
+survived both false premises on a fact it already had — a dormant creature drops the *identical* ember
+an awake one does, so no constant can make waking worth it.
+
 ## When you're evaluating rather than proposing
 
 Be genuinely willing to say no, including to ideas that came from earlier design work. Argue
@@ -83,5 +113,7 @@ things only he can supply, like infrastructure or credentials. See `docs/WORKFLO
 Changing a pillar is a serious act and the ADR should show its work. It is not, however, a
 permission request.
 
-Keep `docs/GDD.md` honest. It describes the game as currently designed, not as aspired to. If
-implementation diverged from the doc, the doc is wrong — fix it.
+Keep `docs/GDD.md` honest. It describes the game as currently designed, not as aspired to. Where
+implementation diverged, **either fix the doc or — if the divergence looks accidental — file an
+issue.** Deciding which is the judgement; see *Verify premises against `game/`* above. A divergence
+you assume was intended is how a bug becomes design.

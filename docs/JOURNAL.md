@@ -228,7 +228,10 @@ structurally blind to the fuel ending.
 **Read the turn, not the floor — and this one I also stated wrong first time.** The entry said the
 never-flash line "dies on floors 4-6", which is true of *this script* and is not a description of
 play: it takes the file's routing liberty, beelines to `world.floor.stairs` over the real grid, and
-crosses a floor in ~15 turns. **79 turns is the rule** — 80 fuel at 1 a turn, `gathered` 0 — and it is
+crosses a floor in ~15 turns. **79 turns is the rule** — 80 fuel at 1 a turn, `gathered` 0, and **79
+rather than 80 because the run starts open**, so the opening `CLOSE` is a free toggle that burns 1
+without spending a turn (measured: `commands 80, turns 79, fuelBurned 80`; the two cache seeds are
+`105/104/105`, the same offset) — and it is
 the same for anyone who never opens the shutter. What differs is how much ground those 79 turns buy:
 the #145 playtest, hand-played, died on the **same turn 79** on **floor 2 of 8**, at 12/12 HP with 2
 kills. The playtest's caveat travels with the number and is worth more than the number: **it dies,
@@ -236,6 +239,26 @@ which is the point, but floor 2 of 8 in 79 turns is not "a run"**, and a player 
 out the claim rule will play close to that line by accident. That is [#154](../../issues/154)'s
 territory — the ruling is currently *invisible*: an unclaimable drop draws identically to a claimable
 one, stepping onto one says nothing, and `@` overdraws the `♦` you are standing on.
+
+**The #145 playtest's verdict, recorded here because this file is the artifact that survives.**
+**Approve with follow-ups — ship it.** Six runs, four seeds. The two deletions are judged the right
+two: the never-flash line is dead hand-played, waking is worth it because *a hunter dies on ground you
+already lit* (§4's own sentence, landing in play), and the flash reads as **claiming** rather than as
+paying a tax. The flash frame is called *"the game's best screen by a distance"*; the fuel death
+*"one of the most legible deaths I have seen in this project"*, with `FUEL SPENT 80 (gathered 0)`
+singled out as *"the whole diagnosis in two words."* Ember you cannot take reads as a landmark you
+own, **not** a nag — §4's prediction held and the ruling's own Watch did not fire.
+
+Five issues came out of it. **[#154](../../issues/154) is the gate**: the playtester's condition is
+that it closes **before #145 is judged**, not before this merged. The others:
+[#153](../../issues/153) (opening the shutter at ≤4 fuel ends the run on the press, unannounced — the
+one unavoidable death in the build), [#155](../../issues/155) (`You gather N ember.` is net of burn,
+so a drop's value is unlearnable — worse after this ruling than before it, because §4's case is that
+the player now weighs HP against fuel turn by turn), [#156](../../issues/156) (`! 1 turns`), and
+[#157](../../issues/157) (5 of 55 sampled turns were decisions; the drag is the stretch between
+clearing a room and finding the stairs, which is **not** this ruling's doing but is now the biggest
+Pillar 1 cost). The playtest explicitly recommends **no tuning yet** — the freeze is right, and the
+two things that felt off are structural rather than numeric.
 `lightTheWayDown` is the new winning script: crawl dark, flash beside each cache, haul it, take the
 stairs. It wins on 15 of 15 seeds with **47-159** fuel left, and it is a better fixture than the one it
 replaced — it wakes things, fights and takes damage, where the dark dive never produced a single
@@ -272,12 +295,24 @@ arbitrage this entry first claimed it was.**
 > repo ever said it did.
 
 **What is actually worth watching, stated as the playtest measured it.** The loop is `strike` →
-`OPEN` → `CLOSE` → `step`: one turn, 5 fuel, two free presses. The free presses are at **provably zero
-risk**, and that is a guarantee rather than a habit — ember-sense is radius 5 through walls and the
-lit field is radius 4 with line of sight, so §4's containment means *everything a flash can wake, you
-can already feel*. Of ~10 claimed kills in the playtest, only **3** had anything within radius 4 to
-wake; on the other 7 the two presses could not have cost anything and the player knew it before
-pressing. **The playtester's own classification is ceremony rather than a Pillar 1 violation, and
+`OPEN` → `CLOSE` → `step`: **one turn beyond the kill** (the strike costs its own — `step.ts` prices a
+bump-attack as `costsATurn`), 5 fuel, two free presses. The presses are at zero risk **at full
+adaptation, and only there** — ember-sense is radius 5 through walls against a lit field of radius 4
+with LOS, so §4's containment means *everything a flash can wake, you can already feel*. Of ~10
+claimed kills in the playtest, only **3** had anything within radius 4 to wake; on the other 7 the two
+presses could not have cost anything and the player knew it before pressing.
+
+> **The scoping clause is not decoration, and a first draft of this paragraph omitted it — caught in
+> review.** `closeShutter` resets `senseRadius` to `ADAPTATION_FLOOR` = 1, and
+> `game/fov/containment.test.ts` has a describe block named *"containment is suspended during the
+> adaptation ramp"* asserting `[false, false, false, true, true]` for the four turns after shuttering,
+> breached at more than half of all standable tiles at radii 1-3. **So the loop falsifies the
+> guarantee when it repeats:** strike → `OPEN` → `CLOSE` (sense → 1) → step (2) → strike (3) →
+> `OPEN` — that second flash lights radius 4 against a sense of **3**, and can wake something the
+> player could not feel. The codebase already knew: `lantern-run.ts` refuses to flash unless
+> `senseRadius >= EMBER_SENSE_RADIUS`. **A claim of *provable* zero risk in the file every session
+> reads first is a claim a `game-designer` will act on**, so it had better carry the condition it
+> holds under. **The playtester's own classification is ceremony rather than a Pillar 1 violation, and
 explicitly not worth cutting**: the same flash is doing real exploration work, and the three occasions
 it *was* a decision were the best turns of the session. Recorded that way rather than as an
 exploit — if #145's broader pass reports flashing on a timer, this is still the first place to look,

@@ -215,11 +215,14 @@ export async function wander(page: Page, options: WanderOptions): Promise<number
     // wants the dark. Either way the fix is the same one press.
     if (shut === wantsOpen) {
       const control = page.getByTestId('control-shutter');
-      // Kept, and unconditionally true since #149 deleted `ControlButton`'s `disabled` prop: a
-      // running state has fuel >= 1, so the shutter can never report disabled. It stays because
-      // Playwright's `isEnabled()` also goes false if the control is detached mid-run — a real
-      // failure this driver should skip rather than throw on — not because the game can grey it.
-      if (await control.isEnabled()) {
+      // No `isEnabled()` guard. #149 deleted `ControlButton`'s `disabled` prop, and `Controls` only
+      // mounts while `scene.summary === null` — where fuel is >= 1 — so the shutter can never report
+      // disabled and the guard was unconditionally true. A first attempt kept it, claiming
+      // `isEnabled()` returns false for a control detached mid-run; measured against this repo's
+      // Playwright, it **throws** instead (and with no `actionTimeout` set, hangs first), so the
+      // `await` would raise before the `if` could skip anything. An unreachable branch justified by
+      // a mechanism that does not exist is worse than no branch.
+      {
         await press(page, control);
         continue;
       }

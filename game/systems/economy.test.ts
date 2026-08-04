@@ -724,8 +724,9 @@ describe('ADR-0015 clear-1: a style that never opens the shutter does not out-ea
     // *`STALKER`'s old after-row (`+9 / 10450 / 82-121`) does reproduce, exactly and three-for-three,
     // at one intermediate: the kill-based income counter **and** no drop-flash clause. So that half
     // was a mid-work snapshot. **`HARVESTER`'s `-117` reproduces nowhere** — and it cannot have come
-    // from the `chooseShutter` clause the first correction blamed, because `HARVESTER` is
-    // `light: 'never'` and **no change to `chooseShutter` can move any `HARVESTER` figure at all**.
+    // from the clause the first correction blamed: that clause lives inside `chooseShutter`'s
+    // `case 'flash'`, and **`HARVESTER` is `light: 'never'`, so it never reaches that arm**. (Not
+    // that no edit to `chooseShutter` could move it — `case 'never'` is in there too.)
     // Saying so is the standard this block imposes on everyone else: name the build a number came
     // from, or say plainly that you could not find one.*
     //

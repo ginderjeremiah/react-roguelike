@@ -11,9 +11,14 @@
  *
  * `shutter.canOpen` and `onStairs` exist because §9 gives each of them a *control*:
  *
- *   - §4 at 0 fuel: "the shutter can no longer be opened". `game/systems/lantern.ts` already stated
- *     that the renderer needs this — "a control that silently does nothing is worse than one that is
- *     visibly dead".
+ *   - §4 at 0 fuel: "the shutter can no longer be opened". **`components/play/controls.tsx` no
+ *     longer reads this**, and that is #149 rather than a regression: §4's *The dark can take
+ *     nothing* ends the run at 0 fuel, and the control row is mounted only while the run is running,
+ *     so the dead-shutter state cannot be rendered and its branch is deleted. The field stays because
+ *     it is a truthful projection of a `game/systems/` predicate that still exists and is still §4's
+ *     rule — `presentHud` reports what the lantern *is*, and it is not this layer's business that
+ *     one consumer no longer has a frame to draw it in. It is pinned below on a hand-built dry
+ *     lantern, which is the only state it can be true of.
  *   - §9: "**Descend: its own control, present only while you are standing on the stairs.** ... The
  *     control appearing is also unambiguous confirmation that you are on the stairs, which is worth
  *     something in the dark."
@@ -84,7 +89,11 @@ export type FuelHud = {
 /** §9's shutter control: what it reads, and whether it can be pressed. */
 export type ShutterHud = {
   readonly state: ShutterState;
-  /** §4: false at 0 fuel. The control must show itself dead rather than do nothing. */
+  /**
+   * §4: false at 0 fuel. **True of every state a live run can be in** since #149, because fuel
+   * reaching 0 ends the run — see the header for why the field survives that and the control's
+   * disabled state did not.
+   */
   readonly canOpen: boolean;
 };
 

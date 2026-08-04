@@ -92,9 +92,17 @@ describe('burning fuel', () => {
 
   it('does not restart the adaptation ramp every turn once dry', () => {
     // A dry lantern burns 0 and is already shuttered, so `closeShutter` must be the no-op it claims
-    // to be on an already-shut shutter. If it were not, the sense radius would be pinned at 1 for
-    // the rest of the run and §4's "you can still crawl with ember-sense" would be a lie: the ramp
-    // would reset every single turn and never climb.
+    // to be on an already-shut shutter.
+    //
+    // > **The failure this used to name is unreachable now, and the property is not.** It read: "if
+    // > it were not, the sense radius would be pinned at 1 for the rest of the run and §4's *you can
+    // > still crawl with ember-sense* would be a lie: the ramp would reset every single turn and
+    // > never climb." Under §4's *The dark can take nothing* (#149) there is no "rest of the run" at
+    // > 0 fuel — the lantern only holds 0 inside the tail of the command that emptied it — and the
+    // > §4 sentence quoted is the deleted one. What survives is the reason `burn` is written the way
+    // > it is: it calls `closeShutter` **unconditionally** on reaching 0, so its idempotence is what
+    // > stops the last command of a run stamping on a ramp the player earned. Cheap to keep, and the
+    // > day anything else calls `burn` on an already-shut lantern it is load-bearing again.
     let dry = lantern(0);
     dry = { fuel: dry.fuel, vision: { ...dry.vision, senseRadius: 3 } };
     expect(burn(dry).vision.senseRadius).toBe(3);

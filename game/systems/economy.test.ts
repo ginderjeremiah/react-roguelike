@@ -700,17 +700,32 @@ describe('ADR-0015 clear-1: a style that never opens the shutter does not out-ea
   it('does not out-earn the flashing fighter — ADR-0015 clear-1, asserted', () => {
     // ═══ THE CRITERION, IN ONE COMPARISON ═══
     //
-    // Measured over this corpus, before #149 and after:
+    // Measured over this corpus, at `4a59a04` and at this commit. Both columns are this file's own
+    // seeds (`econ-0`..`econ-9`), `FLOORS` 8, and `netPerFloor`'s median-of-`income - demand`:
     //
-    //     net fuel per floor     STALKER  +6  ->  +9      HARVESTER  +30  ->  -117
-    //     cache take             117/121  ->  82/121      HARVESTER    0  ->  0
-    //     income (whole corpus)  11325    ->  10450       HARVESTER 8600  ->  0
+    //                            STALKER              HARVESTER
+    //     net fuel per floor      +6  ->    +2          0  ->  -105
+    //     cache take         117/121  ->  110/121       0  ->     0
+    //     income               11325  ->  10510      8400  ->     0
+    //     ran dry             on 4 of 10 seeds, both   on 9 of 10  ->  10 of 10
+    //     first dry floor     unchanged: 2-4          2-4  ->  floor 1
     //
-    // **`HARVESTER` was the dominant line and is now insolvent**, which is proposition (a) and (b)
-    // together: light is the whole of income, so the wager has a second side for the first time.
-    // `STALKER` is barely moved — its net went *up*, because it burns less light for the same kills
-    // — which is the ruling's own prediction and not its third Watch firing. That Watch fires on
-    // `STALKER` **collapsing**; a −7.7% income against a −8% demand is not a collapse.
+    // **The never-flash fighter was not out-earning anything; it was breaking even and running dry
+    // on nine seeds in ten — and that did not matter, because 0 fuel was survivable.** It ended
+    // those runs with 42-130 fuel, having dried on floor 2-4 and refilled off the next kill. So the
+    // dark line was never *solvent*; it was **unpunished**. Clause 1 takes the income to zero and
+    // clause 2 takes the impunity, which is why the two are one ruling and not two.
+    //
+    // *An earlier version of this comment read `+30 -> -117` and called `HARVESTER` "the dominant
+    // line". **Neither number was measured** — the before-column was never run, and the after-column
+    // was a mid-work snapshot taken before `chooseShutter` learned to flash for a drop. Recorded
+    // rather than quietly replaced, because a fabricated before-number is the exact failure this
+    // block exists to supply the cure for.*
+    //
+    // `STALKER` is barely moved on every axis — same 420 kills, 878 -> 836 flashes, income −7.2%
+    // against demand −1% — which is the ruling's own prediction and **not** its third Watch firing.
+    // That Watch fires on `STALKER` *collapsing* while `HARVESTER` holds; here `HARVESTER` fell 105
+    // fuel a floor and `STALKER` fell 4.
     const flashing = netPerFloor(stalker);
     const never = netPerFloor(harvester);
     console.log(`net fuel per floor — stalker ${flashing}, harvester ${never} (§4 invariant 4)`);
@@ -720,14 +735,23 @@ describe('ADR-0015 clear-1: a style that never opens the shutter does not out-ea
     expect(flashing).toBeGreaterThan(0);
   });
 
-  it('runs the never-flash fighter dry on every seed, well inside a run', () => {
+  it('runs the never-flash fighter dry on the first floor of every seed', () => {
     // The other face of the same number, and the one that says invariant 4 is satisfied on the
     // *income* side rather than by a threshold: a style with no income has 80 fuel and a floor to
-    // cross, so it empties. Before #149 it never did on any seed.
+    // cross, so it empties.
+    //
+    // **The interesting half is `<= 1`, not `not.toBeNull()`.** Before #149 this style already dried
+    // on 9 of 10 seeds — on floors **2-4** — and went on to finish all eight with 42-130 fuel,
+    // because a kill refilled it and 0 was survivable. So "it runs dry" was true before the ruling
+    // and says nothing. What the ruling changed is *when* and *whether it comes back*: floor **1**,
+    // on 10 of 10, and the reserve never rises again, because there is nothing left that pays it.
     for (const result of harvester) {
       expect(result.driedOnFloor).not.toBeNull();
-      expect(result.driedOnFloor ?? 99).toBeLessThanOrEqual(2);
+      expect(result.driedOnFloor ?? 99).toBe(1);
     }
+    // ...and it stays dry. A style whose income is exactly 0 cannot recover, which is the half the
+    // floor number alone does not say.
+    for (const result of harvester) expect(result.fuelAfter).toBe(0);
   });
 });
 
@@ -738,8 +762,17 @@ describe('ADR-0015 clear-2: a line that never opens the shutter dies', () => {
    * ═══════════════════════════════════════════════════════════════════════════════════════════════
    *
    * > **clear-2:** *over a zero-strategy bot sweep of at least 9 seeds, the never-flash line must not
-   * > reach floor 8 on every seed at full HP.* Before #149 it did — 9 of 9, and 824 turns at 12/12 in
-   * > the pure-dark autoplay. **This is the single number the whole rebuild is against.**
+   * > reach floor 8 on every seed at full HP.* **This is the single number the whole rebuild is
+   * > against.**
+   *
+   * **The before-number is this block's own, taken on these nine seeds at `4a59a04`:** all nine
+   * reached floor 8 at **12/12 HP**, in 128-167 turns, seven of them arriving at exactly 0 fuel. So
+   * the criterion was red by the widest possible margin, and the *manner* of it is the ruling's whole
+   * case — the line ran the reserve to nothing and then kept walking, for dozens of turns, because
+   * nothing happened when it did. (ADR-0015 and #149 quote **824 turns at 12/12** for this criterion.
+   * That is #108's hand-played *wandering* autoplay and not this script; the two are different bots
+   * and the numbers must not be pooled. What they agree on is the only thing being asserted: 9 of 9,
+   * at full HP.)
    *
    * The corpus above is **structurally blind to it**, twice over: `lantern-run.ts` takes liberty 1
    * (the player is immortal, so the fuel economy rather than survival is what it measures) and it
@@ -780,6 +813,11 @@ describe('ADR-0015 clear-2: a line that never opens the shutter dies', () => {
     // therefore not incidental: it is the proposition.
     for (const seed of SWEEP) {
       const end = replay(diveToTheBottom(seed));
+      // **The ending, first.** Without it this test passes unchanged under a build that deleted the
+      // `isDry` line from `statusAfterTurn` — a never-flash line still ends at 0 fuel and full HP,
+      // it just does not *stop*. The two readings below are what the death was **of**; this is that
+      // there was one.
+      expect(end.status).toEqual({ kind: 'died' });
       expect(end.lantern.fuel).toBe(0);
       expect(playerOf(end.world).hp).toBe(PLAYER_MAX_HP);
     }

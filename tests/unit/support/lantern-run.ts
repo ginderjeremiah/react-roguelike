@@ -646,6 +646,12 @@ function chooseAction(state: LanternWorld, style: Style, memory: ScriptMemory): 
  *
  * **`HARVESTER` deliberately does not get this**, because it is `light: 'never'` and the whole of
  * invariant 4 is the comparison between a style that can buy light and one that will not.
+ *
+ * **The clause reads `hasBeenLit` rather than the script's own `flashedFrom` memory**, so it never
+ * spends 4 fuel lighting ground the lantern has already shown it — including ground lit from a tile
+ * it has never stood on. That is marginally sharper than a human would play and it is in the
+ * *script's* favour, which is worth naming: it is a place the corpus flatters the flashing style by a
+ * few fuel a floor, not a place it flatters the rule.
  * ═══════════════════════════════════════════════════════════════════════════════════════════════
  *
  * Closing is unconditional on the very next command, and that is not a shortcut: phase 3 has already

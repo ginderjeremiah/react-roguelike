@@ -77,9 +77,17 @@ deleted clauses, no new state, no new command, no number moved.**
 **Why after phase 5, in one test:** `lets the ember collected as the lamp gutters carry the run past
 zero` (`game/core/step.test.ts`). Two commands at 2 fuel on a lit tile — strike a sleeper, step onto
 its drop — and the run is `running` with 20 fuel. Mutating `unlessTheRunEnded` to gate on fuel (the
-`isRunOver` mistake #149 names by name) turns exactly that one test red and nothing else. The
-controlled twin, same scene with `revealed` empty, is `died`: **either clause alone leaves that run
-alive**, which is the pair being one subtraction, at the unit tier.
+`isRunOver` mistake #149 names by name) turns it red, and it is the only test in `game/core/` that
+notices; the whole-suite count is **4 across 2 files** — the other three are in `economy.test.ts`,
+because the corpus harness runs the same phase list and a phase 5 that stops at 0 fuel changes what
+every style banks. The controlled twin, same scene with `revealed` empty, is `died`: **either clause
+alone leaves that run alive**, which is the pair being one subtraction, at the unit tier. Swapping
+*ever lit* for *currently lit* kills **25 tests across 10 files**.
+
+*(Both counts were understated on the first pass — "one test" and "four plus the cache-haul fixture",
+each taken by running only the file being edited. A mutant count is a claim about coverage, so it is
+worth the extra whole-suite run: the honest numbers are larger and the small ones read as a thinner
+suite than this is.)*
 
 **Determinism: the stream did not move, and here is the evidence.** Of the three stored replay
 fixtures, two are **byte-identical** (the dark descent and the cache haul — neither kills anything,
@@ -102,21 +110,40 @@ input to every argument that follows; do not re-derive them.
 | `STALKER` kills, flashes, turns | 420, 878, 6396 | 420, 836, 6502 |
 | `STALKER` free woken kills | 0 of 387 | 0 of 357 |
 | `STALKER` fuel after 8 floors (median) | 129 | 149 |
-| `HARVESTER` net fuel / floor (median) | **+30** | **−105** |
-| `HARVESTER` income, and where it dries | 8600, never | **0**, floor 1 on 10/10 seeds |
+| `HARVESTER` net fuel / floor (median) | **0** | **−105** |
+| `HARVESTER` income / demand (corpus totals) | 8400 / 8821 | **0** / 8487 |
+| `HARVESTER` first dry floor, per seed | 2-4, on **9 of 10** | **1**, on 10 of 10 |
+| `HARVESTER` fuel after 8 floors | 42-130 | **0 on every seed** |
 | `FLOODLIT` lit turns / flashes | 2631 / 339 | 413 / 26 |
 | `FLOODLIT` caches | 98/121 | 14/121 |
 | turns before dry — floodlit / flashing / dark | 26 / 65 / 80 | **26 / 65 / 80** |
 | dry crawl reaching the stairs | 80/80 floors | *assertion deleted* |
-| never-flash line over 9 seeds, real `step()` | reached floor 8, 9 of 9 | **dead 9 of 9**, floors 4-6, at 12/12 HP |
+| never-flash line over 9 seeds, real `step()` | **floor 8 on 9 of 9**, 128-167 turns, 12/12 HP, 0 fuel on 7 of 9 | **dead 9 of 9**, floors 4-6, at 12/12 HP |
 
-**`HARVESTER` exists now and its before-number was measured rather than skipped.** #149 said to record
-that #109's before-number was missing if #109 slipped. It has slipped — but the style is `DRY_CRAWL`
-with a full lantern instead of an empty one, so it could be added and then measured on both sides of
-the change by stashing. **+30 a floor to −105 a floor** is the ruling in one number, and it is
-ADR-0015's **clear**-1 asserted rather than computed. That leaves #109 a smaller job than it was filed
-for: the style and the invariant-4 assertion are here; what is not here is #109's own write-up, which
-this row is.
+**`HARVESTER` exists now, and the before-column is a real measurement — at the second attempt.** #149
+said to record that #109's before-number was missing if #109 slipped. It has slipped, but the style is
+`DRY_CRAWL` re-pointed at a full lantern, so it could be added here and then measured on both sides by
+checking `game/systems/light.ts` and `tests/unit/support/lantern-run.ts` out at `4a59a04` and running
+the same probe. That leaves #109 a smaller job than it was filed for: the style and the invariant-4
+assertion are here; what is not here is #109's own write-up, which this row is.
+
+> **The first version of this table said `+30 -> −105` and `income 8600, never dry`, and both
+> before-numbers were fabricated — the before-column was never run.** Caught in review on PR #152.
+> The tell was available without re-measuring anything: the `STALKER` before-row reproduces exactly by
+> the same method, so it was not a methodology difference; and `8600` is not `420 × 20`. The real
+> figure is **8400** and a net of **0**. Recorded rather than silently replaced, because this entry
+> tells a future session *"do not re-derive them"*, and a number that says that had better be one
+> somebody actually took.
+
+**And the corrected before-number makes the ruling's case sharper rather than weaker.** The claim that
+went with the fabricated row was *"`HARVESTER` was the dominant line and is now insolvent"*. It was not
+dominant: on `main` it netted **0** a floor and ran dry on **9 of 10** seeds, on floors 2-4 — and then
+finished all eight anyway with 42-130 fuel, because a kill refilled it and 0 was survivable. **The dark
+line was never solvent; it was *unpunished*.** Clause 1 takes the income to zero and clause 2 takes the
+impunity, and neither alone reaches it — which is the pair being one subtraction, restated in the one
+place the numbers were supposed to be carrying the argument. The independent evidence for the
+conclusion is clear-2's, which does not depend on this table at all: dead 9 of 9, floors 4-6, at 12/12
+HP, through the real `step()`.
 
 **The three pacifist styles are byte-identical across the change** — same kills, flashes, turns,
 caches, income, demand — which is the cleanest available control: they kill nothing, so clause 1
@@ -126,7 +153,24 @@ pacifists. #149 asked for it to be re-checked rather than assumed; it was, and t
 and invariant 4 do not collide, because invariant 4 is now asserted between two **fighters** that take
 the identical 420 kills.
 
-**Learned — three things cost time and two of them are findings.**
+**Learned — four things, and the first one is the one to carry forward.**
+
+**0. I wrote down a before-number I had not taken, and review caught it rather than the suite.** The
+`HARVESTER` before-column above was invented, and the comment table in `economy.test.ts` was a
+mid-work snapshot never re-run after the last harness change — while both sat under the sentence *"do
+not re-derive them"*. Nothing could have gone red for it: a number in a comment is not executable, and
+that is exactly why it is the shape of defect this repo keeps paying for. **What it cost was a wrong
+argument, not just a wrong digit** — "the dominant line, now insolvent" is not what the real
+before-column says, and the true story (*never solvent, merely unpunished*) is stronger. Three cheap
+habits would have caught it, all of them used now: re-read the table against the `console.log` the
+test beside it prints (they disagreed — 2 against +9, 110/121 against 82/121); check a derived figure
+against its constants (`8600` is not `420 × 20`); and re-take *every* measurement after the last code
+change, not the ones that felt likely to move. **A number quoted from an issue or an ADR is not a
+measurement either** — the clear-2 before-row said "9 of 9" borrowed from #108's 824-turn wandering
+autoplay, which is a different bot; it is now this suite's own nine seeds, and the two figures are
+kept apart where they appear.
+
+**And three more that cost time, two of which are findings about the game.**
 
 **1. The corpus went catastrophically wrong before it went right, and both catastrophes were the
 harness rather than the game.** First measurement after the change: `STALKER` at **200 turns a floor**

@@ -170,9 +170,15 @@ export type WanderOptions = {
    *     turns to 0 and then an unlimited free crawl, which is the rule that was deleted.
    *   - `crawl` — shutter at the first opportunity and never open again. 1 a turn and no income at
    *     all: **the never-flash line**, and it has 80 turns.
-   *   - `flash` — crawl, but open the shutter for one command whenever there is a `♦` on or beside
-   *     the player, which is what makes a drop takeable (§4). 5 fuel a flash against a 20-fuel drop.
-   *     The only one of the three that earns anything.
+   *   - `flash` — crawl, but open the shutter for one command whenever there is a `♦` orthogonally
+   *     beside the player, which is what makes a drop takeable (§4). 5 fuel a flash against a 20-fuel
+   *     drop. The only one of the three that earns anything.
+   *
+   * **`flash` is reachable from no spec, and it is kept deliberately.** It is the instrument the
+   * third measurement in `run-loop.spec.ts`'s deleted-win block was taken with — *124 turns, floor 2,
+   * 65 earned against 145 burned* — so deleting it would make a recorded number unreproducible, and
+   * it is where an attempt to restore a browser-driven win starts. That is a stated reason rather
+   * than an oversight; if a future session concludes the win is not coming back, this goes with it.
    */
   readonly light: 'hold' | 'crawl' | 'flash';
   /** Give up after this many presses rather than hanging. Generous; failure is loud. */
@@ -247,12 +253,17 @@ async function shutterIsShut(page: Page): Promise<boolean> {
 }
 
 /**
- * Is there a `♦` on the player's tile or one of the eight around it?
+ * Is there a `♦` on one of the player's **four orthogonal neighbours**?
  *
  * Read off the **glyphs**, which is only possible because #81 draws an uncollected drop wherever its
  * tile is perceived or remembered — lit or not. Before that ruling this function could not have been
  * written at all, and that is the point: the information a flash-to-collect decision needs is
  * information the player has.
+ *
+ * **Four, and not the player's own tile, and both exclusions are forced rather than chosen.** §10
+ * draws `@` on the player's tile unconditionally, so a drop underfoot is invisible to anything
+ * reading the board — a driver cannot see what it is standing on. And a drop on a *diagonal* is not
+ * somewhere a §9 tap can step next turn, so lighting it buys the wander nothing it can act on.
  *
  * It cannot tell a drop from a lit cache, and does not need to: both are worth a flash and neither
  * is worth two, because the flash resolves whichever it was.

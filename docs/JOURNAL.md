@@ -88,13 +88,22 @@ repo defuses it except a reconcile. If you write that phrase, expect to own the 
 **2. The playtest on PR #152 is recorded under the wrong issue, and the mistake is expensive rather
 than cosmetic.** The journal entry below this one heads its verdict **"The #145 playtest's verdict"**.
 It was not #145. #145 **is** ADR-0015's trip-wire bound — the thing that decides whether the concept
-survives — and it is still open, still unrun, and its own condition is stated four lines further down
+survives — and it is still open, still unrun, and its own condition is stated ten lines further down
 the same entry: *"the playtester's condition is that [#154] closes **before #145 is judged**"*. So one
 entry says the judging playtest has reported and that it has not. **No grep would have caught this**;
 the two sentences are eight lines apart, both true-sounding, and they use the same issue number
 correctly and incorrectly. Only reading it did. The journal is append-only so the heading stays;
 the correction is in `ROADMAP.md`, ADR-0015 and on #145 itself, all three of which now say plainly:
-**nothing has judged ADR-0015's trip-wire.**
+**nothing has judged ADR-0015's trip-wire** — plus an additive blockquote at the #149 entry, so a
+reader landing there directly rather than newest-first still sees it.
+
+> **Four `.ts` comments still carry the wrong number and are *not* fixed here — [#161](../../issues/161).**
+> `economy.test.ts`, `lantern-run.ts`, `run-script.ts` and `light.ts` all say *"the #145 playtest"*.
+> They are left because this PR's stated property is *documentation only, nothing outside `docs/`*, and
+> quietly editing four source files would falsify it. **Filing beats breaking the property** — but
+> enumerating the correction as complete without saying so would have been the N−1 shape this entry is
+> about, and ADR-0015 sends re-openers to the test file rather than to the ADR, so the `.ts` sites are
+> where a reader is *most* likely to land.
 
 **3. What is next was #109, and #109 had already happened.** ADR-0015 made #109 the *before-number*
 the rebuild is measured against and said *"it goes next"*; the roadmap said the same in four places.
@@ -118,7 +127,7 @@ stale three times (114 → 117 → 110), so every site quoting it carries its co
 present tense.** It was `runs(DRY_CRAWL, 0)` — a run that *starts* at 0 fuel, which is now a run that
 cannot exist — and #149 deleted the block rather than repairing it. **A deleted assertion is worse
 than a changed number**: a reader who goes looking finds nothing and cannot tell whether the claim was
-wrong or the test was lost. Every surviving site now carries `4a59a04` and the word *deleted*.
+wrong or the test was lost. Every surviving site outside the change log now carries `4a59a04` and the word *deleted* — eight of nine; the ninth is the #144 change-log row, which records what was measured on the day and is corrected by the row below it.
 
 **6. GDD §13 answers an open issue without citing it.** #85 wants `The lantern goes out.` to drop the
 lantern noun. §13, **re-ruled in the same #144 edit**, says the headline is an image of the world,
@@ -157,7 +166,7 @@ does it, which is checkable and actionable where a streak was neither.
 that a document written today is true tomorrow.** Every finding above except #6 and #8 is an instance.
 The cheap mitigation is not "write fewer forward references" — they are load-bearing — it is that
 **a PR that merges a build must grep for the phrase `#<its own issue>` across `docs/`**, which is
-about nine hits and two minutes. PR #152 did a thorough journal pass and did not do that.
+16 hits outside this file for `#149`, 28 including it — minutes, not hours. PR #152 did a thorough journal pass and did not do that.
 
 **A count is stale the moment the review that verified it files anything — and this pass demonstrated
 it on itself.** The Contract-and-tooling milestone was **23** open when this reconcile started. It
@@ -373,7 +382,7 @@ out the claim rule will play close to that line by accident. That is [#154](../.
 territory — the ruling is currently *invisible*: an unclaimable drop draws identically to a claimable
 one, stepping onto one says nothing, and `@` overdraws the `♦` you are standing on.
 
-**The playtest's verdict, recorded here because this file is the artifact that survives.**
+**The #145 playtest's verdict, recorded here because this file is the artifact that survives.**
 
 > **Read "the #145 playtest" in this entry as "the PR #152 playtest".** [#145](../../issues/145) is
 > ADR-0015's trip-wire bound and **has not run** — it is gated on #154. This entry's playtest was the

@@ -57,6 +57,114 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-08-04 — #144 ruled: the dark can take nothing, and a lantern that goes out ends the run
+
+**Did:** Ruled [#144](../../issues/144), the cost-side lever ADR-0015 fires. **GDD §4 gains *The dark
+can take nothing***, with §1's answer table and §13's endings ruled in the same edit and a change-log
+row. Filed the build as [#149](../../issues/149) carrying ADR-0015's acceptance criteria verbatim. Six
+files: `GDD.md`, `VISION.md`, `ROADMAP.md`, ADR-0007, ADR-0015, this. **No file under `game/`,
+`render/`, `session/`, `components/` or `app/` moves** — this is a ruling, and #149 is the build.
+
+> **Ember pays only where the lantern has been, and a lantern that goes out ends the run.**
+>
+> 1. A kill's ember is takeable only once its tile has been lit — the cache's *ever lit* predicate on
+>    the `revealed` plane that already exists.
+> 2. Fuel reaching 0 ends the run, evaluated at the end of the command so the turn's ember still
+>    counts.
+
+**Why — the finding is that #144's own recommendation does not work alone, and the collision it told
+me to rule *is the other half of the same subtraction*.** Light-gating the drop takes a never-flash
+line's income to zero and leaves it **alive**, because 0 fuel was not an ending: `economy.test.ts` has
+a dry crawl reaching the stairs on **80 of 80** floors, so ADR-0015's load-bearing criterion (*over ≥9
+seeds the never-flash line must not reach floor 8 on every seed at full HP*) still comes back red.
+Proposition (a) is *die of the **dark***, and this section's own rules — nothing wakes in the dark, a
+pursuer cannot hit a moving player — mean **the dark is the only thing left that can kill a shuttered,
+moving player**. Nothing but a lethal empty lantern reaches it.
+
+**And the mirror-image check is what makes the pair a subtraction rather than a compromise: each half
+fails a *different* one of #145's three criteria.** 0-fuel lethality alone leaves a never-flash
+**fighter** banking 60-120 a floor against ~81 turns of crawl — solvent, and still out-earning
+`STALKER` — which fires criterion 3 (invariant 4) instead of clearing it. It is the `CACHE_FUEL` trap
+from the other side: a green assertion and no game.
+
+**#144 rejects 0-fuel lethality by name and ADR-0015 cites the rejection, so I read the scope before
+arguing with it.** #144 rejects it *on its own*, and its reason is about a **flashing** style
+(*"`STALKER` nets +6 a floor, so it does not bind"*) — correct, and it does not reach the pair, because
+the pair's first clause is what takes the never-flash line's income to zero. ADR-0015 gained a note
+saying so, next to the bullet that cites it; the bullet's point (a session that would rather move a
+number cannot satisfy #144) is untouched, since two clauses are deleted and no constant moves.
+
+**How the self-objection was answered, which #144 pre-committed on.** *Clear-then-flash survives: kill
+everything dark, then light the room and collect — if that stays costless the lever leaves the obvious
+move intact, and prefer the runner-up.* It does not stay costless, and **clause 2 is the only reason**:
+
+- The clearing turns are charged to a tank that is now a clock. `STALKER` already spends **81 turns**
+  on a floor against 80 starting fuel.
+- A flash lights one room and no further, and §5 spreads `min(2 + floor, 6)` creatures over six rooms
+  — so *clear then flash* is one flash per room you killed in, plus the routing.
+- A woken Cinder **pursues** (#83/#121) and dies where it catches you, **on ground you already lit**.
+  So a hunter can be cheaper than a sleeper two rooms away, and *waking can be worth it* falls out of
+  pursuit rather than out of a constant.
+
+That last one is the part I did not expect and it is the strongest thing in the ruling: the two
+deletions compose with a rule nobody thought was economic. **Depth from interaction, not from
+quantity, arriving on its own.**
+
+**Learned — (b) has two readings and only one is reachable by subtraction, so I ruled which.** *Waking
+something must be able to be worth it* means **the flash must be worth its wake** — which is what GDD
+§1's own row says (*"light is how you find things to kill and where to kill them"*) and what
+ADR-0015's own statement of the defect prices. The **strong** reading, *a given creature pays more
+awake than asleep*, is `resolveDeaths` pushing `emberDrop` with no reference to mind state; making it
+differ is a branch that does not exist, i.e. an addition. **Its only subtractive form is *a dormant
+creature drops no ember*, and that is a real lever I had to take seriously** — it delivers the strong
+reading by construction. It loses on the merits: it deletes the dormant strike's whole purpose (§3)
+and §1's *dark is the **offensive** option*, which is ADR-0007's answer to why darkness exists. It
+cures a one-sided wager by deleting the other side. Recorded in §4 because it is not on #144's list
+and the next session will reach for it.
+
+**Learned — a rule's *justification* can expire without the rule expiring, and both of §4's cases here
+had two arguments.** The cache's *ever lit* clause rested on (i) the 0-fuel protection and (ii) the
+`open`-`shut` autopilot. #144 deletes (i)'s premise. The clause is **not** reopened — (ii) carries it,
+and #144 adds a third — but the spent argument is recorded rather than silently dropped, because the
+next reader who finds only (ii) will not know (i) was ever load-bearing. Same shape at #107's
+rejection. **A paragraph that looks redundant is often a correction; a paragraph that looks
+load-bearing is sometimes two arguments, one of which just died.**
+
+**Learned — a Watch that fires on its own ruling is not a signal, and §4 had one.** The cache block
+watched for *"flashing because it **must** rather than because it chose to — light stops being a wager
+and becomes a bill the moment cache income is the only way to stay solvent."* Under this ruling light
+income **is** by design the only way to stay solvent, so that watch fires on the design. It is
+deliberately spent and replaced with the distinction it could not draw: **compulsory in aggregate is
+not obvious in the turn.** The failure is not *I had to flash*, it is *there was one right moment and
+one right room and I could see them both*.
+
+**And the opposite happened at §13, in the player's favour.** Its death copy is `† DIED` / *The lantern
+goes out.*, carrying a Watch explaining why the string was kept despite naming a cause the rules did
+not have. Under this ruling it is literally true of one of the two deaths. **A watch that exists to
+excuse a mismatch is evidence about the mismatch**, and it had been sitting in the document for three
+milestones saying so.
+
+**No ADR.** No pillar, core concept or milestone goal changes: ADR-0015 already ruled *that* a rule
+changes and what must become true, and #144 is *which*. What VISION's concept says — *fuel is the run
+timer* — was the sentence the build had drifted from, and ADR-0007 explicitly deferred to #144 on
+whether the sentence or the rule moves. **The rule moves.** VISION's line stands unamended for the
+first time.
+
+**Next: [#109](../../issues/109)** — it is now genuinely urgent rather than merely sequenced, because
+after #149 merges there is no un-changed corpus left to take a before-number from. Then **#149**, then
+**#145**.
+
+**Watch:** **a flashing style loses income too and nobody knows how much.** A pursuing creature dies
+where it catches you, which may be a tile the lantern never lit, so `STALKER`'s take falls by the
+fraction of its kills that land unlit — a measurement, not an estimate, and it is #149's first
+number. §4 records the falsifier: if the corpus shows `STALKER` **collapsing** rather than `HARVESTER`
+coming down, the fault is §5's layout or pursuit's geometry rather than the rule. Second watch: the
+likelier failure is a **forced clear** — kill everything on every floor or die — which would be the
+*numbers* being wrong, not the rule; §4's freeze names that as the one exit that legitimises moving
+`STARTING_FUEL`, `CACHE_FUEL` or `emberDrop`, and nothing may move before the report exists. Third:
+**this ruling makes fuel lethal for the first time in the project's life**, and every fuel figure in
+every playtest report predates that.
+
 ## 2026-08-04 — The #139 cycle's process bill, paid into the agents that will repeat it
 
 **Did:** Four process fixes in `.claude/`, each one a failure this session actually paid for rather

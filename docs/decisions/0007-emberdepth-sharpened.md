@@ -155,10 +155,26 @@ fallback in GDD §12 is the response — not another mechanic on top.
 > what replaced it is a one-sided wager. The rebuild ([#144](../../issues/144)) is aimed at the cost
 > side of exactly the concept this ADR sharpened, not at replacing it.
 >
-> **One sentence of this ADR is falsified by the build, and it is under *Alternatives considered*
+> **One sentence of this ADR was falsified by the build, and it is under *Alternatives considered*
 > above: *"'Fuel is the run timer' survives — fuel still burns every turn, just at two rates."*** It
-> does burn at two rates, and it is not a timer: GDD §4 subsequently ruled 0 fuel *a desperate state,
+> does burn at two rates, and it was not a timer: GDD §4 subsequently ruled 0 fuel *a desperate state,
 > not a loss state*, and `game/systems/economy.test.ts` asserts a dry crawl reaches the stairs on
-> **80 of 80** floors (re-run 2026-08-04). A style that does not want the lantern therefore has no
+> **80 of 80** floors (re-run 2026-08-04). A style that does not want the lantern therefore had no
 > clock at all, which is half of why the never-flash line dominates. Annotated rather than edited,
 > per this directory's rule; [#144](../../issues/144) rules whether the sentence or the rule changes.
+>
+> **Ruled 2026-08-04 (#144): the sentence stands and the rule changes.** GDD §4's ***The dark can take
+> nothing*** deletes *0 fuel is a desperate state, not a loss state* — **a lantern that goes out ends
+> the run** — alongside light-gating the kill drop, which is what makes the clock bind on the style it
+> was missing. So this ADR's sentence becomes true of the build for the first time when
+> [#149](../../issues/149) merges. **The falsification note above is kept**, because the sentence was
+> false for four milestones and a reader who finds only the resolution will not know that the
+> *survives* was asserted rather than measured — which is the mistake, not the wording.
+>
+> **Two more of this ADR's sentences are in the same position and are repaired by the same ruling, so
+> they get no separate note: *"Fighting spends HP to earn fuel; light spends fuel to preserve HP"*
+> (change 4) and *"free kills exist and exist only in the dark"* (change 3).** In the build measured on
+> 2026-08-04, light spent HP and bought nothing HP could not buy more cheaply, so the first was
+> inverted; under #144 it holds in **both** directions, at a rate set by the order you fight and light
+> in. The second is true and always was — the free kill is free of **HP**. What #144 takes from it is
+> the *income*: a dark strike is a claim you have to go and light, not a payment.

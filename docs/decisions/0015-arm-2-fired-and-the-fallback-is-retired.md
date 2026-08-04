@@ -144,12 +144,41 @@ experiment has never been run.
   0-fuel-lethality **by name**, and it requires a §4 rule change with a change-log row. A session that
   would rather move a number cannot satisfy it.
 
+  > **Read the scope of that second rejection before citing this bullet — *added 2026-08-04 when #144
+  > was ruled*.** #144 rejects *making 0 fuel lethal **on its own***, for a reason about a **flashing**
+  > style (*"`STALKER` nets +6 a floor, so it does not bind"*). **The ruling adopts it as half of a
+  > pair**: GDD §4's *The dark can take nothing* light-gates the kill drop **and** ends the run at 0
+  > fuel, because each alone fails a *different* one of the three criteria below — light-gating alone
+  > leaves the never-flash line earning nothing and still reaching floor 8, and 0-fuel lethality alone
+  > leaves a never-flash **fighter** solvent and still out-earning `STALKER`. That is not a tuning pass
+  > and this bullet's point is untouched: two clauses are deleted, no constant moves, and there is a
+  > change-log row. **What would still be the evasion is either half on its own.**
+
 **Which lever is a separate ruling** — [#144](../../issues/144), with a recommendation already stated
 in it (light-gate the creature ember drop, mirroring #31/#41's rule for caches; runner-up: a dark
 strike wakes everything that can feel it). It is separate because the leading candidate collides with
 §4's *0 fuel is a desperate state, not a loss state* and that collision has to be ruled with it, not
 around it. It is **not** gated on #109: it is ruled in the next design session with or without the
 measurement.
+
+> **Ruled 2026-08-04 — GDD §4, *The dark can take nothing*, built by [#149](../../issues/149).** The
+> recommendation is adopted and **the collision turned out to be the other half of the same
+> subtraction rather than a side-effect to absorb**: ember pays only where the lantern has been,
+> **and** a lantern that goes out ends the run. Light-gating alone leaves the never-flash line earning
+> nothing and still not dying, because the corpus survives 80 of 80 dry floors — proposition (a) is
+> untouched by it, since the dark is the only thing left that can kill a shuttered, moving player.
+>
+> **The trip-wire's criterion 2 does not fire, and the ruling says why in terms.** Nothing is added:
+> two clauses are deleted, `Vision.revealed` already exists, and the fuel ending is one condition
+> beside HP death. Proposition **(b)** is ruled to mean *the flash must be worth its wake* — which is
+> what GDD §1's own row says it means and what this ADR's own statement of the defect prices — and it
+> is delivered, twice: light becomes the whole of income, and pursuit means a hunter can be cheaper
+> than a sleeper two rooms away. The **stronger** reading, *a creature pays more awake than asleep*, is
+> the `resolveDeaths` fact above and is **not** delivered; it needs a branch on mind state, which is an
+> addition. Its one subtractive form — *a dormant creature drops no ember* — is rejected on the merits,
+> because it deletes the dormant strike's purpose and with it ADR-0007's answer to why darkness exists.
+> **A criterion that fires on the strong reading would have been unsatisfiable by the constraint from
+> the day it was written**, which is the reason for reading it the way §1 does.
 
 ## Why arm 2 fired — the three arguments against, answered
 

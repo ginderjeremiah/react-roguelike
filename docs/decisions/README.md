@@ -57,11 +57,12 @@ match the sets both ways, and verify it by planting a mismatch). A written rule 
 | [0004](0004-deterministic-pure-core.md) | Deterministic pure-TypeScript simulation core | Accepted |
 | [0005](0005-vitest-and-playwright.md) | Vitest + Playwright, no Jest | Accepted |
 | [0006](0006-local-first-no-backend.md) | Local-first persistence, no backend | Accepted |
-| [0007](0007-emberdepth-sharpened.md) | Emberdepth sharpened — darkness carries information | Accepted |
+| [0007](0007-emberdepth-sharpened.md) | Emberdepth sharpened — darkness carries information | Accepted — **its *Revisit if* signal fired; cost side rebuilt per [ADR-0015](0015-arm-2-fired-and-the-fallback-is-retired.md)** |
 | [0008](0008-benchmark-thresholds-as-ratios.md) | Benchmark thresholds are ratios, not milliseconds | Accepted — **leaf half challenged by [#137](../../issues/137)** |
 | [0009](0009-auto-travel-command-shape.md) | Auto-travel is one `travel(to)` command, deferred to M2 | Accepted |
 | [0010](0010-session-layer-owns-the-run.md) | A `session/` layer owns the run | Accepted |
-| [0011](0011-m1-exits-on-the-answer-not-the-outcome.md) | M1 exits on the concept checkpoint being *answered*, not on the wager being tense | Accepted |
-| [0012](0012-the-fallback-trigger-is-a-verdict-not-a-signature.md) | §12's fallback is spent by a verdict, not by an unsigned criterion | Accepted — **bound spent; arm 2 reported, ruling open on [#139](../../issues/139)** |
+| [0011](0011-m1-exits-on-the-answer-not-the-outcome.md) | M1 exits on the concept checkpoint being *answered*, not on the wager being tense | Accepted — **its trip-wire has since fired; see [ADR-0015](0015-arm-2-fired-and-the-fallback-is-retired.md)** |
+| [0012](0012-the-fallback-trigger-is-a-verdict-not-a-signature.md) | §12's fallback is spent by a verdict, not by an unsigned criterion | **Superseded by [ADR-0015](0015-arm-2-fired-and-the-fallback-is-retired.md)** |
 | [0013](0013-a-claim-about-the-build-is-established-by-measurement.md) | A claim about the build is established by measurement, not by argument | Accepted |
 | [0014](0014-a-woken-creature-acts-when-the-player-next-acts.md) | A woken creature is scheduled at the instant the player next acts | Accepted |
+| [0015](0015-arm-2-fired-and-the-fallback-is-retired.md) | §12's arm 2 has fired — and what it fires is retired, not spent | Accepted |

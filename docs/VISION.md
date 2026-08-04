@@ -49,6 +49,11 @@ You descend a lightless ruin carrying a lantern. Light is the core resource and 
 but the wager is not "see or be blind", it is **which half of the truth you want**:
 
 - Your lantern burns fuel every turn, faster when open than when shuttered. Fuel is the run timer.
+  **(Measured 2026-08-04: the second sentence is not true of the build.** GDD §4 rules 0 fuel *a
+  desperate state, not a loss state*, and `game/systems/economy.test.ts` asserts a dry crawl reaches
+  the stairs on **80 of 80** floors. Fuel gates the lantern and nothing else, so a style that does not
+  want the lantern has no clock at all. Recorded rather than rewritten because
+  [#144](../../issues/144) rules whether the sentence or the rule is what changes.)
 - **Open, you see stone:** terrain, items, creatures, and their intent — but only within a short
   radius, and not through walls. Light is also what wakes the ruin's dormant inhabitants, so an
   open lantern announces you.
@@ -68,24 +73,36 @@ grid renders light falloff beautifully as pure cell tinting, and ember-sense is 
 unknown tile — so our cheapest rendering primitive becomes the game's signature look. A small
 vision radius means a small grid, which is exactly what a phone screen wants.
 
-**If this fails:** GDD §12 records pure positional tactics with no resource clock as the designated
-fallback. If the M2 playtest reports the light decision is not tense, or that the lantern is opened
-only when lost, the response is to *subtract* fuel — not to add another mechanic on top.
+**If this fails:** the response is **subtraction and rebuild — never a second mechanic bolted on top.**
+That is the whole of what this paragraph promises, and it is a constraint rather than a plan.
 
-> **A playtest has now reported the second condition** (2026-08-03, PR #136), and whether that
-> spends the fallback is being ruled on [#139](../../issues/139) — **open, and not to be inferred
-> from this line.** ADR-0012 restated the trigger as two arms and a bound; the bound is now spent.
-> Cutting against firing: arm 1 came back emphatically negative and the playtest classifies its own
-> finding as *tuning*, with #109 — the measurement of the invariant at issue — not yet run. Cutting
-> for it: ADR-0012 restated the trigger precisely because a trip-wire that survives its own firing
-> condition never trips, and **arm 2 has no tuning escape clause**.
+> **What *subtract* means — #63's correction, kept in substance and sharpened, because deleting it is
+> how the next mistake gets made.** The sentence this restores read: *"subtracting fuel means deleting
+> the lantern and the economy that makes killing pay, then rebuilding the enemy, the generator and the
+> win condition around forced contact. A rebuild, in the subtractive direction."* The sharpening is one
+> clause it did not say out loud, and it is the clause a draft of ADR-0015 needed: **GDD §12's fallback
+> is *not* "subtract fuel"** — it is **pure positional tactics with enemies whose fixed patterns force
+> contact**, and *"subtracting fuel means…"* is itself the phrasing that keeps being read as the
+> prescription. **Read GDD §12 before acting on this paragraph.**
 >
-> **One clarification on the word above, because this note is not overruling it.** *Subtract* is
-> right about the **direction** — the answer to a failed wager is never a second mechanic bolted on.
-> What §12 and #63 add is the **size**: subtracting fuel means deleting the lantern and the economy
-> that makes killing pay, then rebuilding the enemy, the generator and the win condition around
-> forced contact. A rebuild, in the subtractive direction. **Read GDD §12 before acting on either
-> paragraph.**
+> **This paragraph used to name that design as the *designated* fallback, and it no longer does.** A
+> broad playtest reported the second failure condition on 2026-08-03 (PR #136), and
+> [#139](../../issues/139) ruled on 2026-08-04 that **it fired**:
+> [ADR-0015](decisions/0015-arm-2-fired-and-the-fallback-is-retired.md) supersedes ADR-0012.
+>
+> **What is withdrawn is the *automatic* consequent — "if the trigger fires, do this, without further
+> argument" — and not the design.** Read correctly, the fallback would work: forced contact is an HP
+> mechanism, and the finding that fired the arm is about HP. What it loses on is **proportionality**.
+> It abandons a concept that the same playtest measures as serving Pillar 1 and Pillar 4 (13 of 38
+> sampled turns as real decisions, a named retellable moment) for a design GDD §12 records as losing on
+> Pillar 4 — and it does so **before anyone has tried deleting a single clause.** The design stays on
+> the table as the strongest named alternative; what it no longer is, is automatic.
+>
+> **What is being done instead:** the wager's **cost side** is rebuilt — one rule change, its build and
+> a playtest, which is far cheaper than the fallback and is the point — against two propositions: *a
+> run that never opens the shutter must be able to die of the dark*, and *waking something must be able
+> to be worth it*. Which rule is subtracted is [#144](../../issues/144); the trip-wire that judges the
+> result is [#145](../../issues/145), and it names the fallback as the leading candidate if this fails.
 
 ## Non-goals
 

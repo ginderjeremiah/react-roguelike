@@ -1,8 +1,11 @@
 # ADR-0012: §12's fallback is spent by a verdict, not by an unsigned criterion
 
-**Status:** Accepted — **and its bound is now spent. The broad playtest this ADR pointed at ran on
-PR #136 (2026-08-03) and reports arm 2.** The ruling that decides whether the fallback is spent is
-[#139](../../issues/139), open as of 2026-08-04. See *The signal that this was wrong* at the end.
+**Status:** **Superseded by [ADR-0015](0015-arm-2-fired-and-the-fallback-is-retired.md)** — the bound
+was spent by the PR #136 playtest (2026-08-03), #139 ruled on 2026-08-04 that **arm 2 fired**, and
+ADR-0015 replaces the trigger, the bound, and what firing spends. **The restated trigger below is
+history, not the live one** — do not act on it; ADR-0015 carries the live trip-wire. What survives
+unchanged is this ADR's *reasoning* about why an unsigned criterion is not a verdict, and its table of
+three playtests, both of which ADR-0015 relies on.
 **Date:** 2026-08-02
 
 Decided while ruling issue #121. It settles a sentence in `ROADMAP.md`'s M1 exit section that
@@ -185,3 +188,23 @@ needs an ADR superseding this one. If it did not: **the bound is spent and a tri
 is not a trip-wire**, so it must be re-set to a specific later playtest — the obvious candidate being
 the one after #109 — with the argument for why that is not simply the deadline this ADR refused to
 become.
+
+> **Ruled 2026-08-04 (#139): the arm fired, and the first branch is taken —
+> [ADR-0015](0015-arm-2-fired-and-the-fallback-is-retired.md) supersedes this ADR.** It takes one turn
+> this ADR did not anticipate, and the turn is inside this ADR's own words. Under *Alternatives* above,
+> *fired-and-overridden* is rejected with the sentence **"Either the condition is wrong or the
+> conclusion is; here the condition was."** ADR-0015 takes the other branch: the condition was sound and
+> it fired, and **what is wrong is the conclusion — that firing licenses §12's rebuild automatically.**
+>
+> **And the bullet four lines above this one is the reason the first draft of ADR-0015 had to be
+> corrected in review.** *"It was previously easy to read §12 as 'subtract fuel'; #63 already corrected
+> that"* — the draft read it as *subtract fuel* anyway, and argued that the fallback "does not address
+> the measured cause" because the mechanism is **HP, not fuel**. **That inverts under the correct
+> reading**: enemies whose fixed patterns *force contact* are an HP mechanism, and the fallback would
+> deliver *a run that never opens the shutter can die* by construction. The argument is deleted.
+>
+> **What ADR-0015 rules instead** is that the fallback loses only its *automatic* character, on
+> **proportionality**: it abandons a concept measuring well on Pillars 1 and 4 before one clause has
+> been deleted. It stays the strongest named alternative and the leading candidate if the cheap
+> subtraction fails. What arm 2 fires is a rebuild of the wager's **cost side** — one rule change, its
+> build and a playtest. Read ADR-0015 before citing any sentence on this page.

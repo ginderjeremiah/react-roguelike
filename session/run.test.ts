@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { assertNever, type Command, type GameState } from '@/game/core';
 import { cellAt, type Cue } from '@/render';
-import { diveToTheBottom } from '@/tests/unit/support/run-script';
+import { lightTheWayDown } from '@/tests/unit/support/run-script';
 import { beginRun, cuesOf, descend, move, sceneOf, setShutter, wait, type Run } from './run';
 
 /**
@@ -47,7 +47,7 @@ function runsOf(seed: string, commands: readonly Command[]): Run[] {
   return runs;
 }
 
-const DIVE = diveToTheBottom('session-dive');
+const DIVE = lightTheWayDown('session-dive');
 const RUNS = runsOf(DIVE.seed, DIVE.commands);
 
 function kinds(cues: readonly Cue[]): string[] {

@@ -57,6 +57,290 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-08-04 — #149 built: the dark can take nothing (`RULES_VERSION` 8)
+
+**Did:** Built [#149](../../issues/149), the ruling on [#144](../../issues/144) (GDD §4, *The dark can
+take nothing*), fired by [ADR-0015](decisions/0015-arm-2-fired-and-the-fallback-is-retired.md). **Two
+deleted clauses, no new state, no new command, no number moved.**
+
+1. `game/systems/light.ts` › `collectFuelUnderfoot` asks `hasBeenLit(vision, at)` **once, first**, and
+   both branches are behind it. A drop on ground the lantern never lit is left exactly where it fell.
+2. `game/core/state.ts` › `statusAfterTurn` gains one condition beside HP death: `isDry` on the
+   resolved lantern is `died`. It is **after the whole phase list**, so §2 phase 5 still runs and the
+   ember collected on the guttering command can carry the run back over zero. `isRunOver` is untouched
+   and its docstring now says why it must stay untouched.
+3. `render/scene.ts` loses the `lamplit` gate on `overlays.embers`, and `faceOf` draws a drop on
+   `remembered` as well as `visible`. That closes [#81](../../issues/81) as a rule.
+
+`RULES_VERSION` **7 → 8**, log line added, three pinned fixtures re-pinned.
+
+**Why after phase 5, in one test:** `lets the ember collected as the lamp gutters carry the run past
+zero` (`game/core/step.test.ts`). Two commands at 2 fuel on a lit tile — strike a sleeper, step onto
+its drop — and the run is `running` with 20 fuel. Mutating `unlessTheRunEnded` to gate on fuel (the
+`isRunOver` mistake #149 names by name) turns it red, and it is the only test in `game/core/` that
+notices; the whole-suite count is **4 across 2 files** — the other three are in `economy.test.ts`,
+because the corpus harness runs the same phase list and a phase 5 that stops at 0 fuel changes what
+every style banks. The controlled twin, same scene with `revealed` empty, is `died`: **either clause
+alone leaves that run alive**, which is the pair being one subtraction, at the unit tier. Swapping
+*ever lit* for *currently lit* kills **25 tests across 10 files**.
+
+*(Both counts were understated on the first pass — "one test" and "four plus the cache-haul fixture",
+each taken by running only the file being edited. A mutant count is a claim about coverage, so it is
+worth the extra whole-suite run: the honest numbers are larger and the small ones read as a thinner
+suite than this is.)*
+
+**Determinism: the stream did not move, and here is the evidence.** Of the three stored replay
+fixtures, two are **byte-identical** (the dark descent and the cache haul — neither kills anything,
+and a cache was already light-gated) and the combat fixture diverges in exactly **two fields**:
+`fuel` 45 → 25, and one uncollected 20-fuel drop left at (10, 6). Every other field is unchanged,
+**including `rng`** — same `s0..s3` — and with it `now`, `turnsElapsed`, `fuelBurned`, both creature
+positions and both declared intents. That is the shape to expect and it is asserted rather than
+assumed: nothing in this change draws, and neither branch of phase 5 consumes entropy on either side
+of its new guard. A re-record in which `rng` had moved would have meant the collection change reached
+the generator.
+
+**The corpus, before and after (`game/systems/economy.test.ts`, 10 seeds × 8 floors).** These are the
+input to every argument that follows; do not re-derive them.
+
+| | before | after |
+| --- | --- | --- |
+| `STALKER` net fuel / floor (median) | **+6** | **+2** |
+| `STALKER` cache take | 117/121 | 110/121 |
+| `STALKER` income / demand (corpus totals) | 11325 / 10784 | 10510 / 10680 |
+| `STALKER` kills, flashes, turns | 420, 878, 6396 | 420, 836, 6502 |
+| `STALKER` free woken kills | 0 of 387 | 0 of 357 |
+| `STALKER` fuel after 8 floors (median) | 129 | 149 |
+| `HARVESTER` net fuel / floor (median) | **0** | **−105** |
+| `HARVESTER` income / demand (corpus totals) | 8400 / 8821 | **0** / 8487 |
+| `HARVESTER` first dry floor, per seed | 2-4, on **9 of 10** | **1**, on 10 of 10 |
+| `HARVESTER` fuel after 8 floors | 42-130 | **0 on every seed** |
+| `FLOODLIT` lit turns / flashes | 2631 / 339 | 413 / 26 |
+| `FLOODLIT` caches | 98/121 | 14/121 |
+| turns before dry — floodlit / flashing / dark | 26 / 65 / 80 | **26 / 65 / 80** |
+| dry crawl reaching the stairs | 80/80 floors | *assertion deleted* |
+| never-flash line over 9 seeds, real `step()` | **floor 8 on 9 of 9**, 128-167 turns, 12/12 HP, 0 fuel on 7 of 9 | **dead 9 of 9 on turn 79**, `gathered` 0, at 12/12 HP |
+
+**`HARVESTER` exists now, and the before-column is a real measurement — at the second attempt.** #149
+said to record that #109's before-number was missing if #109 slipped. It has slipped, but the style is
+`DRY_CRAWL` re-pointed at a full lantern, so it could be added here and then measured on both sides by
+checking `game/systems/light.ts` and `tests/unit/support/lantern-run.ts` out at `4a59a04` and running
+the same probe. That leaves #109 a smaller job than it was filed for: the style and the invariant-4
+assertion are here; what is not here is #109's own write-up, which this row is.
+
+> **The first version of this table said `+30 -> −105` and `income 8600, never dry`, and both
+> before-numbers were fabricated — the before-column was never run.** Caught in review on PR #152.
+> The tell was available without re-measuring anything: the `STALKER` before-row reproduces exactly by
+> the same method, so it was not a methodology difference; and `8600` is not `420 × 20`. The real
+> figure is **8400** and a net of **0**. Recorded rather than silently replaced, because this entry
+> tells a future session *"do not re-derive them"*, and a number that says that had better be one
+> somebody actually took.
+>
+> **And the *second* pass got the provenance wrong, which is its own lesson.** The correction in
+> `economy.test.ts` blamed the stale after-column on *"a mid-work snapshot before `chooseShutter`
+> learned to flash for a drop"*. True of `STALKER` — its old row reproduces exactly, three-for-three,
+> at that intermediate. **Impossible for `HARVESTER`**: the clause blamed lives inside
+> `chooseShutter`'s `case 'flash'`, and `HARVESTER` is `light: 'never'`, so it never reaches that arm.
+> (Not that *no* edit to `chooseShutter` could move it — `case 'never'` is in there too.)
+> **A claimed provenance has to be *possible*,
+> not merely plausible** — and that is checkable against the config without re-running anything, the
+> same way `8600 ≠ 420 × 20` was. Two cheap arithmetic checks have now caught two fabrications in this
+> entry; running the corpus caught neither first.
+
+**And the corrected before-number makes the ruling's case sharper rather than weaker.** The claim that
+went with the fabricated row was *"`HARVESTER` was the dominant line and is now insolvent"*. It was not
+dominant: on `main` it netted **0** a floor and ran dry on **9 of 10** seeds, on floors 2-4 — and then
+finished all eight anyway with 42-130 fuel, because a kill refilled it and 0 was survivable. **The dark
+line was never solvent; it was *unpunished*.** Clause 1 takes the income to zero and clause 2 takes the
+impunity, and neither alone reaches it — which is the pair being one subtraction, restated in the one
+place the numbers were supposed to be carrying the argument. The independent evidence for the
+conclusion is clear-2's, which does not depend on this table at all: dead 9 of 9 on turn 79, at
+12/12 HP, through the real `step()`.
+
+**The three pacifist styles are byte-identical across the change** — same kills, flashes, turns,
+caches, income, demand — which is the cleanest available control: they kill nothing, so clause 1
+cannot reach them, and the corpus harness never calls `step()`, so clause 2 cannot either. That is
+also why **invariant 2 (`flashed < never`) did not move at all**: it is asserted between three
+pacifists. #149 asked for it to be re-checked rather than assumed; it was, and the answer is that it
+and invariant 4 do not collide, because invariant 4 is now asserted between two **fighters** that take
+the identical 420 kills.
+
+**Learned — four things, and the first one is the one to carry forward.**
+
+**0. I wrote down a before-number I had not taken, and review caught it rather than the suite.** The
+`HARVESTER` before-column above was invented, and the comment table in `economy.test.ts` was a
+mid-work snapshot never re-run after the last harness change — while both sat under the sentence *"do
+not re-derive them"*. Nothing could have gone red for it: a number in a comment is not executable, and
+that is exactly why it is the shape of defect this repo keeps paying for. **What it cost was a wrong
+argument, not just a wrong digit** — "the dominant line, now insolvent" is not what the real
+before-column says, and the true story (*never solvent, merely unpunished*) is stronger. Three cheap
+habits would have caught it, all of them used now: re-read the table against the `console.log` the
+test beside it prints (they disagreed — 2 against +9, 110/121 against 82/121); check a derived figure
+against its constants (`8600` is not `420 × 20`); and re-take *every* measurement after the last code
+change, not the ones that felt likely to move. **A number quoted from an issue or an ADR is not a
+measurement either** — the clear-2 before-row said "9 of 9" borrowed from #108's 824-turn wandering
+autoplay, which is a different bot; it is now this suite's own nine seeds, and the two figures are
+kept apart where they appear.
+
+**And three more that cost time, two of which are findings about the game.**
+
+**1. The corpus went catastrophically wrong before it went right, and both catastrophes were the
+harness rather than the game.** First measurement after the change: `STALKER` at **200 turns a floor**
+(the cap), 44/121 caches, **−140** net. Cause: `chooseAction` listed every `world.ember` as an errand,
+so the script walked onto a drop it could no longer take, the drop stayed, and the errand was still top
+of the list next command — every fighting style circled its own first kill until `TURN_CAP_PER_FLOOR`.
+Fixed by `collectableDrops`, the exact mirror of the `knownCaches` filter #31/#41 added. **A corpus
+floor reported at exactly the cap is a stuck script**; that is the first thing to check when a rule
+change moves these numbers a long way. Second: the harness's `income` counted `killedNow * emberDrop`
+— what was *killed* rather than what was *collected* — and `economy.test.ts`'s own instrument check
+(`demand === spend` on a solvent floor) caught it off by exactly one ember. It now sums the drops that
+left `world.embers`.
+
+**2. `STALKER` was net −12 a floor until the script learned the new game, and that is an instrument
+change worth being suspicious of.** With income counted honestly and no other change, invariant 3 (*a
+floor played well nets slightly positive*) came back red: the style abandoned **163 of its 420 kills'
+drops** — 3260 fuel — on unlit ground, because its only reason to flash was to *see*. §4 states the new
+line in as many words (*"clearing first means lighting every room you killed in"*; #108's *clear the
+room dark, then flash* "promoted from a habit to the rule"), so `chooseShutter` gained one clause:
+flash when there is a drop on or beside you that the lantern has not lit. Net went −12 → **+2** and
+every other `STALKER` figure landed within a few percent of its pre-change value. **No game constant
+moved**; §4's freeze is intact. It is recorded this loudly because "the test went green after I changed
+the measuring instrument" is exactly the sentence that should attract a reviewer, and the defence is
+that the instrument was modelling competence under a rule that no longer exists.
+
+**3. The e2e win test is deleted and that is a real coverage loss.** `run-loop.spec.ts` drove a win by
+wandering eight floors in ~830 presses — and the way that run was *funded* was: hold the shutter open,
+hit 0 fuel at turn 20, then walk the remaining ~810 presses for free. The victory fixture was a
+monument to the deleted rule. Measured in the browser afterwards on the fixed seed: `hold` dies at turn
+20 (floor 1, 4/12 HP), `crawl` at turn 79 (floor 1, 12/12), and a new `flash` policy — open the shutter
+when a `♦` is beside you, which #81 makes readable from the DOM — gets to **floor 2** in 124 turns,
+earning 65 against 145 burned. A winning browser run needs on the order of **750** fuel of income and a
+driver that cannot aim cannot collect it. **That is proposition (a) working**: aimless play is now
+fatal. Not fixed by a router in the spec (this suite refuses one, by design), not by raising
+`STARTING_FUEL` (the freeze), not by shortening the dive (§5). The win state is still driven through
+the real `step()` at seven unit sites; what is gone is *whether the victory screen reaches a browser*.
+**Wants an issue.**
+
+**Fixture shape, as #149 predicted and where it did not.** `diveToTheBottom` is now the never-flash
+**death** fixture — measured, it dies on **turn 79** on 15 of 15 seeds at full HP, or turn 104 on the
+two where floor 1's opening light happened to put a cache on its route (80 fuel + 25 = 105 commands,
+`gathered` 25; every other seed `gathered` **0**). It is the instrument for ADR-0015's **clear**-2,
+asserted through the real `step()` because the corpus harness (immortal player, never calls `step`) is
+structurally blind to the fuel ending.
+
+**Read the turn, not the floor — and this one I also stated wrong first time.** The entry said the
+never-flash line "dies on floors 4-6", which is true of *this script* and is not a description of
+play: it takes the file's routing liberty, beelines to `world.floor.stairs` over the real grid, and
+crosses a floor in ~15 turns. **79 turns is the rule** — 80 fuel at 1 a turn, `gathered` 0, and **79
+rather than 80 because the run starts open**, so the opening `CLOSE` is a free toggle that burns 1
+without spending a turn (measured: `commands 80, turns 79, fuelBurned 80`; the two cache seeds are
+`105/104/105`, the same offset) — and it is
+the same for anyone who never opens the shutter. What differs is how much ground those 79 turns buy:
+the #145 playtest, hand-played, died on the **same turn 79** on **floor 2 of 8**, at 12/12 HP with 2
+kills. The playtest's caveat travels with the number and is worth more than the number: **it dies,
+which is the point, but floor 2 of 8 in 79 turns is not "a run"**, and a player who has not yet worked
+out the claim rule will play close to that line by accident. That is [#154](../../issues/154)'s
+territory — the ruling is currently *invisible*: an unclaimable drop draws identically to a claimable
+one, stepping onto one says nothing, and `@` overdraws the `♦` you are standing on.
+
+**The #145 playtest's verdict, recorded here because this file is the artifact that survives.**
+**Approve with follow-ups — ship it.** Six runs, four seeds. The two deletions are judged the right
+two: the never-flash line is dead hand-played, waking is worth it because *a hunter dies on ground you
+already lit* (§4's own sentence, landing in play), and the flash reads as **claiming** rather than as
+paying a tax. The flash frame is called *"the game's best screen by a distance"*; the fuel death
+*"one of the most legible deaths I have seen in this project"*, with `FUEL SPENT 80 (gathered 0)`
+singled out as *"the whole diagnosis in two words."* Ember you cannot take reads as a landmark you
+own, **not** a nag — §4's prediction held and the ruling's own Watch did not fire.
+
+Five issues came out of it. **[#154](../../issues/154) is the gate**: the playtester's condition is
+that it closes **before #145 is judged**, not before this merged. The others:
+[#153](../../issues/153) (opening the shutter at ≤4 fuel ends the run on the press — the
+information needed to avoid it was on screen in a form that said the opposite), [#155](../../issues/155) (`You gather N ember.` is net of burn,
+so a drop's value is unlearnable — worse after this ruling than before it, because §4's case is that
+the player now weighs HP against fuel turn by turn), [#156](../../issues/156) (`! 1 turns`), and
+[#157](../../issues/157) (5 of 55 sampled turns were decisions; the drag is the stretch between
+clearing a room and finding the stairs, which is **not** this ruling's doing but is now the biggest
+Pillar 1 cost). The playtest explicitly recommends **no tuning yet** — the freeze is right, and the
+two things that felt off are structural rather than numeric.
+
+`lightTheWayDown` is the new winning script: crawl dark, flash beside each cache, haul it, take the
+stairs. It wins on 15 of 15 seeds with **47-159** fuel left, and it is a better fixture than the one it
+replaced — it wakes things, fights and takes damage, where the dark dive never produced a single
+`dormant → awake` transition. `atTheStairs` gained an explicit third parameter rather than switching on
+the floor number, because a helper that silently changed the run it produced would be the worst kind of
+fixture.
+
+**Where #149's predictions did not hold.** Four sites it listed as going *"red honestly and quick"* —
+`game/systems/actors.test.ts:167`, `game/systems/lantern.test.ts:125`, `render/hud.test.ts:103` and
+`e2e/game-screen.spec.ts:760` — **three stayed green**: they assert unit behaviour the ruling does not
+change and carry the deleted rule only in prose, so they were fixed as comment sites. The fourth (the
+e2e) went red for a different reason than predicted: its subject is now a *terminal* frame rather than
+a playable one, so it was re-authored into `the lantern going out ends the run, on screen`. Command
+counts re-measured: three-floor dives are **47-68** commands over 15 seeds (#149 said 48-67 over 8).
+
+**Next:** [#145](../../issues/145) — the broad playtest, which is the only thing that can sign
+ADR-0015's **clear**-3 (*name a flash you were glad you made*). The two build-side criteria are
+asserted in `economy.test.ts` and named there as clear-1 and clear-2.
+
+**Watch — three, and the first is a design question rather than a defect.**
+
+**The claim loop is a two-press ceremony, at zero risk *once ember-sense has caught up* — and it is
+*not* the turn-free arbitrage this entry first claimed it was.**
+
+> **Correction, from the #145 playtest (PR #152).** This Watch read: *"Standing **beside** your own
+> kill and flashing is a **turn-free** 4-fuel-for-20 trade — a free action, phase 5 runs on it, and
+> *ever lit* makes the tile permanently paid."* **Both halves of that are false of the build**, and
+> `collectFuelUnderfoot` settles it in one line: `state.world.embers.filter((drop) =>
+> samePosition(drop.at, at))`. **Phase 5 pays underfoot and nowhere else** — the function's name is
+> its spec. Verified in the built game both ways: flashing *beside* a drop pays nothing and only makes
+> the tile takeable, and flashing *while standing on* it does pay on the press (`You gather 16
+> ember.`) — but you spent a turn stepping there. **The claim loop is always one turn, never zero.** I
+> read the free-action property as if it reached adjacent tiles; it does not, and nothing in the
+> repo ever said it did.
+
+**What is actually worth watching, stated as the playtest measured it.** The loop is `strike` →
+`OPEN` → `CLOSE` → `step`: **one turn beyond the kill** (the strike costs its own — `step.ts` prices a
+bump-attack as `costsATurn`), 5 fuel, two free presses. The presses are at zero risk **once ember-sense
+has climbed back to the lit radius — `sense >= 4`, which is three turns after a shutter, not four** —
+because containment is `sense >= lit`, not `sense == 5`. There it holds absolutely: §4's guarantee
+means *everything a flash can wake, you can already feel*. Of ~10
+claimed kills in the playtest, only **3** had anything within radius 4 to wake; on the other 7 the two
+presses could not have cost anything and the player knew it before pressing.
+
+> **The scoping clause is not decoration, and a first draft of this paragraph omitted it — caught in
+> review.** `closeShutter` resets `senseRadius` to `ADAPTATION_FLOOR` = 1, and
+> `game/fov/containment.test.ts` has a describe block named *"containment is suspended during the
+> adaptation ramp"* asserting `[false, false, false, true, true]` for the four turns after shuttering,
+> breached at more than half of all standable tiles at radii 1-3. **So the loop falsifies the
+> guarantee when it repeats:** strike → `OPEN` → `CLOSE` (sense → 1) → step (2) → strike (3) →
+> `OPEN` — that second flash lights radius 4 against a sense of **3**, and can wake something the
+> player could not feel. The codebase already knew: `lantern-run.ts` refuses to flash unless
+> `senseRadius >= EMBER_SENSE_RADIUS` — but that is the *script* being conservative, not the rule:
+> §4's guard is `sense >= lit`, and `containment.test.ts` says so in as many words
+> (*"still holds at the exact radius the guarantee needs, not just at full reach"*). **A claim of
+> *provable* zero risk in the file every session reads first is a claim a `game-designer` will act
+> on**, so it had better carry the condition it holds under — and the first attempt at the condition
+> was wrong in the *other* direction, saying "full adaptation, and only there" when containment
+> returns a turn earlier at `sense >= 4`.
+
+**The playtester's own classification is ceremony rather than a Pillar 1 violation, and
+explicitly not worth cutting**: the same flash is doing real exploration work, and the three occasions
+it *was* a decision were the best turns of the session. Recorded that way rather than as an
+exploit — if #145's broader pass reports flashing on a timer, this is still the first place to look,
+and it is `game-designer`'s rather than a constant to nudge.
+
+**`STALKER`'s cache take fell 117 → 110 and its flashes 878 → 836.** That is the ruling's third Watch
+measured and **not** firing: the falsifier is `STALKER` *collapsing* rather than `HARVESTER` coming
+down, and `HARVESTER` came down 135 fuel a floor while `STALKER` moved a few percent on every axis.
+Read the table above before concluding otherwise.
+
+**`FLOODLIT` is a dark fighter from floor 2 onward now** — 2631 lit turns to 413 — because a style that
+cannot pay for light stops getting it. Its assertion in `produces four genuinely different styles`
+moved from *twenty lit turns a floor* to *at least one*, with the measurement recorded inline. That is
+the widest threshold move in this change and the one to re-read if the light comparisons below it ever
+start looking vacuous.
+
+---
+
 ## 2026-08-04 — #144 ruled: the dark can take nothing, and a lantern that goes out ends the run
 
 **Did:** Ruled [#144](../../issues/144), the cost-side lever ADR-0015 fires. **GDD §4 gains *The dark

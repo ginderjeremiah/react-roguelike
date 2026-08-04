@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { LAST_FLOOR, STARTING_FUEL } from '@/game/content';
 import { floorNumberOf, replay, runStates, step, type GameState } from '@/game/core';
 import { scenarioState } from '@/tests/unit/support/presentation';
-import { diveToTheBottom, standUntilDead } from '@/tests/unit/support/run-script';
+import { lightTheWayDown, standUntilDead } from '@/tests/unit/support/run-script';
 import { presentHud, type OutcomeHud } from './hud';
 import {
   DEATH_MARKER,
@@ -20,8 +20,13 @@ import {
  *
  * That is not a stylistic preference here the way it sometimes is: §13's whole warning about this
  * screen is that "the terminal state is a snapshot of the moment the run ended, not a tidied-up
- * world", and a hand-built state is by definition tidy. `standUntilDead` and `diveToTheBottom` drive
+ * world", and a hand-built state is by definition tidy. `standUntilDead` and `lightTheWayDown` drive
  * the real `step()` to the two real endings, so the numbers below are the numbers a player would see.
+ *
+ * **The win fixture changed with the rules and not with this file.** It was `diveToTheBottom`, a run
+ * that never opened the shutter; under §4's *The dark can take nothing* (#149) that line earns
+ * nothing and dies around floor four, so the winning run is now one that buys light and hauls what it
+ * lights. §13 also re-ruled the win **headline** in the same edit — and did not change it.
  *
  * The one place a state is fabricated is `presentSummary`'s second argument, and that is the point of
  * the test it appears in — see "the ending is the one it is handed".
@@ -31,7 +36,7 @@ const DEATH = standUntilDead('grave', 3);
 const DYING: readonly GameState[] = runStates(DEATH.seed, DEATH.commands);
 const DIED = replay(DEATH);
 
-const VICTORY = diveToTheBottom('win', LAST_FLOOR);
+const VICTORY = lightTheWayDown('win');
 const WON = replay(VICTORY);
 
 /** The summary for a state, built the way `presentScene` builds it. */

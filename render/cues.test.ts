@@ -5,6 +5,7 @@ import { scenarioState, stateFrom } from '@/tests/unit/support/presentation';
 import {
   atTheStairs,
   diveToTheBottom,
+  lightTheWayDown,
   standUntilDead,
   takeACacheTheLanternFound,
   walkInTheDarkThenFlash,
@@ -32,6 +33,11 @@ import { CUE_KINDS, cuesFor, wakesOnArrival, type Cue } from './cues';
  * cache pays only once the lantern has lit its tile — so the dark dive now collects nothing and the
  * completeness test went red again. The answer was again a play pattern, not a weaker assertion:
  * `takeACacheTheLanternFound` crawls to a cache, flashes it, shuts, and hauls it home in the dark.
+ *
+ * **#149 widened that predicate to a kill's ember and it cost this corpus nothing**, which is worth
+ * saying because it looks like it should have: the dive at three floors is byte-identical (it kills
+ * nothing), and `HAUL` is the fixture that was already built to survive the same rule. What did move
+ * is the *win* fixture below, which had to start buying light to reach the bottom at all.
  */
 
 const DIVE = diveToTheBottom('cues', 3);
@@ -202,7 +208,7 @@ describe('a descent (GDD §13: you leave the map behind)', () => {
   it('is not fired by the winning descent, which ends the run where it stands', () => {
     // §13: taking the last floor's stairs ends the run in phase 1 and generates no floor. There is
     // no board to replace, so `descended` would be describing a transition that did not happen.
-    const win = diveToTheBottom('win-cue');
+    const win = lightTheWayDown('win-cue');
     const states = runStates(win.seed, win.commands);
     const final = cuesFor(states[states.length - 2], states[states.length - 1]);
 
@@ -225,11 +231,17 @@ describe('the shutter (§9: the command names a setting, not a toggle)', () => {
     // §4/`lantern.ts`: "the turn you run dry is the turn the shutter shuts". The player did not press
     // anything, and the lamp still went out — which is precisely the moment that needs a beat, and
     // the one case where a shutter cue is not the echo of a command.
+    //
+    // **Since #149 that moment is also the end of the run** (§4's *The dark can take nothing*), and
+    // the cue still fires on it: §13 puts the final frame at the moment the run ended and draws the
+    // board under the summary, so the shutter closing is the last thing that happens on screen rather
+    // than something the ending swallows.
     const { state } = scenarioState(['#####', '#@..#', '#####'], { shutter: 'open', fuel: 4 });
     const after = step(state, { kind: 'wait' });
 
     expect(after.lantern.fuel).toBe(0);
     expect(after.lantern.vision.shutter).toBe('shuttered');
+    expect(after.status).toEqual({ kind: 'died' });
     expect(cuesFor(state, after)).toContainEqual({ kind: 'shutterChanged', to: 'shuttered' });
   });
 });

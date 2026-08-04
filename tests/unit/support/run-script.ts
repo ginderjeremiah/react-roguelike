@@ -2,8 +2,10 @@
  * Scripted players that drive the **real** `step()` with real `Command`s.
  *
  * ```ts
- * const record = diveToTheBottom('emberdepth');   // a full eight-floor run, as a command log
+ * const record = lightTheWayDown('emberdepth');   // a full eight-floor run, as a command log
  * replay(record).status;                          // { kind: 'reachedBottom' }
+ *
+ * replay(diveToTheBottom('emberdepth')).status;   // { kind: 'died' } — the never-flash line
  * ```
  *
  * ## Why a script and not random commands
@@ -53,6 +55,9 @@ import { LAST_FLOOR } from '@/game/content';
 
 /** Give up rather than loop forever if a script cannot make progress. */
 const TURN_CAP_PER_FLOOR = 400;
+
+/** §5 places 1-2 a floor. A bound, not an expectation — it exists to make a stuck loop loud. */
+const MAX_CACHES_PER_FLOOR = 8;
 
 /** The four directions, paired with the step each one is. The inverse of `neighbourOf`. */
 const HEADINGS: readonly (readonly [Direction, Position])[] = [
@@ -141,14 +146,34 @@ function diveCommand(state: GameState): Command | null {
 }
 
 /**
- * A run that goes straight down, in the dark, all the way to the bottom.
+ * A run that goes straight down, in the dark, for as long as the lantern lasts.
  *
- * **Shutters on the very first command and never opens again**, which is why it survives: §4 says
- * nothing wakes in the dark, and a dormant creature is not a threat — it is a tile to walk around.
- * The lantern runs dry somewhere around floor three, which is not an ending (§4, §13) and is part of
- * what makes this a useful fixture rather than a sanitized one.
+ * **Shutters on the very first command and never opens again.** §4 says nothing wakes in the dark and
+ * a dormant creature is not a threat — it is a tile to walk around — so nothing on the floor can
+ * touch it. What can is the lamp: this is **the never-flash line**, it earns nothing under §4's *The
+ * dark can take nothing* (every drop it makes is on ground it never lit), and it burns 1 a turn
+ * against a reserve of 80. **It dies on turn 79** — measured over 15 seeds, always at full HP, with
+ * `gathered` **0** on all but the two seeds where floor 1's opening light happened to put a cache on
+ * its route (those die on turn 104: 80 + 25, at 1 a turn, on the nose). That is the point of it
+ * rather than a defect: ADR-0015's second clear criterion is measured on exactly this line, and full
+ * HP is what makes it *the dark* that killed it.
  *
- * @param through how many floors to descend from. `LAST_FLOOR` produces a winning run.
+ * **Read the turn, not the floor it reaches.** 79 turns is the rule; the floors it covers in them are
+ * this script's routing liberty — it beelines to `world.floor.stairs` over the real grid, so it gets
+ * to floor 4-6, where the #145 playtest hand-played the same line to a death on the same turn 79 on
+ * **floor 2**. `economy.test.ts`'s clear-2 block states the distinction; do not quote the floor range
+ * as something a player would see.
+ *
+ * > **It used to reach the bottom, and its docstring said the lantern "runs dry somewhere around
+ * > floor three, which is not an ending".** It was the project's only winning fixture and every
+ * > victory assertion in the suite ran on it. Under #149 it is a death; `lightTheWayDown` is what a
+ * > winning run looks like now, and the difference between the two is the whole ruling.
+ *
+ * Three floors or fewer it still survives comfortably — measured over 15 seeds, 47-68 commands with
+ * **12-44 fuel left** — which is why every short `DIVE` fixture in `render/` is unchanged and
+ * byte-identical across this rules version.
+ *
+ * @param through how many floors to descend from. It stops early if the run ends first.
  */
 export function diveToTheBottom(seed: string, through: number = LAST_FLOOR): RunRecord {
   const commands: Command[] = [{ kind: 'setShutter', to: 'shuttered' }];
@@ -174,6 +199,9 @@ export function diveToTheBottom(seed: string, through: number = LAST_FLOOR): Run
       state = step(state, command);
       if (command.kind === 'descend') break;
       if (state === before) throw new Error(`run-script: ${JSON.stringify(command)} was refused`);
+      // The lamp went out, or something killed it. §13 refuses every command after, so issuing one
+      // more would trip the refusal throw above and report a script bug for a run that simply ended.
+      if (state.status.kind !== 'running') break;
       guard += 1;
       if (guard > TURN_CAP_PER_FLOOR) {
         throw new Error(`run-script: floor ${floorNumberOf(state)} took more than ${TURN_CAP_PER_FLOOR} turns`);
@@ -186,14 +214,120 @@ export function diveToTheBottom(seed: string, through: number = LAST_FLOOR): Run
 }
 
 /**
- * The state of a dark dive at the moment it is standing on floor `floorNumber`'s stairs.
+ * A run that **pays for its own descent**: crawl dark, flash every ember cache on the way past, haul
+ * it, and take the stairs. The winning fixture.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
+ * WHY A WINNING DIVE HAS TO FLASH NOW, AND WHY THAT IS THE FIX RATHER THAN A WORKAROUND
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * Every victory fixture in this project used to be `diveToTheBottom`, which shutters on command 1
+ * and never opens again. Under §4's *The dark can take nothing* that line earns nothing at all and
+ * has 80 fuel to cross eight floors with, so it is **precisely the line the ruling exists to kill**
+ * — of course it no longer wins. The fix is design-consistent and it is a fixture decision rather
+ * than a tuning one: a winning dive has to buy light. **`STARTING_FUEL` is frozen and must not be
+ * raised to rescue a test** (§4's freeze, #149).
+ *
+ * The play pattern is `takeACacheTheLanternFound`'s, repeated: crawl to a tile orthogonally adjacent
+ * to a cache, flash, shut, step on. Two free commands and 5 fuel buy 25, and the flash also folds a
+ * radius-4 room into terrain memory for nothing extra. It wakes whatever is in that room, which is
+ * §4's wager and is why this run is a genuinely better fixture than the old one: the dark dive never
+ * produced a single `dormant` → `awake` transition.
+ *
+ * It **routes over the real grid** like everything else in this file (see the header's liberty), and
+ * it takes caches in `floor.caches` order — a generated array, so the order is a pure function of the
+ * seed and never of iteration order.
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * @param through how many floors to descend from. It stops early if the run ends first, which it can
+ *   — a Cinder woken by a flash still pursues, and the lamp can still go out.
+ */
+export function lightTheWayDown(seed: string, through: number = LAST_FLOOR): RunRecord {
+  const commands: Command[] = [{ kind: 'setShutter', to: 'shuttered' }];
+  let state = step(createInitialState(seed), commands[0]);
+
+  /** Issue one command, or report which one the rules refused. */
+  const issue = (command: Command): void => {
+    const before = state;
+    commands.push(command);
+    state = step(state, command);
+    if (state === before) throw new Error(`run-script: ${JSON.stringify(command)} was refused`);
+  };
+
+  /** Walk until `within` tiles of `goal`. `false` if the route ran out or the run ended. */
+  const walkTo = (goal: Position, within: number): boolean => {
+    for (let guard = 0; guard <= TURN_CAP_PER_FLOOR; guard += 1) {
+      if (state.status.kind !== 'running') return false;
+      const at = playerOf(state.world).at;
+      if (stepsApart(at, goal) <= within) return true;
+      const grid = state.world.floor.grid;
+      const next =
+        stepTowardOnGrid(grid, at, goal, occupied(state.world)) ??
+        stepTowardOnGrid(grid, at, goal, () => false);
+      const dir = next === null ? null : headingTo(at, next);
+      if (dir === null) return false;
+      issue({ kind: 'move', dir });
+    }
+    throw new Error(`run-script: walking to ${JSON.stringify(goal)} took more than the cap`);
+  };
+
+  for (let floors = 0; floorNumberOf(state) <= through; floors += 1) {
+    if (floors > LAST_FLOOR) {
+      throw new Error(
+        `run-script: descended ${floors} times without passing floor ${through} — descent is not ` +
+          `advancing the floor number`,
+      );
+    }
+
+    // The floor's caches, in the generator's own order, re-read from the state each time round —
+    // taking one rewrites the grid and drops it from the list, so the head of the list is always the
+    // next one. The guard is a bound on a loop whose progress is the list shrinking; if the list
+    // stops shrinking the throw below fires first, and this says so rather than hanging.
+    for (let guard = 0; ; guard += 1) {
+      if (guard > MAX_CACHES_PER_FLOOR) {
+        throw new Error(`run-script: floor ${floorNumberOf(state)} never ran out of caches`);
+      }
+      const cache = state.world.floor.caches[0];
+      if (cache === undefined || !walkTo(cache, 1)) break;
+      issue({ kind: 'setShutter', to: 'open' }); // phase 3 folds the lit field into `revealed`
+      issue({ kind: 'setShutter', to: 'shuttered' }); // ...and the pickup happens in the dark
+      const dir = headingTo(playerOf(state.world).at, cache);
+      if (dir === null) break;
+      issue({ kind: 'move', dir });
+      if (state.status.kind !== 'running') break;
+      if (state.world.floor.caches.some((left) => samePosition(left, cache))) {
+        throw new Error(`run-script: the lantern lit ${JSON.stringify(cache)} and it paid nothing`);
+      }
+    }
+
+    if (state.status.kind !== 'running') break;
+    if (!walkTo(state.world.floor.stairs, 0)) break;
+    issue({ kind: 'descend' });
+    if (state.status.kind !== 'running') break;
+  }
+
+  return recordRun(seed, commands);
+}
+
+/**
+ * The state of a dive at the moment it is standing on floor `floorNumber`'s stairs.
  *
  * The one situation that is genuinely awkward to construct by hand — it needs a *generated* floor,
  * because a hand-built scenario's stairs are not the ones a descent is taken from — and it is the
  * precondition of every descent test.
+ *
+ * @param dive which script to get there with. The dark one is the default because most callers want
+ *   floor 1 or 2 and want the arriving state to be a *shuttered* one; **it cannot reach the deep
+ *   floors any more** (§4's fuel ending), so a caller past floor three has to pass one that pays its
+ *   way. Explicit rather than switched on `floorNumber`, because a helper that silently changed the
+ *   run it produced would be the worst kind of fixture.
  */
-export function atTheStairs(seed: string, floorNumber: number = 1): GameState {
-  const record = diveToTheBottom(seed, floorNumber);
+export function atTheStairs(
+  seed: string,
+  floorNumber: number = 1,
+  dive: (seed: string, through: number) => RunRecord = diveToTheBottom,
+): GameState {
+  const record = dive(seed, floorNumber);
   const states = runStates(record.seed, record.commands);
   // The log ends with the descent off that floor, so the state before it is the one standing there.
   const state = states[states.length - 2];

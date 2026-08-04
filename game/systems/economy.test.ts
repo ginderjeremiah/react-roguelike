@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   DARK_PACIFIST,
-  DRY_CRAWL,
   FLOODLIT,
   FLOODLIT_PACIFIST,
+  HARVESTER,
   PACIFIST,
   playRun,
   STALKER,
@@ -11,13 +11,22 @@ import {
   type RunResult,
   type Style,
 } from '@/tests/unit/support/lantern-run';
+import { diveToTheBottom } from '@/tests/unit/support/run-script';
 import { scenario } from '@/tests/unit/support/scenario';
-import { CINDER, PLAYER_ATTACK, PLAYER_MAX_HP, STARTING_FUEL } from '../content';
+import {
+  CINDER,
+  FUEL_BURN_SHUTTERED,
+  LAST_FLOOR,
+  PLAYER_ATTACK,
+  PLAYER_MAX_HP,
+  STARTING_FUEL,
+} from '../content';
+import { floorNumberOf, replay } from '../core';
 import { creatureById, isAlive, PLAYER_ID, playerOf } from '../entities';
 import { ADAPTATION_FLOOR, EMBER_SENSE_RADIUS, perceive } from '../fov';
 import { generateFloor } from '../map';
 import { createRng } from '../rng';
-import { canOpen, createLantern, toggleShutter } from './lantern';
+import { canOpen, createLantern } from './lantern';
 import {
   createLanternWorld,
   lanternPhases,
@@ -104,6 +113,7 @@ const pacifist = runs(PACIFIST);
 const floodlit = runs(FLOODLIT);
 const floodlitPacifist = runs(FLOODLIT_PACIFIST);
 const darkPacifist = runs(DARK_PACIFIST);
+const harvester = runs(HARVESTER);
 
 describe('the corpus is playing the game it claims to be playing', () => {
   it('produces four genuinely different styles', () => {
@@ -123,12 +133,31 @@ describe('the corpus is playing the game it claims to be playing', () => {
     // The fighters clear real floors.
     expect(kills(stalker)).toBeGreaterThan(SEEDS * FLOORS * 2);
     expect(kills(floodlit)).toBeGreaterThan(SEEDS * FLOORS * 2);
-    // The floodlit styles hold the light; the flashing styles buy it a command at a time and the
-    // dark one never buys it at all.
-    expect(litTurns(floodlit)).toBeGreaterThan(SEEDS * FLOORS * 20);
+    expect(kills(harvester)).toBeGreaterThan(SEEDS * FLOORS * 2);
+
+    console.log(
+      `light bought — floodlit ${litTurns(floodlit)} lit turns / ${flashes(floodlit)} flashes, ` +
+        `stalker ${litTurns(stalker)} / ${flashes(stalker)}, harvester ${flashes(harvester)} flashes`,
+    );
+    // The floodlit styles hold the light for as long as they can pay for it; the flashing styles buy
+    // it a command at a time and never hold it; the dark ones never buy it at all.
+    //
+    // ═══ THE FLOODLIT NUMBER FELL BY 84% UNDER #149, AND THAT IS THE RULE RATHER THAN A DEFECT ═══
+    //
+    // Measured, before and after §4's *The dark can take nothing*: `FLOODLIT` went from **2631** lit
+    // turns to **413**, and from 339 re-opens to 26. It used to bank 20 a kill in the dark, which
+    // bought it the fuel to re-open the shutter over and over; now a style whose kills land on
+    // ground it can no longer light earns nothing, so **it holds the light until floor one empties
+    // the lantern and then it is a dark fighter for the rest of the run**. That is the intended
+    // shape — light is self-limiting when it is also the only income — and it is why the bound here
+    // is *at least a lit turn a floor* rather than the twenty a floor the old economy paid for.
+    // What the bound still catches is the thing that would make every light comparison below
+    // vacuous: a `FLOODLIT` that never manages to open the shutter at all.
+    expect(litTurns(floodlit)).toBeGreaterThan(SEEDS * FLOORS);
     expect(litTurns(stalker)).toBe(0);
     expect(flashes(stalker)).toBeGreaterThan(SEEDS * FLOORS * 3);
     expect(flashes(darkPacifist)).toBe(0);
+    expect(flashes(harvester)).toBe(0);
   });
 
   it('accounts for the fuel exactly, so the numbers below are the simulation’s and not the harness’s', () => {
@@ -616,53 +645,233 @@ describe('§4’s regression guard: no run banks ember from a creature it woke f
   });
 });
 
-// --- §4's desperate state ------------------------------------------------------------------------
+// --- ADR-0015's clear criteria (§4, *The dark can take nothing*; #144/#149, judged by #145) -------
 
-describe('fuel at 0 is a desperate state, not a loss state', () => {
-  const dry = runs(DRY_CRAWL, 0);
-
-  it('still gets the player to the stairs, from an empty lantern, on every floor', () => {
-    // §4: "you can still crawl at radius 1 with ember-sense, and the stairs are still findable." A
-    // run that becomes *unplayable* rather than desperate is the bug this is here to catch, and the
-    // only honest way to check it is to play a whole run with nothing in the tank.
-    const played = floorsOf(dry);
-    const arrived = played.filter((floor) => floor.reachedStairs).length;
-    console.log(`dry crawl: reached the stairs on ${arrived}/${played.length} floors`);
-    expect(arrived).toBeGreaterThan(played.length * 0.9);
+describe('ADR-0015 clear-1: a style that never opens the shutter does not out-earn one that flashes', () => {
+  /**
+   * ═══════════════════════════════════════════════════════════════════════════════════════════════
+   * THE ASSERTION §4'S INVARIANT 4 HAS NEVER HAD, AND WHY THIS BLOCK REPLACED THE ONE BEFORE IT
+   * ═══════════════════════════════════════════════════════════════════════════════════════════════
+   *
+   * §4 invariant 4: *"at comparable combat, a style that never opens the shutter must not out-earn
+   * one that flashes."* **The scoping clause is load-bearing** — stated unscoped it contradicts
+   * invariant 2, which asserts the opposite ordering between *pacifist* styles and is pinned two
+   * blocks up. It is compatible only between styles that fight comparably, which is exactly what
+   * `HARVESTER` against `STALKER` measures: the two differ in their light policy and in nothing
+   * else, and both clear **every creature on every floor** (420 kills each, over this corpus).
+   *
+   * **This block stands where `fuel at 0 is a desperate state, not a loss state` stood.** That was
+   * four tests describing a rule that has been deleted, built on `runs(DRY_CRAWL, 0)` — a run that
+   * starts at 0 fuel, which is now a run that cannot exist. It was not repaired; the style was
+   * re-pointed at a full lantern, where it is the never-flash **fighter** invariant 4 is about. The
+   * one assertion in it that outlived the rule — *ember-sense does not shrink with the fuel* — is
+   * kept below, at a low fuel rather than at none.
+   * ═══════════════════════════════════════════════════════════════════════════════════════════════
+   */
+  it('is comparing two styles that fight the same amount, which is the invariant’s own scope', () => {
+    // The positive control, and it comes first because the assertion below is meaningless without
+    // it: an unscoped invariant 4 is satisfied by a never-flash style that simply fights less.
+    const kills = (results: RunResult[]): number =>
+      floorsOf(results).reduce((total, floor) => total + floor.kills, 0);
+    expect(kills(harvester)).toBe(kills(stalker));
+    expect(kills(harvester)).toBeGreaterThan(SEEDS * FLOORS * 4);
+    // ...and they are genuinely different styles: one buys light, the other never does.
+    expect(floorsOf(harvester).reduce((total, floor) => total + floor.flashes, 0)).toBe(0);
+    expect(floorsOf(stalker).reduce((total, floor) => total + floor.flashes, 0)).toBeGreaterThan(0);
   });
 
-  it('lets a dry player still find, fight and be paid by the living', () => {
-    // The recovery path, end to end: at 0 fuel the player can still feel creatures (ember-sense is
-    // the player's dark-adapted eyes, not the lamp), still kill them, and the ember still pays. If
-    // any link in that chain were broken, 0 fuel would be a loss state wearing a different name.
-    const played = floorsOf(dry);
-    expect(played.reduce((total, floor) => total + floor.kills, 0)).toBeGreaterThan(SEEDS);
-    expect(dry.filter((result) => result.fuelAfter > 0).length).toBeGreaterThan(SEEDS / 2);
+  it('leaves the never-flash fighter with no income at all', () => {
+    // The mechanism, stated as the sharpest thing that is true. Under *The dark can take nothing* a
+    // style that never lights a tile banks **nothing**: not the caches (§4's rule since #31/#41) and
+    // now not the drops either, because every creature it kills dies on ground it never lit.
+    //
+    // Exactly zero rather than "less", for the reason `DARK_PACIFIST`'s zero is exact and with the
+    // same caveat: `arriveOn` starts every floor shuttered and never calls `beginRun`, so the
+    // `revealed` plane is empty by construction. A real run keeps floor 1's entrance room, which is
+    // worth about 0.2 caches a run — the rule is marginally *looser* in play than this line reports,
+    // never stricter.
+    const income = floorsOf(harvester).reduce((total, floor) => total + floor.income, 0);
+    const kills = floorsOf(harvester).reduce((total, floor) => total + floor.kills, 0);
+    console.log(`harvester: ${kills} kills, ${income} fuel of income, 0 flashes`);
+    expect(kills).toBeGreaterThan(0); // it really is killing things...
+    expect(income).toBe(0); // ...and being paid for none of them
   });
 
-  it('will not light the lantern, however hard the player leans on the control', () => {
-    // The rule itself, driven through a whole turn rather than through `open` alone: the shutter
-    // stays shut, no fuel appears from nowhere, and the floor stays asleep.
-    let state = createLanternWorld(generateFloor(createRng('dry-toggle'), 3).value, 'shuttered', 0);
-    for (let press = 0; press < 10; press += 1) {
-      state = { world: state.world, lantern: toggleShutter(state.lantern) };
-      expect(state.lantern.vision.shutter).toBe('shuttered');
-      expect(state.lantern.fuel).toBe(0);
+  it('does not out-earn the flashing fighter — ADR-0015 clear-1, asserted', () => {
+    // ═══ THE CRITERION, IN ONE COMPARISON ═══
+    //
+    // Measured over this corpus, at `4a59a04` and at this commit. Both columns are this file's own
+    // seeds (`econ-0`..`econ-9`), `FLOORS` 8, and `netPerFloor`'s median-of-`income - demand`:
+    //
+    //                            STALKER              HARVESTER
+    //     net fuel per floor      +6  ->    +2          0  ->  -105
+    //     cache take         117/121  ->  110/121       0  ->     0
+    //     income               11325  ->  10510      8400  ->     0
+    //     ran dry             on 4 of 10 seeds, both   on 9 of 10  ->  10 of 10
+    //     first dry floor     unchanged: 2-4          2-4  ->  floor 1
+    //
+    // **The never-flash fighter was not out-earning anything; it was breaking even and running dry
+    // on nine seeds in ten — and that did not matter, because 0 fuel was survivable.** It ended
+    // those runs with 42-130 fuel, having dried on floor 2-4 and refilled off the next kill. So the
+    // dark line was never *solvent*; it was **unpunished**. Clause 1 takes the income to zero and
+    // clause 2 takes the impunity, which is why the two are one ruling and not two.
+    //
+    // *An earlier version of this comment read `+30 -> -117` and called `HARVESTER` "the dominant
+    // line". **Neither number was measured**, and the account of *where they came from* was itself
+    // wrong on the second pass — recorded rather than quietly replaced, because a fabricated
+    // before-number is the exact failure this block exists to supply the cure for.*
+    //
+    // *`STALKER`'s old after-row (`+9 / 10450 / 82-121`) does reproduce, exactly and three-for-three,
+    // at one intermediate: the kill-based income counter **and** no drop-flash clause. So that half
+    // was a mid-work snapshot. **`HARVESTER`'s `-117` reproduces nowhere** — and it cannot have come
+    // from the clause the first correction blamed: that clause lives inside `chooseShutter`'s
+    // `case 'flash'`, and **`HARVESTER` is `light: 'never'`, so it never reaches that arm**. (Not
+    // that no edit to `chooseShutter` could move it — `case 'never'` is in there too.)
+    // Saying so is the standard this block imposes on everyone else: name the build a number came
+    // from, or say plainly that you could not find one.*
+    //
+    // `STALKER` is barely moved on every axis — same 420 kills, 878 -> 836 flashes, income −7.2%
+    // against demand −1% — which is the ruling's own prediction and **not** its third Watch firing.
+    // That Watch fires on `STALKER` *collapsing* while `HARVESTER` holds; here `HARVESTER` fell 105
+    // fuel a floor and `STALKER` fell 4.
+    const flashing = netPerFloor(stalker);
+    const never = netPerFloor(harvester);
+    console.log(`net fuel per floor — stalker ${flashing}, harvester ${never} (§4 invariant 4)`);
+    expect(never).toBeLessThan(flashing);
+    // ...and the gap is not a rounding artefact of two styles that both break even.
+    expect(never).toBeLessThan(0);
+    expect(flashing).toBeGreaterThan(0);
+  });
+
+  it('runs the never-flash fighter dry on the first floor of every seed', () => {
+    // The other face of the same number, and the one that says invariant 4 is satisfied on the
+    // *income* side rather than by a threshold: a style with no income has 80 fuel and a floor to
+    // cross, so it empties.
+    //
+    // **The interesting half is `<= 1`, not `not.toBeNull()`.** Before #149 this style already dried
+    // on 9 of 10 seeds — on floors **2-4** — and went on to finish all eight with 42-130 fuel,
+    // because a kill refilled it and 0 was survivable. So "it runs dry" was true before the ruling
+    // and says nothing. What the ruling changed is *when* and *whether it comes back*: floor **1**,
+    // on 10 of 10, and the reserve never rises again, because there is nothing left that pays it.
+    for (const result of harvester) {
+      expect(result.driedOnFloor).not.toBeNull();
+      expect(result.driedOnFloor ?? 99).toBe(1);
     }
-    expect(canOpen(state.lantern)).toBe(false);
+    // ...and it stays dry. A style whose income is exactly 0 cannot recover, which is the half the
+    // floor number alone does not say.
+    for (const result of harvester) expect(result.fuelAfter).toBe(0);
+  });
+});
+
+describe('ADR-0015 clear-2: a line that never opens the shutter dies', () => {
+  /**
+   * ═══════════════════════════════════════════════════════════════════════════════════════════════
+   * THE ONE CRITERION THIS CORPUS CANNOT MEASURE, AND WHY IT IS ASSERTED THROUGH `step()` INSTEAD
+   * ═══════════════════════════════════════════════════════════════════════════════════════════════
+   *
+   * > **clear-2:** *over a zero-strategy bot sweep of at least 9 seeds, the never-flash line must not
+   * > reach floor 8 on every seed at full HP.* **This is the single number the whole rebuild is
+   * > against.**
+   *
+   * **The before-number is this block's own, taken on these nine seeds at `4a59a04`:** all nine
+   * reached floor 8 at **12/12 HP**, in 128-167 turns, seven of them arriving at exactly 0 fuel. So
+   * the criterion was red by the widest possible margin, and the *manner* of it is the ruling's whole
+   * case — the line ran the reserve to nothing and then kept walking, for dozens of turns, because
+   * nothing happened when it did. (ADR-0015 and #149 quote **824 turns at 12/12** for this criterion.
+   * That is #108's hand-played *wandering* autoplay and not this script; the two are different bots
+   * and the numbers must not be pooled. The *9 of 9* is this suite's own sweep, **not** #108's — its
+   * autoplay is a single run. What the two agree on is only the shape: a never-flash line finished,
+   * at full HP, with the reserve run to nothing.)
+   *
+   * The corpus above is **structurally blind to it**, twice over: `lantern-run.ts` takes liberty 1
+   * (the player is immortal, so the fuel economy rather than survival is what it measures) and it
+   * never calls `step()` at all, so `statusAfterTurn` — where the fuel ending lives — is not in its
+   * path. A route the corpus cannot reach needs a reproduction, not a statistic; that is the same
+   * argument #133 made about `beginRun`, and it applies here for a stronger reason, because the thing
+   * being asserted is *the run ending*.
+   *
+   * So the instrument is `diveToTheBottom`, which drives the real `step()` with real `Command`s and
+   * **is** the zero-strategy line the criterion names: it shutters on command 1, never opens again,
+   * never hunts, and walks to the stairs. Note the distinction the criterion turns on — a bot that
+   * *fights* in the dark is `HARVESTER` and is clear-1's, above. Neither number may be borrowed for
+   * the other.
+   *
+   * ## Read the **turn**, not the floor: the floor number here is not what a player will see
+   *
+   * Measured over this sweep, every seed dies on **turn 79** with `fuelBurned` 80 and **`gathered`
+   * 0** — 80 fuel at 1 a turn, and nothing at all coming in. That number is the criterion; it is a
+   * property of the *rules* and it is the same for anyone who never opens the shutter.
+   *
+   * **The floors those 79 turns buy are a property of the script and nothing else.** This one takes
+   * the header's routing liberty — it reads `world.floor.stairs` and beelines over the real grid, so
+   * it crosses a floor in ~15 turns and dies on floor **4-6**. A human mapping the same floors by
+   * touch at radius 1 covers far less ground per turn: the #145 playtest, hand-played, died on the
+   * same **turn 79** on floor **2 of 8**, at 12/12 HP with 2 kills and `gathered` 0.
+   *
+   * So do not quote "floors 4-6" as what the dark line experiences — the honest statement is *79
+   * turns and two floors*, and the playtest's caveat travels with it: **it dies, which is the point,
+   * but floor 2 of 8 in 79 turns is not "a run"**, and a player who has not yet worked out the claim
+   * rule will play close to that line by accident. That is #154's territory, not this file's.
+   * ═══════════════════════════════════════════════════════════════════════════════════════════════
+   */
+  const SWEEP = ['dark-1', 'dark-2', 'dark-3', 'dark-4', 'dark-5', 'dark-6', 'dark-7', 'dark-8', 'dark-9'];
+
+  it('does not reach floor 8 on any seed — let alone on every one', () => {
+    const ends = SWEEP.map((seed) => replay(diveToTheBottom(seed)));
+    console.log(
+      `never-flash sweep — ${ends.filter((end) => end.status.kind === 'died').length}/${SWEEP.length} ` +
+        `dead on turn ${ends.map((end) => end.turnsElapsed).join(',')}; ` +
+        `floors reached ${ends.map(floorNumberOf).join(',')} (a router's, not a player's — see above)`,
+    );
+
+    // The criterion, stated as it is written: not every seed reaches floor 8 at full HP.
+    expect(ends.every((end) => floorNumberOf(end) === LAST_FLOOR)).toBe(false);
+    // ...and the true state of the world is much stronger, so it is asserted rather than implied.
+    for (const end of ends) {
+      expect(end.status).toEqual({ kind: 'died' });
+      expect(floorNumberOf(end)).toBeLessThan(LAST_FLOOR);
+    }
   });
 
-  it('gives a dry player their ember-sense back on the usual ramp', () => {
-    // §4's dark column, permanently. A dry lantern is not a fifth vision state: touch still reaches
-    // one tile, and the sense of the living still climbs +1 a turn back to five. If ember-sense were
-    // powered by the lantern, a dry player could not find anything to kill and could not recover.
+  it('dies of the dark rather than of anything on the floor, which is proposition (a)', () => {
+    // ADR-0015's (a): *you must be able to die of the dark.* The distinction matters — §4 says
+    // nothing wakes in the dark and a pursuer cannot hit a moving player, so **there is nothing in a
+    // shuttered floor for a moving player to die of except the dark itself**. Full HP at the end is
+    // therefore not incidental: it is the proposition.
+    for (const seed of SWEEP) {
+      const end = replay(diveToTheBottom(seed));
+      // **The ending, first.** Without it this test passes unchanged under a build that deleted the
+      // `isDry` line from `statusAfterTurn` — a never-flash line still ends at 0 fuel and full HP,
+      // it just does not *stop*. The two readings below are what the death was **of**; this is that
+      // there was one.
+      expect(end.status).toEqual({ kind: 'died' });
+      expect(end.lantern.fuel).toBe(0);
+      expect(playerOf(end.world).hp).toBe(PLAYER_MAX_HP);
+    }
+  });
+});
+
+// --- what survives the ruling ---------------------------------------------------------------------
+
+describe('§4: ember-sense is the player’s dark-adapted eyes, not the lamp', () => {
+  it('gives a nearly-dry player their ember-sense back on the usual ramp', () => {
+    // §4's dark column. A guttering lantern is not a fifth vision state: touch still reaches one
+    // tile, and the sense of the living still climbs +1 a turn back to five. If ember-sense were
+    // powered by the lantern, the last turns of every run would be a state in which the player can
+    // neither see a destination nor reach one — the "unplayable rather than desperate" failure §4 has
+    // guarded against from the beginning, and the reason the fuel ending had to be *short* rather
+    // than survivable.
+    //
+    // **Run at a low fuel rather than at none** (#149): the rule is untouched by *The dark can take
+    // nothing*, but its old demonstration — a whole run played at 0 — is a run that cannot exist.
     const floor = generateFloor(createRng('dry-sense'), 5).value;
-    const arrived = createLanternWorld(floor, 'shuttered', 0);
-    // Mid-ramp, as if the player had just been plunged into the dark by the lantern dying.
+    const LOW_FUEL = 6; // six shuttered turns left: enough to walk the ramp and one to spare
+    const arrived = createLanternWorld(floor, 'shuttered', LOW_FUEL);
+    // Mid-ramp, as if the player had just been plunged into the dark by the shutter closing.
     let state: LanternWorld = {
       world: arrived.world,
       lantern: {
-        fuel: 0,
+        fuel: LOW_FUEL,
         vision: { ...arrived.lantern.vision, senseRadius: ADAPTATION_FLOOR },
       },
     };
@@ -674,7 +883,9 @@ describe('fuel at 0 is a desperate state, not a loss state', () => {
     }
     expect(radii).toEqual([1, 2, 3, 4, 5, 5]);
     expect(state.lantern.vision.senseRadius).toBe(EMBER_SENSE_RADIUS);
-    expect(state.lantern.fuel).toBe(0);
+    // The radius did not track the reserve: five turns of fuel went and the sense went the other way.
+    expect(state.lantern.fuel).toBe(LOW_FUEL - 5 * FUEL_BURN_SHUTTERED);
+    expect(canOpen(state.lantern)).toBe(true);
 
     // ...and that sense reports something: the creatures on the floor are felt, through walls.
     const felt = perceive(

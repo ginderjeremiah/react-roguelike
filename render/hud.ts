@@ -11,9 +11,14 @@
  *
  * `shutter.canOpen` and `onStairs` exist because §9 gives each of them a *control*:
  *
- *   - §4 at 0 fuel: "the shutter can no longer be opened". `game/systems/lantern.ts` already stated
- *     that the renderer needs this — "a control that silently does nothing is worse than one that is
- *     visibly dead".
+ *   - §4 at 0 fuel: "the shutter can no longer be opened". **`components/play/controls.tsx` no
+ *     longer reads this**, and that is #149 rather than a regression: §4's *The dark can take
+ *     nothing* ends the run at 0 fuel, and the control row is mounted only while the run is running,
+ *     so the dead-shutter state cannot be rendered and its branch is deleted. The field stays because
+ *     it is a truthful projection of a `game/systems/` predicate that still exists and is still §4's
+ *     rule — `presentHud` reports what the lantern *is*, and it is not this layer's business that
+ *     one consumer no longer has a frame to draw it in. It is pinned below on a hand-built dry
+ *     lantern, which is the only state it can be true of.
  *   - §9: "**Descend: its own control, present only while you are standing on the stairs.** ... The
  *     control appearing is also unambiguous confirmation that you are on the stairs, which is worth
  *     something in the dark."
@@ -72,7 +77,11 @@ export type FuelHud = {
   readonly burnRate: number;
   /** §4: "read it as a number of turns". `floor(fuel / burnRate)` at the current setting. */
   readonly turnsRemaining: number;
-  /** §4: 0 fuel is a desperate state, **not a loss state**. The shutter is stuck shut. */
+  /**
+   * §4: the lantern is out. Since *The dark can take nothing* (#144) that **ends the run**, so a
+   * running state never reports it — the only states this can be true of are the terminal frame of a
+   * run that ran dry, and a hand-built one.
+   */
   readonly dry: boolean;
   readonly level: MeterLevel;
 };
@@ -80,7 +89,11 @@ export type FuelHud = {
 /** §9's shutter control: what it reads, and whether it can be pressed. */
 export type ShutterHud = {
   readonly state: ShutterState;
-  /** §4: false at 0 fuel. The control must show itself dead rather than do nothing. */
+  /**
+   * §4: false at 0 fuel. **True of every state a live run can be in** since #149, because fuel
+   * reaching 0 ends the run — see the header for why the field survives that and the control's
+   * disabled state did not.
+   */
   readonly canOpen: boolean;
 };
 
@@ -184,9 +197,19 @@ function outcomeOf(state: GameState): OutcomeHud {
     // question a player has on winning a roguelike with no boss: *is that it, or did I miss
     // something?*
     //
-    // It must also stay true at 0 fuel, which kills the tempting mirror of the death line: §4 says
-    // a dry lantern is a desperate state and not a loss state, so a win with no fuel is legal and
-    // `The lantern still burns.` would be false in exactly the most retellable runs.
+    // **The tempting mirror of the death line — `The lantern still burns.` — is still rejected, and
+    // #144 forced a new reason for it (§13, re-ruled 2026-08-04).** This comment used to read: "it
+    // must also stay true at 0 fuel… §4 says a dry lantern is a desperate state and not a loss state,
+    // so a win with no fuel is legal and `The lantern still burns.` would be false in exactly the
+    // most retellable runs." That is now **false, and it was the whole of the rejection**: under §4's
+    // *The dark can take nothing* fuel reaching 0 ends the run, and the winning descent resolves in
+    // phase 1 and runs no phases, so no fuel burns on the winning command and **every legal win has
+    // fuel >= 1**. The mirror would be true wherever it could be shown.
+    //
+    // It loses anyway, on the reason that retired `You reach the bottom.`: the verdict names the
+    // player's fate and the headline is an image of the **world**. `The lantern still burns.` is a
+    // fact about the thing in your hand — it takes the verdict's subject and says it twice. A truer
+    // sentence that restates the verdict is worse than a true one that adds a fact.
     case 'died':
       return { kind: 'died', headline: 'The lantern goes out.' };
     case 'reachedBottom':

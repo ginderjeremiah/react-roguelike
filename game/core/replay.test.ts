@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { diveToTheBottom, headingTo, standUntilDead, stepTowardOnGrid } from '@/tests/unit/support/run-script';
+import {
+  headingTo,
+  lightTheWayDown,
+  standUntilDead,
+  stepTowardOnGrid,
+} from '@/tests/unit/support/run-script';
 import {
   CACHE_FUEL,
   CINDER,
@@ -738,7 +743,7 @@ describe('whole runs replay', () => {
     // The generated corpus above reaches floor three or four. This is the shape of the run the
     // milestone is actually about — every floor, every descent, ending in `reachedBottom` — and it
     // is the case where a stray draw has the most room to accumulate.
-    const record = diveToTheBottom('replay-dive');
+    const record = lightTheWayDown('replay-dive');
     expect(replay(record).status).toEqual({ kind: 'reachedBottom' });
     const divergence = findRunDivergence(record, record);
     if (divergence) throw new Error(formatRunDivergence(divergence));
@@ -842,7 +847,7 @@ describe('RunRecord', () => {
 // --- Pinned run ---------------------------------------------------------------------------------
 
 /**
- * A stored replay fixture, pinned at `RULES_VERSION` 7.
+ * A stored replay fixture, pinned at `RULES_VERSION` 8.
  *
  * Everything above proves the simulation reproduces *itself*. Nothing above notices if what it
  * reproduces silently changes — a different fuel burn, a reordered phase, a different seed
@@ -953,7 +958,7 @@ function expectPinned(record: RunRecord, pinned: Digest): void {
 
 describe('pinned run — a descent in the dark', () => {
   const PINNED_RECORD: RunRecord = {
-    version: 7,
+    version: 8,
     seed: 'emberdepth',
     // A dark crawl across floor 1 to its stairs, a descent, and three commands on the floor below —
     // one of which (the move north) is refused by the new floor's geometry, which is why the two
@@ -1189,7 +1194,7 @@ describe('pinned run — the whole combat loop, ending in a death', () => {
    * time changes silently whenever the script does, which is the one thing a fixture must not do.
    */
   const PINNED_RECORD: RunRecord = {
-    version: 7,
+    version: 8,
     seed: 'ember-z',
     commands: [
       { kind: 'setShutter', to: 'shuttered' },
@@ -1243,15 +1248,20 @@ describe('pinned run — the whole combat loop, ending in a death', () => {
     // survived that turn), but a losing run's last kill often is not, and the two must count alike.
     kills: 1,
     // 37 resolved commands, so 37 burns: 31 shuttered at 1 and 6 lit at 4 == 55. It is the *gross*
-    // burn — the 20 collected off the corpse on command 24 does not come off it, which is what makes
-    // 80 - 55 + 20 == the 45 below rather than 80 - 35. That identity is what pins this as fuel
-    // *spent* rather than fuel *lost*.
+    // burn — income never comes off it, which is what makes it fuel *spent* rather than fuel *lost*.
+    // Unchanged by version 8: what the run burned does not depend on what it was allowed to keep.
     fuelBurned: 55,
     // ...and 34 actions on the clock, not 35: the killing blow stopped the turn before phase 4
     // advanced it (§13). The gap between these two numbers *is* the assertion.
     now: 3400,
-    // 80 to start, minus the 55 above, plus the 20 off the corpse.
-    fuel: 45,
+    // ═══ RE-RECORDED FOR `RULES_VERSION` 8 (#144/#149): 45 -> 25, AND IT IS ONE OF TWO FIELDS ═══
+    //
+    // 80 to start, minus the 55 above, and **nothing back**. Under version 7 the 20 off the corpse
+    // came back — the drop paid in the dark — and this read 45. Under §4's *The dark can take
+    // nothing* the sleeper felled on command 23 died on a tile this run never lit, so command 24
+    // walked onto its ember and took nothing; the drop is still in `embers` below. The two fields
+    // move together and no third field moves with them, which is why this is the whole diff.
+    fuel: 25,
     shutter: 'open',
     senseRadius: 5,
     remembered: 101,
@@ -1285,9 +1295,22 @@ describe('pinned run — the whole combat loop, ending in a death', () => {
         mind: { kind: 'awake', intent: { kind: 'attack', at: { x: 6, y: 3 } } },
       },
     ],
-    // Dropped on command 23 and collected on command 24 — empty here because it was *taken*, which
-    // the fuel above is what proves.
-    embers: [],
+    // Dropped by the dormant strike on command 23 and **still lying there** on command 37, on a tile
+    // 101 tiles of remembered terrain includes and `revealed` does not. Under version 7 this was
+    // `[]` and the 20 was in the fuel above.
+    //
+    // It is also the fixture's demonstration of the other half of the ruling: the drop is *left*
+    // rather than destroyed, and #81 draws it wherever its tile is perceived or remembered — so the
+    // 20 fuel is still on the map, still findable, and still worth a flash.
+    embers: [{ at: { x: 10, y: 6 }, amount: CINDER.emberDrop }],
+    // ═══ THE DETERMINISM EVIDENCE, AND IT IS THE POINT OF RE-READING THIS LINE ═══
+    //
+    // **Byte-identical to version 7.** Nothing in #149 draws, and neither branch of phase 5 consumes
+    // entropy on either side of its new guard — so a rule that changed what a run *keeps* could not
+    // and did not shift the stream. Every creature position, every declared intent, `now`,
+    // `turnsElapsed` and `fuelBurned` in this digest are unchanged with it. A re-record in which this
+    // line had moved would mean the collection change had reached the generator, which is the exact
+    // failure the pinned fixtures exist to catch.
     rng: { s0: 2164386907, s1: 420554115, s2: 1594873920, s3: 3421735554 },
   };
 
@@ -1422,8 +1445,32 @@ describe('pinned run — the whole combat loop, ending in a death', () => {
     // lines above** — measured at 1 with the clock restored. That is the one to protect.
     expect(felledWithoutEverWaking, 'a creature was killed asleep after having been awake')
       .toBe(felledInOneBlowWhileAsleep);
+    // ═══ RE-RECORDED FOR `RULES_VERSION` 8 (#144/#149): THE DROP FALLS AND IS NOT TAKEN ═══
+    //
+    // `embersCollected` read **1** under version 7, and this pair was the fixture's statement of
+    // *"ember you made is yours"*. §4's *The dark can take nothing* reverses it: the sleeper felled
+    // on command 23 died on a tile 101 tiles of remembered terrain includes and `revealed` does not,
+    // so command 24 walked onto its ember and took nothing. The drop is the two-field diff in the
+    // digest above, and it is still on the floor in the final frame.
+    //
+    // **Both halves are asserted, in opposite directions, because either alone is satisfiable by a
+    // run in which nothing died**: a drop happened, and it was not collected. The trajectory also
+    // pins *why*, so a build that light-gated collection on the wrong plane — or on *currently* lit —
+    // fails here rather than only in the digest.
     expect(emberDrops, 'no ember was ever dropped').toBe(1);
-    expect(embersCollected, 'the dropped ember was never collected').toBe(1);
+    expect(embersCollected, 'the drop was collected on ground the lantern never lit').toBe(0);
+    expect(final.world.embers, 'the drop is not where it fell').toHaveLength(1);
+    const drop = final.world.embers[0].at;
+    // The player stood **on** it and walked off again — so this is a statement about the lighting
+    // and not about the route. Asked at the moment of the walk-over rather than at the final frame,
+    // because the flash on command 32 lights part of that end of the floor from across the map, and
+    // a predicate read thirteen commands late would be answering a different question.
+    const stoodOn = states.findIndex((state) => samePosition(playerOf(state.world).at, drop));
+    expect(stoodOn).toBeGreaterThan(0);
+    const onIt = states[stoodOn];
+    expect(hasTile(onIt.lantern.vision.remembered, drop.x, drop.y)).toBe(true);
+    expect(hasBeenLit(onIt.lantern.vision, drop.x, drop.y)).toBe(false);
+    expect(onIt.world.embers).toHaveLength(1);
 
     // §13's death, and §4's HP arithmetic underneath it. The whole 12 HP goes, but over **four**
     // landed turns rather than six — 2, 4, 4, 2 — because the flash on command 32 woke a second
@@ -1446,10 +1493,17 @@ describe('pinned run — the whole combat loop, ending in a death', () => {
     // must agree, and a `kills` wired to the wrong phase agrees with none of them.
     expect(final.kills).toBe(alive(start) - alive(final));
     expect(final.kills).toBe(felledInOneBlowWhileAsleep);
-    // The gross-burn identity, with a gather in it this time: the 20 off the corpse is *income*, and
-    // it is what makes this run's `fuelBurned` exceed `STARTING_FUEL - fuel` by exactly one ember.
-    expect(final.fuelBurned).toBe(STARTING_FUEL - final.lantern.fuel + CINDER.emberDrop);
-    expect(final.fuelBurned).toBeGreaterThan(STARTING_FUEL - final.lantern.fuel);
+    // §4's conservation identity, `fuelBurned + fuel - STARTING_FUEL === gathered`, with **nothing
+    // gathered**: this run made 20 fuel and could not take it, so the burn accounts for the whole
+    // reserve exactly as it does on the dark-descent fixture.
+    //
+    // > **It read `+ CINDER.emberDrop` under version 7** — "the 20 off the corpse is *income*, and it
+    // > is what makes this run's `fuelBurned` exceed `STARTING_FUEL - fuel` by exactly one ember."
+    // > That was the fixture's statement of the deleted exclusion. The identity itself is unchanged
+    // > and is still what makes `fuelBurned` gross rather than net; what changed is the value of
+    // > `gathered` on this log, and the cache fixture below still pins the non-zero case.
+    expect(final.fuelBurned).toBe(STARTING_FUEL - final.lantern.fuel);
+    expect(final.fuelBurned).toBeGreaterThan(0);
   });
 });
 
@@ -1497,7 +1551,7 @@ describe('pinned run — a cache the lantern found, hauled home in the dark', ()
    * verbatim — stored, not regenerated, for the reason the fixture above gives.
    */
   const PINNED_RECORD: RunRecord = {
-    version: 7,
+    version: 8,
     seed: 'cache-haul',
     commands: [
       { kind: 'setShutter', to: 'shuttered' },

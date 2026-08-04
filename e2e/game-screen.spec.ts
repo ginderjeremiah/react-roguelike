@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { TOO_FAR_MESSAGE, wakeMessage } from '@/components/play/messages';
-import { GLYPHS } from '@/render';
+import { DEATH_VERDICT, GLYPHS } from '@/render';
 import {
   boot,
   playerCell,
@@ -17,10 +17,11 @@ import {
 /**
  * The glyphs that belong to the *map* and survive the lantern closing.
  *
- * Deliberately excludes `ember` and `contact`: an ember cache or drop is not drawn at all while
- * shuttered (§4 — items are invisible), and a contact is a living thing, not terrain. Taken from
- * `GLYPHS` rather than written as literals so that a renamed glyph is a compile error here instead
- * of a spec that silently stops matching anything.
+ * Deliberately excludes `ember` and `contact`. An unlit ember **cache** is felt as ordinary floor and
+ * draws the floor glyph (§4, #31/#41); an uncollected **drop** does draw in the dark since #81, but
+ * it is a thing lying on the map rather than the map; and a contact is a living thing, not terrain.
+ * Taken from `GLYPHS` rather than written as literals so that a renamed glyph is a compile error here
+ * instead of a spec that silently stops matching anything.
  */
 const TERRAIN_GLYPHS: readonly string[] = [
   GLYPHS.wall,
@@ -721,8 +722,17 @@ test('a cache the flash paid for is announced, on the same line as the wake it c
     x: 9,
     y: 7,
   });
-  // Two kills at 19 net each on top of the 66 above: the detour is real and both Cinders are dead.
-  await expect(page.getByTestId('hud-fuel')).toHaveText('100');
+  // ═══ 100 -> 60 UNDER #149, AND THE DIFFERENCE IS TWO DROPS ON UNLIT GROUND ═══
+  //
+  // The control route kills both Cinders in the dark and walks over their ember on the way to the
+  // cache. Under §4's *The dark can take nothing* those drops pay **nothing** — they are on tiles the
+  // lantern has never lit — so the two kills that used to be worth +19 net apiece are now worth −1
+  // apiece, and this reads 60 rather than 100. **That the number fell by exactly two `emberDrop`s
+  // is the point**: this is the ruling visible in a browser, on the same route it was measured on.
+  //
+  // The two drops are still on the board and still worth going back for once something has lit them
+  // (#81 draws them), which the assertion below does not check and the unit tiers do.
+  await expect(page.getByTestId('hud-fuel')).toHaveText('60');
 
   await press(page, shutter);
   await expect(line).toHaveText(RECEIPT_ALONE);
@@ -730,45 +740,52 @@ test('a cache the flash paid for is announced, on the same line as the wake it c
   await expect(row.alarm).toHaveCount(0);
 });
 
-test('at 0 fuel the shutter control shows itself dead rather than doing nothing', async ({
-  page,
-}) => {
+test('the lantern going out ends the run, on screen', async ({ page }) => {
   test.slow();
   await boot(page);
   const at = await playerTile(page);
 
-  // §4: "at 0 fuel the shutter can no longer be opened", and `game/systems/lantern.ts` says what the
-  // renderer owes that: "a control that silently does nothing is worse than one that is visibly
-  // dead". Getting there is the only slow thing in this suite — shuttered, the lantern burns 1 a
-  // turn, so it takes the whole reserve. Done in the dark on purpose: nothing wakes while shuttered
-  // (§4), so the run cannot end in a death on the way and test something else by accident.
+  // ═══ §4's *The dark can take nothing*, clause 2, end to end through the browser (#144/#149) ═══
+  //
+  // §13 lists the lantern going out beside HP death, and this is the whole of that claim as a player
+  // sees it: the fuel meter reaches 0 and the run is **over**. Done in the dark on purpose — nothing
+  // wakes while shuttered (§4), so the run cannot end in a *Cinder* death on the way and pass this
+  // for the wrong reason. Getting there is the only slow thing in this suite: shuttered, the lantern
+  // burns 1 a turn, so it takes the whole reserve.
+  //
+  // > **This test asserted the opposite until #149.** It was called *"at 0 fuel the shutter control
+  // > shows itself dead rather than doing nothing"* and it ended: *"§4 is also explicit that a dry
+  // > lantern is a desperate state and **not** a loss state. So the board is still playable: the run
+  // > has not ended and a step still costs a turn and resolves."* Both halves of that are now false.
+  // > The control's dead state is still a rule (`canOpen`) and is still worth having, but no live run
+  // > can reach it, so the only honest place to pin it is a unit test on a hand-built lantern —
+  // > `render/hud.test.ts` has it. What a browser can still see, and what matters more, is this.
   await press(page, page.getByTestId('control-shutter'));
   const self = page.getByTestId(`tap-wait-${at.x}-${at.y}`);
   const box = await self.boundingBox();
 
   for (let i = 0; i < 120; i += 1) {
-    if ((await page.getByTestId('hud-fuel').textContent()) === '! 0') break;
+    if ((await page.getByTestId('run-summary').count()) > 0) break;
     await pressAt(page, box!.x + box!.width / 2, box!.y + box!.height / 2);
   }
 
   // The `!` is §11's non-colour carrier for a critical meter: the reading survives greyscale.
   await expect(page.getByTestId('hud-fuel')).toHaveText('! 0');
-  await expect(page.getByTestId('control-shutter')).toHaveText(/SHUTTER STUCK/);
-  await expect(page.getByTestId('control-shutter')).toHaveText(/no fuel/);
-  await expect(page.getByTestId('control-shutter')).toBeDisabled();
-
-  // §4 is also explicit that a dry lantern is a desperate state and **not** a loss state. So the
-  // board is still playable: the run has not ended and a step still costs a turn and resolves.
-  //
-  // This used to read the status line for a death headline, which stopped being able to fail the
-  // moment #21 moved the ending onto its own screen — `StatusLine` no longer receives an outcome and
-  // can never print one. The end of a run is now a *panel that exists or does not*, so that is what
-  // is asked. Same intent, and this version can go red.
-  await expect(page.getByTestId('run-summary')).toHaveCount(0);
-  const spent = await turn(page);
-  await pressTile(page, page.locator('[data-testid^="tap-move-"]').first());
-  expect(await turn(page)).toBe(spent + 1);
-  await expect(page.getByTestId('hud-shutter')).toHaveText('SHUT');
+  // §13's ending, as a panel that exists rather than as a headline in the status line — the status
+  // line stopped being able to print one when #21 moved the ending onto its own screen.
+  await expect(page.getByTestId('run-summary')).toBeVisible();
+  await expect(page.getByTestId('summary-headline')).not.toHaveText('');
+  // ...and it is a **death**, not a win: the lamp going out is one of §13's two deaths and shares
+  // the losing verdict with the other one.
+  await expect(page.getByTestId('summary-verdict')).toHaveText(DEATH_VERDICT);
+  // The player is still standing at 12/12: §4 wakes nothing in the dark, so on this route there was
+  // nothing on the floor that could have killed them. **The dark itself is what did**, which is
+  // ADR-0015's proposition (a) and is the whole reason the ending exists.
+  await expect(page.getByTestId('hud-hp')).toHaveText('12/12');
+  // §13: once a run has ended it accepts no more commands, and the controls that could issue one are
+  // gone rather than dead.
+  await expect(page.getByTestId('control-shutter')).toHaveCount(0);
+  await expect(page.locator('[data-testid^="tap-"]')).toHaveCount(0);
 });
 
 test('the whole screen fits a phone with no horizontal overflow', async ({ page }) => {

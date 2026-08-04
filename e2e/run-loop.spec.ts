@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { DEATH_MARKER, DEATH_VERDICT, VICTORY_MARKER, VICTORY_VERDICT } from '@/render';
+import { DEATH_MARKER, DEATH_VERDICT } from '@/render';
 import { RUN_OVER_MESSAGE } from '@/components/play/messages';
 import { boot, playerCell, press, pressCell, turn, wander } from './support/drive';
 
@@ -10,17 +10,19 @@ import { boot, playerCell, press, pressCell, turn, wander } from './support/driv
  * WHICH TIER COVERS WHICH ENDING, AND WHY BOTH ARE HERE
  * ═══════════════════════════════════════════════════════════════════════════════════════════════
  *
- * §13 has exactly two endings and **one of them is a win**, so a suite that only ever kills the
- * player has never seen half of what this issue built. Both are driven here, at different cost:
+ * §13 has three endings — two deaths and a win — and this file drives **the deaths**:
  *
  *   - **Death** is cheap — about twenty presses — and carries the full loop: the summary, the board
- *     going quiet, and RUN AGAIN putting a fresh run on screen with no reload.
- *   - **Reaching the bottom** costs eight floors of walking and carries the things only a win can
- *     show: `8/8`, the victory verdict, and the fact that the eighth descent ends the run instead of
- *     generating a floor 9.
+ *     going quiet, and RUN AGAIN putting a fresh run on screen with no reload. Which of the two
+ *     deaths it is does not matter to a spec, because §13 rules that *"the summary must not name
+ *     which death it was"* — one screen, one verdict, one headline.
+ *   - **Reaching the bottom** was driven here too, in ~830 presses, until #149 made it unreachable by
+ *     a driver that cannot aim. The block where that test stood says what was measured and what it
+ *     would take; read it before re-adding one.
  *
- * `render/summary.test.ts` covers both endings at the unit tier as well, against real scripted runs.
- * What that tier structurally cannot see is whether any of it reached a screen, which is this file.
+ * `render/summary.test.ts` covers all three endings at the unit tier, against real scripted runs.
+ * What that tier structurally cannot see is whether any of it reached a screen, which is this file —
+ * and for the win, that is currently a gap rather than a coverage claim.
  *
  * ── ON REACHING THE STAIRS WITHOUT A ROUTE ─────────────────────────────────────────────────────
  * #20 left `onDescend` uncovered because a recorded move sequence dies silently when #47 replaces
@@ -57,7 +59,6 @@ import { boot, playerCell, press, pressCell, turn, wander } from './support/driv
  */
 const DEATH_PRESSES = 250;
 const STAIRS_PRESSES = 300;
-const BOTTOM_PRESSES = 2500;
 
 async function summaryShown(page: Page): Promise<boolean> {
   return (await page.getByTestId('run-summary').count()) > 0;
@@ -120,7 +121,7 @@ test('a run that ends in death: the summary reads, the board goes quiet, and you
     stop: summaryShown,
     onContact: 'endure',
     descend: false,
-    relight: true,
+    light: 'hold',
     limit: DEATH_PRESSES,
   });
 
@@ -146,8 +147,17 @@ test('a run that ends in death: the summary reads, the board goes quiet, and you
   // it. A summary that erased the board would delete the one thing the simulation preserved.
   const grave = await playerCell(page);
   await expect(page.getByTestId(`cell-${grave.x}-${grave.y}`)).toHaveText('@');
-  // §11's non-colour carrier for a critical meter, on the reading that ended the run.
-  await expect(page.getByTestId('hud-hp')).toHaveText('! 0/12');
+  // ═══ §11'S NON-COLOUR CARRIER, ON THE METER THAT ENDED THE RUN — AND THAT METER MOVED ═══
+  //
+  // This read `hud-hp` `! 0/12` until #149. Under §4's *The dark can take nothing* a lantern held
+  // open burns 4 a turn against a reserve of 80, so a `hold` wander is **20 turns** from a fuel
+  // death and the Cinders no longer get there first: measured on this seed, it ends at turn 20 with
+  // `! 0` fuel and 4/12 HP. §13 is explicit that the two deaths share a screen and that "the summary
+  // must not name which death it was", so what this spec covers is unchanged — the ending, the
+  // panel, the quiet board, RUN AGAIN — and the one line that named a *meter* now names the right
+  // one. The HP death is still driven end to end at the unit tier by `standUntilDead`.
+  await expect(page.getByTestId('hud-fuel')).toHaveText('! 0');
+  await expect(page.getByTestId('hud-hp')).toHaveText(/^\d+\/12$/);
 
   // The controls the summary replaced are gone rather than dead: §13 refuses every command, and a
   // control that cannot do anything must not be offered.
@@ -265,7 +275,7 @@ test('taking the stairs advances the floor', async ({ page }) => {
     stop: onTheStairs,
     onContact: 'strike',
     descend: false,
-    relight: false,
+    light: 'crawl',
     limit: STAIRS_PRESSES,
   });
 
@@ -286,55 +296,48 @@ test('taking the stairs advances the floor', async ({ page }) => {
   await expect(page.getByTestId('run-summary')).toHaveCount(0);
 });
 
-/**
- * The win, on the phone project only.
- *
+/*
  * ═══════════════════════════════════════════════════════════════════════════════════════════════
- * ONE PROJECT, BECAUSE THE SECOND COPY IS 30 SECONDS OF THE SAME 830 PRESSES
+ * THE WIN IS NO LONGER DRIVABLE FROM A BROWSER, AND #149 IS WHY — READ THIS BEFORE RE-ADDING IT
  * ═══════════════════════════════════════════════════════════════════════════════════════════════
  *
- * Measured: this spec is **34.1s on phone and 32.2s on desktop**, against ~5s for the entire rest of
- * the suite, and landing it took CI's Build & E2E job from ~1m50s to 4m2s. The desktop copy walks the
- * same fixed seed by the same rule to the same ending — it is the same run, twice, differing only in
- * press transport, which every other spec here already covers in both projects.
+ * A test stood here — *"a run that reaches the bottom is a win, and says so"* — that wandered eight
+ * floors on the fixed seed in ~830 presses and pinned `8/8`, `VICTORY_VERDICT`, `VICTORY_MARKER` and
+ * RUN AGAIN from a win. It is **deleted rather than repaired**, and the reason is a rule rather than
+ * a flake.
  *
- * The phone is the design target (Pillar 3), so that is the copy that survives. This halves both the
- * runner cost and the flake surface of the slowest thing in the suite.
+ * **How that run was actually funded.** `wander` held the shutter open, burned §4's 4 a turn, hit 0
+ * fuel around **turn 20**, and then walked the remaining ~810 presses **for free** — because 0 fuel
+ * was a state a run could sit in indefinitely. The victory fixture was, precisely, a monument to the
+ * rule §4's *The dark can take nothing* deleted.
+ *
+ * **What it would now take, measured on this seed (2026-08-04).** With the ruling in place a run must
+ * pay a fuel a turn from a reserve of 80 and can only earn on ground the lantern has lit. Three
+ * policies were driven end to end:
+ *
+ *     hold  (shutter open)           20 turns,  floor 1,  died of fuel at 4/12 HP
+ *     crawl (never opens)            79 turns,  floor 1,  died of fuel at 12/12 HP
+ *     flash (opens beside a drop)   124 turns,  floor 2,  died of fuel at 12/12 HP, 3 kills
+ *
+ * The best of them earns **65 fuel across two floors** and spends 145. Eight floors of blind
+ * exploration is ~830 turns, so a winning browser run needs on the order of **750 fuel of income**
+ * against a floor population worth at most ~1140 if *everything* on every floor were killed and
+ * every drop collected on lit ground. A wander that cannot aim cannot collect that, and **that is
+ * proposition (a) working as designed**: aimless play is now fatal.
+ *
+ * **What was deliberately not done to save it.** Not a router in the spec — this file's own header
+ * rejects that, and it is the reason `wander` exists. Not a raised `STARTING_FUEL` — §4's freeze,
+ * named in #149. Not a shortened floor count — that is §5's design.
+ *
+ * **What still covers the win, and what does not.** The winning *state* is driven through the real
+ * `step()` by `lightTheWayDown` and asserted at the unit tier in `render/summary.test.ts`,
+ * `tests/unit/play-run-summary.test.ts`, `render/hud.test.ts`, `render/cues.test.ts`,
+ * `session/run.test.ts`, `game/core/step.test.ts` and `game/core/replay.test.ts`. What is lost is
+ * exactly what this file exists for: **whether the victory screen ever reaches a browser**. That is a
+ * real gap and it wants an issue rather than a silence — the likely shape of the fix is a driver that
+ * can play well enough to stay solvent, which is a piece of test infrastructure and not a spec.
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
  */
-test('a run that reaches the bottom is a win, and says so', async ({ page }) => {
-  test.skip(
-    test.info().project.name !== 'phone',
-    'eight floors of walking; the phone is the design target and the desktop copy adds no coverage',
-  );
-  test.slow();
-  test.setTimeout(180_000);
-  await boot(page);
-
-  // §13's second ending, the one that is a *win*: take the stairs on floor 8. Eight floors of
-  // walking is what this costs, and there is no shortcut that does not put a route in the spec.
-  await wander(page, {
-    stop: summaryShown,
-    onContact: 'strike',
-    descend: true,
-    relight: true,
-    limit: BOTTOM_PRESSES,
-  });
-
-  await expect(page.getByTestId('summary-verdict')).toHaveText(VICTORY_VERDICT);
-  await expect(page.getByTestId('summary-marker')).toHaveText(VICTORY_MARKER);
-  // §13: "there is no floor 9". The eighth descent is the ending, so the run ends *on* floor 8.
-  await expect(page.getByTestId('summary-floors')).toHaveText('8/8');
-  await expect(page.getByTestId('hud-floor')).toHaveText('8/8');
-  // A win is not a death: the two endings must not share a screen, and the marker and the verdict
-  // are the two non-colour channels that carry the difference (§11).
-  await expect(page.getByTestId('summary-verdict')).not.toHaveText(DEATH_VERDICT);
-  await expect(page.getByTestId('summary-marker')).not.toHaveText(DEATH_MARKER);
-
-  // The loop closes the same way from either ending.
-  await press(page, page.getByTestId('control-restart'));
-  await expect(page.getByTestId('hud-floor')).toHaveText('1/8');
-  expect(await turn(page)).toBe(0);
-});
 
 test('the summary fits a phone, with a thumb-sized way back in', async ({ page }) => {
   test.slow();
@@ -343,7 +346,7 @@ test('the summary fits a phone, with a thumb-sized way back in', async ({ page }
     stop: summaryShown,
     onContact: 'endure',
     descend: false,
-    relight: true,
+    light: 'hold',
     limit: DEATH_PRESSES,
   });
 

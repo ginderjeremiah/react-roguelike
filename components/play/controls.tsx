@@ -26,10 +26,21 @@ import type { GameTheme } from './theme';
  * local mirror of it. There is no `useState` in this component for exactly that reason.
  * ═══════════════════════════════════════════════════════════════════════════════════════════════
  *
- * **At 0 fuel the shutter can no longer be opened** (§4), and `game/systems/lantern.ts` says what the
- * renderer owes that fact: "a control that silently does nothing is worse than one that is visibly
- * dead". So `canOpen: false` disables the control, greys it, and labels it — rather than sending a
- * command that would be refused.
+ * ## The dead-shutter state is gone, and it went the same way #20's `!running` branch did
+ *
+ * This file used to grey the control, label it `SHUTTER STUCK` and disable it whenever
+ * `hud.shutter.canOpen` was false — §4's "at 0 fuel the shutter can no longer be opened", plus
+ * `game/systems/lantern.ts`'s "a control that silently does nothing is worse than one that is visibly
+ * dead". **§4's *The dark can take nothing* (#149) made that state unrenderable.** Fuel reaching 0
+ * ends the run, so a *running* state always has `fuel >= 1` and `canOpen` is always true; and this
+ * row is mounted only while `scene.summary === null` (below), so there is no frame in which a live
+ * `Controls` can be handed a dry lantern.
+ *
+ * It is deleted rather than kept behind a comment, for the reason stated three paragraphs down about
+ * a different branch: **an unreachable branch is a branch nothing tests.** Its only coverage was an
+ * E2E that walked the reserve to 0 and asserted the control read `SHUTTER STUCK`, and that spec is
+ * now about the run *ending* instead. `Hud.shutter.canOpen` stays — it is a truthful readout of a
+ * simulation predicate and `render/hud.test.ts` pins it — it simply has no control to disable.
  *
  * **Descend is its own control, present only on the stairs** (§9). Not the self-tap, which is `wait`
  * — "waiting on the stairs is a real move", and the stairs are where §3's macro decision gets made.
@@ -56,16 +67,13 @@ export function Controls({ hud, onSetShutter, onDescend, theme }: ControlsProps)
   const open = hud.shutter.state === 'open';
   // The setting the toggle is toggling **to**, read off this turn's state.
   const target: ShutterState = open ? 'shuttered' : 'open';
-  // Closing is always possible; opening needs fuel (§4).
-  const shutterDead = !open && !hud.shutter.canOpen;
 
   return (
     <View style={[styles.row, { borderTopColor: theme.border }]}>
       <ControlButton
         testID="control-shutter"
-        label={open ? 'CLOSE SHUTTER' : hud.shutter.canOpen ? 'OPEN SHUTTER' : 'SHUTTER STUCK'}
-        hint={shutterDead ? 'no fuel to light it' : `then burning ${open ? 1 : 4} per turn`}
-        disabled={shutterDead}
+        label={open ? 'CLOSE SHUTTER' : 'OPEN SHUTTER'}
+        hint={`then burning ${open ? 1 : 4} per turn`}
         onPress={() => onSetShutter(target)}
         theme={theme}
       />
@@ -86,18 +94,22 @@ export function Controls({ hud, onSetShutter, onDescend, theme }: ControlsProps)
   );
 }
 
+/**
+ * One thumb control. **It has no disabled state**, and that is now a property of the game rather
+ * than of this component: §9 gives the descend control *presence* instead of enablement ("not
+ * disabled — absent"), and the shutter's one dead state went with #149 (see the header). The `opacity`
+ * and `accessibilityState` that carried it are gone with it rather than left wired to a constant.
+ */
 function ControlButton({
   label,
   hint,
   onPress,
-  disabled = false,
   theme,
   testID,
 }: {
   readonly label: string;
   readonly hint: string;
   readonly onPress: () => void;
-  readonly disabled?: boolean;
   readonly theme: GameTheme;
   readonly testID: string;
 }) {
@@ -106,16 +118,12 @@ function ControlButton({
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={`${label}. ${hint}`}
-      accessibilityState={{ disabled }}
-      disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
         {
           backgroundColor: pressed ? theme.border : theme.panel,
           borderColor: theme.border,
-          // Visibly dead, not silently inert. The label says why; this says it at a glance.
-          opacity: disabled ? 0.45 : 1,
         },
       ]}
     >

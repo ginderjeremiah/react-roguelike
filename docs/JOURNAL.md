@@ -82,10 +82,25 @@ pursuer cannot hit a moving player — mean **the dark is the only thing left th
 moving player**. Nothing but a lethal empty lantern reaches it.
 
 **And the mirror-image check is what makes the pair a subtraction rather than a compromise: each half
-fails a *different* one of #145's three criteria.** 0-fuel lethality alone leaves a never-flash
-**fighter** banking 60-120 a floor against ~81 turns of crawl — solvent, and still out-earning
-`STALKER` — which fires criterion 3 (invariant 4) instead of clearing it. It is the `CACHE_FUEL` trap
-from the other side: a green assertion and no game.
+fails a *different, named* criterion.** #145 states its criteria as **two** lists — three numbered
+**fire** criteria and a three-row **clear** table, and they are not in the same order — so every
+reference names the list. Light-gating alone leaves **clear**-2 red. 0-fuel lethality alone leaves
+proposition **(b)** untouched, because `resolveDeaths` pushes `emberDrop` with **no reference to mind
+state**: a sleeper and a hunter pay the identical 20 whatever fuel does, so making the dark lethal
+changes *when you die* and never *whether waking pays*. That is **fire**-2, the constraint failing. It
+is the `CACHE_FUEL` trap from the other side: a green assertion and no game.
+
+> **A first draft of this paragraph argued half B on fuel arithmetic instead — *a never-flash fighter
+> banks 60-120 a floor against ~81 turns of crawl, so it stays solvent and keeps out-earning
+> `STALKER`* — and `code-reviewer` was right that it **inverts**.** 81 is `STALKER`'s pace; the
+> never-flash line's own is `DARK_PACIFIST` at a median **110** turns a floor (IQR 98-119, measured
+> today), at which 60-120 nets about **−5**, *below* `STALKER`'s +6. Worse than being backwards, it
+> asserted `HARVESTER`'s number, **which is the thing #109 exists to measure and which nobody has** —
+> the exact failure §4 has recorded five times. The `resolveDeaths` argument needs no measurement and
+> was already in the ruling; I had simply not leaned on it here. **And the correction strengthens half
+> A**: at 110 turns a floor, a never-flash line with 80 fuel and no income is dead well inside the
+> first one. *Prefer the argument resting on a number the code fixes* — my own agent brief says so,
+> and the draft that ignored it reached for a number I had derived instead.
 
 **#144 rejects 0-fuel lethality by name and ADR-0015 cites the rejection, so I read the scope before
 arguing with it.** #144 rejects it *on its own*, and its reason is about a **flashing** style
@@ -98,8 +113,10 @@ number cannot satisfy #144) is untouched, since two clauses are deleted and no c
 everything dark, then light the room and collect — if that stays costless the lever leaves the obvious
 move intact, and prefer the runner-up.* It does not stay costless, and **clause 2 is the only reason**:
 
-- The clearing turns are charged to a tank that is now a clock. `STALKER` already spends **81 turns**
-  on a floor against 80 starting fuel.
+- The clearing turns are charged to a tank that is now a clock. A never-flash line's own pace is
+  `DARK_PACIFIST`'s median **110** turns a floor (IQR 98-119) against 80 starting fuel; a flashing
+  one's is `STALKER`'s **81** (IQR 72-87). Both re-measured today. **Use the first for this rule and
+  not the second** — see the correction below.
 - A flash lights one room and no further, and §5 spreads `min(2 + floor, 6)` creatures over six rooms
   — so *clear then flash* is one flash per room you killed in, plus the routing.
 - A woken Cinder **pursues** (#83/#121) and dies where it catches you, **on ground you already lit**.
@@ -143,6 +160,30 @@ goes out.*, carrying a Watch explaining why the string was kept despite naming a
 not have. Under this ruling it is literally true of one of the two deaths. **A watch that exists to
 excuse a mismatch is evidence about the mismatch**, and it had been sitting in the document for three
 milestones saying so.
+
+**Learned, and it is the one thing the first draft of this ruling got outright wrong: I rewrote §13's
+Watch and left live prose three lines above it asserting the rule the Watch had just lost.** §13 said
+*"a win with a dry lantern is legal (§4), which is why the win line cannot mirror the death line by
+claiming the lantern still burns."* Under the ruling that is false — fuel reaching 0 ends the run, and
+the winning descent resolves in phase 1 and runs no phases (`step.ts`), so **no fuel burns on the
+winning command and every legal win has fuel ≥ 1**. And it was not a stale fact sitting harmlessly: it
+was **the entire justification** for rejecting `The lantern still burns.`, so the ruling silently
+reopened a settled copy decision. Caught by `code-reviewer`.
+
+**The mirror is re-ruled and still rejected, on a reason that survives**: §13's own rule is that the
+verdict names the player's fate and **the headline is an image of the world**. `The dark goes no
+deeper.` is a fact about the ruin and answers the question a boss-less roguelike leaves open; `The
+lantern still burns.` is a fact about the thing in your hand, restating the verdict's subject — which
+is exactly the defect that retired `You reach the bottom.` when #21 put the verdict above it. **A truer
+sentence that restates the verdict is worse than a true one that adds a fact.** The old reason was
+contingent on a rule and died with it; this one was available the whole time and nobody reached for it.
+
+**The transferable form, and it is the repo's own sweep rule with the emphasis moved: *check the
+document you are writing the correction in* is not the same as *check the paragraph you are
+rewriting*.** I swept nine phrases across five files and read every hit — and the miss was **three
+lines above an edit I had just made**, in a paragraph whose vocabulary (*"a win with a dry lantern"*)
+shared no token with anything I was grepping for. The stable token that would have found it is `§4`,
+the cross-reference, not the claim. **Grep the section's outbound citations, not only its claims.**
 
 **No ADR.** No pillar, core concept or milestone goal changes: ADR-0015 already ruled *that* a rule
 changes and what must become true, and #144 is *which*. What VISION's concept says — *fuel is the run

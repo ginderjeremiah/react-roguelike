@@ -148,9 +148,16 @@ experiment has never been run.
   > was ruled*.** #144 rejects *making 0 fuel lethal **on its own***, for a reason about a **flashing**
   > style (*"`STALKER` nets +6 a floor, so it does not bind"*). **The ruling adopts it as half of a
   > pair**: GDD §4's *The dark can take nothing* light-gates the kill drop **and** ends the run at 0
-  > fuel, because each alone fails a *different* one of the three criteria below — light-gating alone
-  > leaves the never-flash line earning nothing and still reaching floor 8, and 0-fuel lethality alone
-  > leaves a never-flash **fighter** solvent and still out-earning `STALKER`. That is not a tuning pass
+  > fuel, because each alone fails a *different, named* criterion below. **The two lists below are not
+  > in the same order, so name which**: light-gating alone leaves the never-flash line earning nothing
+  > and still reaching floor 8 — the second **clear** criterion, red. 0-fuel lethality alone leaves
+  > proposition **(b)** untouched, because `resolveDeaths` pays `emberDrop` with no reference to mind
+  > state (this ADR's own fact), so making the dark lethal changes *when you die* and never *whether
+  > waking pays* — the second **fire** criterion, the constraint failing. *(A first draft of this note
+  > argued instead that 0-fuel lethality alone leaves a never-flash **fighter** "solvent and still
+  > out-earning `STALKER`". **That inverts** — it used `STALKER`'s 81-turn pace for a never-flash line,
+  > whose own is `DARK_PACIFIST`'s median 110 — and it asserted a `HARVESTER` figure that only #109 can
+  > supply. Deleted; the `resolveDeaths` argument needs no measurement.)* That is not a tuning pass
   > and this bullet's point is untouched: two clauses are deleted, no constant moves, and there is a
   > change-log row. **What would still be the evasion is either half on its own.**
 
@@ -168,7 +175,7 @@ measurement.
 > nothing and still not dying, because the corpus survives 80 of 80 dry floors — proposition (a) is
 > untouched by it, since the dark is the only thing left that can kill a shuttered, moving player.
 >
-> **The trip-wire's criterion 2 does not fire, and the ruling says why in terms.** Nothing is added:
+> **The trip-wire's *fire*-2 criterion does not fire, and the ruling says why in terms.** Nothing is added:
 > two clauses are deleted, `Vision.revealed` already exists, and the fuel ending is one condition
 > beside HP death. Proposition **(b)** is ruled to mean *the flash must be worth its wake* — which is
 > what GDD §1's own row says it means and what this ADR's own statement of the defect prices — and it

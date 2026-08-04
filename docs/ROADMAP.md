@@ -729,16 +729,19 @@ this milestone, not its method.
 - [x] **Rule the cost-side lever — [#144](../../issues/144)** (`design`). **Ruled 2026-08-04: GDD §4's
       *The dark can take nothing*** — *ember pays only where the lantern has been, and a lantern that
       goes out ends the run.* **Two clauses deleted, nothing added**, so ADR-0015's constraint holds and
-      its trip-wire's second criterion does not fire. The leading candidate (light-gate the creature
+      its trip-wire's **fire**-2 criterion does not fire. The leading candidate (light-gate the creature
       ember drop) is adopted as **half** of it: alone it leaves the never-flash line earning nothing and
       **still not dying**, because 0 fuel was not an ending and the corpus survives **80 of 80** dry
       floors. #144 rejected 0-fuel lethality *on its own* — correctly, and for a reason about a
-      **flashing** style (`STALKER` +6 a floor) that does not reach the pair; alone it leaves a
-      never-flash **fighter** solvent and still out-earning `STALKER`. Each half fails a *different* one
-      of #145's three criteria, which is the evidence they are one subtraction. The runner-up (*a dark
-      strike wakes what can feel it*) loses harder than #144 said: #145's criterion measures a
-      **zero-strategy** never-shutter bot, which does not strike, so the lever never fires on the line
-      it is aimed at. **No number moves.** Build is [#149](../../issues/149)
+      **flashing** style (`STALKER` +6 a floor) that does not reach the pair; what it cannot do alone
+      is move proposition **(b)**, because `resolveDeaths` pays `emberDrop` with no reference to mind
+      state, so a sleeper and a hunter pay the identical 20 whatever fuel does. **Each half fails a
+      different, named criterion — #145's *clear*-2 and its *fire*-2 respectively** (#145 states three
+      numbered **fire** criteria and a three-row **clear** table, in different orders; name the list
+      every time) — which is the evidence they are one subtraction. The runner-up (*a dark strike
+      wakes what can feel it*) loses harder than #144 said: **clear**-2 measures a **zero-strategy**
+      never-shutter bot, which does not strike, so the lever never fires on the line it is aimed at.
+      **No number moves.** Build is [#149](../../issues/149)
 - [ ] **Build the cost-side subtraction — [#149](../../issues/149)** (`task`, `design`). `hasBeenLit`
       gates kill drops as well as caches; fuel reaching 0 ends the run, in `statusAfterTurn` **after
       phase 5** so the turn's ember still counts; `render/scene.ts`'s `lamplit` gate on
@@ -1053,8 +1056,9 @@ stays after it.**
    > nothing***: a kill's ember is takeable only once its tile has been lit, and fuel reaching 0 ends
    > the run. **Two deletions, no addition**, so the constraint holds. It is one rule change by size
    > and two clauses by shape, because each clause is the other's escape hatch — light-gating alone
-   > leaves the never-flash line earning nothing and still alive at 0 fuel; a lethal dry lantern alone
-   > leaves a never-flash **fighter** solvent at 60-120 a floor.
+   > leaves the never-flash line earning nothing and still alive at 0 fuel (#145 **clear**-2 red); a
+   > lethal dry lantern alone cannot move proposition (b) at all, because `resolveDeaths` pays
+   > `emberDrop` with no reference to mind state (#145 **fire**-2).
 6. **#82 last, unchanged and still explicitly last.** Shipping it before #83 makes the game *worse*:
    drawing the radius-4 footprint turns the containment read into exactly the clean binary the first
    playtest complained about. Correct and desirable, but only once waking has a price.

@@ -15,8 +15,10 @@ was wrong"**, so M2 opens with the build order the #83 ruling specifies. Four M1
 determinism-gate debt (see the split below). So `gh issue list --milestone "M2: The light loop"`
 will not show you #12 — that is deliberate, not a lost issue.
 
-**M2 is four steps into a build order of six, plus 3a and 4a (both done) and 4b (#125 — *ruled
-2026-08-03, PR #134; the build is #133 and it is next*).**
+**M2 is four steps into a build order of six, plus 3a, 4a and 4b — all done.** 4b (#125) was ruled
+2026-08-03 in PR #134 and **built the same day in #133 (PR #136, `78ee0e5`)**. **What is next is
+contested between #139 and #109, and this file's answer is #139 first** — see the block under
+*#109 — the `HARVESTER` style* below, which carries the reason and the entanglement.
 #79 (PR #92) made a wake announce itself, with a
 count; #94 (PR #101) gave that announcement two emphasis levels so it is read first; **#31/#41 made a
 cache terrain the lantern has to have shown you**, which un-contaminates the fuel corpus; #107 made a
@@ -60,6 +62,12 @@ Cinders, 10 HP, resolved for no damage*) becomes a dead run.
 > `now`, which is true of every free action *and* of `beginRun`. Two player commands instead of one
 > is two strikes, and two strikes is a Cinder. The rule below is unaffected; the price it quotes is
 > not yet what the build charges.
+>
+> **Restored 2026-08-03 by #133 (PR #136): the price above is now what the build charges, and the 13
+> is a budget again rather than a ceiling.** The grace turn is deleted, and free woken kills measure
+> **0 of 387** (`STALKER`) and **0 of 252** (`FLOODLIT`). The note above is kept rather than
+> deleted because the upper-bound reading is what every document here said for a day, and a reader
+> who arrives from one of them needs to see it corrected rather than absent.
 
 **#109 — the `HARVESTER` style, step 5 — remains the gate on everything numeric**, and #123 went
 ahead of it deliberately: a rule that changes how many turns a run spends and what it spends them on
@@ -68,22 +76,33 @@ fuel number may move until #109**, and §3's combat numbers should not move befo
 same attribution reason — which now matters more, because §3's numbers are where the too-strong arm
 gets answered if it fires.
 
-> **#125 is ruled (2026-08-03, PR #134) and what is next is #133 — its build — not #109. The build
-> order below says so as step 4b.** Every argument in this note survives the ruling unchanged,
-> because all three are about the *fix* landing before the corpus is measured, and the fix is #133.
-> Recorded here rather than left to inference because the journal's `Next:` and this list
-> disagreeing is how the order has drifted twice before. **The argument is the one #123 itself
-> used to get ahead of #109**,
-> applied unchanged: #125's fix is a rule change that alters what a run spends and gets, so building
-> #109 first means measuring the corpus twice with no way to attribute the difference — and #109
-> exists precisely to produce a *clean* measurement of invariant 4. Two more reasons on top. **§4's
-> honesty is gated on it**: §4 says in as many words that nobody may cite its pricing paragraph as
-> authority that a wake costs something — and the ruling does not lift that, the build does, because
-> #125 is ruled to make *every woken Cinder costs exactly 2 HP* true again rather than to soften it.
-> And **a free-kill route on a woken creature is exactly what invariant 4 is asserted against** —
-> a flashing style banking ember it did not pay HP for is income the fuel corpus would measure
-> without knowing it. #125 is a **ruling**,
-> not a build, so it is cheap in the way #121 was.
+> **What is next: #139, and then #109. Recorded here, 2026-08-04, replacing this file's *"what is
+> next is #133"* note — #133 is built, merged (PR #136) and closed, so that note now misdirects.**
+> It is written down rather than inferred because the journal's `Next:` and this list disagreeing is
+> how the order has drifted twice before. Everything #125's argument said about getting ahead of #109
+> is discharged: the fix landed, and step 4b below is the record of it.
+>
+> - **[#139](../../issues/139) — has §12's arm 2 fired?** A `game-designer` ruling, not a build. The
+>   broad playtest on PR #136 reports *the lantern opened only when lost* in as many words and with
+>   numbers: a zero-strategy bot that never opens the shutter reached the bottom on **9 of 9** seeds,
+>   and the same bot with the lantern open **died in 4 of 4**. **That playtest is the one ADR-0012
+>   bound the trip-wire to, so the bound is consumed** — and a trip-wire with a spent bound and no
+>   new one is not a trip-wire.
+> - **[#109](../../issues/109) — the `HARVESTER` style, step 5.** Its sequencing argument is finally
+>   discharged for the last time: the corpus has now been re-measured for the last rule change, so
+>   #109 would measure the game rather than an artefact. Nothing numeric may move until it lands.
+> - **They are entangled in both directions.** Tuning a mechanic that is about to be deleted is
+>   wasted work; ruling on whether the mechanic survives before #109 has run is ruling before the
+>   diagnosis.
+>
+> **The order is #139 first, and the reason is that a ruling on whether the mechanic survives has to
+> precede tuning it** — #109 is a measurement in service of a re-tune, and a re-tune presumes there
+> is something to tune. **This is a sequencing decision and not a preview of the ruling.** The
+> journal's `Next:` on the #133 entry reads the likely outcome as *"not yet, and #109 is the test"* —
+> recorded here **as a read, not as a finding** — in which case #139 hands the order straight back to
+> #109 with a re-set bound, which is a legitimate and probably the expected result. **Whoever picks
+> #139 up rules it explicitly rather than letting build order rule it**; that is ADR-0012's own
+> instruction, and it is the thing this note exists to protect.
 
 **Three measurements are now rejected here, and the third was this ruling's own.** The adjacency
 fraction is set by the **player** (0.89, and it reads as the opposite arm). *Unavoidable hits* is
@@ -100,10 +119,25 @@ as a **regression guard** rather than a watch, and records the question that sep
 > phase 4 past `now` — every free action, and every run start. The three rejections above stand and
 > the question above stands; what falls is the confidence that the third quantity was pinned by the
 > numbers. **It was pinned by an argument nobody had run against the build.**
+>
+> **And then it was closed by a rule instead — #133, PR #136.** *Structurally closed* is true again
+> and the word is earned this time: it holds because a woken creature is due when the player is due,
+> one rule at one call site, rather than because an arithmetic proof said so. The guard is enabled
+> and green (0 of 387, 0 of 252). **It has therefore never caught anything**, which is the same
+> epistemic position the proof was in — the difference is that two hand-built reproductions sit
+> beside it and fail loudly if the call site drifts.
 
 **§12's trip-wire is ruled and did not fire — [ADR-0012](decisions/0012-the-fallback-trigger-is-a-verdict-not-a-signature.md).**
 The fallback is **not** spent, the trigger is restated as two named arms, and the next broad playtest
 after #123 is the one that judges it. See M1's exit section and M2's exit criteria, both amended.
+
+**That playtest has now run — PR #136, #133's — and it reports arm 2 with numbers. The bound is
+consumed and the ruling is [#139](../../issues/139), open and unruled as of 2026-08-04.** Nothing may
+read the report as the ruling: ADR-0012 says in terms that this call is a `game-designer`'s to make
+deliberately rather than inferred, and three things cut against firing (the playtest classifies its
+own finding as *tuning*; #109 has not run; the same playtest answers arm 1 emphatically in the
+negative). The blocks below that call the judging playtest "still owed" predate it and are corrected
+in place.
 
 ---
 
@@ -551,7 +585,15 @@ this milestone, not its method.
       characterisation block: free woken kills **56/386 → 0/387** (`STALKER`) and **22/247 → 0/252**
       (`FLOODLIT`), and both hand-built reproductions now end at **10/12 HP**. All three of the
       characterisation assertions were confirmed red *together* before anything was deleted, which is
-      the condition §4 set. **#109 stays after it**, for the attribution reason above
+      the condition §4 set. **#109 stays after it**, for the attribution reason above — but it is no
+      longer *next*: this build's playtest produced **#139**, and the block under *#109 — the
+      `HARVESTER` style* at the top of this file carries the sequencing decision
+- [ ] **Has §12's arm 2 fired? — [#139](../../issues/139)**, a `game-designer` ruling filed out of
+      #133's playtest and deliberately not ruled by it. ADR-0012's bound (*the next broad playtest
+      after #123*) is **consumed** by that playtest, which reports *the lantern opened only when
+      lost* with numbers. **This is the next thing M2 does, and it is a ruling rather than a build.**
+      Its most likely outcome — recorded as a read and not as a finding — is *not yet, and #109 is
+      the test*, which would hand the order back to #109 with a re-set bound
 - [ ] Fuel economy and the risk/reward tuning around it — calibrated once in #17. **#63 is ruled**
       and **no fuel number may move yet.** The first of the two reasons is now discharged: #31/#41
       landed 2026-08-01 and `DARK_PACIFIST`'s take went **119 of 121 → 0 of 121**, so the corpus is
@@ -590,8 +632,8 @@ this milestone, not its method.
 - [ ] Auto-travel: implement `travel(to)` per [ADR-0009](decisions/0009-auto-travel-command-shape.md)
       — **#65**, filed because the gate below has been answered and the recommendation is build it.
       #32 was the design ruling and stays closed
-- [ ] **The wager is invisible before it is taken and illegible after it** — still **thirteen** issues,
-      now from **seven** playtests, none of them tuning and none of them mechanic, all M2. Two are closed:
+- [ ] **The wager is invisible before it is taken and illegible after it** — **fourteen** issues from
+      **eight** playtests, none of them tuning and none of them mechanic, all M2. Two are closed:
       ~~**#94** the wake line is the least emphatic text on screen~~ (done, PR #101) and ~~**#107** a
       cache the flash paid for is announced by nothing~~ (done, 2026-08-01 — the wake line now
       carries the turn's fuel receipt as a second sentence). Open: **#82**
@@ -603,7 +645,8 @@ this milestone, not its method.
       frame and **#102** the board jogs 6pt every flash cycle, and from **#107's playtest** **#116**
       the compound line is additive in reading order but not on screen, **#117** `You gather N
       ember.` prints the turn's *net* delta so the same cache reads 21 and 25, and **#118** a kill you
-      make while taking damage is not spoken. They are
+      make while taking damage is not spoken, and from **#133's playtest** **#138** the board never
+      follows the player so the tap zone wanders 385pt up and down the screen. They are
       one family: the exit criterion is a *felt* decision, and none of these change what the
       simulation does. **Those last three reached this list only in the reconcile after #119**, and
       the reason is a timing one rather than a skipped step — **PR #113 (#107) did carry a docs pass**
@@ -617,8 +660,14 @@ this milestone, not its method.
       turn line wrapping at 320 wide, came from the same playtest and is *not* counted here: its root
       is that this project has never named a minimum supported viewport, which is a missing decision
       rather than a legibility defect. It is in M2 too, as the place the wrap is felt.)
-      **By creation time the seven playtests contributed 6 → 1 → 2 → 1 → 3 → 0 → 0**, and the family
-      has never shrunk except by being built. **The two trailing zeroes are not equal evidence.**
+      **By creation time the eight playtests contributed 6 → 1 → 2 → 1 → 3 → 0 → 0 → 1**, and the
+      family has never shrunk except by being built. **The trailing 1 is #138** (2026-08-03, from
+      #133's playtest): the board is drawn as the whole grid and never follows the player, so the
+      five tiles you tap every turn wander a measured **385pt vertically and 245pt horizontally**
+      across eight seeds' opening frames. It is the same shape as #86 and #102 — a Pillar 3 reach
+      defect rather than a fact the screen fails to say — and it is **pre-existing**, unrelated to
+      #133, found because a playtest is where it shows up. So the family resumed growing under a
+      broad brief, at one. **The two trailing zeroes are not equal evidence.**
       The first (PR #119) is the measurement this bullet asked for. The second is #123's playtest on
       PR #126, which mapped everything it found onto **existing** issues — #85 (its third sighting;
       #123 makes HP death the ordinary ending, so its near-miss now fires on the common case), #84,
@@ -938,7 +987,9 @@ which is the behaviour the paragraph above asks for. But it was **#100, a duplic
 on the list below, same root cause, same fix — filed by an agent that had hit the bug live and did not
 check whether it was known. Closed as a duplicate, its new evidence (a second occurrence, and the
 current CRLF file list, which has changed since #76) moved onto #76. So the count stays at
-**fourteen**. **Filing into the right milestone is not the same as reading it**, and the second habit
+**fourteen**. *(#76 itself is now closed, 2026-08-04, as superseded by **#141** — the same evidence
+plus a fresh file list. The duplicate-checking lesson below is unaffected; where this paragraph says
+#76, the live issue is #141.)* **Filing into the right milestone is not the same as reading it**, and the second habit
 is the one that is missing.
 
 **The count moved by five, not by the two filed this session.** #90 and #91 are new (both from #79),
@@ -968,6 +1019,19 @@ count held for a reason rather than by luck. One caveat on reading that as the h
 same cycle *did* find a process defect and it was filed as **#125**, in M2, correctly — it is a rule
 bug, not a tooling one.
 
+**Twenty at the reconcile after #136, and the re-derivation found a missing one again — so the run
+of clean passes was one, not two.** Re-derived with `gh issue list --state open --milestone "Contract
+and tooling"`: **#12, #39, #48, #50, #52, #53, #57, #58, #62, #78, #90, #91, #95, #110, #112, #120,
+#132, #137, #140, #141**. Four moves. **#76 is closed** (2026-08-04) as superseded by **#141**, which
+carries the same root cause plus a current file list, the conclusive close-out check, and the reason
+a convention cannot replace `.gitattributes`; **repoint any reference to #76 at #141**. **#137, #140
+and #141 are new from #133's cycle**, all filed straight into this milestone on the day — the third,
+fourth and fifth time in a row that rule has been followed without prompting. And **#132 was filed
+2026-08-03 at 06:41Z and never reached this list**: the reconcile that should have caught it (PR
+#135) merged **3½ hours later** the same morning and did not. That is the #76/#78 failure repeating
+for the **fifth** time, and it is why the clean pass after #126 was a cycle that filed nothing rather
+than a habit that stuck. **Re-derive from `gh`; do not read this paragraph.**
+
 - [ ] Both contract gates are bypassable by naming a source file `*.test.ts` — #48. Same family as
       #12, which moved with it; whoever does #12 is already in both files
 - [ ] `render/` and `session/` may import `platform/`, one import from a clock — #52. **Must be
@@ -986,7 +1050,15 @@ bug, not a tooling one.
 - [ ] The worktree convention is written down nowhere, and its `node_modules` junction eats the main
       checkout under `rm -rf` — #62
 - [ ] Determinism rules are disabled inside `game/**/*.test.ts` — #12, moved here from M1's list
-- [ ] No `.gitattributes`, so an ordinary edit silently rewrote a whole file's line endings — #76
+- [ ] No `.gitattributes`, so an ordinary edit silently rewrote a whole file's line endings —
+      **#141** (#76 was the original and is closed as superseded by it, 2026-08-04). Verified at this
+      reconcile: **no `.gitattributes` exists, and 10 tracked text files carry CRLF** — `theme.ts`,
+      `e2e/game-screen.spec.ts`, `eslint.config.js`, `divergence.ts`, `step.bench.test.ts`,
+      `accessibility.test.ts`, `cues.test.ts`, `hud.test.ts`, `scene.test.ts`,
+      `tests/unit/play-opening.test.ts`. It cost something in PR #136:
+      `light.bench.test.ts`'s diff read **332/103** against a real **269/40**, so the stat said the
+      whole file was rewritten. On a repo where no human reads diffs, that is the review artefact
+      lying. **#141 must be alone in its PR** — its renormalisation is a 10-file whole-file diff
 - [ ] Prettier is unconfigured and reformatted three files during a four-comment edit — #78
 - [ ] Playwright's `reuseExistingServer` on a fixed port 3000 lets a worktree's E2E run test
       **another checkout's bundle** — #90, from #79, where it cost an hour of chasing real code
@@ -1011,6 +1083,24 @@ bug, not a tooling one.
       playtest gate would commit a throwaway harness"); it is simply pointed at a directory nothing
       uses. Quiet in the dangerous direction — a committed throwaway driver reads like a deliberate
       test file to the next session
+- [ ] `step.bench.test.ts`'s descent benchmark times out on CI — **#132**, filed 2026-08-03 and
+      **missed by the reconcile that ran the next day**. The failure mode is the one its own
+      `BATCH_CEILING` guard exists to prevent, which makes it the same family as #90/#91/#120: a
+      guard that does not guard
+- [ ] Benchmark thresholds should assert a **ratio**, not an absolute millisecond figure — **#137**,
+      from #133. The evidence is measured: the same lit turn reads 0.100ms locally and **0.529ms** on
+      a runner (4.5x), so any absolute limit must clear the worst of that — and a *real* planted
+      regression (recomputing the lit field per light query, the bug #35 names) costs **1.4x** and
+      sails under it. **Read it beside [ADR-0008](decisions/0008-benchmark-thresholds-as-ratios.md),
+      which currently rules the other way** for subsystem benchmarks: the absolute budgets in
+      `fov`/`light`/`generate`/`actors` are what anchor `step.bench.test.ts`'s ratios in real time,
+      and ADR-0008 calls converting them "the mistake this ADR exists to prevent in the opposite
+      direction". **#137 cannot be built without amending that ADR**, and whoever does owes the
+      argument for where the anchor goes instead
+- [ ] `.playtest/` is gitignored but not eslintignored, so `npm run verify` fails locally after every
+      playtest — **#140**. Verified here: `.gitignore` has `.playtest/`, `eslint.config.js`'s
+      `ignores` does not. Same family as #120 — an ignore rule pointed at the wrong scope — and it
+      taxes the one gate the working agreement requires before every push
 - [ ] The playtester's documented procedure serves a `dist/` that can change underneath it — **#95**,
       filed by this reconcile from a journal Watch note that had no issue. A concurrent build swapped
       the seed mid-session while the port and bundle name stayed right. Worse here than in a spec: a
@@ -1102,6 +1192,17 @@ spend §12. Three things it must be asked, and none of them is "can you sign the
 > are recorded two blocks down as evidence for the judging brief to check, not as a substitute for
 > it. So the bound in ADR-0012 — *the next broad playtest after #123* — is **unspent**, and the next
 > broad playtest is the one that spends it.
+>
+> **That playtest has now run and the bound is spent — PR #136 (#133), 2026-08-03.** Broad by this
+> block's own bar and then some: 6 hand-played runs across 7 seeds plus 13 automated full runs on 9
+> seeds. **It reports arm 2 in as many words** — *"§12's 'the lantern opened only when lost' arm
+> firing, and it is not a hypothesis any more"* — on a never-shutter bot finishing **9 of 9** seeds
+> against the same bot dying **4 of 4** with the lantern open, and an A/B where dark forfeits 21 fuel
+> of cache and is still ahead because the mechanism is **HP, not fuel**. **It also answers arm 1
+> emphatically no** (a named retellable moment, 13 of 38 sampled turns as real decisions), which is
+> why this is a ruling and not an arithmetic consequence. **The ruling is [#139](../../issues/139)
+> and it is open.** Nothing here fires §12; the bound being spent means the *question* can no longer
+> be deferred, not that the answer is yes.
 
 - **Both arms of §12's restated trigger, in VISION's words** (ADR-0012): *can you name a turn where
   the light decision mattered?* and *did you open the lantern only when lost?* An unsigned criterion

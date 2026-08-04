@@ -72,6 +72,12 @@ vision radius means a small grid, which is exactly what a phone screen wants.
 fallback. If the M2 playtest reports the light decision is not tense, or that the lantern is opened
 only when lost, the response is to *subtract* fuel — not to add another mechanic on top.
 
+> **A playtest has now reported the second condition** (2026-08-03, PR #136), and whether that
+> spends the fallback is being ruled on [#139](../../issues/139) — **open, and not to be inferred
+> from this line.** ADR-0012 restated the trigger as two arms and a bound; the bound is spent, arm 1
+> is emphatically negative, and the fallback is a rebuild rather than a subtraction. Read GDD §12
+> before acting on this paragraph.
+
 ## Non-goals
 
 Stated plainly so we stop relitigating them:

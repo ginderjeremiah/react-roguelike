@@ -1035,18 +1035,36 @@ count held for a reason rather than by luck. One caveat on reading that as the h
 same cycle *did* find a process defect and it was filed as **#125**, in M2, correctly — it is a rule
 bug, not a tooling one.
 
-**Twenty at the reconcile after #136, and the re-derivation found a missing one again — so the run
-of clean passes was one, not two.** Re-derived with `gh issue list --state open --milestone "Contract
-and tooling"`: **#12, #39, #48, #50, #52, #53, #57, #58, #62, #78, #90, #91, #95, #110, #112, #120,
-#132, #137, #140, #141**. Four moves. **#76 is closed** (2026-08-04) as superseded by **#141**, which
+**Twenty-one at the reconcile after #136, and the re-derivation found a missing one again — so the
+run of clean passes was one, not two.** Re-derived with `gh issue list --state open --milestone
+"Contract and tooling"`: **#12, #39, #48, #50, #52, #53, #57, #58, #62, #78, #90, #91, #95, #110,
+#112, #120, #132, #137, #140, #141, #143**. Five moves. **#76 is closed** (2026-08-04) as superseded
+by **#141**, which
 carries the same root cause plus a current file list, the conclusive close-out check, and the reason
 a convention cannot replace `.gitattributes`; **repoint any reference to #76 at #141**. **#137, #140
-and #141 are new from #133's cycle**, all filed straight into this milestone on the day — the third,
-fourth and fifth time in a row that rule has been followed without prompting. And **#132 was filed
+and #141 are new from #133's cycle** and **#143 from this reconcile's own review cycle**, all filed
+straight into this milestone on the day — the third, fourth, fifth and **sixth** time that rule has
+been followed without prompting. *(That is a count of **issues**; the original counter in the
+paragraph above counted **cycles**, and by that measure #143 is the fourth consecutive cycle —
+#94's, #119's, #133's and this one, with #126's cycle filing nothing here at all rather than filing
+it wrong.)* And **#132 was filed
 2026-08-03 at 06:41Z and never reached this list**: the reconcile that should have caught it (PR
 #135) merged **3½ hours later** the same morning and did not. That is the #76/#78 failure repeating
 for the **fifth** time, and it is why the clean pass after #126 was a cycle that filed nothing rather
-than a habit that stuck. **Re-derive from `gh`; do not read this paragraph.**
+than a habit that stuck.
+
+**And then it happened a sixth time, to this paragraph, during the review of this paragraph.** The
+`code-reviewer` verified **20** by enumeration and certified this the first clean pass in a while —
+and **#143 was filed out of that same review**, minutes later, which made the verified count wrong
+before the PR merged. The sixth instance was not an unrelated cycle drifting past a stale document;
+**it was the review of the document that reports the defect.** The general form is worth more than
+the count: **a hand-maintained count is stale the moment the review that verified it files an
+issue**, and the only review that can leave such a count true is one that finds nothing to file.
+Nothing caught this but a human running `gh` by hand. **That is [#110](../../issues/110)'s argument
+at its strongest — automate this table or delete the numbers and keep the command.** Note also that
+the instruction below is the correct mitigation and it did **not** prevent the paragraph from being
+wrong; it only stops a careful reader believing it. **Re-derive from `gh`; do not read this
+paragraph.**
 
 - [ ] Both contract gates are bypassable by naming a source file `*.test.ts` — #48. Same family as
       #12, which moved with it; whoever does #12 is already in both files
@@ -1099,6 +1117,13 @@ than a habit that stuck. **Re-derive from `gh`; do not read this paragraph.**
       playtest gate would commit a throwaway harness"); it is simply pointed at a directory nothing
       uses. Quiet in the dangerous direction — a committed throwaway driver reads like a deliberate
       test file to the next session
+- [ ] Nothing checks an ADR's `Status:` line against its row in `docs/decisions/README.md` —
+      **#143**, filed 2026-08-04 out of this reconcile's own review. The index is the routing table a
+      session scans to decide whether an ADR is live, and it went stale within the hour when
+      ADR-0008's and ADR-0012's status lines were annotated and their rows were not. A written
+      same-edit instruction is in the file now and **it is decoration**; the guard is an assertion,
+      and `tests/unit/infrastructure.test.ts` already has the file-scanning harness for it. Same
+      family as #48 and #12 — a rule with nothing enforcing it
 - [ ] `step.bench.test.ts`'s descent benchmark times out on CI — **#132**, filed 2026-08-03 and
       **missed by the reconcile that ran the next day**. The failure mode is the one its own
       `BATCH_CEILING` guard exists to prevent, which makes it the same family as #90/#91/#120: a

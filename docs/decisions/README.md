@@ -45,6 +45,10 @@ routing table — it is what a session scans before deciding whether an ADR is l
 guards it. It has already gone stale once: ADR-0008 and ADR-0012 were annotated in their own files
 by the reconcile after #136 and left as plain `Accepted` here.
 
+**Treat that as a note, not a guard — the guard is [#143](../../issues/143)**, which asserts this
+table against the files (parse each `NNNN-*.md`'s `**Status:**` line, match the row's status cell,
+match the sets both ways, and verify it by planting a mismatch). A written rule is what failed here.
+
 | ADR | Title | Status |
 | --- | --- | --- |
 | [0001](0001-agent-driven-development.md) | Agent-driven development with self-merge | Accepted |

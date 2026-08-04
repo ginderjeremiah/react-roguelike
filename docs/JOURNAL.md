@@ -124,8 +124,9 @@ and the index now carries the instruction to change both in one edit. **That ins
 decoration and should be read as one** — a written rule is what failed here. The real fix is an
 assertion, and the harness already exists: `tests/unit/infrastructure.test.ts` scans files, so it can
 parse each `docs/decisions/NNNN-*.md`'s `**Status:**` line and assert the index row's status cell
-starts with the same word. Filed as its own issue by the session that reviewed this one; do not
-mistake the instruction for the guard.)*
+starts with the same word. **Filed as [#143](../../issues/143)**, out of this PR's own review; do not
+mistake the instruction for the guard. #143 is also the sixth instance of the count defect two
+sections down — it falsified the very count the review had just verified.)*
 
 **Learned — `ARCHITECTURE.md` and ADR-0008 have contradicted each other since the commit that wrote
 both of them.** `a7ee7d4` (PR #37) added ARCHITECTURE's *"Write benchmark thresholds as ratios,
@@ -148,14 +149,30 @@ anchor as the test and states the lit-turn case explicitly. Caught by `code-revi
 after this entry named the failure.
 
 **Learned — the count list drifted again, and the paragraph that predicts it was read instead of
-run.** *Contract and tooling* is **20 open**, not the seventeen recorded. Four moves: #137/#140/#141
+run.** *Contract and tooling* is **21 open**, not the seventeen recorded. Five moves: #137/#140/#141
 are new (all filed straight into the milestone on the day, which is the habit holding), #76 is closed
-as superseded by #141 — and **#132 was filed 2026-08-03 at 06:41Z and has never appeared in this
-file**, missed by the reconcile that merged **3½ hours later the same morning**. Fifth instance of
-the same failure, and the section's own
+as superseded by #141, **#143** is new (below) — and **#132 was filed 2026-08-03 at 06:41Z and has
+never appeared in this file**, missed by the reconcile that merged **3½ hours later the same
+morning**. Fifth instance of the same failure, and the section's own
 instruction is *"re-derive from `gh issue list` rather than reading it."* The instruction is right and
 it keeps not being followed, which is #110's argument for deleting the numbers and keeping the
 command that produces them.
+
+**Learned — and this is the sixth instance, which arrived by a route none of the previous five did:
+the review of this document filed the issue that falsified it.** The `code-reviewer` verified
+**20** by enumerating the milestone, certified this the first clean pass in a while — and then
+**#143 was filed out of that same review**, minutes later, out of its own non-blocking finding about
+`docs/decisions/README.md`. The count was wrong before the PR merged. **The five earlier instances
+were a stale document being overtaken by an unrelated cycle; this one was caused by the cycle that
+audited it.** So the durable form is not *"agents forget to update the count"* — it is that **a
+hand-maintained count is stale the moment the review that verified it files an issue**, and the only
+review that can leave one true is a review that finds nothing to file. That is a property of the
+process, not of anyone's diligence, and the window here was minutes. Nothing caught it but a human
+running `gh` by hand. **[#110](../../issues/110) — automate the table or delete the numbers and keep
+the command — is the fix, and this is its strongest evidence yet.** Worth stating plainly because it
+is the tempting wrong conclusion: my own added instruction *"re-derive from `gh`; do not read this
+paragraph"* is the correct mitigation and **it did not prevent the paragraph from being wrong.** It
+only stops a careful reader believing it, which is not the same thing as the document being true.
 
 **Learned — and this is the good news, so it is worth naming: this sweep found no stale comment in
 `game/`, and that is the first time.** Every reconcile in this family since #126 has found at least
@@ -181,9 +198,11 @@ trip-wire is in the one state ADR-0012 was written to prevent, where it can neit
 deferred honestly. **#141 must be alone in its PR** (its renormalisation is a 10-file whole-file
 diff; verified here — no `.gitattributes`, exactly 10 tracked text files carrying CR bytes), and
 **#140 taxes `npm run verify` after every playtest**, which is the gate the working agreement makes
-mandatory. And the roadmap's count list is stale again one cycle after the first pass that found it
-complete, which is more evidence for #110 (automate the table or delete the numbers): the clean pass
-after #126 was a cycle that filed nothing, not a habit.
+mandatory. And **assume the roadmap's count list is already wrong**: it went stale one cycle after
+the first pass that found it complete, and then again *inside this PR* when its own review filed
+#143. #110 (automate the table or delete the numbers) is the fix; until it lands, the count in that
+paragraph is a claim with a shelf life measured in minutes and the command beside it is the only
+thing worth reading.
 
 ## 2026-08-03 — #133: the grace turn is deleted in the build, and the guard is green for the first time
 

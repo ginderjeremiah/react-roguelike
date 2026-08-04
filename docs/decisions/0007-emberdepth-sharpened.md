@@ -171,6 +171,15 @@ fallback in GDD §12 is the response — not another mechanic on top.
 > false for four milestones and a reader who finds only the resolution will not know that the
 > *survives* was asserted rather than measured — which is the mistake, not the wording.
 >
+> **#149 merged the same day — PR #152, `f5fe41e`, `RULES_VERSION` 8 — so *fuel is the run timer* is
+> now true of the build, and it is measured rather than asserted this time.** A zero-strategy line
+> that never opens the shutter is dead on **9 of 9** seeds on **turn 79** at 12/12 HP: 80 fuel at 1 a
+> turn, `gathered` 0. **Two words in the note above are now traps for a reader.** *"asserts a dry
+> crawl reaches the stairs on 80 of 80 floors"* is present tense and the assertion is **gone** — it
+> was `runs(DRY_CRAWL, 0)`, a run starting at 0 fuel, which is now a run that cannot exist; quote the
+> figure only with its commit (`4a59a04`). And *"the never-flash line dominates"* is past: it nets
+> **−105** fuel a floor and runs dry on floor 1 on 10 of 10 seeds.
+>
 > **Two more of this ADR's sentences are in the same position and are repaired by the same ruling, so
 > they get no separate note: *"Fighting spends HP to earn fuel; light spends fuel to preserve HP"*
 > (change 4) and *"free kills exist and exist only in the dark"* (change 3).** In the build measured on

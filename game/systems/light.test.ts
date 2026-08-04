@@ -523,7 +523,8 @@ describe('phase 5: embers and caches', () => {
     // > test pins is untouched, so it is re-pointed at a **low** fuel rather than deleted. What
     // > carries *ever lit* now is the autopilot argument, which never depended on the fuel rule:
     // > the shutter is free and §2 runs phase 5 on a free action, so *currently lit* would make
-    // > `open`-`shut` on the tile a pickup for 4 fuel and no turns.
+    // > `open`-`shut` **while standing on the tile** a pickup for 4 fuel and no *further* turns.
+    // > (Underfoot only: flashing beside a drop pays nothing, it just makes the tile takeable.)
     const low = alreadyLit(CACHE_SCENE, CACHE_AT, 2);
     expect(canOpen(low.lantern)).toBe(true);
 

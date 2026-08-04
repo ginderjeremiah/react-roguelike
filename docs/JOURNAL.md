@@ -118,7 +118,7 @@ input to every argument that follows; do not re-derive them.
 | `FLOODLIT` caches | 98/121 | 14/121 |
 | turns before dry — floodlit / flashing / dark | 26 / 65 / 80 | **26 / 65 / 80** |
 | dry crawl reaching the stairs | 80/80 floors | *assertion deleted* |
-| never-flash line over 9 seeds, real `step()` | **floor 8 on 9 of 9**, 128-167 turns, 12/12 HP, 0 fuel on 7 of 9 | **dead 9 of 9**, floors 4-6, at 12/12 HP |
+| never-flash line over 9 seeds, real `step()` | **floor 8 on 9 of 9**, 128-167 turns, 12/12 HP, 0 fuel on 7 of 9 | **dead 9 of 9 on turn 79**, `gathered` 0, at 12/12 HP |
 
 **`HARVESTER` exists now, and the before-column is a real measurement — at the second attempt.** #149
 said to record that #109's before-number was missing if #109 slipped. It has slipped, but the style is
@@ -142,8 +142,8 @@ finished all eight anyway with 42-130 fuel, because a kill refilled it and 0 was
 line was never solvent; it was *unpunished*.** Clause 1 takes the income to zero and clause 2 takes the
 impunity, and neither alone reaches it — which is the pair being one subtraction, restated in the one
 place the numbers were supposed to be carrying the argument. The independent evidence for the
-conclusion is clear-2's, which does not depend on this table at all: dead 9 of 9, floors 4-6, at 12/12
-HP, through the real `step()`.
+conclusion is clear-2's, which does not depend on this table at all: dead 9 of 9 on turn 79, at
+12/12 HP, through the real `step()`.
 
 **The three pacifist styles are byte-identical across the change** — same kills, flashes, turns,
 caches, income, demand — which is the cleanest available control: they kill nothing, so clause 1
@@ -210,9 +210,23 @@ the real `step()` at seven unit sites; what is gone is *whether the victory scre
 **Wants an issue.**
 
 **Fixture shape, as #149 predicted and where it did not.** `diveToTheBottom` is now the never-flash
-**death** fixture — measured, it dies at command 80 or 105 on 15 of 15 seeds, on floors 4-6, at full HP
-— and it is the instrument for ADR-0015's **clear**-2, asserted through the real `step()` because the
-corpus harness (immortal player, never calls `step`) is structurally blind to the fuel ending.
+**death** fixture — measured, it dies on **turn 79** on 15 of 15 seeds at full HP, or turn 104 on the
+two where floor 1's opening light happened to put a cache on its route (80 fuel + 25 = 105 commands,
+`gathered` 25; every other seed `gathered` **0**). It is the instrument for ADR-0015's **clear**-2,
+asserted through the real `step()` because the corpus harness (immortal player, never calls `step`) is
+structurally blind to the fuel ending.
+
+**Read the turn, not the floor — and this one I also stated wrong first time.** The entry said the
+never-flash line "dies on floors 4-6", which is true of *this script* and is not a description of
+play: it takes the file's routing liberty, beelines to `world.floor.stairs` over the real grid, and
+crosses a floor in ~15 turns. **79 turns is the rule** — 80 fuel at 1 a turn, `gathered` 0 — and it is
+the same for anyone who never opens the shutter. What differs is how much ground those 79 turns buy:
+the #145 playtest, hand-played, died on the **same turn 79** on **floor 2 of 8**, at 12/12 HP with 2
+kills. The playtest's caveat travels with the number and is worth more than the number: **it dies,
+which is the point, but floor 2 of 8 in 79 turns is not "a run"**, and a player who has not yet worked
+out the claim rule will play close to that line by accident. That is [#154](../../issues/154)'s
+territory — the ruling is currently *invisible*: an unclaimable drop draws identically to a claimable
+one, stepping onto one says nothing, and `@` overdraws the `♦` you are standing on.
 `lightTheWayDown` is the new winning script: crawl dark, flash beside each cache, haul it, take the
 stairs. It wins on 15 of 15 seeds with **47-159** fuel left, and it is a better fixture than the one it
 replaced — it wakes things, fights and takes damage, where the dark dive never produced a single
@@ -234,12 +248,31 @@ asserted in `economy.test.ts` and named there as clear-1 and clear-2.
 
 **Watch — three, and the first is a design question rather than a defect.**
 
-**Standing beside your own kill and flashing is a turn-free 4-for-20 trade**, and it is the ruling's
-own consequence: the shutter is free (§2), §2 runs phase 5 on a free action, and *ever lit* means the
-tile stays paid once lit. §4 already names the shape — it is the *currently lit* reading's autopilot
-argument, inverted — but nobody has priced it as a **habit**, and the corpus now plays it every time.
-If #145 reports flashing on a timer, this is the first place to look, and it is `game-designer`'s
-rather than a constant to nudge.
+**The claim loop is a two-press ceremony at provably zero risk — and it is *not* the turn-free
+arbitrage this entry first claimed it was.**
+
+> **Correction, from the #145 playtest (PR #152).** This Watch read: *"Standing **beside** your own
+> kill and flashing is a **turn-free** 4-fuel-for-20 trade — a free action, phase 5 runs on it, and
+> *ever lit* makes the tile permanently paid."* **Both halves of that are false of the build**, and
+> `collectFuelUnderfoot` settles it in one line: `state.world.embers.filter((drop) =>
+> samePosition(drop.at, at))`. **Phase 5 pays underfoot and nowhere else** — the function's name is
+> its spec. Verified in the built game both ways: flashing *beside* a drop pays nothing and only makes
+> the tile takeable, and flashing *while standing on* it does pay on the press (`You gather 16
+> ember.`) — but you spent a turn stepping there. **The claim loop is always one turn, never zero.** I
+> read the free-action property as if it reached adjacent tiles; it does not, and nothing in the
+> repo ever said it did.
+
+**What is actually worth watching, stated as the playtest measured it.** The loop is `strike` →
+`OPEN` → `CLOSE` → `step`: one turn, 5 fuel, two free presses. The free presses are at **provably zero
+risk**, and that is a guarantee rather than a habit — ember-sense is radius 5 through walls and the
+lit field is radius 4 with line of sight, so §4's containment means *everything a flash can wake, you
+can already feel*. Of ~10 claimed kills in the playtest, only **3** had anything within radius 4 to
+wake; on the other 7 the two presses could not have cost anything and the player knew it before
+pressing. **The playtester's own classification is ceremony rather than a Pillar 1 violation, and
+explicitly not worth cutting**: the same flash is doing real exploration work, and the three occasions
+it *was* a decision were the best turns of the session. Recorded that way rather than as an
+exploit — if #145's broader pass reports flashing on a timer, this is still the first place to look,
+and it is `game-designer`'s rather than a constant to nudge.
 
 **`STALKER`'s cache take fell 117 → 110 and its flashes 878 → 836.** That is the ruling's third Watch
 measured and **not** firing: the falsifier is `STALKER` *collapsing* rather than `HARVESTER` coming

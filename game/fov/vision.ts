@@ -216,7 +216,9 @@ export function remember(vision: Vision, perceived: TileSet): Vision {
 //   - **Collection.** `game/systems/light.ts` phase 5 pays a cache **and a kill's drop** only where
 //     `hasBeenLit`. Keyed on **ever** lit rather than *currently* lit, because the stricter reading
 //     would manufacture an autopilot: the shutter is free and §2 runs phase 5 on free actions, so
-//     `open`-`shut` on the tile would take whatever is on it for 4 fuel and no turns.
+//     `open`-`shut` **while standing on the tile** would take whatever is on it for 4 fuel and no
+//     *further* turns. Phase 5 pays underfoot only, so this is not a reach onto adjacent tiles and
+//     the turn spent getting there is charged either way.
 //
 //     *The other original argument for **ever** lit is spent, and is recorded rather than restated:*
 //     it was that at 0 fuel the shutter cannot open, so *currently* lit would falsify §4's "a kill or

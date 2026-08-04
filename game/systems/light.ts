@@ -301,7 +301,11 @@ export function lightingAndWakingPhase(state: LanternWorld): LanternWorld {
  * **Ever lit, not currently lit.** The tile stays yours once the lantern has shown it to you; a drop
  * on ground you flashed ten turns ago pays the moment you stand on it, with the shutter shut. The
  * stricter reading would also manufacture an autopilot, since the shutter is free and §2 runs phase
- * 5 on a free action, so `open`-`shut` on the tile would buy the pickup for 4 fuel and no turns.
+ * 5 on a free action, so `open`-`shut` **while standing on the tile** would buy the pickup for 4 fuel
+ * and no *further* turns. Be exact about that scope, because it is easy to over-read: phase 5 pays
+ * **underfoot** — `samePosition(drop.at, at)`, below — so flashing *beside* a drop pays nothing and
+ * only makes it takeable. The turn spent stepping onto the tile is charged either way, and a #145
+ * playtest read this the wrong way round.
  *
  * **The drop used to be excluded from this rule, by name, and the exclusion is reversed (#144).**
  * §4 read *"ember you made is yours; ember the ruin hid belongs to the lantern"* for two milestones.

@@ -786,6 +786,23 @@ describe('ADR-0015 clear-2: a line that never opens the shutter dies', () => {
    * never hunts, and walks to the stairs. Note the distinction the criterion turns on — a bot that
    * *fights* in the dark is `HARVESTER` and is clear-1's, above. Neither number may be borrowed for
    * the other.
+   *
+   * ## Read the **turn**, not the floor: the floor number here is not what a player will see
+   *
+   * Measured over this sweep, every seed dies on **turn 79** with `fuelBurned` 80 and **`gathered`
+   * 0** — 80 fuel at 1 a turn, and nothing at all coming in. That number is the criterion; it is a
+   * property of the *rules* and it is the same for anyone who never opens the shutter.
+   *
+   * **The floors those 79 turns buy are a property of the script and nothing else.** This one takes
+   * the header's routing liberty — it reads `world.floor.stairs` and beelines over the real grid, so
+   * it crosses a floor in ~15 turns and dies on floor **4-6**. A human mapping the same floors by
+   * touch at radius 1 covers far less ground per turn: the #145 playtest, hand-played, died on the
+   * same **turn 79** on floor **2 of 8**, at 12/12 HP with 2 kills and `gathered` 0.
+   *
+   * So do not quote "floors 4-6" as what the dark line experiences — the honest statement is *79
+   * turns and two floors*, and the playtest's caveat travels with it: **it dies, which is the point,
+   * but floor 2 of 8 in 79 turns is not "a run"**, and a player who has not yet worked out the claim
+   * rule will play close to that line by accident. That is #154's territory, not this file's.
    * ═══════════════════════════════════════════════════════════════════════════════════════════════
    */
   const SWEEP = ['dark-1', 'dark-2', 'dark-3', 'dark-4', 'dark-5', 'dark-6', 'dark-7', 'dark-8', 'dark-9'];
@@ -794,7 +811,8 @@ describe('ADR-0015 clear-2: a line that never opens the shutter dies', () => {
     const ends = SWEEP.map((seed) => replay(diveToTheBottom(seed)));
     console.log(
       `never-flash sweep — ${ends.filter((end) => end.status.kind === 'died').length}/${SWEEP.length} ` +
-        `dead, floors reached ${ends.map(floorNumberOf).join(',')}`,
+        `dead on turn ${ends.map((end) => end.turnsElapsed).join(',')}; ` +
+        `floors reached ${ends.map(floorNumberOf).join(',')} (a router's, not a player's — see above)`,
     );
 
     // The criterion, stated as it is written: not every seed reaches floor 8 at full HP.

@@ -152,9 +152,17 @@ function diveCommand(state: GameState): Command | null {
  * a dormant creature is not a threat — it is a tile to walk around — so nothing on the floor can
  * touch it. What can is the lamp: this is **the never-flash line**, it earns nothing under §4's *The
  * dark can take nothing* (every drop it makes is on ground it never lit), and it burns 1 a turn
- * against a reserve of 80. **It dies on floor four to six** — measured over 15 seeds, at command 80 or
- * 105, always at full HP — and that is the point of it rather than a defect: ADR-0015's second clear
- * criterion is measured on exactly this line, and full HP is what makes it *the dark* that killed it.
+ * against a reserve of 80. **It dies on turn 79** — measured over 15 seeds, always at full HP, with
+ * `gathered` **0** on all but the two seeds where floor 1's opening light happened to put a cache on
+ * its route (those die on turn 104: 80 + 25, at 1 a turn, on the nose). That is the point of it
+ * rather than a defect: ADR-0015's second clear criterion is measured on exactly this line, and full
+ * HP is what makes it *the dark* that killed it.
+ *
+ * **Read the turn, not the floor it reaches.** 79 turns is the rule; the floors it covers in them are
+ * this script's routing liberty — it beelines to `world.floor.stairs` over the real grid, so it gets
+ * to floor 4-6, where the #145 playtest hand-played the same line to a death on the same turn 79 on
+ * **floor 2**. `economy.test.ts`'s clear-2 block states the distinction; do not quote the floor range
+ * as something a player would see.
  *
  * > **It used to reach the bottom, and its docstring said the lantern "runs dry somewhere around
  * > floor three, which is not an ending".** It was the project's only winning fixture and every

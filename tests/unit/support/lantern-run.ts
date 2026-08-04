@@ -659,6 +659,12 @@ function chooseAction(state: LanternWorld, style: Style, memory: ScriptMemory): 
  * shutter open — except enemy intent, which is what `FLOODLIT` is for. A flash therefore costs
  * 4 fuel (the open command burns at the lit rate) plus the 1 the closing command burns, and no turns.
  *
+ * **"No turns" is about the flash and not about the claim, and the clause above makes that worth
+ * saying twice.** Lighting a drop is free of tempo; *taking* it is not, because phase 5 pays
+ * **underfoot** — so the script still spends a turn stepping onto the tile, and the whole loop is
+ * `strike`, `open`, `close`, `step`: one turn and 5 fuel for 20. A #145 playtest read the free-action
+ * property as if it reached adjacent tiles; it does not.
+ *
  * A toggle that would be refused is never issued: at 0 fuel `open` is a no-op (§4), and asking for
  * it every iteration would spin forever without ever spending a turn.
  */

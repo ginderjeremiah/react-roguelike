@@ -66,7 +66,8 @@ than a precaution. No rule, number, doc or behaviour moves; `npm run verify` gre
 #139 ruling argued that §12's fallback is *"subtract fuel"*, a reading **#63 corrected 2026-07-31 and
 ADR-0012 restated 2026-08-02**. Two of its four arguments inverted once that was fixed, and the PR
 **deleted the paragraph carrying the correction** while arguing against the version it existed to
-correct. The correction sat a few lines above the block being amended, and still went unread. Also added: **verify
+correct. The correction sat **eight lines** above the #121 trigger block the ruling supersedes, and
+still went unread. Also added: **verify
 premises against `game/`, not the docs** — the ruling's other false premise (the player knows a
 flash's exact product) was taken from documentation and contradicted by `perceivedTileAt`,
 `senseCreatures` and a hidden RNG draw, while the §4 passage cited in support said the opposite.
@@ -83,7 +84,7 @@ showing **yes** four lines below).
 > **Rule 2 is the reviewer's formulation, not mine, and mine was not actionable.** I had written
 > *"grep the paraphrases someone else would use"* — which cannot be enumerated in advance, by
 > definition, and which rule 3 then concedes would not have worked anyway. The reviewer's version is
-> followable: both missed sites cited **`ADR-0015`** and **`#108`**, and one grep for those finds what
+> followable: one missed site cited **`ADR-0015`** and the other **`#108`**, and one grep finds what
 > nine hand-guessed phrasings missed. **Citations survive summarising; adjectives do not.**
 
 **`work-item` — fetch first, and file issues with a milestone.** The session opened with local `main`
@@ -113,8 +114,8 @@ of them written from my summary of the session rather than from the record:
 | §12's correction *"twelve lines above"* the amended block | **eight** (GDD 2134 → 2142 at `06b1735^`) | close, and never measured |
 
 **The second is the one worth keeping.** A rule warning that N−1 corrections are dangerous, stating N
-wrong, in a file agents are told to trust — and the correct N was already written two paragraphs
-above it in that same file. *"Three rows above"* also reframed the incident as an adjacency slip when
+wrong, in a file agents are told to trust — and the correct N was already written in the paragraph
+directly above it in that same file. *"Three rows above"* also reframed the incident as an adjacency slip when
 the real, transferable failure is a pointer **297 lines** from the site it certifies: nobody scrolled.
 
 **And two shell snippets did not do what the prose beside them claimed**, both reproduced by the
@@ -161,10 +162,27 @@ memory of where the problem was rather than by enumerating where the claim *is*.
 `archivist.md` is right and it is not sufficient — **the enumeration has to be mechanical**, which is
 the argument #143 makes for the ADR index and #110 for the roadmap counts.
 
+**And then a fourth time, which is what finally isolated the variable.** The commit above *did*
+enumerate mechanically — but only for `gh issue list`, because a command is greppable. Its three
+**prose** corrections were applied from memory, and all three left their journal sibling stale: the
+line count still said *"a few"* at the top of the entry while the table below called that wrong and a
+paragraph below *that* claimed both sites were fixed; *"two paragraphs above"* survived four lines
+from the cell correcting it; and the citation sentence kept the distributive reading. **One claim
+managed to contradict itself twice within 100 lines of a single entry.**
+
+So the variable is not care, and it is not even mechanism-in-general — it is **which claims got the
+mechanism**. Greppable ones converged in one pass. Prose ones took four, and were still wrong at the
+fourth. The rule that follows is narrow and usable: **after correcting any claim, grep the corrected
+phrase *and* the phrase you corrected away from, and read every hit — including in the document you
+are writing the correction in.** That last clause is the one four rounds were spent learning: the
+entry describing a sibling-miss is itself a site of the claim, and it is the site nobody checks.
+
 The corrected numbers were also worth measuring rather than hedging. *"Twelve lines above"* became
 *"a few"* on the first fix, which the review correctly called out as trading a wrong number for no
-number: it is **eight** (`docs/GDD.md` 2134 → 2142 at `06b1735^`), now stated at both sites including
-ADR-0015's, which had kept the wrong figure while this entry declared it wrong.
+number: it is **eight** — `docs/GDD.md` 2134 → 2142 at `06b1735^`, and the anchor matters, because
+2142 opens the **#121 trigger block this ruling supersedes**, not the block the diff textually edits
+(§12's hunks are 24 lines above and 51 below). Now stated with that anchor at **all three** live
+sites: this entry, ADR-0015, and `game-designer.md`.
 
 **Next:** **#144** — rule the wager's cost side, which subtraction makes a never-flash line able to
 die. Unblocked and explicitly not gated on #109.

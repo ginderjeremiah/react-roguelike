@@ -67,7 +67,7 @@ correction** while arguing against the version that paragraph existed to correct
 
 - **Grep the claim's vocabulary across `docs/decisions/` and the GDD change log**, not just the
   section you are editing. A correction usually sits next to the thing corrected — §12's was **eight
-  lines** above the block being amended, and still went unread.
+  lines** above the trigger block that ruling superseded, and still went unread.
 - **Before deleting or replacing a paragraph, work out what it is for.** A paragraph that reads as
   redundant is often a correction someone was paid to learn; deleting it restores the error.
 

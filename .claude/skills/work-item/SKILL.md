@@ -34,14 +34,16 @@ a rule about merged history, not about your working tree.
 ```bash
 gh issue list --milestone "$(gh api repos/:owner/:repo/milestones --jq '.[0].title')" --state open --limit 200
 gh issue view <n>
-gh pr list --state open
+gh pr list --state open --limit 200
 gh issue list --state open --limit 200 --json number,title,milestone \
   --jq '.[] | select(.milestone == null) | "#\(.number) \(.title)"'   # untriaged; triage before picking
 ```
 
-**Note the `--limit`.** `gh issue list` defaults to **30** and this repo has more open issues than
-that, so without it the untriaged check silently inspects only the newest page — and an untriaged
-issue that ages past it becomes permanently invisible to the one command meant to find it.
+**Note the `--limit` on every one of them.** `gh issue list` and `gh pr list` both default to **30**
+and sort newest-first, and this repo has more open issues than that. Without the flag each command
+silently inspects only the newest page — so the *oldest* items in a milestone, and any untriaged
+issue that ages past the cut, become invisible to the very commands you run to find work. **The
+default is silent: you get 30 rows and no indication there were more.**
 
 Read the last two entries of `docs/JOURNAL.md`. **The journal is newest-first** — `head`, not `tail`.
 Skip anything labeled `blocked` or `needs-owner`.

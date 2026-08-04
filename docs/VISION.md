@@ -76,12 +76,14 @@ vision radius means a small grid, which is exactly what a phone screen wants.
 **If this fails:** the response is **subtraction and rebuild — never a second mechanic bolted on top.**
 That is the whole of what this paragraph promises, and it is a constraint rather than a plan.
 
-> **What *subtract* means, kept verbatim from #63's correction, because deleting it is how the next
-> mistake gets made.** *Subtract* is right about the **direction**. What §12 and #63 add is the
-> **size**: GDD §12's fallback is **not** "subtract fuel" — it is **pure positional tactics with
-> enemies whose fixed patterns force contact**, which means deleting the lantern and the economy that
-> makes killing pay and then rebuilding **the enemy, the level generator and the win condition**. A
-> rebuild, in the subtractive direction. **Read GDD §12 before acting on this paragraph.**
+> **What *subtract* means — #63's correction, kept in substance and sharpened, because deleting it is
+> how the next mistake gets made.** The sentence this restores read: *"subtracting fuel means deleting
+> the lantern and the economy that makes killing pay, then rebuilding the enemy, the generator and the
+> win condition around forced contact. A rebuild, in the subtractive direction."* The sharpening is one
+> clause it did not say out loud, and it is the clause a draft of ADR-0015 needed: **GDD §12's fallback
+> is *not* "subtract fuel"** — it is **pure positional tactics with enemies whose fixed patterns force
+> contact**, and *"subtracting fuel means…"* is itself the phrasing that keeps being read as the
+> prescription. **Read GDD §12 before acting on this paragraph.**
 >
 > **This paragraph used to name that design as the *designated* fallback, and it no longer does.** A
 > broad playtest reported the second failure condition on 2026-08-03 (PR #136), and

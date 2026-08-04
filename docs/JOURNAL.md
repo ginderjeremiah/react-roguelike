@@ -151,6 +151,10 @@ this repo keeps hitting: a claim derived correctly from these documents and fals
    restored in `VISION.md`, and the ruling now rests on the two that survive. **The general form: the
    sentence you are about to argue against may have been corrected in the same section you are
    editing.** Grep the section you are amending, not only the phrase you are changing.
+   *(And the restored `VISION.md` note first claimed to keep #63's correction **"verbatim"** when it
+   is a rewrite that adds a clause. Corrected to *kept in substance and sharpened*, with #63's actual
+   sentence quoted — in a paragraph whose whole job is* this is the sentence people keep deleting*, an
+   inaccurate "verbatim" is exactly the small false claim this repo catches.)*
 2. ***"The player knows the flash's exact price and product, so it is a comparison of two known
    integers."*** The product half is **false of the build and §4 made it false on purpose**:
    `perceivedTileAt` returns `FLOOR` for any unlit cache, `render/scene.ts`'s `buildCell` calls it
@@ -163,6 +167,30 @@ this repo keeps hitting: a claim derived correctly from these documents and fals
    retracted: it can.** The conclusion survives on a better argument that was already in the ADR and
    is verified in code — **`resolveDeaths` pays `emberDrop` with no reference to mind state**, so a
    sleeper and a hunter pay the identical 20 and no value of any constant makes waking beneficial.
+
+**Learned — and this is the durable one: the retraction sweep missed two sites, and both were missed
+because of the *string list*, not the diligence.** The first repair pass swept nine phrases and the
+re-review swept fourteen. It found the retracted **relevance** argument alive at `ROADMAP.md`'s brief
+for the very playtest that decided §12 — *"the fallback is the wrong instrument. ADR-0015"* — cited to
+the ADR that had just deleted it, and the retracted **two-integers** premise alive in **#144's own
+Pillar 1 bullet**, in an issue whose *rejected list* I had correctly rewritten to say the opposite.
+**A half-retracted claim is worse than an unretracted one**, because the surviving half reads as the
+part that passed scrutiny. Neither site contains any phrase from my nine — *wrong instrument* and
+*whose answer is always no* are paraphrases of the claims I was grepping for.
+
+**The transferable form, and it sharpens the rule this repo already has** (*after writing a claim,
+grep its distinctive phrase and check the hit list*): **the distinctive phrase of a retracted claim is
+usually not the phrase you wrote — it is the phrase someone else wrote when summarising it.** So
+enumerate the *paraphrases a summary would use* before sweeping, and sweep the **issue bodies** too,
+not just `docs/`. The strings that would have caught these: `wrong instrument`, `relevance`,
+`always no`, `two integers`.
+
+**And #144's bullet was self-refuting in its own two sentences, which nothing but reading it caught.**
+It called the flash *"a comparison of two integers whose answer is always no"* and then cited
+*"#108's own measured best line (clear the room dark, then flash)"* — and #108's floor-1 table is **97
+fuel never flashing against 115 for clear-then-flash, +18**. The answer was measured **yes**, two
+sentences below the claim that it is always no. **A grep cannot find a contradiction that spans two
+sentences; only a reader can.**
 
 **And the second correction produced the sharpest thing in this session, which the first draft did not
 have.** Raising `CACHE_FUEL` *would* satisfy §4's **invariant 4** — a flashing style out-earning a

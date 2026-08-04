@@ -1122,6 +1122,15 @@ free actions); the containment guarantee turns ember-sense at 5/5 into a **permi
 than a gamble; and light's only unique product — terrain and items — can be deferred indefinitely,
 because touch radius 1 plus the four-neighbour guarantee lets you crawl anywhere forever.
 
+> **Read the second cause precisely, because a draft of ADR-0015 over-read it and had to retract —
+> *2026-08-04, #139*.** It is true of the flash's **price** and false of its **product**. Containment
+> tells you what a flash would *wake*; nothing tells you what it would *find*, and §4 keeps it that way
+> deliberately (an unlit cache reads as floor, ember-sense senses no caches, and whether a room holds
+> one is a hidden draw). So the flash is a **permission check on safety and a gamble on payoff** — the
+> retracted draft collapsed the two and concluded no `CACHE_FUEL` value opens a band. **It does open
+> one**; see §4's note under the four tuning invariants for what that band actually buys. **The third
+> cause is the one that survived into the ruling**, and it is the strongest sentence in this block.
+
 **Classification: tuning, not mechanic.** "The dark stalk is genuinely good play and it is the thing
 I would come back for; it just needs to cost something."
 
@@ -1424,8 +1433,13 @@ spend §12. Three things it must be asked, and none of them is "can you sign the
   the light decision mattered?* and *did you open the lantern only when lost?* An unsigned criterion
   is **not** an answer to either. If the answer to the first is no, or to the second is yes, the
   fallback is spent and no further evidence is needed. *(Answered: no to the first, **yes** to the
-  second — and the ruling on 2026-08-04 is that the second firing does **not** spend this fallback,
-  because the fallback is the wrong instrument. ADR-0015.)*
+  second — and the ruling on 2026-08-04 is that the second firing does **not** adopt this fallback
+  automatically. **Not because it is the wrong instrument**: read as §12 writes it — enemies whose
+  fixed patterns **force contact** — it would work, and it is the only design on the table that
+  delivers* a run that never opens the shutter can die *by construction. It loses on
+  **proportionality**: it abandons a concept measuring well on Pillars 1 and 4 before one clause has
+  been deleted. It stays the strongest named alternative and #145's leading candidate.
+  [ADR-0015](decisions/0015-arm-2-fired-and-the-fallback-is-retired.md).)*
 - **The too-strong arm is the only arm GDD §4 still watches**, and it is the second question above.
   §4 declares the **too-weak arm structurally closed**: a woken Cinder costs 2 HP or the stairs, by
   arithmetic (5 HP against 3 damage is two strikes, and the player is generally adjacent at their

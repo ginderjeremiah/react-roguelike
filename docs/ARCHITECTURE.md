@@ -58,8 +58,9 @@ game/
   rng/         seeded PRNG. the ONLY source of randomness in the project
   map/         level generation, tiles, geometry
   fov/         field of view, light propagation, ember-sense, vision state — and two monotone
-               per-tile planes, not one: `remembered` (ever perceived) and `revealed` (ever lit,
-               for GDD §4's cache rule, #31/#41). Read `fov/index.ts` before adding a third
+               per-tile planes, not one: `remembered` (ever perceived) and `revealed` (ever lit —
+               GDD §4's cache rule, #31/#41, **and since #149 the kill drop as well: one predicate,
+               both payouts**). Read `fov/index.ts` before adding a third
   entities/    actors, stats, behaviour, pathing
   systems/     the rules: turn scheduling, combat, light/fuel, and run.ts (what spans floors)
   content/     data tables — the Cinder, lantern tuning, player stats, run length. data, not logic

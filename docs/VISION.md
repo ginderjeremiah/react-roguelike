@@ -56,8 +56,10 @@ but the wager is not "see or be blind", it is **which half of the truth you want
   state a corpus survives 80 times out of 80 is not desperate, it is the absence of a clock, and it
   is half of why a style that does not want the lantern dominates. §4's *The dark can take nothing*
   deletes it: **a lantern that goes out ends the run**, and a kill's ember pays only where the lantern
-  has been. Ruled 2026-08-04, built by [#149](../../issues/149) — until that merges, the build still
-  behaves as the old sentence describes.)
+  has been. Ruled 2026-08-04 and **built the same day — [#149](../../issues/149), PR #152,
+  `RULES_VERSION` 8. The sentence above is now true of the build**, measured: a zero-strategy line
+  that never opens the shutter is dead on 9 of 9 seeds on **turn 79**, at full HP, on 80 fuel at 1 a
+  turn with nothing coming in.)
 - **Open, you see stone:** terrain, items, creatures, and their intent — but only within a short
   radius, and not through walls. Light is also what wakes the ruin's dormant inhabitants, so an
   open lantern announces you.

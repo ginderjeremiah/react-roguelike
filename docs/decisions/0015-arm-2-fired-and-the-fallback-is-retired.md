@@ -54,6 +54,11 @@ turns before the lantern dies — floodlit 26, flashing 65, dark 80; **dry crawl
 80 of 80 floors.** (§4 and the roadmap both still carried `114/121` and `+7`, which were true at PR #106
 and have been stale through three rule changes since. Corrected in this PR.)
 
+> **Every figure in this Context section is *pre-build*, and the date alone will not tell you —
+> #149 shipped on the same day.** Pin them to the commit: this is `4a59a04`. At `f5fe41e` (PR #152)
+> the same corpus reads `STALKER` **110/121** and **+2**, and the *dry crawl* assertion **no longer
+> exists**. See the annotation under *What clears it* for the full before/after.
+
 ## Decision
 
 **Three parts, and the second is the one that is not a formality.**
@@ -172,7 +177,10 @@ measurement.
 > recommendation is adopted and **the collision turned out to be the other half of the same
 > subtraction rather than a side-effect to absorb**: ember pays only where the lantern has been,
 > **and** a lantern that goes out ends the run. Light-gating alone leaves the never-flash line earning
-> nothing and still not dying, because the corpus survives 80 of 80 dry floors — proposition (a) is
+> nothing and still not dying, because the corpus survived 80 of 80 dry floors *(pre-build, at
+> `4a59a04`; #149 deleted that assertion along with the rule — it was `runs(DRY_CRAWL, 0)`, a run
+> starting at 0 fuel, which is now a run that cannot exist, so the figure is history and not
+> reproducible)* — proposition (a) is
 > untouched by it, since the dark is the only thing left that can kill a shuttered, moving player.
 >
 > **The trip-wire's *fire*-2 criterion does not fire, and the ruling says why in terms.** Nothing is added:
@@ -381,6 +389,13 @@ of the failure ADR-0012 was written to prevent.
   instrument the rebuild is measured against*: a `HARVESTER` baseline taken **before** the rule change,
   so that after it there is a before-number to compare to. It goes next, for the same reason #133 was
   measured before and after.
+
+  > **It did not go next, and it did not need to — *2026-08-04, PR #152*.** `HARVESTER` turned out to
+  > be `DRY_CRAWL` re-pointed at a full lantern, so the build could add it and then take the
+  > before-number **retroactively**, by checking `game/systems/light.ts` and
+  > `tests/unit/support/lantern-run.ts` out at `4a59a04` and re-running the same probe. **The
+  > before/after discipline was honoured, not skipped** — but only because the instrument was
+  > portable across the change, which is not general. What is left of #109 is its own write-up.
 - **§4's freeze on fuel numbers stays, and hardens — for a narrower reason than the draft gave.** *No
   number in §4 moves* is no longer a sequencing courtesy pending #109; it is a ruling that **no number
   reaches either proposition**, and that the number most likely to be reached for, `CACHE_FUEL`, can
@@ -440,6 +455,44 @@ build-verification brief.
   satisfied by darkness and that is the trap this criterion exists to avoid. A turn where the player
   **opened the shutter** and was glad. Today the count across four hand-played runs is **two opened and
   zero glad**.
+
+> ### Two of the three are no longer predictions. *Annotated 2026-08-04 after the rule change shipped — [#149](../../issues/149), PR #152, `RULES_VERSION` 8.*
+>
+> Every *"Today"* above is a **pre-build** figure. Here is what each criterion is now, and by what:
+>
+> | | before (`4a59a04`) | after (`f5fe41e`) | where |
+> | --- | --- | --- | --- |
+> | **clear-1** `HARVESTER` vs `STALKER` | `STALKER` **+6**, no `HARVESTER` | `HARVESTER` **−105** against `STALKER` **+2** | `economy.test.ts`, block named `ADR-0015 clear-1` |
+> | **clear-2** the never-flash line can die | **floor 8 on 9 of 9**, 12/12 HP, 128-167 turns | **dead on 9 of 9, turn 79**, 12/12 HP | `economy.test.ts`, block named `ADR-0015 clear-2` |
+> | **clear-3** a flash you were glad you made | two opened, zero glad | **not measured** | only [#145](../../issues/145) can sign it |
+>
+> **The change that matters is not the digits, it is that clear-1 and clear-2 are `expect()` calls
+> with this ADR's criterion names on them.** They were arguments about what a build would do; they
+> are now assertions that go red if it stops doing it. Anyone re-opening this ruling reads the test
+> file, not this section.
+>
+> **Three things to carry, because each is a way to misread the table.**
+>
+> 1. **Read the turn, not the floor.** The 79 is 80 fuel at 1 a turn with `gathered` **0**, and it is
+>    the same for anyone who never opens the shutter — *79 rather than 80 because a run starts open*,
+>    so the opening `CLOSE` burns 1 without spending a turn. The **floor** those turns buy is the
+>    driver's routing liberty and nothing else: this script beelines to `world.floor.stairs` and
+>    reaches floors **4-6**; the same rule hand-played is floor **2 of 8**; a browser driver that
+>    wanders reaches floor **1**. Quoting "floors 4-6" as what a dark line experiences is the error
+>    this note exists to prevent.
+> 2. **The 824-turn figure in the before-column is #108's hand-played wandering autoplay, a different
+>    bot.** The *9 of 9* is the corpus's own nine-seed sweep. They agree only on shape and their
+>    numbers must not be pooled.
+> 3. **clear-1 is satisfied on the income side by construction, not by a margin.** A style that never
+>    lights a tile banks exactly 0, so the comparison cannot be un-won by tuning. That is worth
+>    knowing before anyone treats −105 as headroom.
+>
+> **And the trip-wire has not been judged.** The playtest on PR #152 was a build-verification pass
+> that approved with follow-ups; it is **not** #145, it did not test either arm, and its own stated
+> condition is that **[#154](../../issues/154) closes before #145 is judged** — the ruling creates one
+> piece of state (`revealed` reaching a kill's drop) and nothing on screen says it exists. The
+> 2026-08-04 journal entry for #149 heads that verdict *"The #145 playtest's verdict"*; that is a
+> naming slip in an append-only file, and this is its correction.
 
 If all three come back and the playtest still cannot sign M2's criterion, then ADR-0012's own unused
 fifth consequence applies and should finally be taken seriously: **the criterion is measuring something

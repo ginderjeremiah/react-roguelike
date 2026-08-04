@@ -57,6 +57,137 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-08-04 — Reconcile after #152: the docs were waiting for a build that had already merged, and the playtest was filed under the wrong issue
+
+**Did:** Session close-out after PR #152 (`f5fe41e`, #149, `RULES_VERSION` 8), covering the five PRs
+that landed today — #142, #146 (ADR-0015), #147, #150 (#144's ruling) and #152 (#149's build).
+Documentation only: **no rule, number or behaviour moved.** Changed `docs/ROADMAP.md`,
+`docs/GDD.md`, `docs/VISION.md`, `docs/ARCHITECTURE.md`, `docs/decisions/0007-emberdepth-sharpened.md`
+and `docs/decisions/0015-arm-2-fired-and-the-fallback-is-retired.md`; closed **#108**; annotated
+**#85**, **#109** and **#145**; filed **#159**.
+
+**Next:** **[#154](../../issues/154), then [#145](../../issues/145).** Not #109 and not #145 first —
+see below.
+
+---
+
+### What was wrong, in the order a cold reader should care
+
+**1. Six documents were written in the future tense about a build that shipped hours later.** #144 was
+ruled at 17:05Z and #149 merged at 19:12Z, and the docs written in between all said *"when #149
+merges"*. Live at the start of this pass: `VISION.md` — *"until that merges, the build still behaves
+as the old sentence describes"*; GDD §1 — *"#144's build, which is not yet written; until it lands,
+read the finding below as the live description"*, sitting directly above a block describing the
+pre-#149 game; ADR-0007 — *"becomes true of the build for the first time when #149 merges"*; the
+roadmap's next-step block and its `- [ ]` for #149; and GDD §13's note that `render/hud.ts` *"carries
+the dead reason in a comment"*, which PR #152 rewrote. **The pattern is not carelessness, it is a
+same-day ruling and build**: every one of these was true when written and false within four hours.
+**A doc that says *"until X merges"* is a time bomb with X's merge as the fuse**, and nothing in this
+repo defuses it except a reconcile. If you write that phrase, expect to own the correction.
+
+**2. The playtest on PR #152 is recorded under the wrong issue, and the mistake is expensive rather
+than cosmetic.** The journal entry below this one heads its verdict **"The #145 playtest's verdict"**.
+It was not #145. #145 **is** ADR-0015's trip-wire bound — the thing that decides whether the concept
+survives — and it is still open, still unrun, and its own condition is stated four lines further down
+the same entry: *"the playtester's condition is that [#154] closes **before #145 is judged**"*. So one
+entry says the judging playtest has reported and that it has not. **No grep would have caught this**;
+the two sentences are eight lines apart, both true-sounding, and they use the same issue number
+correctly and incorrectly. Only reading it did. The journal is append-only so the heading stays;
+the correction is in `ROADMAP.md`, ADR-0015 and on #145 itself, all three of which now say plainly:
+**nothing has judged ADR-0015's trip-wire.**
+
+**3. What is next was #109, and #109 had already happened.** ADR-0015 made #109 the *before-number*
+the rebuild is measured against and said *"it goes next"*; the roadmap said the same in four places.
+PR #152 built `HARVESTER` **inside the build PR** and took the before-number retroactively — possible
+only because the style is `DRY_CRAWL` re-pointed at a full lantern, so checking `light.ts` and
+`lantern-run.ts` out at `4a59a04` and re-running the probe reproduces the old world exactly.
+**The measure-before-you-change-it discipline was honoured, not skipped** — but it was cheap *because
+the instrument happened to be portable across the change*, and that is not general. Where an
+instrument is not portable, the sequencing argument still stands. What is left of #109 is its own
+write-up.
+
+**4. Four numbers moved and were quoted stale in seven places.** `STALKER` +6 → **+2** a floor and 117
+→ **110**/121 caches; the never-flash line **floor 8 on 9 of 9** → **dead 9 of 9 on turn 79**;
+`HARVESTER` 0 → **−105**; `FLOODLIT` 2631 → **413** lit turns. Re-derived rather than copied, by
+running `npx vitest run game/systems/economy.test.ts` and reading its own `console.log` output —
+which is worth doing because the entry below records two *fabricated* numbers in this same table,
+both caught by arithmetic rather than by the suite. The `117/121` cell in particular has now been
+stale three times (114 → 117 → 110), so every site quoting it carries its commit.
+
+**5. The `80 of 80 dry floors` figure is now unreproducible, and five documents state it in the
+present tense.** It was `runs(DRY_CRAWL, 0)` — a run that *starts* at 0 fuel, which is now a run that
+cannot exist — and #149 deleted the block rather than repairing it. **A deleted assertion is worse
+than a changed number**: a reader who goes looking finds nothing and cannot tell whether the claim was
+wrong or the test was lost. Every surviving site now carries `4a59a04` and the word *deleted*.
+
+**6. GDD §13 answers an open issue without citing it.** #85 wants `The lantern goes out.` to drop the
+lantern noun. §13, **re-ruled in the same #144 edit**, says the headline is an image of the world,
+holds for a Cinder death as it always did, and that *"if a playtest reports being unable to tell which
+killed them, the fix is in the panel, not the headline."* That rejects #85's proposed fix, from a
+paragraph written after every comment on it. #149 separately made #85's *original* repro unreachable —
+you cannot walk around dry any more — while leaving the stronger one (HP death at **38** fuel) live.
+The issue and §13 now point at each other; re-scoping it to the panel or closing it is a
+`game-designer` call.
+
+**7. The roadmap's count table went stale in the row nobody re-derives.** `game/` 811 → **822**,
+`render/` 171 → **172**, total 1167 → **1179** — and **E2E 38 → 36**, because #149 deleted the
+win-the-run spec (#151). The footnote under it said *"a green CI log reads 37 passed, 1 skipped"*; the
+skip belonged to the deleted spec, so a green log now reads **36 passed** and a reader chasing the
+missing skip would find nothing. **PR #136 and PR #152 both left this table untouched**; I did not
+increment the running tally beside it, because every version of that tally has itself been wrong.
+[#110](../../issues/110) is still the fix, and the E2E cell is its best argument yet — the stale value
+was in the row nobody re-derives *and* it contradicted the sentence directly under it.
+
+**8. Five of the eight issues filed today had no milestone when they were filed — and all five came
+from the `playtester`.** This is the finding I did not expect and it is filed as
+**[#159](../../issues/159)**. PR #147 added *"file with `--milestone` and `--label` in the same
+command"* to `.claude/skills/work-item/SKILL.md`. `.claude/agents/playtester.md` **has no such line**,
+and the playtester files more issues than anything else here. #153-#157 were created 18:29–18:31Z with
+no milestone and triaged in one 5-second batch at 19:12Z by the session merging #152 — including
+**#154**, which that same playtest had just made the gate on #145. **The check that shows this is not
+`gh issue list`**, which only reports current state: it is
+`gh api repos/:owner/:repo/issues/N/timeline` against `createdAt`. That is also the check
+[#148](../../issues/148) asked for, and running it retires the roadmap's *"filed straight into the
+milestone, N times in a row"* counter for good — replaced by a statement about **which agent path**
+does it, which is checkable and actionable where a streak was neither.
+
+**Learned — the two that generalise.**
+
+**A ruling and its build landing on the same day breaks the one thing this project's docs rely on:
+that a document written today is true tomorrow.** Every finding above except #6 and #8 is an instance.
+The cheap mitigation is not "write fewer forward references" — they are load-bearing — it is that
+**a PR that merges a build must grep for the phrase `#<its own issue>` across `docs/`**, which is
+about nine hits and two minutes. PR #152 did a thorough journal pass and did not do that.
+
+**A count is stale the moment the review that verified it files anything — and this pass demonstrated
+it on itself.** The Contract-and-tooling milestone was **23** open when this reconcile started. It
+filed #159 and became **24**. That is [#110](../../issues/110)'s law for the seventh recorded time,
+and the seventh instance is again *inside the pass that reports it*. The paragraph now states 24, says
+which one it filed, and enumerates all twenty-four — because the enumeration survives being wrong in
+a way a bare number does not.
+
+**Watch — three.**
+
+**`docs/JOURNAL.md` still says *"for the four turns after shuttering"* one paragraph below its own
+correction to three.** That is [#158](../../issues/158)'s, along with the two comments in
+`game/fov/containment.test.ts` it was inherited from. **Left deliberately untouched here**: the issue
+owns both sites and fixing one of them is exactly the N−1 shape #158 was filed about. The rule is
+three — `setShutter` is `cost: 'free'`, so the press consumes no adaptation tick, and containment is
+`sense >= LIT_RADIUS` rather than `sense == EMBER_SENSE_RADIUS`.
+
+**Two deaths now share one headline and one `RunStatus` variant.** §13 rules that the summary must not
+name which, and that the panel is where the fix goes if anyone cannot tell. Nobody has playtested the
+fuel death against that claim except the #152 playtest, which found it *"one of the most legible
+deaths I have seen in this project"* — on a run that died at **full HP**, where telling them apart is
+trivial. **The untested case is a run that ends near-simultaneously on both**, and HP death halts the
+turn where fuel death does not.
+
+**`#145` is now gated on a `task`, which is a new shape for a trip-wire bound.** ADR-0015 deliberately
+made the bound an issue rather than a sentence so that *which playtest judged it* is a link. It did
+not anticipate the bound acquiring a prerequisite. If #154 grows, or is ruled to need a design pass,
+**#145 slips with it and nothing says so** — the dependency lives in prose on both issues and in the
+roadmap, and in no label. Worth watching rather than worth fixing today.
+
 ## 2026-08-04 — #149 built: the dark can take nothing (`RULES_VERSION` 8)
 
 **Did:** Built [#149](../../issues/149), the ruling on [#144](../../issues/144) (GDD §4, *The dark can
@@ -242,7 +373,14 @@ out the claim rule will play close to that line by accident. That is [#154](../.
 territory — the ruling is currently *invisible*: an unclaimable drop draws identically to a claimable
 one, stepping onto one says nothing, and `@` overdraws the `♦` you are standing on.
 
-**The #145 playtest's verdict, recorded here because this file is the artifact that survives.**
+**The playtest's verdict, recorded here because this file is the artifact that survives.**
+
+> **Read "the #145 playtest" in this entry as "the PR #152 playtest".** [#145](../../issues/145) is
+> ADR-0015's trip-wire bound and **has not run** — it is gated on #154. This entry's playtest was the
+> gameplay pass on PR #152, which is a different thing wearing the same number. Caught in the
+> close-out reconcile; see the entry above. The confusion matters because #145 is the only playtest
+> that can *sign off the mechanic*, and an entry claiming it already reported would retire a
+> trip-wire nobody has tripped.
 **Approve with follow-ups — ship it.** Six runs, four seeds. The two deletions are judged the right
 two: the never-flash line is dead hand-played, waking is worth it because *a hunter dies on ground you
 already lit* (§4's own sentence, landing in play), and the flash reads as **claiming** rather than as

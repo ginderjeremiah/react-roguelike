@@ -125,6 +125,12 @@ gets answered if it fires.
 > cheap and it is the **before-number**; it is no longer a gate, and #144 is explicitly not blocked on
 > it. Step 6 (#82) stays last. **The unnumbered fuel-economy re-tune is deleted from the plan** — it
 > was gated on step 5 for a job ADR-0015 rules it cannot do.
+>
+> **#144 is ruled — 2026-08-04. What is next is #109, then [#149](../../issues/149) (the build), then
+> #145.** The lever is GDD §4's ***The dark can take nothing***: *ember pays only where the lantern has
+> been, and a lantern that goes out ends the run.* Two clauses deleted, nothing added; no number moves.
+> **#109 keeps its place ahead of the build for the before-number reason, and gains urgency** — after
+> #149 there is no un-changed corpus left to measure.
 
 > **Superseded — the pre-ruling note, kept because the entanglement argument is still the right shape
 > and the read in it is a useful record of being wrong.**
@@ -720,10 +726,28 @@ this milestone, not its method.
       fallback. What arm 2 fires instead is a **rebuild of the wager's cost side** — *a run that never
       opens the shutter must be able to die of the dark*, and *waking something must be able to be worth
       it*, by subtraction and not by a new system, at the cost of one rule change plus a playtest
-- [ ] **Rule the cost-side lever — [#144](../../issues/144)** (`design`). Which rule is subtracted.
-      Leading candidate: light-gate the creature ember drop, mirroring #31/#41's cache rule; runner-up:
-      a dark strike wakes what can feel it. **Not blocked on #109** — no measurement can return
-      "nothing to fix"
+- [x] **Rule the cost-side lever — [#144](../../issues/144)** (`design`). **Ruled 2026-08-04: GDD §4's
+      *The dark can take nothing*** — *ember pays only where the lantern has been, and a lantern that
+      goes out ends the run.* **Two clauses deleted, nothing added**, so ADR-0015's constraint holds and
+      its trip-wire's **fire**-2 criterion does not fire. The leading candidate (light-gate the creature
+      ember drop) is adopted as **half** of it: alone it leaves the never-flash line earning nothing and
+      **still not dying**, because 0 fuel was not an ending and the corpus survives **80 of 80** dry
+      floors. #144 rejected 0-fuel lethality *on its own* — correctly, and for a reason about a
+      **flashing** style (`STALKER` +6 a floor) that does not reach the pair; what it cannot do alone
+      is move proposition **(b)**, because `resolveDeaths` pays `emberDrop` with no reference to mind
+      state, so a sleeper and a hunter pay the identical 20 whatever fuel does. **Each half fails a
+      different, named criterion — #145's *clear*-2 and its *fire*-2 respectively** (#145 states three
+      numbered **fire** criteria and a three-row **clear** table, in different orders; name the list
+      every time) — which is the evidence they are one subtraction. The runner-up (*a dark strike
+      wakes what can feel it*) loses harder than #144 said: **clear**-2 measures a **zero-strategy**
+      never-shutter bot, which does not strike, so the lever never fires on the line it is aimed at.
+      **No number moves.** Build is [#149](../../issues/149)
+- [ ] **Build the cost-side subtraction — [#149](../../issues/149)** (`task`, `design`). `hasBeenLit`
+      gates kill drops as well as caches; fuel reaching 0 ends the run, in `statusAfterTurn` **after
+      phase 5** so the turn's ember still counts; `render/scene.ts`'s `lamplit` gate on
+      `overlays.embers` is deleted, which closes **#81** as a rule. Deletes `economy.test.ts`'s *fuel
+      at 0 is a desperate state* block, bumps `RULES_VERSION`, re-records fixtures. Carries ADR-0015's
+      acceptance criteria verbatim. **#109 should land first** as the before-number
 - [ ] **The judging playtest after the rebuild — [#145](../../issues/145)**, which **is** ADR-0015's
       trip-wire bound. Blocked on #144's build. Fires on either arm, on the rebuild needing an added
       mechanic, or on `HARVESTER` still out-earning `STALKER`; clears on three criteria stated in
@@ -1028,6 +1052,13 @@ stays after it.**
    it*. Constraint: a subtraction from an existing rule, not a new system. **Numbered 5b rather than
    renumbering, for the reason this list already gives twice: `ROADMAP.md`, GDD §4 and M2's exit
    criterion all cite "step 5"/"step 6" and renumbering silently redirects them.**
+   > **Ruled 2026-08-04 and the build is [#149](../../issues/149).** GDD §4's ***The dark can take
+   > nothing***: a kill's ember is takeable only once its tile has been lit, and fuel reaching 0 ends
+   > the run. **Two deletions, no addition**, so the constraint holds. It is one rule change by size
+   > and two clauses by shape, because each clause is the other's escape hatch — light-gating alone
+   > leaves the never-flash line earning nothing and still alive at 0 fuel (#145 **clear**-2 red); a
+   > lethal dry lantern alone cannot move proposition (b) at all, because `resolveDeaths` pays
+   > `emberDrop` with no reference to mind state (#145 **fire**-2).
 6. **#82 last, unchanged and still explicitly last.** Shipping it before #83 makes the game *worse*:
    drawing the radius-4 footprint turns the containment read into exactly the clean binary the first
    playtest complained about. Correct and desirable, but only once waking has a price.

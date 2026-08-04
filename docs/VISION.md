@@ -49,11 +49,15 @@ You descend a lightless ruin carrying a lantern. Light is the core resource and 
 but the wager is not "see or be blind", it is **which half of the truth you want**:
 
 - Your lantern burns fuel every turn, faster when open than when shuttered. Fuel is the run timer.
-  **(Measured 2026-08-04: the second sentence is not true of the build.** GDD §4 rules 0 fuel *a
-  desperate state, not a loss state*, and `game/systems/economy.test.ts` asserts a dry crawl reaches
-  the stairs on **80 of 80** floors. Fuel gates the lantern and nothing else, so a style that does not
-  want the lantern has no clock at all. Recorded rather than rewritten because
-  [#144](../../issues/144) rules whether the sentence or the rule is what changes.)
+  **(Measured 2026-08-04: the second sentence was not true of the build, and [#144](../../issues/144)
+  ruled that the *rule* changes rather than the sentence — so this line stands unamended and the game
+  moves to meet it.** GDD §4 had ruled 0 fuel *a desperate state, not a loss state*, and
+  `game/systems/economy.test.ts` asserted a dry crawl reaching the stairs on **80 of 80** floors — a
+  state a corpus survives 80 times out of 80 is not desperate, it is the absence of a clock, and it
+  is half of why a style that does not want the lantern dominates. §4's *The dark can take nothing*
+  deletes it: **a lantern that goes out ends the run**, and a kill's ember pays only where the lantern
+  has been. Ruled 2026-08-04, built by [#149](../../issues/149) — until that merges, the build still
+  behaves as the old sentence describes.)
 - **Open, you see stone:** terrain, items, creatures, and their intent — but only within a short
   radius, and not through walls. Light is also what wakes the ruin's dormant inhabitants, so an
   open lantern announces you.
@@ -62,6 +66,15 @@ but the wager is not "see or be blind", it is **which half of the truth you want
 - Fuel is **earned by killing**, because the ruin's creatures are made of ember. So you often want
   to wake something.
 - Attacking a dormant creature deals double damage. Free kills exist, and exist only in the dark.
+
+> **Two clauses above are sharpened by #144's ruling, not amended — the concept is unchanged and no
+> ADR is owed.** *"You often want to wake something"* is the sentence
+> [ADR-0015](decisions/0015-arm-2-fired-and-the-fallback-is-retired.md) turned into proposition (b),
+> and GDD §4 rules what it means: **you never want a creature awake and you constantly want the light
+> that wakes it**, because after #144 ember pays only where the lantern has been. What makes waking
+> *itself* worth it is pursuit — a hunter walks onto ground you have already lit, where a sleeper two
+> rooms away costs the walk and a second flash. And *"free kills"* is free of **HP**, never of income:
+> the dark strike still costs one command and no damage; what it stops being is payment.
 
 So the loop is **flash and crawl**: crawl dark to stalk and steer, flash to learn a room's shape
 and find its cache, accept that the flash announced you, then deal with what you woke. The second
@@ -103,6 +116,14 @@ That is the whole of what this paragraph promises, and it is a constraint rather
 > run that never opens the shutter must be able to die of the dark*, and *waking something must be able
 > to be worth it*. Which rule is subtracted is [#144](../../issues/144); the trip-wire that judges the
 > result is [#145](../../issues/145), and it names the fallback as the leading candidate if this fails.
+>
+> **#144 is ruled — 2026-08-04. Two clauses are deleted and nothing is added**, so the constraint
+> holds and #145's second fire criterion does not fire: GDD §4's ***The dark can take nothing*** —
+> *ember pays only where the lantern has been, and a lantern that goes out ends the run.* It is one
+> rule change by size, in two halves, because each half is the other's escape hatch: light-gating the
+> ember alone leaves a never-flash line earning nothing and still not dying, and a lethal dry lantern
+> alone changes only *when* you die — `resolveDeaths` pays a creature's ember with no reference to its
+> mind, so no fuel rule can make waking pay. Built by [#149](../../issues/149).
 
 ## Non-goals
 

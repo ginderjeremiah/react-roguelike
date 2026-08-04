@@ -35,9 +35,11 @@ the recurring decision (Pillar 1) is **which half of the truth you want right no
 
 Three facts make that decision have teeth:
 
-1. **Fuel comes from kills.** Creatures are made of ember. Killing one refuels the lantern. Fuel is
-   not just a timer you spend down — it is a currency you must go and earn, in the dark, from
-   things that will fight back.
+1. **Fuel comes from kills — and after #144, only the lantern can collect it.** Creatures are made of
+   ember. Killing one leaves that ember on the floor; **it becomes yours once light has fallen on
+   the tile**, exactly as an ember cache does (§4, *The dark can take nothing*). So fuel is a
+   currency you earn in the dark and **claim in the light**, and it is a timer as well as a currency:
+   a lantern that runs out ends the run.
 2. **A dormant creature dies to one strike** (double damage, §3). Free kills exist, and they exist
    *only in the dark* — because opening the shutter is what wakes things.
 3. **Light finds supplies; dark finds enemies.** Ember caches are terrain, invisible without light.
@@ -54,15 +56,15 @@ what you woke. Repeat down eight floors — taking the stairs on the last one is
 
 | Question | Answer |
 | --- | --- |
-| Is one resource enough tension? | No — and the second axis already existed. **HP is the second resource, and the two are convertible in one direction only:** fighting spends HP to earn fuel, light spends fuel to preserve HP. That is an economy, not two clocks, and it needs no new UI. |
+| Is one resource enough tension? | No — and the second axis already existed. **HP is the second resource, and the two are convertible in both directions, at a rate set by the order you do things in:** fight lit and you pay HP to be paid immediately; clear dark first and you pay fuel and turns to be paid for nothing. That is an economy, not two clocks, and it needs no new UI. *(Ruled 2026-08-04, #144 — §4's *The dark can take nothing*. This row said **one direction only**, which the build falsified: light spent HP and bought nothing HP could not buy more cheaply.)* |
 | What makes dark *actively* attractive? | Ember-sense (positional information light cannot give — it passes through walls) and the dormant-strike (the only free kills in the game). Dark is not the cheap option; it is the **offensive** option. |
-| Do you ever want to wake an enemy? | Constantly. Fuel comes from kills, so combat is not optional; it is the income side of the economy. Light is not defensive — light is how you find things to kill and where to kill them. |
+| Do you ever want to wake an enemy? | **Never the creature; constantly the light.** A sleeper is always the cheaper kill — it dies to one strike for 0 HP, and it pays the same 20 either way (`resolveDeaths` asks nothing about mind state). What you want constantly is the **flash**, because after #144 nothing you kill is takeable until its tile has been lit, so light is not defensive — light is how you find things to kill, where to kill them, and **whether you get paid for it**. Waking is that flash's price, and a hunter walking onto ground you already lit can be cheaper than a sleeper two rooms away. *(Ruled 2026-08-04, #144. This row said **"Constantly"** flat, which was never true of a creature and is the overstatement the build punished.)* |
 | How do you map unlit space? | Remembered terrain (permanent once seen) + touch (radius 1) + ember-sense for creatures. No sound system, no new mechanic. |
 
-> **Two rows of that table are false of the build, measured — *2026-08-04, #139,
-> [ADR-0015](decisions/0015-arm-2-fired-and-the-fallback-is-retired.md)*.** Recorded here rather than
-> rewritten, because [#144](../../issues/144) rules which side changes and this section must not
-> pre-empt it.
+> **Two rows above were measured false of the build on 2026-08-04 (#139,
+> [ADR-0015](decisions/0015-arm-2-fired-and-the-fallback-is-retired.md)) and are rewritten here as of
+> [#144](../../issues/144)'s ruling. They describe the game **after** #144's build, which is not yet
+> written; until it lands, read the finding below as the live description.**
 >
 > - ***"Light spends fuel to preserve HP."*** In the build, **light spends HP**: opening the shutter
 >   wakes everything in radius 4, and a woken Cinder costs 2 HP to kill where a dormant one costs 0
@@ -77,6 +79,11 @@ what you woke. Repeat down eight floors — taking the stairs on the last one is
 > **9 of 9** seeds while the same bot with the lantern open died in **4 of 4**, and why §12's arm 2
 > fired. **The loop described three paragraphs above — *flash and crawl* — is the design's intent and
 > is not what the numbers currently reward;** the half the numbers punish is the flash.
+>
+> **What #144 subtracts to make the rows true, in one sentence:** ember pays only where the lantern
+> has been, and a lantern that goes out ends the run — so the flash carries the run's whole income
+> and fuel is the run timer VISION always said it was. §4 has the ruling, the self-objection it had to
+> answer, and what it costs.
 
 *What this rejects from the concept seed:* the seed said unlit tiles "hide the map" and moving dark
 is "faster and cheaper but blind". Dark being *only* a cost saving is what would have flattened
@@ -303,21 +310,20 @@ under player control, not under the RNG's.
 
 *Open:* status effects (none in M1), any second player attack option, ranged anything.
 
-## 4. Light, fuel, and ember-sense — *Settled for M1-M2, except the wager's **cost side**, which is now **Open***
+## 4. Light, fuel, and ember-sense — *Settled for M1-M2; the wager's **cost side** was Open and is now **ruled and awaiting its build***
 
 The signature system.
 
-> **What is open, and it is not everything — *2026-08-04, #139,
-> [ADR-0015](decisions/0015-arm-2-fired-and-the-fallback-is-retired.md)*.** §12's arm 2 fired: a broad
-> playtest reports the lantern opened only when lost, and the never-flash line dominates because
-> **darkness is safe** — nothing wakes in the dark, and a pursuer cannot hit a moving player, so the
-> only creature that can damage a never-flash player is one the run start woke. **One rule in this
-> section will be subtracted to fix that** ([#144](../../issues/144); leading candidate is
-> light-gating the creature ember drop, mirroring the cache rule below). Everything else here —
-> the two vision states, the Chebyshev metric, containment, the adaptation ramp, the cache rule, the
-> 0-fuel rules, pursuit — is **settled and is not reopened by this**. No number in this section moves;
-> see the freeze under the four tuning invariants, which is now a ruling rather than a sequencing
-> courtesy.
+> **The cost side is ruled — *2026-08-04, [#144](../../issues/144)*.** §12's arm 2 fired (#139,
+> [ADR-0015](decisions/0015-arm-2-fired-and-the-fallback-is-retired.md)) because **darkness is safe**:
+> nothing wakes in the dark, and a pursuer cannot hit a moving player, so the only creature that can
+> damage a never-flash player is one the run start woke. The subtraction that answers it is ***The
+> dark can take nothing***, below — two deleted clauses in one ruling. **It is ruled and not yet
+> built**; every number below is the
+> pre-change number until the build lands. Everything else here — the two vision states, the
+> Chebyshev metric, containment, the adaptation ramp, the cache rule's *ever lit* predicate, pursuit
+> — is **settled and is not reopened by it**. No number in this section moves; see the freeze under
+> the four tuning invariants, which is now a ruling rather than a sequencing courtesy.
 
 **Every vision radius is Chebyshev — a square.** `max(|dx|, |dy|) ≤ r`. This holds for the lit
 radius, the dark touch radius, the ember-sense radius, and every value the dark-adaptation ramp
@@ -623,21 +629,209 @@ rejected.
 - Sources: **kills** (Cinder drops 20, tuning) and **ember caches** in the level (25 each, 1-2 per
   floor, tuning). Caches are terrain, and **the lantern has to have found them** — the rule and its
   three clauses are below. Start of run: 80 (tuning).
-- Fuel reaching 0: the shutter can no longer be opened. You are not dead — you can still crawl at
-  radius 1 with ember-sense, and the stairs are still findable. It is a desperate state, not a
-  loss state, and it is exactly the situation Pillar 4 wants people retelling.
-  **A dry lantern is not a fifth vision state**: it is the shuttered column of the table above,
-  permanently. Touch still reaches one tile, ember-sense still climbs back to five, the dormant
-  strike still works, and a kill — or **a cache the lantern found before it died** — re-opens the
-  shutter the moment it lands. Ember-sense is the player's dark-adapted eyes, not the lamp — if it
-  went out with the fuel, 0 fuel would be unrecoverable in practice, which is the "unplayable rather
-  than desperate" failure this rule exists to avoid.
-  **The cache clause is a gain rather than a narrowing**, and it is the answer to a measured hole: a
-  bot ran 143 turns at fuel 0 with nothing to do and no way to finish. A `♦` you lit two rooms ago
-  and never picked up is still on the map when the lamp dies, so a dry run has a **destination**
-  rather than a wander. That is the shape Pillar 4 wants out of 0 fuel.
+- **Fuel reaching 0 ends the run — *ruled 2026-08-04 (#144); the ruling and its whole argument are
+  below*.** The lantern going out is a death, and §13 lists it beside HP reaching 0. It is evaluated
+  at the **end of the command**, after phase 5, so ember collected on the turn you ran dry still
+  counts and can still save you — see *The dark can take nothing*.
+  **Ember-sense is still not the lamp.** It is the player's dark-adapted eyes: it does not shrink
+  with the fuel, and a shuttered player at 1 fuel senses at the radius the ramp has earned them. That
+  rule is untouched by the ruling below; what it loses is only its old demonstration, which was a
+  whole run played at 0.
 
-**What the dark may take, and what it may not — *ruled 2026-08-01, built 2026-08-01 (#31, #41)*.**
+  > **This bullet used to read *"You are not dead… a desperate state, not a loss state"*, with a dry
+  > lantern ruled the shuttered column of the vision table, permanently — and it is deleted rather
+  > than pointed at.** It was right about the failure it was guarding against (0 fuel *unplayable*
+  > rather than desperate: a bot once ran 143 turns at fuel 0 with nothing to do and no way to
+  > finish) and wrong about the cure, which was to make the state survivable rather than to make it
+  > short. Measured, the state it produced is not desperate at all: `game/systems/economy.test.ts`
+  > has a dry crawl reaching the stairs on **80 of 80** floors, and a never-flash line reaching floor
+  > 8 on 9 of 9 seeds. **A state a corpus survives 80 times out of 80 is not a desperate state, it is
+  > the absence of a clock**, and it is half of why the never-flash line dominates.
+  >
+  > **What is kept from it is the good half — the *destination*.** #31/#41 added *"a `♦` you lit two
+  > rooms ago and never picked up is still on the map when the lamp dies, so a dry run has a
+  > destination rather than a wander"*, and the ruling below generalises exactly that: every
+  > uncollected drop and every lit cache is a destination, and the fuel left in the lantern is how
+  > many turns you have to reach one. That is the shape Pillar 4 wanted out of 0 fuel, moved to where
+  > the player can still act on it.
+
+**The dark can take nothing — *ruled 2026-08-04 (#144); built by [#149](../../issues/149), not yet
+merged*.** This is the wager's cost side, rebuilt as
+[ADR-0015](decisions/0015-arm-2-fired-and-the-fallback-is-retired.md) requires, and judged by
+[#145](../../issues/145). It is **two deletions in one ruling**, and the argument for it is that
+neither half works alone.
+
+> **Ember pays only where the lantern has been, and a lantern that goes out ends the run.**
+>
+> 1. **A kill's ember is takeable only once its tile has been lit** — the same *ever lit* predicate
+>    the cache already uses, on the same `revealed` plane. You feel the drop the instant you make it
+>    and you go on seeing it; you cannot bank it until light has fallen on that tile.
+> 2. **Fuel reaching 0 ends the run**, evaluated at the end of the command so that ember collected on
+>    that turn still counts.
+
+**Which pillar: 1, and the mechanism is that both currencies become lethal at once.** Today HP is the
+only resource that can kill you, so any comparison between an HP cost and a fuel cost has one
+answer, forever, and the turn that asks it should not exist. Under this ruling the same floor offers
+two orders and they are priced in different currencies:
+
+| | what it costs | what it saves |
+| --- | --- | --- |
+| **Flash first, fight what wakes** | 2 HP a creature (§3, fixed by arithmetic) | the drops fall on ground already lit and pay on the spot; one flash serves the room; the creatures walk to *you* |
+| **Clear the room dark, then flash** | the turns spent routing to every sleeper, and a flash in every room you killed in — all of it charged at 1-4 fuel against a tank that only refills when you light something | 0 HP |
+
+Neither dominates, and which one is right is a function of the two numbers on the HUD. **That is §1's
+*fighting spends HP to earn fuel, light spends fuel to preserve HP* made true of the build for the
+first time**, and it is convertible in both directions rather than one.
+
+**The self-objection, answered, because #144 pre-committed to preferring the runner-up if it could not
+be.** *Clear-then-flash survives the lever: kill everything dark, then light the room and collect. If
+that stays costless, the lever satisfies invariant 4 and leaves the obvious move intact.* It does not
+stay costless, and clause 2 is the reason:
+
+- **The clearing turns are charged to a tank that is now a clock.** A never-flash line earns nothing
+  under clause 1, so it burns 80 fuel at 1 a turn against a floor that takes it a median **110** turns
+  to cross — `DARK_PACIFIST`'s measured pace, IQR 98-119, against `STALKER`'s 81 (IQR 72-87), both
+  re-measured 2026-08-04. **It is dead well inside the first floor.** Every turn spent walking to a
+  sleeper before lighting anything is a turn of that budget, and today it is free because 0 fuel is
+  not an ending. **Without clause 2 this answer is unavailable, which is the whole reason the two
+  clauses are one ruling.**
+- **Clearing first means lighting every room you killed in.** A flash lights one room and no further
+  (radius 4 Chebyshev against a 5×5 room — *Why a square*, above), and §5 spreads `min(2 + floor, 6)`
+  creatures over six rooms. So *clear then flash* is one flash per room that holds a kill, plus the
+  routing; *flash then fight* is one flash and the creatures deliver themselves, because a woken
+  Cinder pursues for the rest of the floor (#83/#121) and dies where it catches you — **on the ground
+  you already lit.**
+- **So waking can be worth it, and the mechanism is pursuit rather than a number.** A sleeper in a
+  far room costs the walk there plus a flash there; a hunter costs 2 HP and arrives on lit floor for
+  free. That comparison has no fixed answer, which is exactly what the design has been missing.
+
+*(The 60-120 fuel a floor of creature ember quoted throughout this section is **arithmetic on the
+constants, not an observed take** — `min(2 + floor, 6)` at `emberDrop` 20 — and reaching the top of
+it means killing everything on the floor. The caveat travels with the number wherever it appears;
+§4 states it in full under the cache rule.)*
+
+**Ember banks across rooms and across the floor, and does not expire.** So the flash's axis is
+**when and where**, which is the axis §4's Chebyshev ruling already put it on, and #108's measured
+best line (clear the room dark, *then* flash) is promoted from a habit to the rule — with a price
+attached to the deferral it did not have.
+
+**What (b) means, ruled, because the strong reading is not reachable by subtraction and a sloppy
+reading of this paragraph would fire [#145](../../issues/145)'s **fire**-2 criterion.** ADR-0015's *waking
+something must be able to be worth it* is ruled to mean **the flash must be worth its wake** — which
+is what §1's own row says it means (*"light is how you find things to kill and where to kill them"*),
+and what ADR-0015's own statement of the defect prices (*"light's product is 25-50 fuel a floor of
+caches, and its price is converting 60-120 fuel a floor of free kills into 2 HP kills apiece"*). It is
+delivered above, twice over: light becomes the whole of income, and a hunter can be cheaper than a
+sleeper. The **stronger** reading — *a given creature must pay more awake than asleep* — is
+`resolveDeaths` pushing `emberDrop` with no reference to mind state, and making it differ is a branch
+that does not exist, which is an addition. Its one subtractive form is rejected on the merits below.
+**Criterion 2 does not fire: (a) and (b) are both delivered by deletion.**
+
+**What this does to every existing mechanic.** Ember-sense becomes **prospecting** — it tells you
+where your income *will* be, not where it is. The dormant strike stops being the economy and becomes
+a **setup move** that buys HP with tempo. The flash stops being expenditure and becomes **income**.
+Caches and drops finally obey **one predicate on one plane** — the glyph and the payout read the same
+bit, which is the property #31/#41 bought and only half-used. §5's doorways acquire a second job: the
+chokepoint you want to hold is one you have lit. §3's *descending restores 2 HP* becomes the macro
+dial it was written to be. And §1's *flash and crawl* is literally true rather than aspirational.
+
+**What it costs, said plainly.**
+
+- **It reverses a clause this section ruled explicitly** — *"Ember you made is yours; ember the ruin
+  hid belongs to the lantern"* (#31/#41). The reversal is argued below where that clause lives, not
+  slipped in.
+- **It deletes the *crawl to the stairs on an empty lantern* story**, which VISION's Pillar 4 names.
+  What replaces it is **the lantern going out**, which is the same image with a consequence — and
+  §13's death copy, `† DIED` / *The lantern goes out.*, was written for this rule and carries a Watch
+  saying so. Pillar 4 asks for memorable swings; a run that ends when the lamp dies is a swing and a
+  run that continues after it is a curve.
+- **It makes [#81](../../issues/81) load-bearing rather than cosmetic**, exactly as #144 predicted:
+  an uncollected drop must be **drawn on any tile the player has perceived, lit or not**. See the
+  reversal below for why that is not the scuff cue this section rejected.
+- **A flashing style loses income too, and how much is not knowable from here.** A pursuing creature
+  dies where it catches you, which may be a tile the lantern never lit — so `STALKER`'s take falls by
+  the fraction of its kills that land unlit, and that fraction is a measurement, not an estimate. It
+  is the first thing the build re-measures and it is the Watch below.
+- **`RULES_VERSION` bumps and every stored fixture re-records.** Ordinary.
+
+**What it replaces: nothing is added.** Two clauses are deleted, one predicate is widened to a second
+caller, and one condition is removed from the renderer. No new state — `Vision.revealed` already
+exists and already resets on descent (§13) — no new UI, no new resource, no new creature, no new
+command. That is ADR-0015's constraint satisfied rather than argued around.
+
+**Why the pair, and why neither half is the ruling.** Each alone fails, and each fails a *different*
+one of #145's stated criteria, *named* — which is the cleanest evidence available that they are one
+subtraction:
+
+**#145 states its criteria as two lists — three numbered *fire* criteria and a three-row *clear*
+table — and the two are not in the same order, so every reference below names the list.** *"Criterion
+2"* alone is ambiguous and this argument is the ruling's central evidence, so it has to be checkable
+without cross-referencing.
+
+- **Light-gating the drop alone** — #144's recommendation, and it is adopted as *half* of this ruling
+  rather than overturned. Alone it leaves the never-flash line earning nothing and **still not
+  dying**, because 0 fuel is not an ending: the corpus reaches the stairs on 80 of 80 dry floors. So
+  **clear-2** (*over ≥9 seeds the never-flash line must not reach floor 8 on every seed at full HP*)
+  comes back red, and proposition (a) — *die of the dark* — is untouched, because there is nothing in
+  a shuttered floor for a moving player to die of **except the dark itself**. It turns **clear-1**
+  green on its own: a style that never lights a tile banks nothing.
+- **0-fuel lethality alone** — **#144 rejects this by name and ADR-0015 cites the rejection**, so the
+  scope of that rejection matters and it is exact: #144 rejects *making 0 fuel lethal **on its own***,
+  for a reason about a **flashing** style (*"`STALKER` nets +6 a floor, so it does not bind"*) that is
+  correct and does not reach the pair. **What it cannot do is move proposition (b), and that is a fact
+  about a branch rather than an arithmetic**: `resolveDeaths` pushes
+  `creatureDefinition(actor.species).emberDrop` with **no reference to mind state**, so a sleeper and
+  a hunter pay the identical 20 no matter what fuel does. Making the dark lethal changes *when you
+  die*, never *whether waking pays* — so on its own it concedes (b) is unreachable, which is
+  **fire-2**, the constraint failing. It is the `CACHE_FUEL` trap from the other side: it turns
+  **clear-2** green while leaving the wager exactly as one-sided as it is now.
+
+  *(An earlier draft of this bullet argued instead that a never-flash fighter "banks 60-120 a floor
+  against ~81 turns of crawl, so alone it stays solvent and keeps out-earning `STALKER`", firing
+  **fire-3**. **That arithmetic inverts and the bullet is corrected rather than softened.** 81 is
+  `STALKER`'s pace; the never-flash line's own is `DARK_PACIFIST` at a median **110** turns a floor
+  (IQR 98-119, measured 2026-08-04), at which the same 60-120 nets roughly **−5** — below `STALKER`'s
+  +6. **And the honest position is that nobody has `HARVESTER`'s number at all**: that is exactly what
+  [#109](../../issues/109) exists to measure, and a ruling that asserts it is the failure §4 keeps
+  recording. The argument above needs no measurement.)*
+- **Together** they clear all three: a style that never lights a tile earns nothing, so `HARVESTER`
+  cannot out-earn `STALKER` (**clear-1**); a never-flash line has 80 fuel, no income and a **110**-turn
+  floor to cross, so it is dead well inside one (**clear-2**); and the flash is the only thing that
+  pays, so a playtest that is glad it flashed is the ordinary case rather than the hoped-for one
+  (**clear-3**, which only #145 can sign).
+
+**The runner-up: *a dark strike wakes everything that can feel it*** (#144's, and the reason it loses
+is sharper than #144 gave). #144 rejected it for moving only one side of invariant 4's comparison,
+which is true. The decisive objection is that **it cannot turn #145's clear-2 green at all**: the
+line that criterion measures is a *zero-strategy bot that never opens the shutter*, and a bot that
+does not strike wakes nothing under this rule, takes no damage, and finishes 9 of 9 exactly as it does
+today. A lever that prices dark **hunting** does not reach a line that declines to hunt. It also reads
+as an added rule rather than a deleted one, and it leaves fuel with no consequence, so proposition (a)
+stays false under it however the numbers move.
+
+**Also considered and rejected, and this one is new to #144's list because it is the only subtractive
+route to (b)'s strong reading: *a dormant creature drops no ember*.** It is a genuine deletion, and it
+delivers *you must wake something to be paid for it* by construction. It loses on the merits and
+badly: it deletes the dormant strike's entire purpose — §3 calls it *"the mechanical payoff for
+playing dark and the answer to what can I only do in darkness"* — and with it §1's *dark is not the
+cheap option, it is the **offensive** option*, which is ADR-0007's answer to why darkness exists at
+all. It cures the one-sided wager by deleting the other side. **#144's four rejected levers stand as
+written** — cutting ember-sense's radius or its wall-piercing, and moving `CACHE_FUEL` — and the
+`CACHE_FUEL` reasoning in particular is the reason invariant 4 is now necessary and not sufficient.
+
+*Watch — three signals, and they point at three different fixes.* It is wrong if a playtest reports
+**flashing on a timer** or reports standing over ember it cannot take as a **chore rather than a
+decision**: that is the rule being wrong, and the response is this ruling, not a constant. It is wrong
+in a second, likelier way if the run becomes a **forced clear** — kill everything on every floor or
+die — which is the *numbers* being wrong (`STARTING_FUEL`, `CACHE_FUEL`, `emberDrop`), and §4's freeze
+says a re-tune **may follow** this rule change though it may not replace it. And it is wrong in a
+third way if the corpus shows **`STALKER` collapsing rather than `HARVESTER` coming down**: that means
+kills are landing on unlit ground far more often than the argument above assumes, and the fault is
+§5's room layout or pursuit's geometry rather than this rule — the same falsifier shape #31/#41 was
+given, and it is the reason [#109](../../issues/109)'s before-number is taken first.
+
+**What the dark may take, and what it may not — *ruled 2026-08-01, built 2026-08-01 (#31, #41);
+extended to kill drops 2026-08-04 (#144)*.**
 
 §4 has said since it was written that caches are invisible while shuttered, and §1 has said since
 before that: *light finds supplies; dark finds enemies.* **Neither was enforced anywhere.**
@@ -672,19 +866,47 @@ Three clauses, each of which was a live way to get this wrong:
   for free. **A rule that says items are invisible may not make the item's tile the only unknown on
   the board.**
 - **A cache pays when its tile has *ever* been lit** — not when it is lit at the moment you stand on
-  it. The stricter reading loses twice and neither loss is a matter of taste. It **contradicts a
-  settled sentence three paragraphs up**: at 0 fuel the shutter cannot open, so *"a kill or a cache
-  re-opens the shutter"* would be false in exactly the desperate state that sentence exists to
-  protect. And it **manufactures an autopilot**: the shutter is a free action and §2 runs phase 5 on
-  free actions, so standing on a cache in the dark, `open`-`shut` takes it for 4 fuel and no turns —
-  a sequence with an obvious right answer whenever ember-sense is clear, which is the permission
-  check both playtests already complained about, rebuilt on a new tile. Under the ruling as stated
-  there is exactly **one** decision and it is the flash the player was already deciding.
-- **Ember a kill drops is not covered, and must not be.** A drop is an actor-layer value on a tile
-  you chose to fight on, and you know it is there because you made it. §1 makes kills the income
-  side of the economy, and a dormant strike in the dark whose ember you could not collect would
-  delete darkness's one capability. **Ember you made is yours; ember the ruin hid belongs to the
-  lantern.** #81 is about *drawing* that drop in the dark and is untouched by this ruling.
+  it. **The clause is unchanged and #144 does not reopen it**, but it rested on two arguments and
+  #144 deletes the premise of the first, so both are restated here rather than left to be
+  re-derived. The first was: *it contradicts a settled sentence three paragraphs up — at 0 fuel the
+  shutter cannot open, so "a kill or a cache re-opens the shutter" would be false in exactly the
+  desperate state that sentence exists to protect.* **That desperate state is deleted by #144**, so
+  this argument is spent and is recorded rather than relied on. The second stands untouched and
+  carries the clause alone: the stricter reading **manufactures an autopilot** — the shutter is a
+  free action and §2 runs phase 5 on free actions, so standing on a cache in the dark, `open`-`shut`
+  takes it for 4 fuel and no turns, a sequence with an obvious right answer whenever ember-sense is
+  clear, which is the permission check both playtests already complained about, rebuilt on a new
+  tile. Under the ruling as stated there is exactly **one** decision and it is the flash the player
+  was already deciding. **And #144 adds a third**: the same predicate now governs kill drops, so
+  *currently lit* would mean a drop dies with the flash that revealed it and the whole *bank it and
+  come back* axis goes with it.
+- **Ember a kill drops is covered too — *reversed 2026-08-04 (#144); this clause used to say the
+  opposite and the reversal is the ruling*.** It read: *"A drop is an actor-layer value on a tile you
+  chose to fight on, and you know it is there because you made it… **Ember you made is yours; ember
+  the ruin hid belongs to the lantern.**"* Every fact in it is still true and the conclusion drawn
+  from them is what changed, so it is quoted rather than deleted. **What was measured after it:** a
+  drop gated behind nothing is 60-120 fuel a floor against a cache's 25-50, so the exception was not
+  an exception — it was the majority of the economy, and it was the half a never-flash line could
+  take. The clause's own justification names the cost it did not price: *"a dormant strike in the
+  dark whose ember you could not collect would delete darkness's one capability."* It does not delete
+  it. **The strike still lands for one command and 0 HP; what it stops being is *payment*, and
+  becomes a claim you have to go and light.** Darkness keeps the capability and loses the receipt.
+
+  The sentence is replaced rather than dropped, because the asymmetry it named is real and it
+  **inverts** rather than vanishing:
+
+  > **Ember the ruin hid, the lantern finds. Ember you made, the lantern claims. Neither is yours in
+  > the dark.**
+
+  **So a drop is drawn and a cache is not, and that is not the scuff cue this section rejects
+  below.** The scuff cue would hand back information the **lantern** was supposed to sell — where the
+  ruin's caches are — and that is why it restores dark routing. A drop's position is information the
+  player **created** and already holds: they remember the tile they struck. Hiding it would not
+  protect a wager, it would hide a fact the player has from the player who has it, which is Pillar 2
+  inverted. So the drop is visible wherever its tile is perceived or remembered, lit or not — which
+  is exactly what [#81](../../issues/81) asked for and is now a rule rather than a presentation
+  preference. It costs nothing to build: `render/scene.ts` gates `overlays.embers` on `lamplit`
+  today, and the change is deleting that condition.
 
 **Rejected, and recorded so it is not re-proposed: a cue when you scuff an unlit cache underfoot.**
 It is the most attractive wrong answer here — it preserves the good moment of stumbling on fuel in
@@ -701,11 +923,13 @@ it and wakes the room, and the pickup went unannounced (§10). It is a **simulat
 *pay only on entering the tile*, or *phase 5 does not collect on a free action* — leaves the player
 standing on ember they can now see and cannot have, and the cure is **step off, step back**: two
 turns with one legal answer each, which is the same autopilot the *ever lit* clause rejected
-*currently lit* for, rebuilt from the other side and charged in tempo instead of fuel. It also
-re-falsifies *"a kill or a cache re-opens the shutter"* at 0 fuel, where the shutter cannot open and
-the step-off-step-back ritual would be the only route to a cache under your own feet. Nothing about
+*currently lit* for, rebuilt from the other side and charged in tempo instead of fuel. Nothing about
 the payment is wrong: the fuel arrived, the rule fired as designed, and the player was better off.
 **The *ever lit* clause is not reopened.** #107 is ruled in §10, in copy.
+*(This paragraph carried a second argument — that it re-falsifies "a kill or a cache re-opens the
+shutter" at 0 fuel, where the shutter cannot open. **#144 deletes that state**, so the argument is
+spent and is noted here rather than silently dropped; the step-off-step-back objection above carries
+the rejection on its own and always did.)*
 
 **What it costs, said plainly.** The simulation must record which tiles the **lantern** has revealed,
 separately from which tiles have been perceived at all: one more monotone per-tile channel in run
@@ -723,11 +947,23 @@ this rule needs. It is carried by the glyph and by the dimming already used for 
 **never by colour alone** (§11), and §10's glyph list does not change: a disguised cache draws the
 floor glyph that is already in it.
 
-*Watch:* it is wrong if a playtest reports flashing because it **must** rather than because it chose
-to — light stops being a wager and becomes a bill the moment cache income is the only way to stay
-solvent. It is wrong in the other direction if the corpus shows a **flashing** style losing caches
-too: the intervention is aimed at the never-flash line, so `STALKER`'s cache take should barely move,
-and if it collapses instead, the fault is §5's leaf-room bias rather than this rule.
+*Watch:* it is wrong if the corpus shows a **flashing** style losing caches too: the intervention is
+aimed at the never-flash line, so `STALKER`'s cache take should barely move, and if it collapses
+instead, the fault is §5's leaf-room bias rather than this rule. Measured after the build, it did not
+— 117 of 121.
+
+> **This watch's other half is deliberately spent by #144 and must not be re-read as a failure
+> signal.** It said: *"it is wrong if a playtest reports flashing because it **must** rather than
+> because it chose to — light stops being a wager and becomes a bill the moment cache income is the
+> only way to stay solvent."* **Under *The dark can take nothing*, light income is by design the only
+> way to stay solvent**, so a watch phrased that way fires on the ruling itself rather than on a
+> defect. It was written when the flash was optional and the fear was that it would stop being; the
+> measured finding is that a flash nobody has to make is a flash nobody makes.
+>
+> **What replaces it is the distinction the old wording could not draw: *compulsory in aggregate* is
+> not *obvious in the turn*.** The failure is not *I had to flash*; it is *there was one right moment
+> and one right room and I could see them both*. That is the first signal in the ruling's Watch above
+> — **flashing on a timer** — and it is what [#145](../../issues/145) is briefed to ask.
 
 **This ruling is what makes `CACHE_FUEL` a dial for invariant 4, and it is why no number moves before
 it.** Today cache fuel is paid to every style, so raising it favours nobody; afterwards it is light's
@@ -736,6 +972,14 @@ the shutter must not out-earn one that flashes"*. Expect the ruling to be **nece
 sufficient** on its own: it removes ~37 fuel a floor from every dark style, which narrows the gap
 invariant 4 names without closing it, because a never-flash **fighter** still banks 20 a kill. The
 `HARVESTER` measurement is what says whether anything further is owed.
+
+> **The prediction held and the answer is in — *2026-08-04, #144*.** Something further was owed, and
+> it was not a number: *The dark can take nothing* puts the kill drop behind the same predicate, so
+> the never-flash fighter's 20 a kill goes to zero too. **`CACHE_FUEL` is no longer the dial for
+> invariant 4** — after #144's build, invariant 4 is satisfied by construction on the income side, and
+> what `CACHE_FUEL` becomes is one of the constants a *forced-clear* re-tune would reach for if the
+> ruling's second Watch fires. Read this paragraph as the reasoning that led there, not as a live
+> instruction to move a number.
 
 **The four tuning invariants** (these are design; the numbers above are not):
 
@@ -816,6 +1060,13 @@ play, is strictly worse than a line a human found by accident.
 > still in place — the same argument #133 made for measuring the corpus on both sides of a rule
 > change. Invariant 4 is still the assertion that says whether the rebuild worked, and its passing
 > condition is unchanged: **`HARVESTER` must not out-earn `STALKER`.**
+>
+> **The rule change is ruled — *2026-08-04, [#144](../../issues/144)*: *The dark can take nothing*,
+> above.** The freeze is unchanged by it and outlives it: **no number in §4 moves in this ruling
+> either**, and the whole of #144 is two deleted clauses. What the ruling adds to the freeze is a
+> named exit — a re-tune becomes legitimate if the build's re-measurement fires the ruling's
+> **forced-clear** Watch, and the constants it would reach for are `STARTING_FUEL`, `CACHE_FUEL` and
+> `emberDrop`. That is the *may follow* above, made concrete enough to be checked.
 
 **Awake-creature behaviour — *pursuit ruled 2026-07-31 and implemented 2026-08-02 (#83); re-dormancy
 deleted 2026-08-02 (#121) and implemented the same day (#123)*. Both halves are now built.**
@@ -1433,6 +1684,11 @@ arm fires, §3's combat numbers are the response and **#109 gates them**.
 > must make true are *a run that never opens the shutter must be able to die of the dark* and *waking
 > something must be able to be worth it*; the lever is [#144](../../issues/144) and the trip-wire that
 > judges the result is [#145](../../issues/145).
+>
+> **The lever is ruled — *2026-08-04, #144*: *The dark can take nothing*, above.** Ember pays only
+> where the lantern has been, and a lantern that goes out ends the run. It answers *die of the dark*
+> literally, because **the dark is the only thing left that can kill a shuttered, moving player** —
+> this section's own two rules see to that, and neither is reopened.
 
 **What is genuinely open, and it is a tuning band rather than an arm: does 2 HP bind?** *(Read with
 the ruling above: **the arm has fired**, so the band's answer is already known on one side — 2 HP
@@ -2185,6 +2441,15 @@ well", not "the lantern died on floor six and I crawled to the stairs" — and b
 glyph grid's signature look (ADR-0003) irrelevant. Its lesson has been stolen regardless: combat
 should be positionally tight, and §2's commit-one-turn-ahead is that lesson.
 
+> **The example in that paragraph is half-deleted by #144, and the argument it serves gets
+> *stronger* — *noted 2026-08-04*.** The Pillar 4 contrast is *"the lantern died on floor six and I
+> crawled to the stairs"*, and §4's *The dark can take nothing* deletes the crawl: a lantern that goes
+> out ends the run. **The paragraph is not amended** — it is the text that lost the M0 review and it
+> stays verbatim — but read it now as *"the lantern died on floor six"*, full stop, which is a
+> **sharper** Pillar 4 artefact than the version with a survivable epilogue. Pillar 4 asks for
+> memorable swings over smooth curves; an ending is a swing and a crawl is a curve. Nothing about why
+> positional tactics lost changes.
+
 > **This entry used to end *"This is the designated fallback"*, and it does not any more — *ruled
 > 2026-08-04 (#139), [ADR-0015](decisions/0015-arm-2-fired-and-the-fallback-is-retired.md)*.** The
 > trigger fired and the *automatic* consequent was withdrawn in the same ruling, which is an unusual
@@ -2409,15 +2674,30 @@ everything else is not.
   make the four turns after every descent a guaranteed-safe wait-and-adapt ritual, seven times a
   run — Pillar 1's autopilot turn with a fresh coat of paint.
 
-**A run ends in exactly two ways, and neither of them is running out of fuel.**
+**A run ends in exactly three ways, and two of them are deaths — *the fuel ending ruled 2026-08-04
+([#144](../../issues/144)), not yet built*.**
 
 | Ending | When |
 | --- | --- |
 | **Died** | The player's HP reaches 0 |
+| **Died** | The lantern's fuel reaches 0 (§4, *The dark can take nothing*) |
 | **Reached the bottom** | The player takes the stairs on the last floor (**8, tuning** — §5) |
 
-- **0 fuel is not an ending.** §4 is explicit: it is a desperate state, not a loss state, and it is
-  recoverable. Saying so here because it is the first thing anyone assumes.
+- **0 fuel is an ending — *and this bullet said the exact opposite until #144, which is why it is
+  rewritten rather than adjusted*.** It read: *"**0 fuel is not an ending.** §4 is explicit: it is a
+  desperate state, not a loss state, and it is recoverable. Saying so here because it is the first
+  thing anyone assumes."* **The thing everyone assumed turned out to be the rule the design needed**:
+  measured, the dry state was survivable on 80 of 80 corpus floors, which made fuel a resource with
+  no consequence and darkness a strategy with no clock. §4 carries the argument, the runner-up and
+  the cost.
+- **The fuel ending does not stop the turn; it is evaluated at the end of it.** This is the one place
+  the two deaths differ and the difference is deliberate. HP reaching 0 halts the turn where it
+  happens (below) because the killing blow is the last thing that matters. Fuel reaching 0 must let
+  **phase 5** run first, so that ember collected on the same command still counts and can carry the
+  lantern back above zero — *the kill that landed as the lamp guttered* is the retellable moment this
+  ending exists to produce (Pillar 4), and forfeiting it would make the ending arbitrary rather than
+  tense. In build terms it belongs beside HP death in `statusAfterTurn` and **not** in
+  `isRunOver`, which is what halts the actor sweep.
 - **There is no floor 9 and there is no boss.** §6 has one creature and every other one is M3. The
   eighth descent *is* the ending; inventing something at the bottom now would be M3 content wearing
   a milestone it does not belong to.
@@ -2445,18 +2725,54 @@ no such fiction to be faithful to — VISION's non-goal is "the story is the run
 implies one is a design decision made in a string. The endings read `† DIED` / *The lantern goes
 out.* and `> REACHED THE BOTTOM` / *The dark goes no deeper.*: **the verdict names the player's fate,
 the headline is an image of the world**, and neither names a number, because floor count and fuel are
-both tuning. A headline must also hold in every legal state it can be shown in — a win with a dry
-lantern is legal (§4), which is why the win line cannot mirror the death line by claiming the lantern
-still burns.
+both tuning. A headline must also hold in every legal state it can be shown in.
 
-*Watch, and it is one string to change if it fires:* §4 says 0 fuel is **not** an ending and adds
-that this is "the first thing anyone assumes" — while VISION's Pillar 4 uses "the moment the lantern
-died" to mean running dry. So `The lantern goes out.` is the sentence a confused player would have
-written for the wrong rule. It is kept because the image is true without knowing any rule, the wrong
-rule un-teaches itself in play long before the summary, and the panel shows fuel *spent* rather than
-fuel remaining. **The signal to change it** is a playtester attributing a death to fuel when fuel was
-not the cause — a presentation failure with a one-string fix (drop the lantern noun), and explicitly
-not an argument about the fuel rule.
+**The mirror headline is still rejected, and #144 forces a new reason for it — *ruled 2026-08-04*.**
+This paragraph used to end: *"a win with a dry lantern is legal (§4), which is why the win line cannot
+mirror the death line by claiming the lantern still burns."* **That is now false, and it was the whole
+of the rejection**, so the copy decision is re-ruled here rather than annotated around. Under *The
+dark can take nothing* fuel reaching 0 ends the run, and the winning descent resolves in phase 1 and
+runs no phases at all (above), so **no fuel burns on the winning command and every legal win has fuel
+≥ 1**. `The lantern still burns.` would be true in every state it could be shown in.
+
+**It loses anyway, on the reason that killed its predecessor.** §13's rule two sentences up is that
+**the verdict names the player's fate and the headline is an image of the world**. `The dark goes no
+deeper.` is a fact about the ruin, and it answers the question a player actually has on winning a
+roguelike with no boss — *is that it, or did I miss something?* `The lantern still burns.` is a fact
+about the thing in your hand: it takes the verdict's subject and says it twice, which is exactly the
+defect that retired `You reach the bottom.` when #21 put `> REACHED THE BOTTOM` directly above it.
+**A truer sentence that restates the verdict is worse than a true one that adds a fact**, and the
+mirror is additionally a claim about *survival* where §13's win is *arrival*.
+
+**Recorded rather than quietly re-argued because the two reasons are not interchangeable, and because
+the new one is *enabled by this ruling* rather than overlooked since #21.** The **principle** predates
+— #21 wrote *the verdict names the player's fate and the headline is an image of the world* on
+2026-07-31. Its **application to this string** does not: before the ruling a dry lantern was
+survivable, so `The lantern still burns.` was a fact about equipment that restated nothing, which is
+why #21 killed it on **truth** and called it *tempting* rather than wrong. The identity that makes it
+restate the verdict — lantern state *is* the player's fate — is created by *The dark can take nothing*.
+So #21 is not indicted: it considered the mirror by name, held the principle in the same row, and did
+not reach for it because it did not yet apply. `render/hud.ts` carries the dead reason in a comment,
+which will not go red —
+[#149](../../issues/149) lists it.
+
+*Watch — **discharged in the player's favour by #144, and the history is the point**.* It read: *"§4
+says 0 fuel is **not** an ending… so `The lantern goes out.` is the sentence a confused player would
+have written for the wrong rule. It is kept because the image is true without knowing any rule… **The
+signal to change it** is a playtester attributing a death to fuel when fuel was not the cause."*
+**Under #144 fuel *is* a cause**, so the string that was defended as a true image despite the rule is
+now literally true of one of the two deaths, and the watch has nothing left to fire on. Recorded
+rather than deleted because it is the cheapest available demonstration of the lesson §4 keeps
+learning: **the copy written from the concept was right and the rule had drifted from it**, and the
+drift was visible in this document for three milestones as a note explaining why the two disagreed.
+*A watch that exists to excuse a mismatch is evidence about the mismatch.*
+
+**Two endings now share a verdict, and neither the verdict nor the headline changes.** Both read
+`† DIED`; `The lantern goes out.` is an image of the world and holds for a death by Cinder as it
+always did. **The summary must not name which death it was** — that is a number-shaped fact about a
+run, and §13's rule is that the headline names no number; the panel already shows fuel spent and HP,
+from which the player can read it. If a playtest reports being unable to tell which killed them, the
+fix is in the panel, not the headline.
 
 ---
 
@@ -2537,3 +2853,4 @@ recorded at the moment we made it, is the part git cannot give us.
 | 2026-08-03 | **§2/§4: the grace turn is deleted in `game/`, and every *ruled, not built* marker the ruling above added flips to *built* (#125 ruled, #133 built)** | The build of the #125 ruling. **One call site and one line**: `setMind` in `game/entities/behaviour.ts` schedules a woken creature at `nextActAtOf(schedule, PLAYER_ID)` instead of `now + ACTION_COST`, read from the **state** rather than from a `TurnCost` threaded down — `wakeInLight` and `lanternPhases` gained no arguments. **The read lives inside the not-already-scheduled branch and the placement is load-bearing**: `resolveAttack` unschedules a dead actor *including the player* and `actOnce` still calls `commitNextIntent` → `setMind` after a killing blow, so hoisting it above the `hasActor` early return throws `schedule: no actor 0 is scheduled` on every run that ends in a death (33 tests, measured as a mutant before the build). **No paid command moved, byte for byte** — the descent negative control in `economy.test.ts` is green and unedited, the `descent in the dark` fixture reproduced its digest unchanged, and the new paid-case test pins `now + ACTION_COST` and *strictly greater than `now`*, which is §2's **never zero** asserted rather than trusted. §4's *What a build owes* predicted **9 reds in 4 files** and the build met exactly those 9; **item 7's separate instruction to bring `tests/unit/support/scenario.ts`'s `awaken()` to the same instant added 3 more that the list did not enumerate**, because the mutant was measured in `setMind` alone — all three the same class of verdict change (a chase loses the leading frame in which the creature was owed nothing; a six-command retreat leaves the hunter one tile closer; a hand-built wind-up turn in `render/cues.test.ts` no longer exists), and all three exactly the *window preserved in a helper* that item 7 warned about. **§4's regression guard is enabled in the characterisation block's place, as one line** — `expect(kill.hpSpentWhileAwake).toBeGreaterThan(0)` over `wokenKills` — and only after all three characterisation assertions were confirmed red **together**, which was the condition §4 set: free woken kills go **56/386 → 0/387** (`STALKER`) and **22/247 → 0/252** (`FLOODLIT`), and both hand-built reproductions are inverted as positive reproductions ending at **10/12 HP**, §3's 2, with the descent control kept beside them. **`RULES_VERSION` 6 → 7** with all three fixtures re-recorded, and the shape of what moved is smaller than the bump suggests: the shuttered crawl reproduced **unchanged** (nothing wakes in it); on the combat log the opening wake gains the hunter one command at the start and **spends** it, declaring an attack from a tile the player walks out of, so the two runs re-converge four commands later with the same 27 creature steps, the same four landed blows and the same death on the same turn. **They diverge a second time and a first draft of this row missed it** — the flash at command 32 wakes a Cinder that is now due immediately, so it stands a tile further on for two commands and the player's HP differs mid-run (6 against 8, then 2 against 4); the *damage sequence* the fixture asserts moves 2, 2, 4, 4 → 2, 4, 4, 2, which is by itself proof the runs are not identical after command 24. What differs in the **final frame** is *which* of two hunters struck the killing blow, and `pursuedInTheDark` goes 27 → **26** because one of those same 27 steps now ends adjacent and the counter excludes adjacency; on the cache log, where a flash is followed by a second free action, the woken creature used to see **three** commands and never move at all, and now moves once and declares. **No number in §3 or §4 moves** — #109 still gates every constant. Five prose sites that asserted the old instant in English were corrected, including the one §4 flagged as the trap (`world.ts`'s scheduling invariant, where joining at `now` is *correct* on an uncharged command), plus a **sixth the list did not enumerate**: `commit.test.ts`'s *waking is not acting* comment, which stays green because its command is paid and gave `now + ACTION_COST` as the general rule |
 | 2026-08-04 | **§4/§12: the arm this section watches has a report against it, and the bound that governed it is spent. Nothing is ruled — [#139](../../issues/139) is** | The reconcile after PR #136. **No rule, no number and no marker moves.** #133's playtest is the broad one [ADR-0012](decisions/0012-the-fallback-trigger-is-a-verdict-not-a-signature.md) bound §12's trip-wire to, and it names **arm 2** — *the lantern opened only when lost* — in as many words, with numbers: a zero-strategy bot that never opens the shutter reached the bottom on **9 of 9** seeds, the same bot with the lantern open **died in 4 of 4**, and an A/B on one route has dark forfeiting **21 fuel** of cache and still finishing ahead. **The mechanism is HP, not fuel** — light converts a free dormant kill into a 2 HP woken kill — so this is §4's own exchange rate working, one arm too well, and **#133 pushed it further the wrong way on purpose** by deleting a discount worth 14.5% of `STALKER`'s woken kills. **Two sites gained the report and neither gained a verdict**: §4's too-strong-arm watch and §12's trigger block. It is filed rather than concluded because ADR-0012 makes the call a `game-designer`'s *"to be made deliberately rather than inferred"*, and three things cut against firing — the playtest classifies its own finding as **tuning** (ADR-0012's table gives #31's *dark strictly dominates* the same classification); **#109 has not run**, and it is the gate that exists to measure invariant 4, so firing now is firing before the diagnosis; and the same playtest answers arm **1** emphatically in the negative. Against those, ADR-0012 restated the trigger *because* a trip-wire that survives its own firing condition never fires, and arm 2 carries no tuning escape clause. **That tension is the ruling and it is #139's.** Recorded here because a session reaching for the fallback reaches for §12, and the failure this row exists to prevent is that session reading a watch with no report under it and concluding the arm is quiet |
 | 2026-08-04 | **§12/§4/§1: arm 2 has FIRED. §12's fallback loses the word *designated*, not its place, and the wager's cost side is reopened for a rebuild** | The ruling on [#139](../../issues/139), reasoned in [ADR-0015](decisions/0015-arm-2-fired-and-the-fallback-is-retired.md), which supersedes ADR-0012. **The arm fired**: a broad playtest inside ADR-0012's bound (PR #136) reported *the lantern opened only when lost* in its own words, with a never-shutter bot finishing 9 of 9 seeds against 4 of 4 deaths with the lantern open, and the shutter opened on purpose twice across four hand-played runs, glad neither time. The three recorded arguments against firing all fail: *tuning* is not a classification the playtester makes, and **tuning cannot reach either of the rebuild's two propositions** — no constant puts a threat into a shuttered floor, and `resolveDeaths` pays `emberDrop` with no reference to mind state, so a sleeper and a hunter pay the identical 20 and no value of that field makes waking beneficial; **#109** measures *how far* a never-flash fighter out-earns a flashing one, which is precision and not permission; and **arm 1** was satisfied *by darkness* (the retellable moment is a turn on which the shutter never opened). **What fired is not what was automatically prescribed.** §12's fallback is **not** *subtract fuel* — #63 corrected that and this section carries the correction — it is enemies whose fixed patterns **force contact**, and read that way **it would work**, delivering proposition (a) by construction. It loses on **proportionality**: it abandons a concept measuring well on Pillars 1 and 4 before one clause has been deleted. So it stays the strongest named alternative and #145's leading candidate, and what the project loses is the **automatic** consequent — taking ADR-0012's own branch, *"either the condition is wrong or the conclusion is"*, on the conclusion. **What replaces it:** a rebuild of the wager's cost side — **one rule change, its build and a playtest**, far cheaper than the fallback and deliberately so — against *a run that never opens the shutter must be able to die of the dark* and *waking something must be able to be worth it*, because nothing wakes in the dark and a pursuer cannot hit a moving player, so darkness is **safe** and not merely cheap. Lever is [#144](../../issues/144), trip-wire and its bound are [#145](../../issues/145). **No measurement clears it**; the freeze on §4's numbers hardens into a ruling, **invariant 4 is demoted from sufficient to necessary** (raising `CACHE_FUEL` could turn it green by paying the player to flash *away* from creatures), and **#109 changes job** from the gate on a re-tune to the before-number the rebuild is measured against. Also corrected here: §4 carried `STALKER` 114/121 and +7 a floor from PR #106, stale through three rule changes — re-run 2026-08-04 it is **117/121** and **+6** |
+| 2026-08-04 | **§4/§1/§13: *The dark can take nothing* — a kill's ember pays only once its tile has been lit, and fuel reaching 0 ends the run. Two clauses deleted, nothing added** | The ruling on [#144](../../issues/144), which [ADR-0015](decisions/0015-arm-2-fired-and-the-fallback-is-retired.md) fires and which decides *which* rule the cost-side rebuild subtracts. **#144's recommendation is adopted as half of it and is insufficient alone**, which is the finding: light-gating the drop takes the never-flash line's income to zero and still leaves it **alive**, because 0 fuel was not an ending — the corpus reaches the stairs on **80 of 80** dry floors, so #145's **clear**-2 (*over ≥9 seeds the never-flash line must not reach floor 8 on every seed at full HP*) comes back red. **0-fuel lethality alone fails a different, named criterion and that is the evidence they are one subtraction**: it cannot move proposition (b) at all, because `resolveDeaths` pays `emberDrop` with no reference to mind state, so a sleeper and a hunter pay the identical 20 whatever fuel does — making the dark lethal changes *when you die*, never *whether waking pays*, which is #145's **fire**-2, the constraint failing. *(#145 states three numbered **fire** criteria and a three-row **clear** table, in different orders; name the list every time. A first draft of this row argued half B on fuel arithmetic instead — 60-120 a floor against "~81 turns of crawl" — and it **inverts**: 81 is `STALKER`'s pace, where a never-flash line's own is `DARK_PACIFIST`'s median **110** (IQR 98-119, measured 2026-08-04), at which the same range nets about **−5**. It also asserted a `HARVESTER` figure only #109 can supply. The `resolveDeaths` argument needs no measurement, and the correction makes half A's case stronger: at 110 turns a floor, 80 fuel and no income is dead inside the first floor.)* #144 rejects 0-fuel lethality **by name** and ADR-0015 cites the rejection; the scope is exact and is honoured — it rejects it *on its own*, for a reason about `STALKER` (+6 a floor) that is correct and does not reach the pair. **Together they clear all three criteria.** The **self-objection #144 pre-committed on** — *clear-then-flash survives, so prefer the runner-up if its timing does not bind* — is answered by clause 2 and only by clause 2: the clearing turns are charged to a tank that is now a clock, a flash lights one room so clearing first means one flash per room you killed in, and a woken Cinder **pursues** (#83/#121) and dies on ground you already lit — so a hunter can be cheaper than a sleeper two rooms away, and *waking can be worth it* is delivered by pursuit rather than by a constant. **(b) is ruled to mean *the flash must be worth its wake***, which is what §1's own row says it means; the stronger reading (*a creature pays more awake*) is a branch on mind state that does not exist and would be an addition — its one subtractive form, *a dormant creature drops no ember*, is rejected on the merits because it deletes the dormant strike's purpose (§3) and §1's *dark is the offensive option*. **Runner-up: #144's *a dark strike wakes everything that can feel it*** — it loses harder than #144 said, because #145's criterion measures a **zero-strategy** never-shutter bot, which does not strike, so the lever never fires and the line finishes 9 of 9 exactly as now. **What it costs:** the *crawl to the stairs on an empty lantern* story is deleted and replaced by the lamp going out, which §13's death copy `The lantern goes out.` was already written for (that Watch is discharged in the player's favour); §4's *"Ember you made is yours; ember the ruin hid belongs to the lantern"* is **reversed** and replaced by *ember the ruin hid, the lantern finds; ember you made, the lantern claims; neither is yours in the dark*; **#81 becomes a rule** — an uncollected drop is drawn wherever its tile is perceived, which is a deleted `lamplit` condition in `render/scene.ts` and is **not** the scuff cue §4 rejects, because a drop's position is information the player *created*; and a flashing style loses whatever fraction of its kills land on unlit ground, which is a measurement and is the ruling's third Watch. **Nothing is added**: `Vision.revealed` already exists and already resets on descent, the fuel ending is one condition beside HP death in `statusAfterTurn` (**not** `isRunOver`, which halts the actor sweep) evaluated after phase 5 so the turn's ember still counts. **§13's win headline is re-ruled in the same edit rather than annotated around, because the ruling falsified its only justification**: *a win with a dry lantern is legal* is false once the winning descent runs no phases and every legal win has fuel ≥ 1, so `The lantern still burns.` would now be true wherever it could be shown. **The mirror is still rejected** — on the structural reason that retired `You reach the bottom.`, that the verdict names the player's fate and the headline is an image of the *world*, so a truer sentence restating the verdict is worse than a true one adding a fact. No string changes; `render/hud.ts` carries the dead reason in a comment, which #149 lists along with nine other live sites asserting the deleted rule and three that change fixture *shape* — chief among them every full-run `diveToTheBottom`, which hits 0 fuel at command 79-104 of 123-177 and so turns every victory fixture in the project into a death, while every three-floor `DIVE` is untouched. **No number moves** — the freeze stands, and the ruling names the exit from it: a *forced-clear* playtest report is what would legitimise moving `STARTING_FUEL`, `CACHE_FUEL` or `emberDrop`. `CACHE_FUEL` stops being the dial for invariant 4, which is satisfied on the income side by construction. Build is [#149](../../issues/149); judged by [#145](../../issues/145) |

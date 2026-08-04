@@ -180,7 +180,7 @@ a way a bare number does not.
 **`docs/JOURNAL.md` still says *"for the four turns after shuttering"* one paragraph below its own
 correction to three.** That is [#158](../../issues/158)'s, along with the two comments in
 `game/fov/containment.test.ts` it was inherited from. **Left deliberately untouched here**: the issue
-owns both sites and fixing one of them is exactly the N−1 shape #158 was filed about. The rule is
+owns all three sites and fixing one of them is exactly the N−1 shape #158 was filed about. The rule is
 three — `setShutter` is `cost: 'free'`, so the press consumes no adaptation tick, and containment is
 `sense >= LIT_RADIUS` rather than `sense == EMBER_SENSE_RADIUS`.
 
@@ -390,6 +390,7 @@ one, stepping onto one says nothing, and `@` overdraws the `♦` you are standin
 > close-out reconcile; see the entry above. The confusion matters because #145 is the only playtest
 > that can *sign off the mechanic*, and an entry claiming it already reported would retire a
 > trip-wire nobody has tripped.
+
 **Approve with follow-ups — ship it.** Six runs, four seeds. The two deletions are judged the right
 two: the never-flash line is dead hand-played, waking is worth it because *a hunter dies on ground you
 already lit* (§4's own sentence, landing in play), and the flash reads as **claiming** rather than as

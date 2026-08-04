@@ -1523,7 +1523,7 @@ streak, and it is the useful form of what this paragraph kept trying to count. F
       **#158**, from PR #152's review. The assertion `[false, false, false, true, true]` is right and
       must not move: it is indexed by *sense radius*, and the shutter press is free, so it consumes no
       adaptation tick. The comment counts the free press as a turn, and `docs/JOURNAL.md` inherited
-      the wording one paragraph below its own correction of it — **#158 owns both sites**, which is
+      the wording one paragraph below its own correction of it — **#158 owns all three sites**, which is
       why the reconcile after #152 left the journal line alone
 - [ ] The playtester's documented procedure serves a `dist/` that can change underneath it — **#95**,
       filed by this reconcile from a journal Watch note that had no issue. A concurrent build swapped

@@ -1,6 +1,8 @@
 # ADR-0012: §12's fallback is spent by a verdict, not by an unsigned criterion
 
-**Status:** Accepted
+**Status:** Accepted — **and its bound is now spent. The broad playtest this ADR pointed at ran on
+PR #136 (2026-08-03) and reports arm 2.** The ruling that decides whether the fallback is spent is
+[#139](../../issues/139), open as of 2026-08-04. See *The signal that this was wrong* at the end.
 **Date:** 2026-08-02
 
 Decided while ruling issue #121. It settles a sentence in `ROADMAP.md`'s M1 exit section that
@@ -51,6 +53,15 @@ ever trip.** It now reads as two arms and a bound:
 > **Bound: the next broad playtest after #123** — the build of #121's ruling — is the one that judges
 > it. #121's fix is the last unbuilt thing that changes what the wager *costs*; build-order steps 5
 > (#109) and 6 (#82) change what it is measured with and what it draws.
+
+**That bound was met on 2026-08-03 and arm 2 was reported — see *The signal that this was wrong* at
+the end of this file. Nothing has ruled on it: [#139](../../issues/139) is open.**
+
+**The trigger above is restated in four other places and no two are word for word** — GDD §12 (its
+own longer version, different bullet text), `ROADMAP.md`'s M1 exit section (the closest to this
+text), `ROADMAP.md`'s header (a one-sentence summary) and M2's exit criteria (explicitly *"in
+VISION's words"*). **All four now carry the same correction**, which is the part that was checked;
+the wording is not, so read the site rather than assuming this one.
 
 ## Why it did not fire
 
@@ -132,7 +143,9 @@ above is two named arms and a bound rather than a ruling on one playtest.
   not finished, not that the concept is dead.
 - **The next broad playtest is a judging one and should be briefed as such.** It runs after #123
   (#121's build) and it is asked both arms explicitly, in VISION's words, rather than being asked
-  whether it can sign a criterion.
+  whether it can sign a criterion. **(It ran on PR #136 and was briefed this way; it answered arm 1
+  no and arm 2 yes. The consequence this bullet did not anticipate is that the two arms can
+  disagree, which is why #139 is a ruling rather than a readout.)**
 - **§12 carries the restated trigger**, not just this ADR, because a session reaching for the
   fallback reaches for §12.
 - **The fallback's cost is now written down where the trigger is.** It was previously easy to read
@@ -149,3 +162,26 @@ The next **broad** playtest after #123 names no tense turn, or reports the lante
 when lost. Then
 the fallback is spent, on the terms above, with no further evidence required — and this ADR was a
 milestone's delay bought for nothing.
+
+**It has run, and it reports the second one — 2026-08-03, PR #136 (#133's build).** Broad by this
+ADR's own bar: 6 hand-played runs across 7 seeds plus 13 automated full runs on 9 seeds. Its words:
+*"§12's 'the lantern opened only when lost' arm firing, and it is not a hypothesis any more."* The
+measurement behind it — a zero-strategy bot that never opens the shutter finishing **9 of 9** seeds,
+the same bot dying **4 of 4** with the lantern open, and dark forfeiting **21 fuel** of cache on an
+identical route and still finishing ahead, because the mechanism is **HP, not fuel**.
+
+**This ADR does not rule on it, and no reader may infer the ruling from this note.** It is filed as
+[#139](../../issues/139) precisely because the *Decision* above says the call is a `game-designer`'s
+to make deliberately rather than inferred, and the evidence is not one-sided: the same playtest
+answers arm **1** emphatically in the negative (a named retellable moment; 13 of 38 sampled turns as
+real decisions), it classifies its own finding as **tuning** — the classification the table above
+gives the first playtest's *dark strictly dominates* — and **#109, the gate that exists to measure
+invariant 4, has not run**, so firing now is firing before the diagnosis. Against all three stands
+this ADR's own reason for restating the trigger: a trip-wire that survives its own firing condition
+is one nobody will ever trip, and arm 2 has no tuning escape clause.
+
+**Two things #139 owes whichever way it goes.** If the arm fired: §12's fallback is a rebuild and
+needs an ADR superseding this one. If it did not: **the bound is spent and a trip-wire with no bound
+is not a trip-wire**, so it must be re-set to a specific later playtest — the obvious candidate being
+the one after #109 — with the argument for why that is not simply the deadline this ADR refused to
+become.

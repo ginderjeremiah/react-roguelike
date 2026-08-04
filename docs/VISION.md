@@ -72,6 +72,21 @@ vision radius means a small grid, which is exactly what a phone screen wants.
 fallback. If the M2 playtest reports the light decision is not tense, or that the lantern is opened
 only when lost, the response is to *subtract* fuel — not to add another mechanic on top.
 
+> **A playtest has now reported the second condition** (2026-08-03, PR #136), and whether that
+> spends the fallback is being ruled on [#139](../../issues/139) — **open, and not to be inferred
+> from this line.** ADR-0012 restated the trigger as two arms and a bound; the bound is now spent.
+> Cutting against firing: arm 1 came back emphatically negative and the playtest classifies its own
+> finding as *tuning*, with #109 — the measurement of the invariant at issue — not yet run. Cutting
+> for it: ADR-0012 restated the trigger precisely because a trip-wire that survives its own firing
+> condition never trips, and **arm 2 has no tuning escape clause**.
+>
+> **One clarification on the word above, because this note is not overruling it.** *Subtract* is
+> right about the **direction** — the answer to a failed wager is never a second mechanic bolted on.
+> What §12 and #63 add is the **size**: subtracting fuel means deleting the lantern and the economy
+> that makes killing pay, then rebuilding the enemy, the generator and the win condition around
+> forced contact. A rebuild, in the subtractive direction. **Read GDD §12 before acting on either
+> paragraph.**
+
 ## Non-goals
 
 Stated plainly so we stop relitigating them:

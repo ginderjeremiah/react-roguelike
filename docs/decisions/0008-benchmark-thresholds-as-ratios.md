@@ -1,6 +1,8 @@
 # ADR-0008: Benchmark thresholds are ratios, not milliseconds
 
-**Status:** Accepted
+**Status:** Accepted — **but the leaf-benchmark half is under direct challenge by
+[#137](../../issues/137), which was filed with the measurement this ADR does not have.** Read
+*Decision* below beside the note at the end before writing or converting a benchmark.
 **Date:** 2026-08-04
 
 Reconstructed by the `archivist` after PR #33 (issue #18), where the decision was made under
@@ -43,7 +45,9 @@ benchmark, and today it is the only file here that works this way.
 
 **The subsystem benchmarks keep their absolute millisecond budgets, and that is deliberate — the
 ratios depend on them.** `fov.bench.test.ts` (0.05ms per lit field, 2ms floor-wide),
-`generate.bench.test.ts` (2ms per floor), `light.bench.test.ts` (0.2ms per turn) and
+`generate.bench.test.ts` (2ms per floor), `light.bench.test.ts` (**1ms per lit turn and 0.3ms per
+flash** — 0.2ms when this ADR was written; #133 found both of its fixtures were measuring a turn in
+which nothing happened, rebuilt them, and recalibrated) and
 `actors.bench.test.ts` (2ms per actor phase) are all still absolute, and `step.bench.test.ts`'s own
 header cites two of them as the reason it does not need to be: a ratio says a descent costs little
 more than the generation it contains, and it takes an *absolute* budget somewhere to say that the
@@ -62,8 +66,13 @@ So the rule is scoped by what is being measured, not by taste:
 composite** — and one case makes the difference visible. A lit turn *is* composite: it contains the
 lit field `fov.bench.test.ts` budgets at 0.05ms, and `step.bench.test.ts` measures exactly that
 decomposition as a ratio (`A_LIT_TURN_CONTAINS_A_FIELD`). Yet `light.bench.test.ts` holds the same
-operation to an absolute 0.2ms, and that is correct, because **a subsystem benchmark anchors the
-layer it owns in real time even where that layer decomposes**. The ratio form is for whole-`step()`
+operation to an absolute budget (**1ms** — 0.2ms when this was written; #133 found the fixture was
+measuring a turn in which no creature acted, rebuilt it, and re-derived the budget as **half of
+ARCHITECTURE's 2ms** rather than by scaling the old number. Do not read a single factor off that
+pair: the *fixture* got ~8x more expensive once creatures actually acted in it, while the *budget*
+moved 0.2 → 1 because 0.2 had failed on a runner at 0.4776ms. `step.bench.test.ts`'s header and
+`light.bench.test.ts`'s own constant carry the measurements), and that is correct, because **a
+subsystem benchmark anchors the layer it owns in real time even where that layer decomposes**. The ratio form is for whole-`step()`
 composites, where hardware spread is worst and where an absolute figure has already been shown to be
 unsettable. So the same operation is legitimately measured both ways, by two files with two
 different jobs: one asks "is this layer still affordable in milliseconds", the other asks "does the
@@ -134,3 +143,30 @@ device will settle it.
 **Revisit if:** a benchmark's subject has genuinely variable per-call cost (see the precondition
 above), or if we ever get a pinned device in CI, at which point an absolute frame-budget assertion
 becomes meaningful again and should sit *beside* the ratios rather than replace them.
+
+## Challenged 2026-08-03 by #137, and this ADR has not been amended — read both
+
+**The leaf rule above was argued, not measured, and #137 measured it.** From PR #136: the same lit
+turn reads **0.100-0.105ms** on an idle local box, **0.115-0.198ms** under the full suite, and
+**0.478/0.529ms** on a GitHub runner — a **4.5x** machine spread, so an absolute limit a runner
+cannot trip cannot catch anything smaller than roughly a doubling. Concretely: recomputing the lit
+field per light query — the exact bug `step.bench.test.ts` says *"belongs to `light.bench.test.ts`'s
+busy floor"*, tracked as #35 — costs **1.4x** and sails under the threshold. The same operation
+expressed as *turn / lit field* reads 25.1, 29.2, 31.4, 32.1 and 34.0x across two machine classes:
+a spread of **at least ~36%** (quote it as a floor and expect it to widen — it has been quoted at 7%,
+16% and ~36% as points were added) against **4.5x**.
+
+**What this ADR still holds against that, and it is not nothing.** The absolute budgets are the
+anchor the ratios are interpreted against: a ratio says a descent costs about what its generation
+costs, and it takes an absolute figure *somewhere* to say that the generation is affordable at all.
+Converting every subsystem file to a ratio deletes the anchor — the mistake named in *Decision*
+above. **So #137 is not a licence to convert `light.bench.test.ts`; it is an argument that this ADR's
+taxonomy is missing a case**, and building it means amending this ADR with an answer to *where the
+anchor lives once the leaves are ratios*. It also needs the paired-batch harness extracted out of
+`step.bench.test.ts` first, which is why #133 recalibrated the absolutes and filed the issue instead.
+
+**One thing to preserve whatever is decided:** #133 replaced both `light.bench.test.ts` guards after
+finding they asserted a *state* (`mind.kind === 'awake'`) that was true in the working and the broken
+case alike, while the fixtures measured a turn in which no creature acted and a flash that never
+asked the light query. The replacements assert the **work**. Those assertions are what caught it; the
+timing assertion passed throughout.

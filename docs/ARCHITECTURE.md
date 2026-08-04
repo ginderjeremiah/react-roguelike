@@ -361,14 +361,37 @@ plus a full re-render on the same frame is what a visible stutter is made of.
 Do not optimize before there is a measurement. Do add a benchmark when you touch level generation
 or FOV, since those are the two places that historically blow up.
 
-**Write benchmark thresholds as ratios, never as milliseconds.** This was learned the expensive way
-in #18: an absolute threshold set on a dev machine failed on a ~4x slower CI runner with nothing
-regressed, and against a 2ms budget there was no headroom to raise it into. Every threshold in
-`game/core/step.bench.test.ts` is now a ratio against a cheaper quantity measured in the same
-process, which divides the machine out. Two corollaries, both paid for:
+**Write a whole-`step()` benchmark threshold as a ratio, never as milliseconds.** This was learned
+the expensive way in #18: an absolute threshold set on a dev machine failed on a ~4x slower CI runner
+with nothing regressed, and against a 2ms budget there was no headroom to raise it into. Every
+threshold in `game/core/step.bench.test.ts` is now a ratio against a cheaper quantity measured in the
+same process, which divides the machine out. Two corollaries, both paid for:
 
 - **Calibrate against `npm test`, never against the benchmark file alone.** Three thresholds were
   set from in-isolation figures and all three flaked under the full parallel run.
 - **Verify a threshold by planting the regression it exists to catch** and watching it go red. A
   benchmark can also go green because its *instrument* failed — #18 produced a physically impossible
   0.69x reading that passed.
+
+**The subsystem benchmarks are still absolute, deliberately, and that is under challenge.** The
+sentence above used to read *"never as milliseconds"* flatly, which contradicted the code:
+`fov`, `generate`, `light` and `actors` bench files all assert milliseconds.
+[ADR-0008](decisions/0008-benchmark-thresholds-as-ratios.md) scopes the rule, and **the scope is
+which benchmark owns the anchor, not which operations happen to be composite.** Read the ADR before
+writing a benchmark; the short form is:
+
+- **`game/core/step.bench.test.ts` asserts ratios**, because a whole-`step()` operation is where
+  hardware spread is worst and where an absolute figure has already been shown to be unsettable.
+- **A subsystem benchmark asserts milliseconds, even for an operation that decomposes.** A lit turn
+  *is* composite — `step.bench.test.ts` measures exactly that decomposition as
+  `A_LIT_TURN_CONTAINS_A_FIELD` — and `light.bench.test.ts` still holds it to an absolute 1ms. That
+  is correct and deliberate: a ratio alone cannot notice everything getting slower together, so the
+  absolute budgets are the real-time anchor the ratios are interpreted against. **"It is composite,
+  therefore it should be a ratio" is the conversion ADR-0008 exists to prevent.**
+
+**#137 argues the leaf side is toothless**:
+the same lit turn measures 0.100ms locally and 0.529ms on a runner, so any absolute limit that a
+runner cannot trip is one a real 1.4x regression sails under — measured, with the regression planted.
+That is an argument to **amend ADR-0008**, not a licence to convert a file; the anchor those absolute
+budgets provide is what makes `step.bench.test.ts`'s ratios interpretable. Whoever takes #137 decides
+where the anchor lives.

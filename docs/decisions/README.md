@@ -40,6 +40,15 @@ Superseding, never editing: to reverse a decision, write a new ADR and mark the 
 
 ## Index
 
+**If you change an ADR's `Status:` line, change its row here in the same edit.** This table is the
+routing table — it is what a session scans before deciding whether an ADR is live — and nothing
+guards it. It has already gone stale once: ADR-0008 and ADR-0012 were annotated in their own files
+by the reconcile after #136 and left as plain `Accepted` here.
+
+**Treat that as a note, not a guard — the guard is [#143](../../issues/143)**, which asserts this
+table against the files (parse each `NNNN-*.md`'s `**Status:**` line, match the row's status cell,
+match the sets both ways, and verify it by planting a mismatch). A written rule is what failed here.
+
 | ADR | Title | Status |
 | --- | --- | --- |
 | [0001](0001-agent-driven-development.md) | Agent-driven development with self-merge | Accepted |
@@ -49,10 +58,10 @@ Superseding, never editing: to reverse a decision, write a new ADR and mark the 
 | [0005](0005-vitest-and-playwright.md) | Vitest + Playwright, no Jest | Accepted |
 | [0006](0006-local-first-no-backend.md) | Local-first persistence, no backend | Accepted |
 | [0007](0007-emberdepth-sharpened.md) | Emberdepth sharpened — darkness carries information | Accepted |
-| [0008](0008-benchmark-thresholds-as-ratios.md) | Benchmark thresholds are ratios, not milliseconds | Accepted |
+| [0008](0008-benchmark-thresholds-as-ratios.md) | Benchmark thresholds are ratios, not milliseconds | Accepted — **leaf half challenged by [#137](../../issues/137)** |
 | [0009](0009-auto-travel-command-shape.md) | Auto-travel is one `travel(to)` command, deferred to M2 | Accepted |
 | [0010](0010-session-layer-owns-the-run.md) | A `session/` layer owns the run | Accepted |
 | [0011](0011-m1-exits-on-the-answer-not-the-outcome.md) | M1 exits on the concept checkpoint being *answered*, not on the wager being tense | Accepted |
-| [0012](0012-the-fallback-trigger-is-a-verdict-not-a-signature.md) | §12's fallback is spent by a verdict, not by an unsigned criterion | Accepted |
+| [0012](0012-the-fallback-trigger-is-a-verdict-not-a-signature.md) | §12's fallback is spent by a verdict, not by an unsigned criterion | Accepted — **bound spent; arm 2 reported, ruling open on [#139](../../issues/139)** |
 | [0013](0013-a-claim-about-the-build-is-established-by-measurement.md) | A claim about the build is established by measurement, not by argument | Accepted |
 | [0014](0014-a-woken-creature-acts-when-the-player-next-acts.md) | A woken creature is scheduled at the instant the player next acts | Accepted |

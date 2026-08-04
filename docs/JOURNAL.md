@@ -57,6 +57,153 @@ did — it is the only thing stopping a future session from repeating it.
 
 ---
 
+## 2026-08-04 — Reconcile after #136: the pointer that warned about stale pointers was the stale pointer
+
+**Did:** Archivist sweep over PR #136 (#133, the build of the #125 ruling). **No rule, no number and
+no behaviour moves.** Six documents touched: `ROADMAP.md` (a dozen sites), `GDD.md` (§4's watch, §12,
+one change-log row), `ARCHITECTURE.md`, `VISION.md`, and notes on **ADR-0008** and **ADR-0012**. Five
+issues placed (#137, #138, #139, #140, #141), #76's references repointed at #141, and two issue
+comments (#109, #137).
+
+**Why — the thing that had actually rotted was not a claim, it was a pointer.** `ROADMAP.md`'s header
+said step 4b's build "is #133 and it is next" while three blocks further down correctly recorded it
+as done, and the block that said so was the one carrying this warning: *"the journal's `Next:` and
+this list disagreeing is how the order has drifted twice before."* It had become the disagreement it
+was written to prevent. Same shape in four more places — §12's *"the judging playtest is still
+owed"*, the *"13 is an upper bound"* note, ADR-0012's revisit signal, and **M1's exit section, which
+this entry first said was three places and undercounted** — each a correct sentence whose subject had
+shipped underneath it. **A note written to be read once and then deleted does not delete itself.**
+
+*(Corrected in review, same session: the count above was three and the review found the fourth. The
+unspent bound is stated in **five** places — the top of `ROADMAP.md`, M1's exit section, M2's exit
+criteria, GDD §12 and ADR-0012 — and the first pass corrected four of them, which is the undercount
+every sweep in this family has made. It is worse than an off-by-one, because `ROADMAP.md`'s own
+correction says "see M1's exit section, amended" and a session following that pointer landed on the
+uncorrected one. **The durable form: when a claim is stated in N places, correcting N−1 of them and
+leaving a pointer to the Nth is worse than correcting none** — the pointer certifies the stale site.)*
+
+*(**And then that rule failed a third time in the same session, on a different claim, in the file
+with the worst odds.** The fix for the one-sided arm-2 case balanced `ROADMAP.md` and `VISION.md` and
+left **GDD §12** — the one section ADR-0012 says a person reaching for the fallback reaches for —
+as the only site still listing three arguments against firing and none for. `grep -rn "tuning escape
+clause" docs/` named the six sites that carried the counterweight and §12 was not among them; §12's
+pointer also described §4 as carrying *"the three arguments against firing"* when §4 carries four
+points including the counterweight. Both fixed. **The transferable bit is the grep**: after writing a
+balancing clause, grep its distinctive phrase and check the hit list against the sites that state the
+claim — a fix applied by hand is an N−1 correction by default, and this session produced three of
+them.)*
+
+**What is next is genuinely contested, and it is recorded as contested rather than resolved.**
+#139 (has §12's arm 2 fired?) and #109 (the `HARVESTER` style, build-order step 5) are entangled:
+tuning a mechanic that may be about to be deleted is wasted work, and ruling on the mechanic before
+#109 has measured invariant 4 is ruling before the diagnosis. **The order recorded is #139 first, on
+the ground that a ruling on whether the mechanic survives has to precede tuning it** — #109 is a
+measurement in service of a re-tune, and a re-tune presumes something to tune. **That is a sequencing
+decision and not a preview of the ruling**, and the roadmap says so: the previous entry's read —
+*expect #139 to say "not yet, and #109 is the test"* — is carried as a read, and if it holds, the
+order hands straight back to #109 with a re-set bound. This sweep did not rule #139 and nothing it
+wrote may be cited as having ruled it.
+
+**Learned — a newly triaged issue asks for exactly what an ADR names as the mistake it exists to
+prevent, and nothing connected them.** **#137** (benchmarks should assert a ratio, not an absolute
+threshold) proposes converting `light.bench.test.ts` and `fov.bench.test.ts` to ratios.
+**ADR-0008 rules the other way, in terms**: subsystem benchmarks keep absolute budgets because they
+are the anchor `step.bench.test.ts`'s ratios are interpreted against, and converting them is *"the
+mistake this ADR exists to prevent in the opposite direction."* Both positions are good — #137 has
+the measurement ADR-0008 lacks (a *real* planted regression costs 1.4x and sails under the limit),
+and ADR-0008 has the argument #137 does not answer (a ratio cannot notice everything getting slower
+together). **So #137 is not a benchmark fix, it is an ADR amendment**, and building it without
+noticing would have deleted an anchor on purpose-built reasoning nobody re-read. Recorded in
+ADR-0008, in `ARCHITECTURE.md`, in the roadmap bullet and as a comment on the issue. **The general
+form: triage checks issues against issues, and nothing checks them against `docs/decisions/`.**
+
+*(And the routing table that check would use was itself stale within the hour — review finding.
+Annotating two ADRs' `Status:` lines left `docs/decisions/README.md`'s index showing both as plain
+`Accepted`, which is the index a session scans to decide whether an ADR is live. Both rows are fixed
+and the index now carries the instruction to change both in one edit. **That instruction is
+decoration and should be read as one** — a written rule is what failed here. The real fix is an
+assertion, and the harness already exists: `tests/unit/infrastructure.test.ts` scans files, so it can
+parse each `docs/decisions/NNNN-*.md`'s `**Status:**` line and assert the index row's status cell
+starts with the same word. **Filed as [#143](../../issues/143)**, out of this PR's own review; do not
+mistake the instruction for the guard. #143 is also the sixth instance of the count defect two
+sections down — it falsified the very count the review had just verified.)*
+
+**Learned — `ARCHITECTURE.md` and ADR-0008 have contradicted each other since the commit that wrote
+both of them.** `a7ee7d4` (PR #37) added ARCHITECTURE's *"Write benchmark thresholds as ratios,
+**never** as milliseconds"* and ADR-0008's *"the subsystem benchmarks keep their absolute millisecond
+budgets, and that is deliberate"* in the same diff. Four bench files have asserted milliseconds ever
+since, so the flat sentence was false of the repository on the day it was written and has stayed
+false through every sweep since. **A summary of an ADR that drops the ADR's scoping clause is not a
+summary, it is a second, wrong rule** — the summary is what a session writing a new benchmark reads.
+
+**And the first fix committed the same sin one level down, which is the sharpest thing in this
+entry.** The replacement said *"a **composite** operation gets a ratio, a **leaf** keeps an
+absolute"* — and ADR-0008 writes a whole paragraph saying that is **not** the test: *"the taxonomy is
+about which benchmark owns the anchor, not about which operations happen to be composite."* A lit
+turn **is** composite (`step.bench.test.ts` measures exactly that decomposition as
+`A_LIT_TURN_CONTAINS_A_FIELD`) and `light.bench.test.ts` still holds it to an absolute budget, on
+purpose. So an agent following the replacement would have classified correctly and converted the
+file — the exact conversion ADR-0008 exists to prevent. **Paraphrasing a rule drops its exceptions,
+and the exception is usually the reason the rule needed writing down.** ARCHITECTURE now names the
+anchor as the test and states the lit-turn case explicitly. Caught by `code-reviewer`, one paragraph
+after this entry named the failure.
+
+**Learned — the count list drifted again, and the paragraph that predicts it was read instead of
+run.** *Contract and tooling* is **21 open**, not the seventeen recorded. Five moves: #137/#140/#141
+are new (all filed straight into the milestone on the day, which is the habit holding), #76 is closed
+as superseded by #141, **#143** is new (below) — and **#132 was filed 2026-08-03 at 06:41Z and has
+never appeared in this file**, missed by the reconcile that merged **3½ hours later the same
+morning**. Fifth instance of the same failure, and the section's own
+instruction is *"re-derive from `gh issue list` rather than reading it."* The instruction is right and
+it keeps not being followed, which is #110's argument for deleting the numbers and keeping the
+command that produces them.
+
+**Learned — and this is the sixth instance, which arrived by a route none of the previous five did:
+the review of this document filed the issue that falsified it.** The `code-reviewer` verified
+**20** by enumerating the milestone, certified this the first clean pass in a while — and then
+**#143 was filed out of that same review**, minutes later, out of its own non-blocking finding about
+`docs/decisions/README.md`. The count was wrong before the PR merged. **The five earlier instances
+were a stale document being overtaken by an unrelated cycle; this one was caused by the cycle that
+audited it.** So the durable form is not *"agents forget to update the count"* — it is that **a
+hand-maintained count is stale the moment the review that verified it files an issue**, and the only
+review that can leave one true is a review that finds nothing to file. That is a property of the
+process, not of anyone's diligence, and the window here was minutes. Nothing caught it but a human
+running `gh` by hand. **[#110](../../issues/110) — automate the table or delete the numbers and keep
+the command — is the fix, and this is its strongest evidence yet.** Worth stating plainly because it
+is the tempting wrong conclusion: my own added instruction *"re-derive from `gh`; do not read this
+paragraph"* is the correct mitigation and **it did not prevent the paragraph from being wrong.** It
+only stops a careful reader believing it, which is not the same thing as the document being true.
+
+**Learned — and this is the good news, so it is worth naming: this sweep found no stale comment in
+`game/`, and that is the first time.** Every reconcile in this family since #126 has found at least
+one live comment site asserting something the merged rule had falsified. #133's own PR swept six
+prose sites itself and enumerated them in its journal entry, so there was nothing left. **The fix for
+"the reconcile keeps finding live comment sites" is the build PR doing the sweep**, and #136 is the
+demonstration rather than another instance.
+
+**Also corrected:** the legibility family is **fourteen issues from eight playtests**, not thirteen
+from seven — #138 (the board never follows the player, so the tap cluster wanders 385pt vertically
+across eight seeds' openings) is the trailing 1 after two zeroes, is pre-existing and unrelated to
+#133, and is the same shape as #86 and #102.
+
+**Next: #139.** Rule whether §12's arm 2 has fired. It is a `game-designer` call, not a build, and
+ADR-0012 requires it be made deliberately rather than inferred — the evidence is genuinely two-sided
+(arm 2 reported in as many words with numbers; arm 1 answered emphatically in the negative; the
+playtest classifies its own finding as *tuning*; #109 has not run). **If it rules *not fired*, it
+still owes a re-set bound**, because the old one is spent and a trip-wire without a bound cannot
+fire. Then #109.
+
+**Watch:** **ADR-0012's bound is spent and nothing has replaced it** — until #139 rules, §12's
+trip-wire is in the one state ADR-0012 was written to prevent, where it can neither fire nor be
+deferred honestly. **#141 must be alone in its PR** (its renormalisation is a 10-file whole-file
+diff; verified here — no `.gitattributes`, exactly 10 tracked text files carrying CR bytes), and
+**#140 taxes `npm run verify` after every playtest**, which is the gate the working agreement makes
+mandatory. And **assume the roadmap's count list is already wrong**: it went stale one cycle after
+the first pass that found it complete, and then again *inside this PR* when its own review filed
+#143. #110 (automate the table or delete the numbers) is the fix; until it lands, the count in that
+paragraph is a claim with a shelf life measured in minutes and the command beside it is the only
+thing worth reading.
+
 ## 2026-08-03 — #133: the grace turn is deleted in the build, and the guard is green for the first time
 
 **Did:** Built **#133**, the #125 ruling (ADR-0014), M2 build-order step 4b. **§4's regression guard
